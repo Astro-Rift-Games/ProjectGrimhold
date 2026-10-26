@@ -35,6 +35,17 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
     [SerializeField]
     private PlayerManaNetworkController _manaController;
 
+    [SerializeField]
+    private PlayerInventoryPassiveEffectsController _passiveEffectsController;
+
+    [SerializeField]
+    private PlayerLootReceiver _lootReceiver;
+
+    private int _clampedLootRevision = int.MinValue;
+
+    public PlayerInventoryPassiveEffectsController PassiveEffectsController => _passiveEffectsController;
+    public float VisionRadiusMultiplier => _passiveEffectsController != null ? _passiveEffectsController.VisionRadiusMultiplier : 1f;
+
     public bool IsConsuming => _consumableController != null && _consumableController.IsConsuming;
     public float ConsumableMovementSpeedMultiplier =>
         _consumableController != null && _consumableController.IsConsuming
@@ -169,12 +180,16 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
     /// </summary>
     protected override float ResolveMaximumHealth()
     {
-        if (TryGetRuntimeStatistics(out PlayerRuntimeStatistics statistics))
+        float maxHealth = TryGetRuntimeStatistics(out PlayerRuntimeStatistics statistics)
+            ? statistics.MaximumHealth
+            : base.ResolveMaximumHealth();
+
+        if (_passiveEffectsController != null && _passiveEffectsController.HasChaosCoin)
         {
-            return statistics.MaximumHealth;
+            maxHealth *= _passiveEffectsController.MaxHealthMultiplier;
         }
 
-        return base.ResolveMaximumHealth();
+        return maxHealth;
     }
 
     /// <summary>Gets the effective local projection without duplicating authoritative state.</summary>
@@ -233,20 +248,18 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
         }
 
         int equipmentRevision = _equipmentController.ObservedEquipmentRevision;
+        int lootRevision = _lootReceiver != null ? _lootReceiver.LootChangeSequence : 0;
         if (revision == _clampedAttributeRevision &&
-            equipmentRevision == _clampedEquipmentRevision)
+            equipmentRevision == _clampedEquipmentRevision &&
+            lootRevision == _clampedLootRevision)
         {
             return;
         }
 
-        if (!TryGetRuntimeStatistics(out PlayerRuntimeStatistics statistics))
-        {
-            return;
-        }
-
-        ClampCurrentHealthToMaximum(statistics.MaximumHealth);
+        ClampCurrentHealthToMaximum(ResolveMaximumHealth());
         _clampedAttributeRevision = revision;
         _clampedEquipmentRevision = equipmentRevision;
+        _clampedLootRevision = lootRevision;
     }
 
     protected override float CalculateMitigatedDamage(in DamageRequest request)
@@ -292,10 +305,17 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
             }
         }
 
-        return _shieldDefenseController != null &&
+        float finalMitigated = _shieldDefenseController != null &&
             _shieldDefenseController.TryMitigateDamage(request, mitigatedDamage, out float shieldMitigatedDamage)
                 ? shieldMitigatedDamage
                 : mitigatedDamage;
+
+        if (_passiveEffectsController != null && _passiveEffectsController.HasSanctuaryHeart)
+        {
+            finalMitigated *= _passiveEffectsController.DamageTakenMultiplier;
+        }
+
+        return finalMitigated;
     }
 
     protected override bool TryInterceptFatalDamage(in DamageRequest request)
@@ -496,6 +516,16 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
         if (_manaController == null)
         {
             _manaController = GetComponent<PlayerManaNetworkController>();
+        }
+
+        if (_passiveEffectsController == null)
+        {
+            _passiveEffectsController = GetComponent<PlayerInventoryPassiveEffectsController>();
+        }
+
+        if (_lootReceiver == null)
+        {
+            _lootReceiver = GetComponent<PlayerLootReceiver>();
         }
     }
 

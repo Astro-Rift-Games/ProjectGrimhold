@@ -611,9 +611,10 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     /// </summary>
     private void ScanForTargets()
     {
+        float maxScanRadius = _detectionRange * 1.5f;
         int hitCount = Physics2D.OverlapCircleNonAlloc(
             transform.position,
-            _detectionRange,
+            maxScanRadius,
             _overlapBuffer,
             _playerLayer);
 
@@ -655,6 +656,25 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
             Vector2 candidatePos = candidateTransform.position;
             Vector2 enemyPos = transform.position;
 
+            float distance = Vector2.Distance(enemyPos, candidatePos);
+
+            float effectiveDetectionRange = _detectionRange;
+            float evaluatedDistance = distance;
+            if (_entityRegistry.TryGetCharacter(candidateId, out ICharacter candidateCharacter) &&
+                candidateCharacter is PlayerCharacter playerCandidate &&
+                playerCandidate.PassiveEffectsController != null &&
+                playerCandidate.PassiveEffectsController.HasFamineIdol)
+            {
+                float aggroMult = playerCandidate.PassiveEffectsController.AggroRangeMultiplier;
+                effectiveDetectionRange *= aggroMult;
+                evaluatedDistance /= aggroMult;
+            }
+
+            if (distance > effectiveDetectionRange)
+            {
+                continue;
+            }
+
             // LOS check: Linecast is sufficient for detection (CircleCast is reserved for wall-steering).
             bool hasLOS = !Physics2D.Linecast(enemyPos, candidatePos, _obstacleLayer);
             if (!hasLOS)
@@ -662,17 +682,15 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
                 continue;
             }
 
-            float distance = Vector2.Distance(enemyPos, candidatePos);
-
             // Deterministic selection: prefer closer target; break ties by EntityId.Value.
-            bool betterCandidate = distance < bestDistance
-                || (Mathf.Approximately(distance, bestDistance) && candidateId.Value < bestId.Value);
+            bool betterCandidate = evaluatedDistance < bestDistance
+                || (Mathf.Approximately(evaluatedDistance, bestDistance) && candidateId.Value < bestId.Value);
 
             if (betterCandidate)
             {
                 bestId = candidateId;
                 bestTransform = candidateTransform;
-                bestDistance = distance;
+                bestDistance = evaluatedDistance;
             }
         }
 

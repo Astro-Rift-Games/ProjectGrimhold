@@ -169,6 +169,17 @@ public sealed class RaidMinimapPresenter : MonoBehaviour
             return;
         }
 
+        if (_playerObject != null &&
+            _playerObject.TryGetComponent(out PlayerCharacter player) &&
+            player.PassiveEffectsController != null &&
+            player.PassiveEffectsController.IsMinimapBlocked)
+        {
+            ClearSanctuaryCache();
+            ClearPresentation();
+            _view.HideMinimap();
+            return;
+        }
+
         Vector2 mapPivotWorldPosition = _view.MapPivotWorldPosition;
         if (!MinimapProjection.TryProjectMapOffset(
                 mapPivotWorldPosition,

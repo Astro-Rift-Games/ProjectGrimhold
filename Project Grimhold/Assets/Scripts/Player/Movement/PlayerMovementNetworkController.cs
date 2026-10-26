@@ -76,6 +76,9 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     [Networked]
     public NetworkBool IsMoving { get; private set; }
 
+    [Networked]
+    public NetworkBool IsSprinting { get; private set; }
+
     /// <summary>
     /// Current knockback velocity. Applied as displacement during ticks and decays via friction.
     /// Only written by State Authority via <see cref="ApplyKnockbackImpulse"/>.
@@ -152,6 +155,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         }
 
         IsMoving = false;
+        IsSprinting = false;
 
         bool gameplayPhaseActive = _matchController == null ||
                                     _matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
@@ -183,6 +187,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
             isConsuming;
         bool shouldSprint = ShouldSprint(in input, hasInput, moveDirection, canMove, isDowned, isActionExecuting);
         bool isSprinting = shouldSprint && CanSprint(Runner.DeltaTime);
+        IsSprinting = isSprinting;
         if (HasStateAuthority && Runner.IsForward)
         {
             if (!shouldSprint) SprintRejectionReported = false;
@@ -195,10 +200,16 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         float consumableSpeedMultiplier = _characterBase is PlayerCharacter player
             ? player.ConsumableMovementSpeedMultiplier
             : 1f;
+        float effectiveSprintMultiplier = _sprintSpeedMultiplier;
+        if (_characterBase is PlayerCharacter pc && pc.PassiveEffectsController != null)
+        {
+            effectiveSprintMultiplier *= pc.PassiveEffectsController.SprintSpeedMultiplier;
+        }
+
         float effectiveSpeed = ResolveVoluntarySpeed(
             _moveSpeed,
             isSprinting,
-            _sprintSpeedMultiplier,
+            effectiveSprintMultiplier,
             isDowned,
             isDowned ? _downedState.DownedMovementSpeedMultiplier : 1f,
             _abilityRuntime != null ? _abilityRuntime.VoluntaryMovementSpeedMultiplier : 1f,

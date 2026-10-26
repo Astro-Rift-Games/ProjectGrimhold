@@ -99,10 +99,16 @@ public sealed class PlayerStaminaNetworkController : NetworkBehaviour
         if (CurrentStamina < maximumStamina &&
             RegenerationDelay.ExpiredOrNotRunning(Runner))
         {
+            float effectiveRegenRate = _regenerationPerSecond;
+            if (_playerCharacter != null && _playerCharacter.PassiveEffectsController != null)
+            {
+                effectiveRegenRate *= _playerCharacter.PassiveEffectsController.StaminaRegenMultiplier;
+            }
+
             CurrentStamina = StaminaResourceRules.Regenerate(
                 CurrentStamina,
                 maximumStamina,
-                _regenerationPerSecond,
+                effectiveRegenRate,
                 Runner.DeltaTime);
         }
 
