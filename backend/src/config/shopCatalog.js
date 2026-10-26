@@ -7,6 +7,27 @@ const { normalizeLootId } = require('../services/InventoryLootIdNormalizer');
  * Prevents numerical overflow and excessive item creation.
  */
 const MAX_TRANSACTION_AMOUNT = 999;
+const BUYBACK_PRICE_MULTIPLIER = 1.5;
+const BUYBACK_MAX_ENTRIES = 16;
+
+// Classification mirrors LootCategory 5..10, including currently unsellable equipment.
+const BUYBACK_ELIGIBLE_IDS = Object.freeze([
+  'placeholder_helmet', 'placeholder_armor', 'placeholder_gloves', 'placeholder_boots',
+  'army_ranger_armor', 'army_ranger_gloves', 'army_ranger_hat', 'army_ranger_trousers',
+  'fire_mage_garb', 'fire_mage_gloves', 'fire_mage_hood', 'fire_mage_trousers',
+  'forest_ranger_gloves', 'forest_ranger_hood', 'forest_ranger_leather_armor', 'forest_ranger_trousers',
+  'heavy_armor_breastplate', 'heavy_armor_gauntlets', 'heavy_armor_helmet', 'heavy_armor_leg_plate',
+  'light_armor_chain_mail_armor', 'light_armor_chain_mail_trousers', 'light_armor_gloves', 'light_armor_open_sallet',
+  'arming_sword', 'great_hammer', 'compound_bow', 'light_crossbow', 'long_bow', 'long_sword',
+  'magic_cinquedea', 'magic_staff', 'magic_sword', 'magic_wand', 'rapier', 'rondel_dagger',
+  'shield', 'spell_book', 'zweihander'
+]);
+
+function isBuybackEligible(lootId) {
+  // Keep future rules (upgrades or market availability) behind this single boundary.
+  if (!lootId || typeof lootId !== 'string') return false;
+  return BUYBACK_ELIGIBLE_IDS.includes(lootId) || BUYBACK_ELIGIBLE_IDS.includes(normalizeLootId(lootId));
+}
 
 /**
  * Authoritative catalog of items offered for purchase by the Town Merchant.
@@ -130,6 +151,10 @@ function isItemSellable(lootId) {
 }
 
 module.exports = {
+  BUYBACK_PRICE_MULTIPLIER,
+  BUYBACK_MAX_ENTRIES,
+  BUYBACK_ELIGIBLE_IDS,
+  isBuybackEligible,
   MAX_TRANSACTION_AMOUNT,
   BUY_CATALOG,
   SELL_CATALOG,

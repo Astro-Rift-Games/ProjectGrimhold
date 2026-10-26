@@ -125,4 +125,12 @@ const shopBuyValidator = [
   handleValidationErrors
 ];
 
-module.exports = { inventoryOrderValidator, moveItemValidator, preparedEquipmentValidator, pendingReservationValidator, commitExtractionValidator, shopSellValidator, shopBuyValidator };
+const shopBuybackValidator = [
+  body('transactionId').isString().bail().trim().notEmpty().isLength({ max: 128 }),
+  body('entryId').isString().bail().trim().notEmpty(),
+  body('amount').isInt({ min: 1, max: MAX_TRANSACTION_AMOUNT }),
+  body('expectedRevision').isInt({ min: 0 }),
+  handleValidationErrors
+];
+
+module.exports = { shopBuybackValidator, inventoryOrderValidator, moveItemValidator, preparedEquipmentValidator, pendingReservationValidator, commitExtractionValidator, shopSellValidator, shopBuyValidator };

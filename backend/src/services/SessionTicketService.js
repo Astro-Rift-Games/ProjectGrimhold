@@ -60,7 +60,11 @@ class SessionTicketService {
    * @throws 404 if no character exists.
    */
   static async issueTownTicket(accountId) {
-    const character = await Character.findOne({ accountId });
+    // Epoch changes do not alter owned items/currency and need not bump revision.
+    // Trading guards the epoch as well as revision, so an in-flight sale cannot revive old entries.
+    const character = await Character.findOneAndUpdate({ accountId }, {
+      $set: { 'inventory.buyback': { sessionEpoch: crypto.randomUUID(), entries: [] } }
+    }, { returnDocument: 'after' });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
     }

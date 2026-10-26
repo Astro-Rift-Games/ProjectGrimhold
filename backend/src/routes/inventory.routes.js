@@ -13,7 +13,8 @@ const {
   pendingReservationValidator,
   commitExtractionValidator,
   shopSellValidator,
-  shopBuyValidator
+  shopBuyValidator,
+  shopBuybackValidator
 } = require('../validators/inventory.validators');
 const { commitExtractionUnifiedValidator } = require('../validators/extraction.validators');
 
@@ -91,6 +92,17 @@ router.post('/me/inventory/shop/buy', shopBuyValidator, async (req, res, next) =
     const { transactionId, lootId, amount, declaredPrice, expectedRevision } = req.body;
     const result = await InventoryService.shopBuy(req.accountId, lootId, amount, declaredPrice, expectedRevision, transactionId);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /character/me/inventory/shop/buyback
+// Body: { transactionId, entryId, amount, expectedRevision }
+router.post('/me/inventory/shop/buyback', shopBuybackValidator, async (req, res, next) => {
+  try {
+    const { transactionId, entryId, amount, expectedRevision } = req.body;
+    res.json(await InventoryService.shopBuyback(req.accountId, entryId, amount, expectedRevision, transactionId));
   } catch (err) {
     next(err);
   }
