@@ -223,7 +223,7 @@ test('ExtractionCommitService.commit', async (t) => {
     );
   });
 
-  await t.test('evicts oldest receipts beyond cap of 256', async () => {
+  await t.test('retains durable extraction receipts beyond 256', async () => {
     const mockChar = makeCharacter();
     for (let i = 1; i <= 256; i++) {
       mockChar.inventory.appliedExtractionReceipts.push({ raidId: `raid-${i}`, resultSequence: i });
@@ -233,9 +233,9 @@ test('ExtractionCommitService.commit', async (t) => {
 
     await ExtractionCommitService.commit('acc123', { raidId: 'raid-999', resultSequence: 999 });
 
-    assert.equal(mockChar.inventory.appliedExtractionReceipts.length, 256);
-    assert.equal(mockChar.inventory.appliedExtractionReceipts[0].raidId, 'raid-2');   // oldest evicted
-    assert.equal(mockChar.inventory.appliedExtractionReceipts[255].raidId, 'raid-999');
+    assert.equal(mockChar.inventory.appliedExtractionReceipts.length, 257);
+    assert.equal(mockChar.inventory.appliedExtractionReceipts[0].raidId, 'raid-1');
+    assert.equal(mockChar.inventory.appliedExtractionReceipts[256].raidId, 'raid-999');
   });
 
   await t.test('clears pendingReservation and restores preparedEquipment from authResult', async () => {

@@ -557,8 +557,6 @@ class InventoryService {
    * @throws 409 LOADOUT_NOT_EMPTY if the loadout already has items.
    */
   static async commitExtraction(accountId, raidId, resultSequence, items) {
-    const MAX_EXTRACTION_RECEIPTS = 256;
-
     const character = await Character.findOne({ accountId });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
@@ -610,11 +608,8 @@ class InventoryService {
       }
     }
 
-    // Record the receipt, evicting oldest entries beyond the cap.
+    // Never prune durable replay barriers, including receipts from unified commits.
     character.inventory.appliedExtractionReceipts.push({ raidId, resultSequence });
-    while (character.inventory.appliedExtractionReceipts.length > MAX_EXTRACTION_RECEIPTS) {
-      character.inventory.appliedExtractionReceipts.shift();
-    }
 
     character.markModified('inventory.loadout');
     character.markModified('inventory.appliedExtractionReceipts');

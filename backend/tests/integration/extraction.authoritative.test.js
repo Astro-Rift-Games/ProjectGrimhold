@@ -244,6 +244,32 @@ test('E2E Authoritative Extraction Result & Anti-Replay Validation (US-58 / SEC-
     assert.strictEqual(char.inventory.appliedExtractionReceipts[0].resultSequence, 1);
   });
 
+  await t.test('consumed raid cannot be republished after TTL deletion and receipt-cap pressure', async () => {
+    const before = await Character.findOne({ accountId: playerAccountId }).lean();
+    // Simulate 256 later extractions using the production receipt update shape.
+    const ExtractionCommitService = require('../../src/services/ExtractionCommitService');
+    for (let i = 0; i < 256; i++) {
+      const laterRaid = `later-raid-${i}`;
+      await Character.updateOne({ accountId: playerAccountId }, { $set: { 'inventory.loadout': [] } });
+      await AuthoritativeExtractionResult.create({ raidId: laterRaid, accountId: playerAccountId, items: [], experienceGranted: 0 });
+      await ExtractionCommitService.commit(playerAccountId, { raidId: laterRaid, resultSequence: i + 2 });
+    }
+    await AuthoritativeExtractionResult.deleteOne({ raidId, accountId: playerAccountId });
+    const afterPressure = await Character.findOne({ accountId: playerAccountId }).lean();
+    assert.ok(afterPressure.inventory.appliedExtractionReceipts.some(r => r.raidId === raidId), 'Consumed raid receipt must survive cap pressure');
+    const payload = { raidId, resultSequence: 999, targetAccountId: playerAccountId,
+      items: [{ lootId: 'iron_ore', amount: 5 }], experienceGranted: 50 };
+    payload.hostSignature = signPayload(payload);
+    const republish = await request(app).post('/character/raid/extraction-result')
+      .set('Authorization', `Bearer ${hostToken}`).send(payload);
+    assert.strictEqual(republish.status, 409);
+    assert.strictEqual(republish.body.error, 'RESULT_ALREADY_CONSUMED');
+    assert.deepStrictEqual(await Character.findOne({ accountId: playerAccountId }).lean(), afterPressure);
+    assert.strictEqual(afterPressure.experience, before.experience);
+    // Restore the original authoritative doc for the existing retry regressions below.
+    await AuthoritativeExtractionResult.create({ raidId, accountId: playerAccountId, consumed: true, experienceGranted: 50 });
+  });
+
   await t.test('7. Republication Defense: Already Consumed Result Cannot be Overwritten (409)', async () => {
     const payload = {
       raidId,

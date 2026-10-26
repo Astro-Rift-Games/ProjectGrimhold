@@ -22,8 +22,7 @@ const {
   computeAttributePointsGranted,
 } = require('../config/progressionBalance');
 
-// Maximum number of extraction receipts kept in history (mirrors Unity's cap).
-const MAX_EXTRACTION_RECEIPTS = 256;
+// Extraction receipts are durable replay barriers, not bounded audit history.
 // Maximum number of progression receipts kept in history.
 const MAX_PROGRESSION_RECEIPTS = 256;
 
@@ -219,8 +218,7 @@ class ExtractionCommitService {
             resultSequence,
             resultId: authResult.resultId || `${raidId}:${resultSequence}`,
             timestamp: new Date()
-          }],
-          $slice: -MAX_EXTRACTION_RECEIPTS
+          }]
         },
         'appliedProgressionReceipts': {
           $each: [progressionReceipt],
@@ -234,7 +232,7 @@ class ExtractionCommitService {
         accountId: accountId,
         revision: character.revision,
         'inventory.appliedExtractionReceipts': { 
-          $not: { $elemMatch: { raidId: raidId, resultSequence: resultSequence } } 
+          $not: { $elemMatch: { raidId: raidId } }
         }
       },
       updateDoc,

@@ -137,6 +137,20 @@ class RaidResultService {
       recipientAccountId = callerAccountId;
     }
 
+    // Results expire, but the character's atomic reward receipt must never expire.
+    const Character = require('../models/Character');
+    const consumedRaid = await Character.exists({
+      accountId: recipientAccountId,
+      'inventory.appliedExtractionReceipts.raidId': raidId
+    });
+    if (consumedRaid) {
+      throw {
+        statusCode: 409,
+        errorCode: 'RESULT_ALREADY_CONSUMED',
+        message: 'This raid has already been consumed by the recipient.'
+      };
+    }
+
     // Check for existing result (immutability and conflict prevention)
     const existing = await AuthoritativeExtractionResult.findOne({
       $or: [

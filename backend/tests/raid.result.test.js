@@ -11,6 +11,10 @@ const RaidResultService = require('../src/services/RaidResultService');
 const { buildCanonicalResultString } = require('../src/utils/raidResultCanonicalizer');
 
 test('RaidResultService.publishHostResult (US-58 / SEC-58.2)', async (t) => {
+  const Character = require('../src/models/Character');
+  const originalExists = Character.exists;
+  t.after(() => { Character.exists = originalExists; });
+  Character.exists = async () => null;
   const originalFindOne = AuthoritativeExtractionResult.findOne;
   const originalCreate = AuthoritativeExtractionResult.create;
   let mockExistingDoc = null;

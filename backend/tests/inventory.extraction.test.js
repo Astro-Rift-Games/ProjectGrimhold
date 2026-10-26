@@ -142,7 +142,7 @@ test('InventoryService.commitExtraction', async (t) => {
     }
   });
 
-  await t.test('evicts oldest receipts when cap of 256 is exceeded', async () => {
+  await t.test('legacy extraction preserves durable receipts beyond 256', async () => {
     const mockChar = makeCharacter();
     for (let i = 1; i <= 256; i++) {
       mockChar.inventory.appliedExtractionReceipts.push({ raidId: `raid-${i}`, resultSequence: i });
@@ -151,12 +151,12 @@ test('InventoryService.commitExtraction', async (t) => {
 
     await InventoryService.commitExtraction('acc123', 'raid-999', 1, []);
 
-    assert.strictEqual(mockChar.inventory.appliedExtractionReceipts.length, 256);
-    // Oldest entry (raid-1) should have been evicted
+    assert.strictEqual(mockChar.inventory.appliedExtractionReceipts.length, 257);
+    // Legacy development writes must not prune unified commit replay barriers.
     const firstEntry = mockChar.inventory.appliedExtractionReceipts[0];
-    assert.strictEqual(firstEntry.raidId, 'raid-2');
+    assert.strictEqual(firstEntry.raidId, 'raid-1');
     // New entry should be last
-    const lastEntry = mockChar.inventory.appliedExtractionReceipts[255];
+    const lastEntry = mockChar.inventory.appliedExtractionReceipts[256];
     assert.strictEqual(lastEntry.raidId, 'raid-999');
   });
 

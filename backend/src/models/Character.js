@@ -113,8 +113,8 @@ const characterSchema = new mongoose.Schema({
     preparedEquipment:  { type: preparedEquipmentSchema,  default: () => ({}) },
     // Null when no raid reservation is active; set when the player queues for a raid.
     pendingReservation: { type: pendingReservationSchema, default: null },
-    // Idempotency log for extraction commits (mirrors LocalProfileSnapshot.MaxAppliedExtractionReceipts = 256).
-    // Capped at 256 entries; oldest entries are evicted when the cap is exceeded.
+    // Durable backend replay barriers: unlike the client cache, these must not be pruned.
+    // Authoritative results have a TTL, so these receipts preserve single consumption.
     appliedExtractionReceipts: { type: [extractionReceiptSchema], default: [] }
   },
   createdAt: {
