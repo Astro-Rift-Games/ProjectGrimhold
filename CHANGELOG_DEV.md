@@ -286,6 +286,10 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Bug Fixes
 
+- **commerce:** report trade outcomes only after backend acknowledgement ([4416f9d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4416f9d32c04d0bea53d3dd57fecf5a7e0d71015))
+- **commerce:** reject trades while a raid reservation is pending ([50eb4b9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/50eb4b9fea96f75f0a3207a6ad038f8cd14aef33))
+- **backend:** mirror Unity loot prices in the shop catalog ([842f56e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/842f56edbe68ed2a831f0f5b3f03eef8cf56f6c9))
+- **backend:** reject shop trades while a raid reservation is pending ([c70e0e8](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c70e0e84547c00c380123eaaaf6be6d6aba44936))
 - **tests:** guard PlayModeLocalProfile editor-only asset loading ([87b0326](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/87b0326e90791df9a3d8b2bd8cd6079da0301a87))
 - **ui:** hide the Main Menu Play button without a session ([6ae1e09](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6ae1e0997b4fbd68c4d7cfae9f98ce49405e7ac1))
 - **ui:** enter the Town right after a successful login ([57cb98d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/57cb98d7832e7c3e5bd03d5be3200be1f329f95d))
@@ -357,6 +361,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Tests
 
+- **commerce:** cover merchant trades end to end in PlayMode ([ce75db9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ce75db97655c22e3b537196fd5b3f2990360f6b8))
 - **town:** cover Preparation member cards and inspection in PlayMode ([08c8bc3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/08c8bc34a3d76804658ff8e850df622ca81c9caf))
 - **ui:** expect the Jugar label on the Main Menu Play button ([46a42e3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/46a42e32406c8b92666a63589d008f00c4c5f31d))
 - **playmode:** register team extraction progress in the defeated loot runner ([c975bf5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c975bf5e0b7f11a0fa669eb27c8f1f3b2f58f3b5), [18e2d4c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/18e2d4c19e0bfc32105470d7f96854fd67e5a42f))
@@ -378,6 +383,12 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Documentation
 
+- **commerce:** record E2E re-run after remote-first persistence ([754e48f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/754e48fbbcd4b423f9ccb2a3baa6d130cbee8dfe))
+- **commerce:** note persistence tests run only in PlayMode ([79471b9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/79471b9ac02fd378a1c176a0219ad075142f8f7c))
+- **commerce:** record E2E results against Render ([ec93b98](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ec93b98e938da9ae1f865f1532474e52d96620ed))
+- **commerce:** propose durable ability purchases and atomic trades ([34a458a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/34a458a6edd664afc99629ddf0851dbfcad2fc6a))
+- **commerce:** record raid result signing secret exposure ([7c42f7d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7c42f7dd74f5bf981861dbab6a2d8ee1a102460f))
+- **commerce:** add commerce system audit report ([4226ba5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4226ba51f1b4f9dc365e632ab9b57759ee816824))
 - **agents:** clarify instruction scope and portable workflows ([e782ae0](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e782ae03491c39e6051d1e9d7454852e297855e2))
 - **odd:** link the vision fog to HacknPlan task 558 ([37d9094](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/37d90949f060a3dd532decb9faf55990056b7ca8))
 - **odd:** track the vision fog look tasks ([e8bda50](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e8bda50086b942c264085027897f1647064ca36a))
