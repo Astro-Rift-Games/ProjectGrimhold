@@ -17,13 +17,19 @@ if (process.env.NODE_ENV && !ALLOWED_ENVS.includes(process.env.NODE_ENV)) {
 
 const nodeEnv = process.env.NODE_ENV;
 const webhookSecret = (process.env.WEBHOOK_SECRET || 'dev-webhook-secret-do-not-use-in-prod').trim();
+const allowDevWebhookSecret = process.env.ALLOW_DEV_WEBHOOK_SECRET === 'true';
 
 const INSECURE_JWT_SECRETS = ['dev-secret', 'secret', 'changeme', 'jwt-secret', 'default', '123456'];
 const PLACEHOLDER_VALUE_REGEX = /placeholder|<user>|<password>|<cluster>|changeme|example/i;
 
 if (nodeEnv === 'production') {
-  if (
-    webhookSecret === 'dev-webhook-secret-do-not-use-in-prod' ||
+  if (webhookSecret === 'dev-webhook-secret-do-not-use-in-prod') {
+    if (!allowDevWebhookSecret) {
+      console.error('[Config] CRITICAL: WEBHOOK_SECRET is set to the default development secret in production. To explicitly accept this risk for MVP client builds, set ALLOW_DEV_WEBHOOK_SECRET=true (US-61 / SEC-61.4).');
+      process.exit(1);
+    }
+    console.warn('[Config] WARNING: Running in production with dev-webhook-secret-do-not-use-in-prod under explicit risk acceptance (US-61 / SEC-61.4). Deferred to #400.');
+  } else if (
     webhookSecret.length < 32 ||
     INSECURE_JWT_SECRETS.includes(webhookSecret.toLowerCase()) ||
     PLACEHOLDER_VALUE_REGEX.test(webhookSecret)
@@ -67,6 +73,7 @@ module.exports = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '3600',
   nodeEnv: nodeEnv,
   webhookSecret: webhookSecret,
+  allowDevWebhookSecret: allowDevWebhookSecret,
   get enableDebugRoutes() {
     return this.nodeEnv !== 'production' && process.env.ENABLE_DEV_DEBUG_ROUTES === 'true';
   },
