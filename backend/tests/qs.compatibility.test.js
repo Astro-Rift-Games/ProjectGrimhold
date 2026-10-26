@@ -2,6 +2,14 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const qs = require('qs');
 
+test('runtime body-parser resolves the patched compressed-body parser (>=2.4.0)', () => {
+  const version = require('body-parser/package.json').version;
+  const [major, minor] = version.split('.').map(Number);
+  assert.ok(major > 2 || (major === 2 && minor >= 4), `Unpatched body-parser ${version}`);
+  const expressRequire = require('node:module').createRequire(require.resolve('express'));
+  assert.equal(expressRequire('body-parser/package.json').version, version);
+});
+
 describe('Query String Parser (qs 6.16.1) Compatibility & Security Tests (US-62 / SEC-62.1 & SEC-62.3)', () => {
   test('parses simple query strings used by game backend routes', () => {
     const parsed = qs.parse('rollback=true&limit=10&offset=20');
