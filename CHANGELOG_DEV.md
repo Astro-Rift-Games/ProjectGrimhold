@@ -289,6 +289,13 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Bug Fixes
 
+- **commerce:** reject multi-line merchant drafts before submission ([088a773](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/088a773b350ff49eee5b9222c9b41d9586f8debf))
+- **networking:** fail closed on unverified identity and raid closure gaps ([e0b80b6](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e0b80b6519be585cc8f3bb00d44d08d31022373c))
+- **extraction:** keep team progress when the Host migrates ([8462eac](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8462eac968ca5c3562e3a2fce11715ea712eca68))
+- **deps:** pin body-parser to 2.4.0 for the compressed-body DoS ([5e75d70](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5e75d70c781e978f198cf081c3442251024ec202))
+- **backend:** remove the unlimited free shop sample ([01680b7](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/01680b7eec261fe42e368aece375451d3db43f1b))
+- **backend:** keep raid reward receipts as durable replay barriers ([a43868e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a43868e28ffab74d870a26e8702e82dd4621424c))
+- **backend:** fail closed on missing NODE_ENV and spoofable proxy trust ([feaedc7](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/feaedc7daa5a6dd70075de33706730749ec23153))
 - **commerce:** report trade outcomes only after backend acknowledgement ([4416f9d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4416f9d32c04d0bea53d3dd57fecf5a7e0d71015))
 - **commerce:** reject trades while a raid reservation is pending ([50eb4b9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/50eb4b9fea96f75f0a3207a6ad038f8cd14aef33))
 - **backend:** mirror Unity loot prices in the shop catalog ([842f56e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/842f56edbe68ed2a831f0f5b3f03eef8cf56f6c9))
@@ -364,6 +371,8 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Tests
 
+- **progression:** cover XP retention for disconnected and absent defeat ([3c0c276](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3c0c2767007ea0919204e5148311706dbdf5e75a))
+- **security:** cover redacted secret detection in git history ([dc119bd](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/dc119bd1e89b6ce7eb0181d5610a7fe78a29b56d))
 - **commerce:** cover merchant trades end to end in PlayMode ([ce75db9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ce75db97655c22e3b537196fd5b3f2990360f6b8))
 - **town:** cover Preparation member cards and inspection in PlayMode ([08c8bc3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/08c8bc34a3d76804658ff8e850df622ca81c9caf))
 - **ui:** expect the Jugar label on the Main Menu Play button ([46a42e3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/46a42e32406c8b92666a63589d008f00c4c5f31d))
