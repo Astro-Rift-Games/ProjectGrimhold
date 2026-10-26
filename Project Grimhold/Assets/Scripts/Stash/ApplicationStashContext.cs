@@ -12,6 +12,12 @@ public sealed class ApplicationStashContext : MonoBehaviour
     public IPlayerCurrencyService CurrencyService { get; private set; }
     public IShopTransactionService ShopTransactionService { get; private set; }
     public LocalProfileStore Store { get; private set; }
+    public BuybackLedger BuybackLedger { get; } = new();
+    public IBuybackService BuybackService => ShopTransactionService as IBuybackService;
+    public IBuybackEligibilityPolicy BuybackEligibility { get; } = new EquipmentBuybackEligibilityPolicy();
+
+    /// <summary>Hydrates session-only state separately from the durable local snapshot.</summary>
+    public void HydrateBuyback(Grimhold.Backend.InventoryData inventory) => BuybackLedger.Replace(inventory.buyback);
     public ConfirmedProgressionFeedbackQueue ProgressionFeedback { get; } = new();
     public ProfileId ProfileId => Store != null ? Store.ProfileId : default;
     public bool IsAvailable => Store != null && Store.IsAvailable;
@@ -70,6 +76,7 @@ public sealed class ApplicationStashContext : MonoBehaviour
             Store.ProgressionCommitted -= OnProgressionCommitted;
         }
         ProgressionFeedback.Clear();
+        BuybackLedger.Replace(default);
         Store = store;
         StashService = stashService;
         LoadoutService = loadoutService;

@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 /// Local implementation of the shop transaction service that delegates directly
 /// to the single-player LocalProfileStore.
 /// </summary>
-public sealed class LocalShopTransactionService : MonoBehaviour, IShopTransactionService
+public sealed class LocalShopTransactionService : MonoBehaviour, IShopTransactionService, IBuybackService
 {
     private LocalProfileStore _store;
 
@@ -20,6 +20,9 @@ public sealed class LocalShopTransactionService : MonoBehaviour, IShopTransactio
             ? StashOperationResult.PersistenceFailed
             : _store.TryCommitTrade(profileId, ticket));
     }
+
+    public Task<StashOperationResult> ExecuteBuybackAsync(ProfileId profileId, MerchantBuybackRequest request) =>
+        Task.FromResult(StashOperationResult.PersistenceFailed);
 
     public bool IsTradeApplied(ProfileId profileId, ShopTransactionId transactionId)
     {

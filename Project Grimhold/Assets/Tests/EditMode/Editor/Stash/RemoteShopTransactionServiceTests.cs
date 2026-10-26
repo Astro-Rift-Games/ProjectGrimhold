@@ -19,6 +19,8 @@ public sealed class RemoteShopTransactionServiceTests
     private LocalProfileStore _store;
     private GameObject _owner;
     private RemoteShopTransactionService _service;
+    private BuybackLedger _ledger;
+    private ShopTransactionResult _buybackResponse;
     private int _calls;
     private int _reconciliations;
     private int _commits;
@@ -46,6 +48,21 @@ public sealed class RemoteShopTransactionServiceTests
         _owner = new GameObject("RemoteShopTest");
         _service = _owner.AddComponent<RemoteShopTransactionService>();
         _service.Initialize(_store, Backend, () => { _reconciliations++; return Task.FromResult(true); });
+        _ledger = new BuybackLedger();
+        _buybackResponse = new ShopTransactionResult
+        {
+            currency = 91, revision = 8,
+            loadout = new[] { new InventoryItemData { lootId = "bone", amount = 1 } },
+            buyback = Rows("remaining")
+        };
+        _service.InitializeBuyback(_ledger, (transactionId, entryId, amount, revision) =>
+        {
+            _calls++;
+            _transactionId = transactionId;
+            _revision = revision;
+            if (_throw) throw new InvalidOperationException("Transport lost");
+            return Task.FromResult((_success, _buybackResponse, new BackendError { error = _error }));
+        });
         _success = true;
         _error = null;
         _calls = _commits = _reconciliations = 0;
@@ -65,7 +82,7 @@ public sealed class RemoteShopTransactionServiceTests
         _transactionId = transactionId;
         if (_throw) throw new InvalidOperationException("Transport lost");
         if (_failLocalWrites) _files.FailWrites = true;
-        return _pending?.Task ?? Task.FromResult((_success, new ShopTransactionResult { revision = 8 }, new BackendError { error = _error }));
+        return _pending?.Task ?? Task.FromResult((_success, new ShopTransactionResult { revision = 8, buyback = Rows("sale") }, new BackendError { error = _error }));
     }
 
     [Test]
@@ -178,6 +195,133 @@ public sealed class RemoteShopTransactionServiceTests
         yield return null;
         Assert.That(task.Result, Is.EqualTo(StashOperationResult.Success));
         Assert.That(_store.GetCurrency(), Is.EqualTo(95));
+    }
+
+    [Test]
+    public void LocalBuyback_TotalPriceAndReceiptAreAtomic()
+    {
+        var request = Buyback();
+        Assert.That(_store.EvaluateBuyback(Profile, request.TransactionId, Bone, 2, 13), Is.EqualTo(StashOperationResult.Success));
+        AssertUnchanged(100, 0);
+        Assert.That(_store.TryApplyBuyback(Profile, request.TransactionId, Bone, 2, 13), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(_store.GetCurrency(), Is.EqualTo(87));
+        Assert.That(_store.GetLoadout()[0].Amount, Is.EqualTo(2));
+        Assert.That(_store.TryApplyBuyback(Profile, request.TransactionId, Bone, 2, 13), Is.EqualTo(StashOperationResult.AlreadyApplied));
+        Assert.That(_commits, Is.EqualTo(1));
+    }
+
+    private static BuybackData Rows(string id) => new BuybackData
+    {
+        entries = new[] { new BuybackEntryData { entryId = id, lootId = "bone", amount = 2, unitPrice = 9 } }
+    };
+
+    private static MerchantBuybackRequest Buyback() => new MerchantBuybackRequest(
+        new ShopTransactionId(1000, Guid.NewGuid()), "sold", Bone, 1, 5);
+
+    [Test]
+    public async Task BuybackSuccess_UsesAuthoritativeTotalsAndReplacesLedger()
+    {
+        _ledger.Replace(Rows("old"));
+        var request = Buyback();
+        Assert.That(await _service.ExecuteBuybackAsync(Profile, request), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(_store.GetCurrency(), Is.EqualTo(91), "Backend reprices the advisory cost of 5 to 9.");
+        Assert.That(_store.GetLoadout()[0].Amount, Is.EqualTo(1));
+        Assert.That(_store.RemoteRevision, Is.EqualTo(8));
+        Assert.That(_store.IsTradeApplied(Profile, request.TransactionId), Is.True);
+        Assert.That(_ledger.Entries[0].EntryId, Is.EqualTo("remaining"));
+        Assert.That(_revision, Is.EqualTo(7));
+        Assert.That(_transactionId, Is.EqualTo(request.TransactionId.Value.ToString("N")));
+    }
+
+    [TestCase("BUYBACK_ENTRY_NOT_FOUND", StashOperationResult.InvalidInventory)]
+    [TestCase("INSUFFICIENT_BUYBACK_UNITS", StashOperationResult.InvalidInventory)]
+    [TestCase("INSUFFICIENT_FUNDS", StashOperationResult.InvalidInventory)]
+    [TestCase("REVISION_CONFLICT", StashOperationResult.InvalidInventory)]
+    [TestCase("VALIDATION_FAILED", StashOperationResult.InvalidInventory)]
+    [TestCase("RESERVATION_PENDING", StashOperationResult.ReservationPending)]
+    [TestCase("TRANSACTION_ID_REUSED", StashOperationResult.PersistenceFailed)]
+    [TestCase("NETWORK_ERROR", StashOperationResult.PersistenceFailed)]
+    public async Task BuybackRejection_DoesNotMutateAndReconciles(string error, StashOperationResult expected)
+    {
+        _success = false;
+        _error = error;
+        Assert.That(await _service.ExecuteBuybackAsync(Profile, Buyback()), Is.EqualTo(expected));
+        AssertUnchanged(100, 0);
+        Assert.That(_calls, Is.EqualTo(1));
+        Assert.That(_reconciliations, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task BuybackDryRun_InsufficientGold_DoesNotCallBackend()
+    {
+        Seed(0);
+        Assert.That(await _service.ExecuteBuybackAsync(Profile, Buyback()), Is.EqualTo(StashOperationResult.InvalidInventory));
+        Assert.That(_calls, Is.Zero);
+        AssertUnchanged(0, 0);
+    }
+
+    [Test]
+    public async Task BuybackDryRun_PendingReservation_DoesNotCallBackend()
+    {
+        var snapshot = _repository.Snapshot.Clone();
+        snapshot.PendingReservation = new PendingLoadoutReservation("pending",
+            new[] { new StashItem(new LootId("arming_sword"), 1) },
+            new PreparedEquipmentLoadout(new LootId("arming_sword"), default));
+        Assert.That(_repository.TrySave(snapshot, out var error), Is.True, error);
+        Assert.That(await _service.ExecuteBuybackAsync(Profile, Buyback()), Is.EqualTo(StashOperationResult.ReservationPending));
+        Assert.That(_calls, Is.Zero);
+        AssertUnchanged(100, 0);
+    }
+
+    [Test]
+    public async Task BuybackDryRun_Capacity_DoesNotCallBackend()
+    {
+        var catalog = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(
+            "Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset");
+        var snapshot = _repository.Snapshot.Clone();
+        for (int i = 0; i < catalog.DefinitionCount && snapshot.Loadout.Count < LocalProfileSnapshot.MaxLoadoutSlots; i++)
+            if (catalog.TryGetByIndex(i, out var definition) && definition.LootId != Bone)
+                snapshot.Loadout.Add(new StashItem(definition.LootId, 1));
+        Assert.That(snapshot.Loadout.Count, Is.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
+        Assert.That(_repository.TrySave(snapshot, out var error), Is.True, error);
+        Assert.That(await _service.ExecuteBuybackAsync(Profile, Buyback()), Is.EqualTo(StashOperationResult.InvalidInventory));
+        Assert.That(_calls, Is.Zero);
+        Assert.That(_store.GetCurrency(), Is.EqualTo(100));
+        Assert.That(_store.RemoteRevision, Is.EqualTo(7));
+        Assert.That(_commits, Is.Zero);
+    }
+
+    [Test]
+    public async Task BuybackTransportException_ReconcilesWithoutMutation()
+    {
+        _throw = true;
+        Assert.That(await _service.ExecuteBuybackAsync(Profile, Buyback()), Is.EqualTo(StashOperationResult.PersistenceFailed));
+        AssertUnchanged(100, 0);
+        Assert.That(_reconciliations, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task BuybackAlreadySecured_RecordsReceiptAndReplayPublishesNothing()
+    {
+        _buybackResponse.alreadySecured = true;
+        var request = Buyback();
+        Assert.That(await _service.ExecuteBuybackAsync(Profile, request), Is.EqualTo(StashOperationResult.Success));
+        int commits = _commits;
+        Assert.That(await _service.ExecuteBuybackAsync(Profile, request), Is.EqualTo(StashOperationResult.AlreadyApplied));
+        Assert.That(_calls, Is.EqualTo(1));
+        Assert.That(_commits, Is.EqualTo(commits));
+        Assert.That(_store.GetCurrency(), Is.EqualTo(91));
+        Assert.That(_store.GetLoadout()[0].Amount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task SaleSuccess_ReplacesBuybackLedgerWithoutReconcile()
+    {
+        Seed(100, 2);
+        Assert.That(await _service.ExecuteTradeAsync(Profile, Ticket(sale: true)), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(_ledger.Entries, Has.Count.EqualTo(1));
+        Assert.That(_ledger.Entries[0].EntryId, Is.EqualTo("sale"));
+        Assert.That(_reconciliations, Is.Zero);
     }
 
     private void Seed(long currency, int bone = 0)

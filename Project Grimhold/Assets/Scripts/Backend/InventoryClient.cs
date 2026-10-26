@@ -89,6 +89,14 @@ namespace Grimhold.Backend
         }
 
         public static async Task<(bool success, ShopTransactionResult data, BackendError error)>
+            ShopBuybackAsync(BackendConfiguration config, string token, string transactionId, string entryId, int amount, int expectedRevision)
+        {
+            var url = $"{config.BaseUrl}/character/me/inventory/shop/buyback";
+            var body = new ShopBuybackRequest { transactionId = transactionId, entryId = entryId, amount = amount, expectedRevision = expectedRevision };
+            return await PostJson<ShopBuybackRequest, ShopTransactionResult>(config, token, url, body);
+        }
+
+        public static async Task<(bool success, ShopTransactionResult data, BackendError error)>
             ShopBuyAsync(BackendConfiguration config, string token, string transactionId, string lootId, int amount, int expectedRevision)
         {
             var url  = $"{config.BaseUrl}/character/me/inventory/shop/buy";

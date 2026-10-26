@@ -153,6 +153,8 @@ public sealed class HubSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 ticketData.sessionName,
                 ticketData.expiresAt);
             authContext.SetTownSessionTicket(refreshedTicket);
+            // A new Town ticket starts a new, empty buy-back epoch on the backend.
+            UnityEngine.Object.FindAnyObjectByType<ApplicationStashContext>()?.BuybackLedger.Replace(default);
         }
     }
 

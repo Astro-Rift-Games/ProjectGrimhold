@@ -860,6 +860,74 @@ public sealed class LocalProfileStore
         }
     }
 
+    public StashOperationResult EvaluateBuyback(ProfileId profileId, ShopTransactionId transactionId,
+        LootId lootId, int amount, long totalPrice) =>
+        PlanBuyback(profileId, transactionId, lootId, amount, totalPrice, out _);
+
+    public StashOperationResult TryApplyBuyback(ProfileId profileId, ShopTransactionId transactionId,
+        LootId lootId, int amount, long totalPrice)
+    {
+        lock (_sync)
+        {
+            var result = PlanBuyback(profileId, transactionId, lootId, amount, totalPrice, out var next);
+            return result == StashOperationResult.Success ? Commit(next) : result;
+        }
+    }
+
+    private StashOperationResult PlanBuyback(ProfileId profileId, ShopTransactionId transactionId,
+        LootId lootId, int amount, long totalPrice, out LocalProfileSnapshot next)
+    {
+        next = null;
+        if (!profileId.IsValid || profileId != _profileId || !transactionId.IsValid ||
+            !lootId.IsValid || amount < 1 || amount > 999 || totalPrice < 0)
+            return StashOperationResult.InvalidInventory;
+        lock (_sync)
+        {
+            if (!IsAvailable || _repository.Snapshot == null) return StashOperationResult.InvalidInventory;
+            var receipt = new ShopTransactionReceipt(transactionId, profileId);
+            if (IsShopReceiptApplied(_repository.Snapshot, receipt)) return StashOperationResult.AlreadyApplied;
+            var gate = BeginTownMutation(out var current);
+            if (gate != StashOperationResult.Success) return gate;
+            var items = new[] { new StashItem(lootId, amount) };
+            if (current.Currency < totalPrice || ExceedsCapacity(current.Loadout, items, LocalProfileSnapshot.MaxLoadoutSlots))
+                return StashOperationResult.InvalidInventory;
+            var candidate = current.Clone();
+            if (!TryMerge(candidate.Loadout, items)) return StashOperationResult.InvalidInventory;
+            candidate.Currency -= totalPrice;
+            RecordShopReceipt(candidate, receipt);
+            next = candidate;
+            return StashOperationResult.Success;
+        }
+    }
+
+    /// <summary>Atomically caches the acknowledged buy-back totals and receipt, never advisory prices.</summary>
+    public StashOperationResult ApplyBuybackAcknowledgement(ProfileId profileId, ShopTransactionId transactionId,
+        Grimhold.Backend.ShopTransactionResult response)
+    {
+        lock (_sync)
+        {
+            if (!IsAvailable || _repository.Snapshot == null || profileId != _profileId || !transactionId.IsValid ||
+                response.currency < 0 || response.revision < 0 || response.loadout == null)
+                return StashOperationResult.InvalidInventory;
+            var receipt = new ShopTransactionReceipt(transactionId, profileId);
+            if (IsShopReceiptApplied(_repository.Snapshot, receipt)) return StashOperationResult.AlreadyApplied;
+            var gate = BeginTownMutation(out var current);
+            if (gate != StashOperationResult.Success) return gate;
+            var next = current.Clone();
+            next.Loadout.Clear();
+            foreach (var item in response.loadout)
+            {
+                var lootId = new LootId(item.lootId);
+                if (!lootId.IsValid || item.amount <= 0 || !TryMerge(next.Loadout, new[] { new StashItem(lootId, item.amount) }))
+                    return StashOperationResult.InvalidInventory;
+            }
+            next.Currency = response.currency;
+            next.RemoteRevision = response.revision;
+            RecordShopReceipt(next, receipt);
+            return Commit(next);
+        }
+    }
+
     private static bool IsShopReceiptApplied(LocalProfileSnapshot snapshot, ShopTransactionReceipt receipt)
     {
         if (receipt.TransactionId.Timestamp <= snapshot.ShopIdempotencyWatermark)

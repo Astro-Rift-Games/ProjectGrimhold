@@ -13,6 +13,7 @@ namespace Grimhold.Backend
     [Serializable]
     public struct InventoryData
     {
+        public BuybackData              buyback;
         public long                     currency;
         public InventoryItemData[]      stash;
         public InventoryItemData[]      loadout;
@@ -124,8 +125,34 @@ namespace Grimhold.Backend
     }
 
     [Serializable]
+    public struct BuybackEntryData
+    {
+        public string entryId;
+        public string lootId;
+        public int amount;
+        public long unitPrice;
+    }
+
+    [Serializable]
+    public struct BuybackData
+    {
+        public BuybackEntryData[] entries;
+    }
+
+    [Serializable]
+    public struct ShopBuybackRequest
+    {
+        public string transactionId;
+        public string entryId;
+        public int amount;
+        public int expectedRevision;
+    }
+
+    [Serializable]
     public struct ShopTransactionResult
     {
+        public BuybackData buyback;
+        public bool alreadySecured;
         public long                  currency;
         public InventoryItemData[]   stash;
         public InventoryItemData[]   loadout;
