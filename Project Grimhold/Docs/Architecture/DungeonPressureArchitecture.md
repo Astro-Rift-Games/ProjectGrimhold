@@ -8,6 +8,13 @@ The Dungeon Pressure system orchestrates the dynamic PvE escalation during a Rai
 - **Goal (Game Design):** An absolute closure of the dungeon after the Collapse phase, resulting in the definitive Defeat of any players remaining inside.
 - **Implemented Contract (TASK-192):** When the normal/critical timer reaches 0, the dungeon enters the `Collapse` phase. During Collapse, the controller counts down `CollapseRemainingTicks` configured by `DungeonPressureConfig.CollapseDurationSeconds` (default: 120s, for a total of 17:00). When the collapse duration expires, `DungeonPressureController` transitions to `Stopped` and triggers `NetworkSpawnManager.DefeatRemainingRaidingParticipantsForAbsoluteClosure()`. This authoritatively forces canonical Definitive Defeat on all remaining raiding participants (clearing Downed state, zeroing health, and generating corpse loot) and marks disconnected participants terminal. With all participants resolved, `NetworkMatchController` naturally closes the raid (`RaidClosureReason.NaturalCompletion`).
 
+The shipped `DefaultDungeonPressureConfig.asset` uses 900 seconds before Collapse,
+120 seconds of Collapse (17:00 total), and remaining-time phase thresholds of 240/60
+seconds. If canonical defeat cannot complete (including a missing avatar), the
+participant remains tracked and an error is logged; disconnected participants are
+not marked terminal or removed from retention while still `Raiding`. There is no
+avatar-less defeat route that bypasses canonical corpse/material resolution.
+
 This document defines the technical contracts and ownership boundaries for the system, ensuring it integrates securely with the existing Raid generation lifecycle, Host Migration, and authoritative gameplay simulation.
 
 ## 2. Ownership and Boundaries

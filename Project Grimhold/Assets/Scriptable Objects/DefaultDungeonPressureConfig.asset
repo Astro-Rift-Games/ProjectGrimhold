@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c6cce0bb2a589d44d912ad7f051a64a4, type: 3}
   m_Name: DefaultDungeonPressureConfig
   m_EditorClassIdentifier: Assembly-CSharp::DungeonPressureConfig
-  _totalDurationSeconds: 300
+  _totalDurationSeconds: 900
   _reinforcementsThresholdSeconds: 240
   _criticalPressureThresholdSeconds: 60
   _collapseDurationSeconds: 120

@@ -1190,6 +1190,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             }
 
             bool connected = false;
+            bool attemptThrew = false;
+            ShutdownReason attemptShutdownReason = ShutdownReason.Error;
             float deadline = Time.realtimeSinceStartup + _clientSessionAvailabilityTimeoutSeconds;
             int attempt = 0;
             while (!connected)
@@ -1200,12 +1202,16 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 }
 
                 attempt++;
+                attemptThrew = false;
+                attemptShutdownReason = ShutdownReason.Error;
                 try
                 {
                     connected = await _raidLauncher.StartReconnectClientSessionAsync(ticket, cancellationToken);
+                    attemptShutdownReason = _raidLauncher.LastStartShutdownReason;
                 }
                 catch (OperationCanceledException)
                 {
+                    attemptThrew = true;
                     if (this == null || _isQuitting)
                     {
                         return SessionTransitionResult.ConnectionFailed;
@@ -1214,6 +1220,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 }
                 catch (Exception ex)
                 {
+                    attemptThrew = true;
                     Debug.LogException(ex, this);
                     break;
                 }
@@ -1223,7 +1230,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                     break;
                 }
 
-                ShutdownReason lastReason = _raidLauncher != null ? _raidLauncher.LastStartShutdownReason : ShutdownReason.Error;
+                ShutdownReason lastReason = attemptShutdownReason;
                 float remainingSeconds = deadline - Time.realtimeSinceStartup;
                 // For reconnect, GameNotFound and GameClosed are immediately terminal because the raid was cancelled or closed (e.g. host continued without teammate).
                 if (lastReason == ShutdownReason.GameNotFound || lastReason == ShutdownReason.GameClosed || remainingSeconds <= 0f || _isQuitting)
@@ -1241,10 +1248,10 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
             if (!connected)
             {
-                ShutdownReason reason = _raidLauncher != null ? _raidLauncher.LastStartShutdownReason : ShutdownReason.Error;
-                Debug.LogWarning($"[{nameof(SessionConnectionCoordinator)}] Reconnect to raid failed. LastStartShutdownReason={reason}.", this);
+                ShutdownReason reason = attemptShutdownReason;
+                Debug.LogWarning($"[{nameof(SessionConnectionCoordinator)}] Reconnect to raid failed. AttemptShutdownReason={reason}; AttemptThrew={attemptThrew}.", this);
 
-                if (IsTerminalReconnectShutdownReason(reason))
+                if (ShouldDiscardReconnectTicket(reason, attemptThrew))
                 {
                     DiscardActiveReconnectTicket();
                 }
@@ -1301,6 +1308,9 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         CompleteTownEntry(SessionTransitionResult.ConnectionFailed);
         return SessionTransitionResult.ConnectionFailed;
     }
+
+    public static bool ShouldDiscardReconnectTicket(ShutdownReason reason, bool attemptThrew) =>
+        !attemptThrew && IsTerminalReconnectShutdownReason(reason);
 
     public static bool IsTerminalReconnectShutdownReason(ShutdownReason reason) =>
         reason == ShutdownReason.GameNotFound ||

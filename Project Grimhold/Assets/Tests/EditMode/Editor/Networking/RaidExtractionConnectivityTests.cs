@@ -1,6 +1,5 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System;
-using System.IO;
 using NUnit.Framework;
 
 namespace Tests.EditMode.Networking
@@ -8,11 +7,6 @@ namespace Tests.EditMode.Networking
     [TestFixture]
     public sealed class RaidExtractionConnectivityTests
     {
-        private const string TeamCoordinatorPath =
-            "Assets/Scripts/Scenario/Extraction/TeamExtractionCoordinator.cs";
-        private const string SpawnManagerPath =
-            "Assets/Scripts/Networking/NetworkSpawnManager.cs";
-
         [Test]
         public void CancellationReason_ContainsRequiredMemberDisconnected()
         {
@@ -23,18 +17,12 @@ namespace Tests.EditMode.Networking
         }
 
         [Test]
-        public void TeamExtractionCoordinator_ChecksParticipantConnectivity()
+        public void DisconnectedRequiredMember_CannotStartEvenWhenPresent()
         {
-            string source = File.ReadAllText(TeamCoordinatorPath);
-            int populateIndex = source.IndexOf("private bool TryBuildMemberSnapshots", StringComparison.Ordinal);
-            Assert.That(populateIndex, Is.GreaterThanOrEqualTo(0));
-
-            int nextMethodIndex = source.IndexOf("private void StartTeamCountdown", populateIndex, StringComparison.Ordinal);
-            Assert.That(nextMethodIndex, Is.GreaterThan(populateIndex));
-
-            string methodBody = source.Substring(populateIndex, nextMethodIndex - populateIndex);
-            Assert.That(methodBody, Does.Contain("RaidParticipantConnectivity"));
-            Assert.That(methodBody, Does.Contain("!connectivity.IsDisconnected"));
+            var result = TeamExtractionRequirementRules.EvaluateStart(true, new[] { Member(1, false) });
+            Assert.That(result.CanStart, Is.False);
+            Assert.That(result.CancelReason, Is.EqualTo(TeamExtractionCancelReason.RequiredMemberDisconnected));
+            Assert.That(result.RequiredMemberCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -128,18 +116,11 @@ namespace Tests.EditMode.Networking
         }
 
         [Test]
-        public void FallbackWithoutDecider_RemovesParticipantFromDisconnectedRegistryAndUpdatesGate()
+        public void WithoutDecider_RaidingParticipantRemainsRetainedWithValidConfig()
         {
-            string source = File.ReadAllText(SpawnManagerPath);
-            int fallbackIndex = source.IndexOf("private void ReevaluateRetainedParticipantsFallback", StringComparison.Ordinal);
-            Assert.That(fallbackIndex, Is.GreaterThanOrEqualTo(0));
-
-            int nextMethodIndex = source.IndexOf("private static bool IsAvatarDowned", fallbackIndex, StringComparison.Ordinal);
-            Assert.That(nextMethodIndex, Is.GreaterThan(fallbackIndex));
-
-            string methodBody = source.Substring(fallbackIndex, nextMethodIndex - fallbackIndex);
-            Assert.That(methodBody, Does.Contain("_disconnectedRegistry.Remove"));
-            Assert.That(methodBody, Does.Contain("UpdateMatchSessionGate"));
+            Assert.That(RaidPlayerDeparturePolicy.EvaluateDeparture(
+                RaidParticipantState.Raiding, avatarIsDowned: false, configValid: true),
+                Is.EqualTo(PlayerDepartureAction.RetainDisconnected));
         }
 
         private static TeamMemberExtractionSnapshot Member(int id, bool isConnected)

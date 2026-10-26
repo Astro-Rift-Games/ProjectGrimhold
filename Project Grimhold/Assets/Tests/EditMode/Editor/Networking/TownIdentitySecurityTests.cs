@@ -110,7 +110,7 @@ public class TownIdentitySecurityTests
     }
 
     [Test]
-    public void LegitimatePlayer_WithAuthenticTicket_ResolvesSuccessfully()
+    public void UnsignedTicketForVictimProfile_NullVerifier_IsRejected()
     {
         string validTicket = TownSessionTicketCodec.CreateTestTicket(_victimProfileId, "VictimName");
 
@@ -121,12 +121,12 @@ public class TownIdentitySecurityTests
             playerIdentifierForLogging: "PlayerRef 1",
             out ProfileId resolvedProfile);
 
-        Assert.IsTrue(resolved, "Authentic ticket matching declared ProfileId must resolve successfully.");
-        Assert.AreEqual(_victimProfileId, resolvedProfile);
+        Assert.IsFalse(resolved, "Matching unsigned claims are not identity verification.");
+        Assert.AreEqual(default(ProfileId), resolvedProfile);
     }
 
     [Test]
-    public void LegitimatePlayer_WithVerifierValidation_ResolvesSuccessfully()
+    public void LegitimatePlayer_WithAuthenticTicket_ResolvesSuccessfully()
     {
         string validTicket = TownSessionTicketCodec.CreateTestTicket(_victimProfileId, "VictimName");
 

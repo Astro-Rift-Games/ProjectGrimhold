@@ -56,24 +56,21 @@ public sealed class RaidConnectivityContinuityTests
         Assert.That(current, Is.EqualTo(0), "Sticky at 0");
     }
 
-    [TestCase(RaidParticipantState.Extracted, false, true, true, PlayerDepartureAction.FinalizeExtracted)]
-    [TestCase(RaidParticipantState.Defeated, false, true, true, PlayerDepartureAction.FinalizeDefeated)]
-    [TestCase(RaidParticipantState.Aborted, false, true, true, PlayerDepartureAction.FinalizeAborted)]
-    [TestCase(RaidParticipantState.Raiding, false, true, true, PlayerDepartureAction.RetainDisconnected)]
-    [TestCase(RaidParticipantState.Raiding, true, true, true, PlayerDepartureAction.RetainDisconnected)]
-    [TestCase(RaidParticipantState.Raiding, false, false, true, PlayerDepartureAction.RetainDisconnected)]
-    [TestCase(RaidParticipantState.Raiding, true, false, true, PlayerDepartureAction.RetainDisconnected)]
-    [TestCase(RaidParticipantState.Raiding, false, true, false, PlayerDepartureAction.FinalizeDefinitiveDisconnect)]
-    [TestCase(RaidParticipantState.Raiding, false, false, false, PlayerDepartureAction.FinalizeDefinitiveDisconnect)]
+    [TestCase(RaidParticipantState.Extracted, false, true, PlayerDepartureAction.FinalizeExtracted)]
+    [TestCase(RaidParticipantState.Defeated, false, true, PlayerDepartureAction.FinalizeDefeated)]
+    [TestCase(RaidParticipantState.Aborted, false, true, PlayerDepartureAction.FinalizeAborted)]
+    [TestCase(RaidParticipantState.Raiding, false, true, PlayerDepartureAction.RetainDisconnected)]
+    [TestCase(RaidParticipantState.Raiding, true, true, PlayerDepartureAction.RetainDisconnected)]
+    [TestCase(RaidParticipantState.Raiding, false, false, PlayerDepartureAction.FinalizeDefinitiveDisconnect)]
+    [TestCase(RaidParticipantState.Raiding, true, false, PlayerDepartureAction.FinalizeDefinitiveDisconnect)]
     public void DeparturePolicy_EvaluatesCorrectAction(
         RaidParticipantState state,
         bool avatarIsDowned,
-        bool hasDecider,
         bool configValid,
         PlayerDepartureAction expected)
     {
         Assert.That(
-            RaidPlayerDeparturePolicy.EvaluateDeparture(state, avatarIsDowned, hasDecider, configValid),
+            RaidPlayerDeparturePolicy.EvaluateDeparture(state, avatarIsDowned, configValid),
             Is.EqualTo(expected));
     }
 

@@ -317,6 +317,28 @@ public class RaidAdmissionSecurityTests
         Assert.IsFalse(admissionData.IsValid);
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void InflatedClientClaims_NullVerifier_IsRejected(bool useTicketFormat)
+    {
+        Assert.IsTrue(CharacterAttributeState.TryCreate(5, 5, 100, 5, 5, 5, 0, out CharacterAttributeState attributes));
+        string raw = AuthoritativeRaidAdmissionTicketCodec.CreateTestTicket(
+            _clientProfileId, _raidCode, Guid.NewGuid().ToString("N"),
+            level: 10, experience: 0, attributes: attributes, abilities: default,
+            items: new[] { new LootEntry(new LootId("iron_sword"), 1) },
+            equipment: new PreparedEquipmentLoadout(weaponSetAMainHand: new LootId("iron_sword"), weaponSetBMainHand: default));
+        Assert.IsTrue(AuthoritativeRaidAdmissionTicketCodec.TryDecode(raw, out AuthoritativeRaidAdmissionTicket ticket));
+        Assert.IsTrue(ticket.TryToRaidAdmissionData(out RaidAdmissionData clientDeclared));
+        Assert.IsTrue(RaidAdmissionRules.IsAdmitted(_launchContext, clientDeclared));
+        Assert.IsTrue(RaidAdmissionDataCodec.TryEncode(clientDeclared, out byte[] payload));
+        if (useTicketFormat) payload = Encoding.UTF8.GetBytes(raw);
+
+        Assert.IsFalse(NetworkSpawnManager.TryEvaluateRemoteAdmissionTicket(
+            payload, _launchContext, null, "PlayerRef 2", out RaidAdmissionData resolved, out var pending));
+        Assert.IsFalse(resolved.IsValid);
+        Assert.IsNull(pending);
+    }
+
     private sealed class PendingRaidAdmissionVerifier : IRaidAdmissionVerifier
     {
         private readonly System.Threading.Tasks.TaskCompletionSource<(bool valid, AuthoritativeRaidAdmissionTicket ticket, string error)> _tcs =

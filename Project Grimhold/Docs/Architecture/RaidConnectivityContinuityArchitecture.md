@@ -67,6 +67,14 @@ Crucially, when a profile is retained upon departure, **it must NOT be marked as
 * `IsOpen = true` **only** while there is &ge; 1 retained, disconnected participant.
 * Reopening the session validates by `ProfileId` + `RaidGenerationId` and disconnects unauthorized joiners. 
 
+### Misconfiguration Fail-safe (not a gameplay rule)
+If `ReconnectBudgetConfig` is absent/invalid, or the participant lacks
+`RaidParticipantConnectivity`, `RaidPlayerDeparturePolicy` cannot safely retain the
+participant and selects definitive disconnect. The Host logs missing/invalid budget
+configuration; retained participants are reevaluated with the same fail-safe.
+This is an operational composition/configuration failure, not a rule that losing a
+teammate decider permits eviction. With valid composition/configuration, P-2 always applies.
+
 ### Retention Without Decider
 Under authoritative Game Design (Doc 06 §18 & §19), a player who disconnects without an eligible decider (e.g. Solo raid, or teammate already dead or disconnected) is retained with their reconnection budget active. Losing a decider does NOT trigger definitive disconnect or evict the raider; their character remains in the Dungeon consuming budget until reconnection, natural defeat, or match closure.
 

@@ -332,6 +332,22 @@ public sealed class RaidReconnectClientFlowTests
         Assert.That(SessionConnectionCoordinator.IsTerminalReconnectShutdownReason(Fusion.ShutdownReason.OperationTimeout), Is.False);
     }
 
+    [TestCase(Fusion.ShutdownReason.ConnectionTimeout, false, false)]
+    [TestCase(Fusion.ShutdownReason.OperationTimeout, false, false)]
+    [TestCase(Fusion.ShutdownReason.Error, true, false)]
+    [TestCase(Fusion.ShutdownReason.GameNotFound, false, true)]
+    [TestCase(Fusion.ShutdownReason.GameClosed, false, true)]
+    [TestCase(Fusion.ShutdownReason.ConnectionRefused, false, true)]
+    [TestCase(Fusion.ShutdownReason.GameNotFound, true, false)]
+    [TestCase(Fusion.ShutdownReason.GameClosed, true, false)]
+    [TestCase(Fusion.ShutdownReason.ConnectionRefused, true, false)]
+    public void ReconnectTicketDisposal_ExceptionCannotReusePreviousTerminalReason(
+        Fusion.ShutdownReason reason, bool attemptThrew, bool expectedDiscard)
+    {
+        Assert.That(SessionConnectionCoordinator.ShouldDiscardReconnectTicket(reason, attemptThrew),
+            Is.EqualTo(expectedDiscard));
+    }
+
     private static void SetPrivateField(object target, string fieldName, object value)
     {
         FieldInfo field = target.GetType().GetField(

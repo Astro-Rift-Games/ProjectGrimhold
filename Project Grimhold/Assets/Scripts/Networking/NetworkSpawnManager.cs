@@ -2716,6 +2716,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         resolvedAdmission = default;
         pendingVerificationTask = null;
 
+        if (verifier == null)
+        {
+            Debug.LogWarning($"[SECURITY] Raid admission rejected: no authoritative verifier configured for player {playerIdentifierForLogging}.");
+            return false;
+        }
+
         // 1. Authoritative ticket verification (SEC-59.3)
         if (AuthoritativeRaidAdmissionTicketCodec.TryDecode(admissionPayload, out AuthoritativeRaidAdmissionTicket authTicket))
         {
@@ -2766,23 +2772,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return true;
         }
 
-        if (RaidAdmissionDataCodec.TryDecode(admissionPayload, out RaidAdmissionData clientDeclaredAdmission))
+        if (RaidAdmissionDataCodec.TryDecode(admissionPayload, out _))
         {
-            // If authoritative verifier is active, reject unauthenticated client-declared payloads
-            if (verifier != null)
-            {
-                Debug.LogWarning($"[SECURITY] Client-declared admission payload without authoritative ticket rejected for player {playerIdentifierForLogging}.");
-                return false;
-            }
-
-            if (!RaidAdmissionRules.IsAdmitted(launchContext, clientDeclaredAdmission) || !clientDeclaredAdmission.IsValid)
-            {
-                Debug.LogWarning($"[NetworkSpawnManager] Invalid admission data received in RPC from {playerIdentifierForLogging}.");
-                return false;
-            }
-
-            resolvedAdmission = clientDeclaredAdmission;
-            return true;
+            Debug.LogWarning($"[SECURITY] Client-declared admission payload without authoritative ticket rejected for player {playerIdentifierForLogging}.");
+            return false;
         }
 
         Debug.LogWarning($"[NetworkSpawnManager] Could not resolve valid admission for {playerIdentifierForLogging}.");
@@ -3177,7 +3170,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         {
             if (participantObject == null || !participantObject.IsValid ||
                 !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) ||
-                participant.State != RaidParticipantState.Raiding)
+                !AbsoluteClosureRules.ShouldDefeat(participant.State))
             {
                 continue;
             }
@@ -3191,6 +3184,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             {
                 participant.TryMarkDefeated(avatar);
             }
+
+            if (participant.State == RaidParticipantState.Raiding)
+            {
+                Debug.LogError($"[NetworkSpawnManager] Absolute closure could not complete canonical defeat for '{participant.ProfileId}'; participant remains tracked.", participant);
+            }
         }
 
         // 2. Resolve disconnected retained raiding participants
@@ -3200,7 +3198,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             NetworkObject participantObject = retained[i];
             if (participantObject == null || !participantObject.IsValid ||
                 !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) ||
-                participant.State != RaidParticipantState.Raiding)
+                !AbsoluteClosureRules.ShouldDefeat(participant.State))
             {
                 continue;
             }
@@ -3217,6 +3215,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             else
             {
                 participant.TryMarkDefeated(avatar);
+            }
+
+            if (participant.State == RaidParticipantState.Raiding)
+            {
+                Debug.LogError($"[NetworkSpawnManager] Absolute closure could not complete canonical defeat for '{profileId}'; disconnected participant remains retained.", participant);
+                continue;
             }
 
             if (participant.TryGetBehaviour(out RaidParticipantConnectivity connectivity))
@@ -4300,7 +4304,6 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         bool isAvatarDowned = IsAvatarDowned(avatarObject);
-        bool hasEligibleDecider = HasEligibleDecider(participant);
 #if UNITY_EDITOR
         if (_reconnectBudgetConfig == null)
         {
@@ -4322,7 +4325,6 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         PlayerDepartureAction action = RaidPlayerDeparturePolicy.EvaluateDeparture(
             participant.State,
             isAvatarDowned,
-            hasEligibleDecider,
             configValid);
 
         switch (action)
@@ -4404,33 +4406,6 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         UpdateMatchSessionGate();
     }
 
-    private bool HasEligibleDecider(NetworkRaidParticipant disconnectedParticipant)
-    {
-        if (!TryGetRaidInitialAffiliations(out RaidInitialAffiliationSnapshot affiliations))
-        {
-            return false;
-        }
-
-        ProfileId disconnectedProfileId = new ProfileId(disconnectedParticipant.ProfileId.ToString());
-        if (!affiliations.TryGetTeammateProfileId(disconnectedProfileId, out ProfileId teammateProfileId))
-        {
-            return false;
-        }
-
-        foreach (NetworkObject participantObject in _spawnedPlayers.Values)
-        {
-            if (participantObject != null &&
-                participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
-                participant.ProfileId.ToString() == teammateProfileId.Value &&
-                participant.State == RaidParticipantState.Raiding)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private void ReevaluateRetainedParticipantsFallback()
     {
         IReadOnlyList<NetworkObject> retained = _disconnectedRegistry.RetainedParticipants;
@@ -4454,14 +4429,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 isAvatarDowned = IsAvatarDowned(avatarObject);
             }
 
-            bool hasEligibleDecider = HasEligibleDecider(participant);
             bool hasValidBudgetConfig = _reconnectBudgetConfig != null && _reconnectBudgetConfig.TryValidate(out _);
             bool configValid = participant.TryGetBehaviour(out RaidParticipantConnectivity connectivity) && hasValidBudgetConfig;
 
             PlayerDepartureAction action = RaidPlayerDeparturePolicy.EvaluateDeparture(
                 participant.State,
                 isAvatarDowned,
-                hasEligibleDecider,
                 configValid);
 
             if (action == PlayerDepartureAction.FinalizeDefinitiveDisconnect)

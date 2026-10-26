@@ -85,7 +85,7 @@ public static class TownSenderIdentityValidator
             return false;
         }
 
-        // 6. Verification: Check with verifier if provided (e.g. backend / mock cryptographic verification)
+        // 6. Claims are not authentication: a configured verifier is mandatory.
         if (verifier != null)
         {
             var task = verifier.VerifyTownTicketAsync(rawTicket);
@@ -111,7 +111,7 @@ public static class TownSenderIdentityValidator
             return true;
         }
 
-        profileId = ticket.ProfileId;
-        return true;
+        Debug.LogWarning($"[SECURITY] Town sender resolution rejected: no ticket verifier configured for {playerIdentifierForLogging}.");
+        return false;
     }
 }

@@ -35,7 +35,6 @@ public static class RaidPlayerDeparturePolicy
     public static PlayerDepartureAction EvaluateDeparture(
         RaidParticipantState state,
         bool avatarIsDowned,
-        bool hasEligibleDecider,
         bool configValid)
     {
         if (state == RaidParticipantState.Extracted) return PlayerDepartureAction.FinalizeExtracted;
