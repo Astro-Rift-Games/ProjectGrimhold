@@ -98,6 +98,23 @@ describe('Session Revocation (US-60 / SEC-60.1)', () => {
     assert.equal(postLogoutError.message, 'Token has been revoked.');
   });
 
+  test('login after logout issues a working token and the old one stays revoked', async () => {
+    const old = await AuthService.register('relogin_user', 'Secret123!');
+    await AuthService.logout(jwt.decode(old.token).sub, old.token);
+    const fresh = await AuthService.login('relogin_user', 'Secret123!');
+    assert.notEqual(fresh.token, old.token);
+    for (const [token, revoked] of [[fresh.token, false], [old.token, true]]) {
+      let error;
+      await authenticate({ headers: { authorization: `Bearer ${token}` } }, {}, err => { error = err; });
+      if (revoked) {
+        assert.equal(error.statusCode, 401);
+        assert.equal(error.message, 'Token has been revoked.');
+      } else {
+        assert.equal(error, undefined);
+      }
+    }
+  });
+
   test('multiple concurrent sessions: revoking session A leaves session B active', async () => {
     await AuthService.register('multi_session_user', 'Secret123!');
     const sessionA = await AuthService.login('multi_session_user', 'Secret123!');

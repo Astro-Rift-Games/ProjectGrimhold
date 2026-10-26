@@ -10,7 +10,7 @@ Se implementó el 100% de la **User Story 60 (#528)** ("US-60 — Revocar sesion
   - Middleware `authenticate` que valida si el `tokenHash` del token entrante fue revocado, respondiendo `401 UNAUTHORIZED` ("Token has been revoked.") y preservando la independencia de sesiones simultáneas del mismo usuario.
 
 - **SEC-60.2 (#545) — Rate Limiting y Protección contra Fuerza Bruta:**
-  - Limitador en memoria por ventana deslizante (sliding window) para IP en `/auth/login` y `/auth/register` (e.g. 20 peticiones/minuto), previniendo ataques de denegación de servicio y credential stuffing.
+  - Limitador en memoria por ventana deslizante (sliding window) para IP en `/auth/login` y `/auth/register` (default: 30 peticiones por IP en 15 minutos; `AUTH_RATE_LIMIT_IP_MAX=30`, `AUTH_RATE_LIMIT_WINDOW_MS=900000`), previniendo ataques de denegación de servicio y credential stuffing.
   - Limitador de intentos fallidos por cuenta (`UserFailedLoginLimiter`) en `/auth/login` (5 fallos en 15 minutos), bloqueando temporalmente la cuenta y respondiendo `429 TOO_MANY_REQUESTS`. Los inicios de sesión exitosos limpian el contador.
   - Soporte para proxy inverso con `trust proxy` condicional en Express (`env.trustProxy`).
 
@@ -34,7 +34,7 @@ Se implementó el 100% de la **User Story 60 (#528)** ("US-60 — Revocar sesion
   - Esquema Mongoose con `tokenHash` (SHA-256 en hexadecimal, índice único), `jti` (UUID), `accountId` y `expiresAt` con TTL index (`expireAfterSeconds: 0`).
 - **`backend/src/services/AuthService.js`:**
   - Generación de `jti` único (`crypto.randomUUID()`) al firmar JWTs en `register` y `login`.
-  - Método `AuthService.logout(token)`: decodifica el token sin verificar para extraer `exp` y `jti`, calcula SHA-256 de la cadena de token y lo persiste en `RevokedToken`.
+  - Método `AuthService.logout(accountId, token)`: decodifica el token sin verificar para extraer `exp` y `jti`, calcula SHA-256 de la cadena de token y lo persiste en `RevokedToken`.
 - **`backend/src/middleware/authenticate.js`:**
   - Conversión a middleware asíncrono con verificación de `RevokedToken.exists({ tokenHash })`.
   - Rechazo con status 401 y mensaje `Token has been revoked.` si el hash figura revocado.
@@ -47,16 +47,16 @@ Se implementó el 100% de la **User Story 60 (#528)** ("US-60 — Revocar sesion
   - Incorporación de `userFailedLoginLimiter` en `/login`, interceptando respuestas 401 para registrar intentos fallidos y 200 para resetear contadores.
   - Endpoint `POST /auth/logout` invoca `AuthService.logout` retornando `204 No Content`.
 - **`backend/src/config/env.js`:**
-  - Validación de `NODE_ENV` (`development`, `test`, `production`).
+  - Validación obligatoria de `NODE_ENV` (`development`, `test`, `staging`, `production`); sin valor explícito el arranque falla.
   - Validación de entropía y longitud (mínimo 32 caracteres) de `JWT_SECRET` en producción.
-  - Getters dinámicos `enableDebugRoutes` y `enableLegacyExtraction` que retornan siempre `false` en `production` y dependen de variables `ENABLE_DEV_DEBUG_ROUTES` y `ENABLE_DEV_LEGACY_EXTRACTION` en otros entornos.
-  - Soporte de configuración `trustProxy`.
+  - Getters dinámicos `enableDebugRoutes` y `enableLegacyExtraction` que retornan siempre `false` en `production` y dependen de variables `ENABLE_DEV_DEBUG_ROUTES` y `ENABLE_LEGACY_EXTRACTION` en otros entornos.
+  - `TRUST_PROXY` acepta `false` (default) o un número entero no negativo de saltos. `true`, subredes y cadenas arbitrarias se rechazan. Configurar saltos solo para una topología controlada que impida acceso directo o rutas más cortas.
 - **`backend/src/routes/inventory.routes.js`:**
   - Protección de `/character/debug/mock-fusion-result` y `/character/me/inventory/extraction` con los getters dinámicos, retornando `404` si están deshabilitadas.
 - **`backend/src/middleware/errorHandler.js`:**
   - Sanitización en producción y pruebas de errores no controlados (status 500) para no filtrar datos sensibles de base de datos ni stack traces.
 - **`backend/src/app.js`:**
-  - Activación de `app.set('trust proxy', 1)` cuando `env.trustProxy` está configurado.
+  - Activación de `app.set('trust proxy', env.trustProxy)` con el número de saltos validado.
 
 ### 2. Unity Client (C#)
 
@@ -80,7 +80,15 @@ Se implementó el 100% de la **User Story 60 (#528)** ("US-60 — Revocar sesion
 
 ---
 
-## Resultados de Pruebas
+## Limitación conocida: estado del limitador por proceso
+
+Los contadores IP y de fallos por cuenta viven en memoria de cada proceso. Con N instancias independientes, un origen puede alcanzar hasta N × el límite configurado; reiniciar un proceso borra sus contadores. No se afirma coordinación distribuida ni protección de gateway verificada. La revocación de JWT, en cambio, se persiste en MongoDB.
+
+## Protección durable de resultados (US-58 #538)
+
+Los recibos de extracción del backend no se podan: son barreras durables por Raid/cuenta, no el historial acotado del cliente Unity. Se guardan atómicamente junto con las recompensas; `publishHostResult` consulta el recibo por `raidId` antes de aceptar otra publicación. El TTL de 24 horas del resultado no rehabilita la Raid. Las escrituras legacy de desarrollo tampoco podan recibos. Se eligió esta opción mínima sin una segunda colección ni transacción entre colecciones. Los recibos ya eliminados antes del cambio no se reconstruyen; su recuperación requiere evidencia operativa y autorización aparte. El crecimiento del documento está sujeto al límite BSON de MongoDB (16 MB): se requiere vigilarlo y planificar una futura migración durable, nunca volver a podar barreras para liberar espacio.
+
+## Resultados de Pruebas (registro histórico, no revalidación de Unity en esta corrección)
 
 ### 1. Tests de Backend (Node.js)
 

@@ -1,7 +1,7 @@
 // src/config/env.js
 require('dotenv').config();
 
-const REQUIRED = ['MONGODB_URI', 'JWT_SECRET', 'PORT'];
+const REQUIRED = ['NODE_ENV', 'MONGODB_URI', 'JWT_SECRET', 'PORT'];
 
 const missing = REQUIRED.filter((key) => !process.env[key]);
 if (missing.length > 0) {
@@ -15,7 +15,7 @@ if (process.env.NODE_ENV && !ALLOWED_ENVS.includes(process.env.NODE_ENV)) {
   process.exit(1);
 }
 
-const nodeEnv = process.env.NODE_ENV || 'development';
+const nodeEnv = process.env.NODE_ENV;
 const webhookSecret = (process.env.WEBHOOK_SECRET || 'dev-webhook-secret-do-not-use-in-prod').trim();
 
 const INSECURE_JWT_SECRETS = ['dev-secret', 'secret', 'changeme', 'jwt-secret', 'default', '123456'];
@@ -49,6 +49,17 @@ if (nodeEnv === 'production') {
   }
 }
 
+// Only explicit hop counts are supported; boolean true trusts attacker-supplied chains.
+const rawTrustProxy = process.env.TRUST_PROXY;
+let trustProxy = false;
+if (rawTrustProxy && rawTrustProxy !== 'false') {
+  if (!/^\d+$/.test(rawTrustProxy) || !Number.isSafeInteger(Number(rawTrustProxy))) {
+    console.error('[Config] TRUST_PROXY must be false or a non-negative integer hop count; true is unsafe.');
+    process.exit(1);
+  }
+  trustProxy = Number(rawTrustProxy);
+}
+
 module.exports = {
   port: parseInt(process.env.PORT, 10),
   mongodbUri: process.env.MONGODB_URI,
@@ -62,7 +73,7 @@ module.exports = {
   get enableLegacyExtraction() {
     return this.nodeEnv !== 'production' && process.env.ENABLE_LEGACY_EXTRACTION === 'true';
   },
-  trustProxy: process.env.TRUST_PROXY === 'true' ? true : (process.env.TRUST_PROXY || false),
+  trustProxy,
   rateLimitWindowMs: parseInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS || '900000', 10),
   rateLimitIpMax: parseInt(process.env.AUTH_RATE_LIMIT_IP_MAX || '30', 10),
   rateLimitUserMax: parseInt(process.env.AUTH_RATE_LIMIT_USER_MAX || '5', 10),

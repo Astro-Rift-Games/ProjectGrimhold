@@ -3,6 +3,47 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const errorHandler = require('../src/middleware/errorHandler');
 
+function loadEnv(overrides) {
+  const env = {
+    NODE_ENV: 'test', PORT: '3000', MONGODB_URI: 'mongodb://localhost:27017/test',
+    JWT_SECRET: 'secret', ...overrides
+  };
+  return require('node:child_process').spawnSync(process.execPath,
+    ['-e', `console.log(JSON.stringify(require(${JSON.stringify(require('node:path').resolve(__dirname, '../src/config/env.js'))})))`],
+    { env, encoding: 'utf8', cwd: __dirname });
+}
+
+test('startup rejects missing NODE_ENV even with a weak JWT_SECRET', () => {
+  const result = loadEnv({ NODE_ENV: undefined });
+  assert.notEqual(result.status, 0, 'Missing NODE_ENV must fail closed');
+  assert.match(result.stderr, /NODE_ENV/);
+});
+
+test('startup rejects unrestricted TRUST_PROXY=true', () => {
+  const result = loadEnv({ TRUST_PROXY: 'true' });
+  assert.notEqual(result.status, 0, 'TRUST_PROXY=true must be rejected');
+  assert.match(result.stderr, /TRUST_PROXY/);
+});
+
+test('TRUST_PROXY=1 is a numeric hop count', () => {
+  const result = loadEnv({ TRUST_PROXY: '1' });
+  assert.equal(result.status, 0);
+  assert.equal(JSON.parse(result.stdout.trim().split('\n').at(-1)).trustProxy, 1);
+});
+
+for (const value of ['false', '0', '2', '-1', '1.5', 'loopback', '9007199254740992']) {
+  test(`TRUST_PROXY validates ${value}`, () => {
+    const result = loadEnv({ TRUST_PROXY: value });
+    if (['false', '0', '2'].includes(value)) {
+      assert.equal(result.status, 0);
+      assert.equal(JSON.parse(result.stdout.trim().split('\n').at(-1)).trustProxy, value === 'false' ? false : Number(value));
+    } else {
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /TRUST_PROXY/);
+    }
+  });
+}
+
 describe('Environment Hardening and Error Sanitization (US-60 / SEC-60.3)', () => {
   test('errorHandler sanitizes 500 errors and strips database messages, details and stack traces', () => {
     const rawDbError = new Error('MongoServerError: authentication failed for user "admin" on db "production"');
@@ -80,7 +121,7 @@ describe('Environment Hardening and Error Sanitization (US-60 / SEC-60.3)', () =
           JWT_SECRET: 'a-very-long-and-high-entropy-production-jwt-secret-2026',
           WEBHOOK_SECRET: 'short-secret'
         },
-        encoding: 'utf8'
+        encoding: 'utf8', cwd: __dirname
       }
     );
 
@@ -105,7 +146,7 @@ describe('Environment Hardening and Error Sanitization (US-60 / SEC-60.3)', () =
           JWT_SECRET: 'PLACEHOLDER_JWT_SECRET_MIN_32_CHARS_LONG',
           WEBHOOK_SECRET: 'a-very-long-and-high-entropy-production-webhook-secret-2026'
         },
-        encoding: 'utf8'
+        encoding: 'utf8', cwd: __dirname
       }
     );
 
@@ -124,7 +165,7 @@ describe('Environment Hardening and Error Sanitization (US-60 / SEC-60.3)', () =
           JWT_SECRET: 'a-very-long-and-high-entropy-production-jwt-secret-2026',
           WEBHOOK_SECRET: 'a-very-long-and-high-entropy-production-webhook-secret-2026'
         },
-        encoding: 'utf8'
+        encoding: 'utf8', cwd: __dirname
       }
     );
 

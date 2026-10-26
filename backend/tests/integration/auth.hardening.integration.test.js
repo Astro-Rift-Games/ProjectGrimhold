@@ -141,6 +141,7 @@ test('E2E Session Revocation and Backend Hardening (US-60 / SEC-60.4)', async (t
   await t.test('7. Debug / Mock Endpoints Guard in Production or when Opt-In is Disabled', async () => {
     const originalNodeEnv = env.nodeEnv;
     const originalDebug = process.env.ENABLE_DEV_DEBUG_ROUTES;
+    const originalLegacy = process.env.ENABLE_LEGACY_EXTRACTION;
     try {
       // 1. In non-production without opt-in flag
       process.env.ENABLE_DEV_DEBUG_ROUTES = 'false';
@@ -154,6 +155,13 @@ test('E2E Session Revocation and Backend Hardening (US-60 / SEC-60.4)', async (t
       // 2. In production mode (even if flag is true, production NEVER allows debug routes)
       env.nodeEnv = 'production';
       process.env.ENABLE_DEV_DEBUG_ROUTES = 'true';
+      process.env.ENABLE_LEGACY_EXTRACTION = 'true';
+      const legacy = await request(app)
+        .post('/character/me/inventory/extraction')
+        .set('Authorization', `Bearer ${token2}`)
+        .send({ raidId: 'production-legacy', resultSequence: 1, items: [] });
+      assert.strictEqual(legacy.status, 404);
+      assert.strictEqual(legacy.body.error, 'NOT_FOUND');
       const resProd = await request(app)
         .post('/character/debug/mock-fusion-result')
         .set('Authorization', `Bearer ${token2}`)
@@ -162,7 +170,30 @@ test('E2E Session Revocation and Backend Hardening (US-60 / SEC-60.4)', async (t
       assert.strictEqual(resProd.body.error, 'NOT_FOUND');
     } finally {
       env.nodeEnv = originalNodeEnv;
-      process.env.ENABLE_DEV_DEBUG_ROUTES = originalDebug || 'true';
+      if (originalDebug === undefined) delete process.env.ENABLE_DEV_DEBUG_ROUTES;
+      else process.env.ENABLE_DEV_DEBUG_ROUTES = originalDebug;
+      if (originalLegacy === undefined) delete process.env.ENABLE_LEGACY_EXTRACTION;
+      else process.env.ENABLE_LEGACY_EXTRACTION = originalLegacy;
+    }
+  });
+
+  await t.test('register IP limiter returns HTTP 429 and Retry-After at configured limit', async () => {
+    authRoutes.ipRateLimiter.reset();
+    try {
+      for (let i = 0; i < env.rateLimitIpMax; i++) {
+        const response = await request(app).post('/auth/register')
+          .set('X-Forwarded-For', `198.51.100.${i % 250 + 1}`)
+          .send({});
+        assert.strictEqual(response.status, 400);
+      }
+      const blocked = await request(app).post('/auth/register')
+        .set('X-Forwarded-For', '203.0.113.200').send({});
+      assert.strictEqual(blocked.status, 429);
+      assert.strictEqual(blocked.body.error, 'TOO_MANY_REQUESTS');
+      assert.ok(Number(blocked.headers['retry-after']) > 0);
+      assert.ok(Number(blocked.headers['retry-after']) <= Math.ceil(env.rateLimitWindowMs / 1000));
+    } finally {
+      authRoutes.ipRateLimiter.reset();
     }
   });
 
