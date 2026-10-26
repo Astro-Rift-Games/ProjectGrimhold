@@ -77,6 +77,59 @@ namespace Tests.EditMode.Scenario
         }
 
         [Test]
+        public void Contribution_AfterMemberAbsent_DoesNotReduceTeamQuota()
+        {
+            Assert.That(RaidTeamId.TryCreate(1, out RaidTeamId team), Is.True);
+            var survivor = new RaidLaunchParticipant(new ProfileId("survivor"), team);
+            var partner = new RaidLaunchParticipant(new ProfileId("partner"), team);
+            Assert.That(RaidTeamRoster.TryCreate(new[] { survivor, partner }, out RaidTeamRoster initial), Is.True);
+            Assert.That(_progress.TryInitializeFromRoster(initial), Is.True);
+            Assert.That(_progress.TryApplyContribution(team, 40, out int before, out _), Is.True);
+            Assert.That(before, Is.EqualTo(40), "A Duo contribution is not multiplied by two.");
+
+            // A later roster without the partner must not replace the frozen initial composition.
+            Assert.That(RaidTeamRoster.TryCreate(new[] { survivor }, out RaidTeamRoster remaining), Is.True);
+            Assert.That(_progress.TryInitializeFromRoster(remaining), Is.True);
+            Assert.That(_progress.TryGetProgress(team, out int preserved, out int quota), Is.True);
+            Assert.That(preserved, Is.EqualTo(40));
+            Assert.That(quota, Is.EqualTo(150));
+            Assert.That(_progress.TryApplyContribution(team, 10, out int after, out bool completed), Is.True);
+            Assert.That(after, Is.EqualTo(50));
+            Assert.That(completed, Is.False);
+            Assert.That(_progress.TryGetSnapshot(team, out ExtractionProgressSnapshot snapshot), Is.True);
+            Assert.That(snapshot.Quota, Is.EqualTo(150));
+            Assert.That(snapshot.AssignmentRequested, Is.False);
+        }
+
+        [TestCase(40, false)]
+        [TestCase(150, true)]
+        public void CopyStateFrom_FreshInstance_PreservesProgressQuotaAndAssignmentAfterInitialization(
+            int contribution, bool assignmentRequested)
+        {
+            Assert.That(RaidTeamId.TryCreate(1, out RaidTeamId team), Is.True);
+            Assert.That(_progress.TryInitializeTeam(team, 2), Is.True);
+            Assert.That(_progress.TryApplyContribution(team, contribution, out _, out _), Is.True);
+            var restoredHolder = new GameObject("RestoredTeamProgress");
+            try
+            {
+                var restored = restoredHolder.AddComponent<TeamExtractionProgress>();
+                restored.CopyStateFrom(_progress);
+                var survivor = new RaidLaunchParticipant(new ProfileId("survivor"), team);
+                Assert.That(RaidTeamRoster.TryCreate(new[] { survivor }, out RaidTeamRoster roster), Is.True);
+                Assert.That(restored.TryInitializeFromRoster(roster), Is.True);
+                Assert.That(restored.TryInitializeTeam(team, 1), Is.True, "Standalone fallback is idempotent too.");
+                Assert.That(restored.TryGetSnapshot(team, out ExtractionProgressSnapshot snapshot), Is.True);
+                Assert.That(snapshot.CurrentProgress, Is.EqualTo(contribution));
+                Assert.That(snapshot.Quota, Is.EqualTo(150));
+                Assert.That(snapshot.AssignmentRequested, Is.EqualTo(assignmentRequested));
+            }
+            finally
+            {
+                Object.DestroyImmediate(restoredHolder);
+            }
+        }
+
+        [Test]
         public void MultipleTeams_AreCompletelyIsolatedAndIndependent()
         {
             RaidTeamId.TryCreate(1, out RaidTeamId team1);

@@ -187,6 +187,34 @@ namespace Tests.EditMode.Scenario
         }
 
         [Test]
+        public void EvaluateContinuation_RequiredMembersConnectedInside_DoesNotCancel()
+        {
+            // Damage, Downed and enemies are deliberately not inputs to this pure API.
+            // A Downed avatar remains a Raiding participant; only presence/connectivity matter.
+            var initial = new[]
+            {
+                new TeamMemberExtractionSnapshot(P1, RaidParticipantState.Raiding, true, true, true),
+                new TeamMemberExtractionSnapshot(P2, RaidParticipantState.Raiding, true, true, true)
+            };
+            TeamCompositionSignature signature = TeamExtractionRequirementRules.ComputeSignature(initial);
+            var current = new[]
+            {
+                new TeamMemberExtractionSnapshot(P1, RaidParticipantState.Raiding, true, true, true),
+                new TeamMemberExtractionSnapshot(P2, RaidParticipantState.Raiding, true, false, true)
+            };
+
+            TeamExtractionEvaluationResult result = TeamExtractionRequirementRules.EvaluateContinuation(
+                isRitualCompleted: true, activeSignature: signature, members: current);
+
+            Assert.That(result.ShouldContinue, Is.True);
+            Assert.That(result.CancelReason, Is.EqualTo(TeamExtractionCancelReason.None));
+            Assert.That(result.Signature, Is.EqualTo(signature));
+            Assert.That(result.RequiredMemberCount, Is.EqualTo(2));
+            Assert.That(result.ConnectedRequiredCount, Is.EqualTo(2));
+            Assert.That(result.PresentRequiredCount, Is.EqualTo(2));
+        }
+
+        [Test]
         public void EvaluateContinuation_CompositionChange_TriggersRestart()
         {
             // When countdown started, both P1 and P2 were required

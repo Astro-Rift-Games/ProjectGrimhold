@@ -122,8 +122,23 @@ public sealed class TeamExtractionProgress : NetworkBehaviour, ITeamExtractionPr
             return;
         }
 
-        base.CopyStateFrom(source);
+#if UNITY_EDITOR
+        if ((Object == null || !Object.IsValid) && (source.Object == null || !source.Object.IsValid))
+        {
+            // Mirror the network snapshot using the existing unspawned EditMode storage.
+            for (int i = 0; i < source.GetSlotCapacity(); i++)
+            {
+                SetSlot(i, source.GetSlot(i));
+            }
+        }
+        else
+#endif
+        {
+            base.CopyStateFrom(source);
+        }
         _config = source._config;
+        // Restored slots are the baseline, never a fresh roster or standalone bootstrap.
+        _isInitialized = true;
     }
 
     /// <summary>
