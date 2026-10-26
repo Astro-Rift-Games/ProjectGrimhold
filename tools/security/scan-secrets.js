@@ -181,6 +181,23 @@ function scanDirectory(dir, rootDir = dir) {
   return allFindings;
 }
 
+// Pure parser shared by the CLI history scan and synthetic regression fixtures.
+function scanHistoryOutput(diffOutput) {
+  const findings = [];
+  let currentCommit = 'unknown';
+  let currentFile = '<git-history>';
+  for (const line of diffOutput.split('\n')) {
+    if (line.startsWith('commit ')) {
+      currentCommit = line.slice(7, 15);
+    } else if (line.startsWith('+++ b/')) {
+      currentFile = line.slice(6).trim();
+    } else if (line.startsWith('+') && !line.startsWith('+++')) {
+      findings.push(...scanContent(line.slice(1), `git:${currentCommit}:${currentFile}`));
+    }
+  }
+  return findings;
+}
+
 function scanGitHistory(rootDir) {
   const findings = [];
   try {
@@ -199,23 +216,7 @@ function scanGitHistory(rootDir) {
       { cwd: rootDir, encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 }
     );
 
-    let currentCommit = 'unknown';
-    let currentFile = '<git-history>';
-    const lines = diffOutput.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.startsWith('commit ')) {
-        currentCommit = line.slice(7, 15);
-      } else if (line.startsWith('+++ b/')) {
-        currentFile = line.slice(6).trim();
-      } else if (line.startsWith('+') && !line.startsWith('+++')) {
-        const addedLine = line.slice(1);
-        const lineFindings = scanContent(addedLine, `git:${currentCommit}:${currentFile}`);
-        for (const f of lineFindings) {
-          findings.push(f);
-        }
-      }
-    }
+    findings.push(...scanHistoryOutput(diffOutput));
   } catch (err) {
     // If git is unavailable or directory is not a git repo, skip history scan gracefully
   }
@@ -250,6 +251,7 @@ module.exports = {
   scanContent,
   scanDirectory,
   scanGitHistory,
+  scanHistoryOutput,
   redact,
   SECRET_PATTERNS
 };

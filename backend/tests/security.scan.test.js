@@ -1,8 +1,30 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { scanContent, redact } = require('../../tools/security/scan-secrets');
+const { scanContent, scanHistoryOutput, redact } = require('../../tools/security/scan-secrets');
 
 describe('Secret Scanner Unit Tests (US-61 / SEC-61.2)', () => {
+  test('history output reports commit and path without exposing the raw key', () => {
+    const fakeKey = 'ghp_' + 'S'.repeat(36);
+    const history = [
+      'commit abcdef0123456789',
+      'diff --git a/backend/config.js b/backend/config.js',
+      '--- a/backend/config.js',
+      '+++ b/backend/config.js',
+      '@@ -0,0 +1 @@',
+      '+const key = "' + fakeKey + '";',
+      'commit 123456789abcdef0',
+      '+++ b/backend/other.js',
+      '+const harmless = true;'
+    ].join('\n');
+    const findings = scanHistoryOutput(history);
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].file, 'git:abcdef01:backend/config.js');
+    assert.equal(findings[0].type, 'GITHUB_TOKEN');
+    assert.equal(JSON.stringify(findings).includes(fakeKey), false);
+    assert.match(findings[0].redactedValue, /\*/);
+    assert.deepEqual(scanHistoryOutput(''), []);
+  });
+
   test('redact() replaces middle/trailing characters with asterisks', () => {
     assert.equal(redact(''), '****');
     assert.equal(redact('abc'), '****');
