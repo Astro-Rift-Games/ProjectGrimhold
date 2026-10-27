@@ -38,6 +38,12 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     [Networked] public int SprintRejectedSequence { get; private set; }
     [Networked] private NetworkBool SprintRejectionReported { get; set; }
 
+    /// <summary>
+    /// Counts the knockback impulses that applied to this avatar. Presentation observes changes of this value to play
+    /// the knockback reaction on every peer; it never drives simulation. Written by State Authority only.
+    /// </summary>
+    [Networked] public int KnockbackSequence { get; private set; }
+
     private const float ValidMovementSqrThreshold = 0.000001f;
 
     [Header("Knockback")]
@@ -292,6 +298,22 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         return true;
     }
 
+    /// <summary>
+    /// Reads the replicated knockback counter for presentation on any peer. Returns false until the object is
+    /// spawned and valid, so observers can establish a baseline instead of replaying earlier knockbacks.
+    /// </summary>
+    public bool TryGetKnockbackSequence(out int sequence)
+    {
+        sequence = 0;
+        if (Runner == null || !Runner.IsRunning || Object == null || !Object.IsValid)
+        {
+            return false;
+        }
+
+        sequence = KnockbackSequence;
+        return true;
+    }
+
     public bool TrySetControlEnabled(bool enabled)
     {
         if (!HasStateAuthority)
@@ -319,6 +341,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
 
         // Add to velocity so it decays over time.
         KnockbackVelocity += impactDirection.normalized * force;
+        KnockbackSequence++;
 
         // A push that applied is a Knockback: interruptible executions stop, the rest decide for themselves.
         if (_abilityRuntime != null)

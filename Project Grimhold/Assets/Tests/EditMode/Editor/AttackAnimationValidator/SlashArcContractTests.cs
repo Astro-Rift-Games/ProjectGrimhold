@@ -65,6 +65,7 @@ namespace Tests.EditMode.AttackAnimationValidator
         public void RealCatalog_BothHandsAllFacingsSatisfyCanonicalArc(string name)
         {
             var cells = AttackPreviewCatalog.Enumerate().Where(c =>
+                (c.Action == AttackPreviewAction.MainAttack || c.Action == AttackPreviewAction.OffAttack) &&
                 (c.MainHand == null || c.OffHand == null) && (c.MainHand ?? c.OffHand).name == name).ToArray();
             Assert.That(cells.Length, Is.EqualTo(12));
             Assert.That(Enum.GetNames(typeof(AttackPreviewCheckId)), Does.Contain("SlashArcContract"));

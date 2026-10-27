@@ -39,6 +39,11 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
     private int _isMovingHash;
     private int _onDefeatedHash;
     private int _onAttackHash;
+    private int _onKnockbackHash;
+    private int _onKnockbackRightHandHash;
+    private int _onKnockbackLeftHandHash;
+    private RuntimeAnimatorController _knockbackCheckedController;
+    private bool _controllerSupportsKnockback;
 
     private bool _hashesInitialized;
     private Vector2? _temporalFacingDirection;
@@ -130,9 +135,82 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
             _temporalFacingDirection = null;
             if (_animator != null)
             {
+                // A pending knockback must not pull the avatar out of the defeated pose.
+                ResetKnockbackTriggers();
                 _animator.SetTrigger(_onDefeatedHash);
             }
         }
+    }
+
+    /// <summary>
+    /// Plays the knockback reaction on the body and both hand layers. The facing is kept, since the push direction
+    /// does not change where the character looks. Ignored while defeated or when the controller has no knockback
+    /// support, as enemy controllers may not.
+    /// </summary>
+    public void TriggerKnockback()
+    {
+        if (_animator == null || _isDefeated)
+        {
+            return;
+        }
+
+        if (!_hashesInitialized)
+        {
+            InitializeHashes();
+        }
+
+        if (!ControllerSupportsKnockback())
+        {
+            return;
+        }
+
+        // One trigger per layer: a trigger consumed by one layer's transition is not seen by the others.
+        _animator.SetTrigger(_onKnockbackHash);
+        _animator.SetTrigger(_onKnockbackRightHandHash);
+        _animator.SetTrigger(_onKnockbackLeftHandHash);
+    }
+
+    private void ResetKnockbackTriggers()
+    {
+        if (!_hashesInitialized)
+        {
+            InitializeHashes();
+        }
+
+        if (!ControllerSupportsKnockback())
+        {
+            return;
+        }
+
+        _animator.ResetTrigger(_onKnockbackHash);
+        _animator.ResetTrigger(_onKnockbackRightHandHash);
+        _animator.ResetTrigger(_onKnockbackLeftHandHash);
+    }
+
+    private bool ControllerSupportsKnockback()
+    {
+        RuntimeAnimatorController controller = _animator.runtimeAnimatorController;
+        if (controller == null)
+        {
+            return false;
+        }
+
+        if (controller != _knockbackCheckedController)
+        {
+            _knockbackCheckedController = controller;
+            _controllerSupportsKnockback = false;
+            foreach (AnimatorControllerParameter parameter in _animator.parameters)
+            {
+                if (parameter.type == AnimatorControllerParameterType.Trigger &&
+                    parameter.nameHash == _onKnockbackHash)
+                {
+                    _controllerSupportsKnockback = true;
+                    break;
+                }
+            }
+        }
+
+        return _controllerSupportsKnockback;
     }
 
     /// <summary>
@@ -203,6 +281,9 @@ public class CharacterAnimatorView : MonoBehaviour, IAnimatorController
         _isMovingHash = Animator.StringToHash("IsMoving");
         _onDefeatedHash = Animator.StringToHash("OnDefeated");
         _onAttackHash = Animator.StringToHash("OnAttack");
+        _onKnockbackHash = Animator.StringToHash("OnKnockback");
+        _onKnockbackRightHandHash = Animator.StringToHash("OnKnockbackRightHand");
+        _onKnockbackLeftHandHash = Animator.StringToHash("OnKnockbackLeftHand");
         _hashesInitialized = true;
     }
 

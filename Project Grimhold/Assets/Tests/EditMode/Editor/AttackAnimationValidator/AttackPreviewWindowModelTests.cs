@@ -113,11 +113,12 @@ namespace Tests.EditMode.AttackAnimationValidator
             }
         }
         [Test]
-        public void Counterpart_DefendAndTwoHandHaveNone()
+        public void Counterpart_DefendKnockbackAndTwoHandHaveNone()
         {
             var catalog = Catalog;
             var model = new AttackPreviewWindowModel(catalog);
-            var excluded = catalog.Where(c => c.Action == AttackPreviewAction.Defend || Matches(c, AttackPreviewEquipmentKind.TwoHand)).ToArray();
+            var excluded = catalog.Where(c => c.Action == AttackPreviewAction.Defend ||
+                c.Action == AttackPreviewAction.Knockback || Matches(c, AttackPreviewEquipmentKind.TwoHand)).ToArray();
             Assert.That(excluded, Is.Not.Empty);
             foreach (var c in excluded) Assert.That(model.Counterpart(c), Is.Null);
         }

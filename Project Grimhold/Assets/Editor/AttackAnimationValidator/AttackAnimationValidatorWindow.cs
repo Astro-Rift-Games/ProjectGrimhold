@@ -9,7 +9,7 @@ public sealed class AttackAnimationValidatorWindow : EditorWindow
 {
     private static readonly string[] Facings = { "N", "NE", "NW", "S", "SE", "SW" };
     private static readonly string[] Kinds = { "All equipment", "One-hand Main", "One-hand Off", "Two-hand", "Dual wield", "Shield + weapon" };
-    private static readonly string[] Actions = { "All actions", "Main attack", "Off attack", "Defend" };
+    private static readonly string[] Actions = { "All actions", "Main attack", "Off attack", "Defend", "Knockback" };
     private static readonly string[] Outcomes = { "All outcomes", "Unvalidated", "Pass", "Warning", "Fail" };
     private const float RowHeight = 112, HeaderWidth = 170;
     private readonly Dictionary<string, float> _durations = new Dictionary<string, float>();
@@ -382,10 +382,12 @@ public sealed class AttackAnimationValidatorWindow : EditorWindow
     }
     private void DrawPingButtons(AttackPreviewCombination cell)
     {
-        var loot = cell.Action == AttackPreviewAction.MainAttack ? cell.MainHand : cell.OffHand;
+        var loot = cell.Action == AttackPreviewAction.OffAttack ? cell.OffHand : cell.MainHand ?? cell.OffHand;
         var weapon = loot != null ? loot.WeaponDefinition : null;
         AnimationClip clip = null;
-        if (weapon != null && cell.Action != AttackPreviewAction.Defend)
+        if (cell.Action == AttackPreviewAction.Knockback)
+            clip = AssetDatabase.LoadAssetAtPath<AnimationClip>($"Assets/Animations/Player/Knockback/Knockback_{Facings[cell.FacingIndex]}.anim");
+        else if (weapon != null && cell.Action != AttackPreviewAction.Defend)
             clip = cell.Action == AttackPreviewAction.MainAttack ? weapon.Presentation.GetAttackClip(cell.FacingIndex) : weapon.Presentation.GetOffHandAttackClip(cell.FacingIndex);
         using (new EditorGUILayout.HorizontalScope())
         {

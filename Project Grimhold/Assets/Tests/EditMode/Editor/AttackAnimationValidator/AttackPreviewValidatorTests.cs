@@ -21,7 +21,35 @@ namespace Tests.EditMode.AttackAnimationValidator
             Assert.That(cells.Any(c => c.MainHand == null && c.OffHand != null), Is.True, "Off-only coverage");
             Assert.That(cells.Any(c => c.MainHand?.WeaponDefinition != null && c.OffHand?.WeaponDefinition != null), Is.True, "Dual-wield coverage");
             Assert.That(cells.Any(c => c.MainHand?.Category == LootCategory.Shield || c.OffHand?.Category == LootCategory.Shield), Is.True, "Shield + weapon coverage");
+            Assert.That(cells.Any(c => c.Action == AttackPreviewAction.Knockback), Is.True, "Knockback coverage");
             AssertCatalogHasNoViolations(cells, AttackPreviewCheckId.DepthOrder);
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(3)]
+        [TestCase(4)]
+        [TestCase(5)]
+        public void RealCatalog_KnockbackHoldingHandsReturnToIdleWithNoGripOrIdentityViolations(int facing)
+        {
+            var cells = AttackPreviewCatalog.Enumerate().Where(c => c.FacingIndex == facing &&
+                c.Action == AttackPreviewAction.Knockback &&
+                (c.MainHand == null || c.OffHand == null)).ToArray();
+            Assert.That(cells, Is.Not.Empty);
+            using var rig = new AttackPreviewRig();
+            var validator = new AttackPreviewValidator();
+            foreach (var cell in cells)
+            {
+                Assert.That(cell.MissingPresentation, Is.False, cell.DisplayName);
+                var report = validator.Validate(rig, cell);
+                Assert.That(report.FailureRanges.Where(r =>
+                    r.Id == AttackPreviewCheckId.WeaponGripOnHand ||
+                    r.Id == AttackPreviewCheckId.GripTransformOnHand ||
+                    r.Id == AttackPreviewCheckId.HandSpriteIdentity ||
+                    r.Id == AttackPreviewCheckId.DepthOrder ||
+                    r.Id == AttackPreviewCheckId.ReturnsToIdle), Is.Empty, cell.DisplayName);
+            }
         }
 
         [TestCase(0)]

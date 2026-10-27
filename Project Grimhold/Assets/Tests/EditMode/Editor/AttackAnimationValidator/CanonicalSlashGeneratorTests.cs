@@ -53,6 +53,7 @@ namespace Tests.EditMode.AttackAnimationValidator
         public void MagicSword_RecoveryReachesNeutralAtAuthoredPointEightNotClipEnd()
         {
             foreach (var c in AttackPreviewCatalog.Enumerate().Where(c =>
+                (c.Action == AttackPreviewAction.MainAttack || c.Action == AttackPreviewAction.OffAttack) &&
                 (c.MainHand == null || c.OffHand == null) && (c.MainHand ?? c.OffHand).name == "MagicSword"))
             {
                 using var rig = new AttackPreviewRig();
@@ -73,7 +74,8 @@ namespace Tests.EditMode.AttackAnimationValidator
         [TestCase("MagicSword", .30f, .55f)]
         public void GeneratedGeometry_IsBodyRelativeRadialAndMirrored(string name, float start, float end)
         {
-            var cells = AttackPreviewCatalog.Enumerate().Where(c => c.OffHand == null && c.MainHand.name == name);
+            var cells = AttackPreviewCatalog.Enumerate().Where(c => c.Action == AttackPreviewAction.MainAttack &&
+                c.OffHand == null && c.MainHand.name == name);
             foreach (var c in cells)
             {
                 using var main = new AttackPreviewRig();

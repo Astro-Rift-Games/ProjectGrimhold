@@ -178,6 +178,12 @@ using Object = UnityEngine.Object;
 
         private float ResolveDuration(AttackPreviewCombination combination)
         {
+            if (combination.Action == AttackPreviewAction.Knockback)
+            {
+                return Animator.runtimeAnimatorController.animationClips
+                    .Where(c => c.name.StartsWith("Knockback_", StringComparison.Ordinal))
+                    .Select(c => c.length).DefaultIfEmpty(0.3f).Max();
+            }
             if (combination.Action == AttackPreviewAction.Defend)
             {
                 // Sustained defense has no gameplay end. Preview one complete authored pose cycle.
@@ -226,7 +232,27 @@ using Object = UnityEngine.Object;
             _state.Evaluate(seconds, publishAttack: reset);
             _weapon.BeginFrame();
             _view.BeginFrame();
-            Animator.Update(_sequential && !reset ? seconds - _lastSeconds : 0f);
+            if (_combination.Action == AttackPreviewAction.Knockback && reset)
+            {
+                _view.TriggerKnockback();
+                Animator.Update(0f);
+                if (!_sequential && seconds > 0f)
+                {
+                    if (seconds > Duration)
+                    {
+                        Animator.Update(Duration);
+                        Animator.Update(seconds - Duration);
+                    }
+                    else
+                    {
+                        Animator.Update(seconds);
+                    }
+                }
+            }
+            else
+            {
+                Animator.Update(_sequential && !reset ? seconds - _lastSeconds : 0f);
+            }
             _view.PresentFrame();
             // A completed timed attack queues Idle with Play; Edit Mode has no automatic
             // animation pass after LateUpdate, so commit that queued state before consumers.

@@ -36,8 +36,10 @@ using UnityEngine;
             }
             rig.Configure(combination, sequential: true);
             using var source = new AttackPreviewFrameSource(rig, combination);
-            bool isAttack = combination.Action != AttackPreviewAction.Defend;
-            var attackingLoot = combination.Action == AttackPreviewAction.MainAttack ? combination.MainHand : combination.OffHand;
+            bool isAttack = combination.Action == AttackPreviewAction.MainAttack || combination.Action == AttackPreviewAction.OffAttack;
+            bool returnsToIdle = isAttack || combination.Action == AttackPreviewAction.Knockback;
+            var attackingLoot = combination.Action == AttackPreviewAction.MainAttack ? combination.MainHand
+                : combination.Action == AttackPreviewAction.OffAttack ? combination.OffHand : null;
             var weapon = attackingLoot != null ? attackingLoot.WeaponDefinition : null;
             bool expectsVfx = isAttack && weapon != null && weapon.Presentation.AttackVfx != null;
             bool sawVfx = false;
@@ -71,7 +73,7 @@ using UnityEngine;
                 var observations = new List<AttackPreviewCheck>();
                 for (int hand = 0; hand < 2; hand++)
                 {
-                    var frame = source.Capture(hand, seconds, isAttack && seconds > rig.Duration);
+                    var frame = source.Capture(hand, seconds, returnsToIdle && seconds > rig.Duration);
                     sawVfx |= AttackPreviewChecks.Visible(frame.VfxRenderer);
                     checks.Evaluate(frame);
                     observations.AddRange(checks.Measurements);

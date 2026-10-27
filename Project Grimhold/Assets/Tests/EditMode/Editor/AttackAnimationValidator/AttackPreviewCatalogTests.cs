@@ -29,9 +29,13 @@ namespace Tests.EditMode.AttackAnimationValidator
             var cells = AttackPreviewCatalog.Enumerate();
             Assert.That(cells.Any(c => c.OffHand == book), Is.False);
             var bookCells = cells.Where(c => c.MainHand == book).ToArray();
-            Assert.That(bookCells, Has.Length.EqualTo(6));
-            Assert.That(bookCells.All(c => c.OffHand == null && c.Action == AttackPreviewAction.MainAttack), Is.True);
-            Assert.That(bookCells.Select(c => c.FacingIndex).OrderBy(i => i), Is.EqualTo(Enumerable.Range(0, 6)));
+            Assert.That(bookCells, Has.Length.EqualTo(12));
+            Assert.That(bookCells.All(c => c.OffHand == null &&
+                (c.Action == AttackPreviewAction.MainAttack || c.Action == AttackPreviewAction.Knockback)), Is.True);
+            Assert.That(bookCells.Where(c => c.Action == AttackPreviewAction.MainAttack).Select(c => c.FacingIndex).OrderBy(i => i),
+                Is.EqualTo(Enumerable.Range(0, 6)));
+            Assert.That(bookCells.Where(c => c.Action == AttackPreviewAction.Knockback).Select(c => c.FacingIndex).OrderBy(i => i),
+                Is.EqualTo(Enumerable.Range(0, 6)));
         }
 
         [Test]
@@ -46,6 +50,7 @@ namespace Tests.EditMode.AttackAnimationValidator
             {
                 Assert.That(cells.Any(c => c.MainHand == weapon && c.Action == AttackPreviewAction.MainAttack && c.FacingIndex == facing), Is.True, weapon.name);
                 Assert.That(cells.Any(c => c.OffHand == weapon && c.Action == AttackPreviewAction.OffAttack && c.FacingIndex == facing), Is.True, weapon.name);
+                Assert.That(cells.Any(c => c.MainHand == weapon && c.Action == AttackPreviewAction.Knockback && c.FacingIndex == facing), Is.True, weapon.name);
             }
         }
 
@@ -79,7 +84,9 @@ namespace Tests.EditMode.AttackAnimationValidator
             var cells = AttackPreviewCatalog.Enumerate(new[] { Sword });
             Assert.That(cells.Any(c => c.MainHand == Sword && c.OffHand == Sword && c.Action == AttackPreviewAction.MainAttack), Is.True);
             Assert.That(cells.Any(c => c.MainHand == Sword && c.OffHand == Sword && c.Action == AttackPreviewAction.OffAttack), Is.True);
-            Assert.That(cells.All(c => c.Action == AttackPreviewAction.MainAttack || c.Action == AttackPreviewAction.OffAttack || c.Action == AttackPreviewAction.Defend), Is.True);
+            Assert.That(cells.Any(c => c.MainHand == Sword && c.OffHand == Sword && c.Action == AttackPreviewAction.Knockback), Is.True);
+            Assert.That(cells.All(c => c.Action == AttackPreviewAction.MainAttack || c.Action == AttackPreviewAction.OffAttack ||
+                c.Action == AttackPreviewAction.Defend || c.Action == AttackPreviewAction.Knockback), Is.True);
         }
 
         [Test]
