@@ -8298,6 +8298,7 @@ GameObject:
   - component: {fileID: 264148837938436613}
   - component: {fileID: 1708991934926830681}
   - component: {fileID: 4987159183995520997}
+  - component: {fileID: 4100000000000000201}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -16251,3 +16252,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1f7b3d9a2c6e4f80b5a1d7e3c9f2a648, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RaidMinimapPresenter
+
+--- !u!114 &4100000000000000201
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00aea49cfe846109efb2dcf4a137da8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerInventoryPassiveEffectsController
+  _chaosCoinMaxHealthMultiplier: 0.8
+  _pilgrimLightStaminaRegenMultiplier: 1.35
+  _sanctuaryHeartDamageTakenMultiplier: 0.85
+  _voidBellSprintSpeedMultiplier: 1.15
+  _voidBellChimeIntervalSeconds: 2
+  _voidBellAudibleRadius: 15
+  _famineIdolAggroRangeMultiplier: 1.5
+  _wandererEyeVisionRadiusMultiplier: 0.75

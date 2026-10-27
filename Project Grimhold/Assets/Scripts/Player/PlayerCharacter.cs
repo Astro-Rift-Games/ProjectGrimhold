@@ -521,6 +521,10 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
         if (_passiveEffectsController == null)
         {
             _passiveEffectsController = GetComponent<PlayerInventoryPassiveEffectsController>();
+            if (_passiveEffectsController == null)
+            {
+                _passiveEffectsController = gameObject.AddComponent<PlayerInventoryPassiveEffectsController>();
+            }
         }
 
         if (_lootReceiver == null)

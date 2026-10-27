@@ -200,6 +200,11 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         _spawnStartsPublished = initiallyPublished;
         _spawnEligibleAmountOverride = firstAcquisitionEligibleAmount;
         _spawnOriginOverride = originTransfer;
+        if (_lootCatalog != null && _lootCatalog.TryGet(entry.LootId.Value, out LootDefinition overrideDef))
+        {
+            _lootDefinition = overrideDef;
+            _resolvedLootDefinition = overrideDef;
+        }
         return true;
     }
 
@@ -346,6 +351,11 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
 
         LootCatalogIndex = catalogIndex;
         SynchronizedAmount = entry.Amount;
+        if (_lootCatalog != null && _lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition authoritativeDefinition))
+        {
+            _lootDefinition = authoritativeDefinition;
+            _resolvedLootDefinition = authoritativeDefinition;
+        }
         FirstAcquisitionEligibleAmount = _hasSpawnContentOverride
             ? _spawnEligibleAmountOverride
             : entry.Amount;
@@ -384,6 +394,8 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
             _resolvedLootDefinition = null;
             return;
         }
+
+        _lootDefinition = definition;
 
         if (_resolvedLootDefinition == definition)
         {

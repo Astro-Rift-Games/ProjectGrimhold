@@ -1,5 +1,4 @@
 using System;
-using Fusion;
 using UnityEngine;
 
 /// <summary>
@@ -7,7 +6,7 @@ using UnityEngine;
 /// Observa el inventario replicado del jugador y expone modificadores autoritativos y replicados.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class PlayerInventoryPassiveEffectsController : NetworkBehaviour
+public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
 {
     public static readonly LootId ChaosCoinId = new("TRE_CHAOS_COIN");
     public static readonly LootId PilgrimLightId = new("TRE_PILGRIM_LIGHT");
@@ -49,14 +48,21 @@ public sealed class PlayerInventoryPassiveEffectsController : NetworkBehaviour
     [Tooltip("Multiplicador de visión con el Ojo del Caminante (-25%).")]
     private float _wandererEyeVisionRadiusMultiplier = 0.75f;
 
-    [Networked] public NetworkBool HasChaosCoin { get; private set; }
-    [Networked] public NetworkBool HasPilgrimLight { get; private set; }
-    [Networked] public NetworkBool HasSanctuaryHeart { get; private set; }
-    [Networked] public NetworkBool HasVoidBell { get; private set; }
-    [Networked] public NetworkBool HasFamineIdol { get; private set; }
-    [Networked] public NetworkBool HasWandererEye { get; private set; }
+    private bool _hasChaosCoin;
+    private bool _hasPilgrimLight;
+    private bool _hasSanctuaryHeart;
+    private bool _hasVoidBell;
+    private bool _hasFamineIdol;
+    private bool _hasWandererEye;
 
-    [Networked] private TickTimer VoidBellChimeTimer { get; set; }
+    public bool HasChaosCoin { get => GetUpdated(ref _hasChaosCoin); internal set => _hasChaosCoin = value; }
+    public bool HasPilgrimLight { get => GetUpdated(ref _hasPilgrimLight); internal set => _hasPilgrimLight = value; }
+    public bool HasSanctuaryHeart { get => GetUpdated(ref _hasSanctuaryHeart); internal set => _hasSanctuaryHeart = value; }
+    public bool HasVoidBell { get => GetUpdated(ref _hasVoidBell); internal set => _hasVoidBell = value; }
+    public bool HasFamineIdol { get => GetUpdated(ref _hasFamineIdol); internal set => _hasFamineIdol = value; }
+    public bool HasWandererEye { get => GetUpdated(ref _hasWandererEye); internal set => _hasWandererEye = value; }
+
+    private float _nextVoidBellChimeTime;
 
     private PlayerLootReceiver _lootReceiver;
     private PlayerCharacter _playerCharacter;
@@ -76,19 +82,42 @@ public sealed class PlayerInventoryPassiveEffectsController : NetworkBehaviour
 
     private void Awake() => CacheDependencies();
 
-    public override void Spawned()
+    private void Start()
     {
         CacheDependencies();
-        _lastObservedLootSequence = -1;
-        if (HasStateAuthority)
+        EvaluatePassiveTreasures();
+    }
+
+    private void Update()
+    {
+        UpdatePassivesIfNeeded();
+
+        if (HasVoidBell && _playerCharacter != null && _playerCharacter.IsAlive)
         {
-            EvaluatePassiveTreasures();
+            bool isSprinting = _movementController != null && _movementController.IsSprinting && _movementController.IsMoving;
+            if (isSprinting)
+            {
+                if (Time.time >= _nextVoidBellChimeTime)
+                {
+                    _nextVoidBellChimeTime = Time.time + _voidBellChimeIntervalSeconds;
+                    OnVoidBellChime?.Invoke();
+                }
+            }
         }
     }
 
-    public override void FixedUpdateNetwork()
+    private bool GetUpdated(ref bool flag)
     {
-        if (!HasStateAuthority || Runner == null || !Runner.IsForward) return;
+        UpdatePassivesIfNeeded();
+        return flag;
+    }
+
+    public void UpdatePassivesIfNeeded()
+    {
+        if (_lootReceiver == null)
+        {
+            CacheDependencies();
+        }
 
         if (_lootReceiver != null)
         {
@@ -97,19 +126,6 @@ public sealed class PlayerInventoryPassiveEffectsController : NetworkBehaviour
             {
                 _lastObservedLootSequence = currentSequence;
                 EvaluatePassiveTreasures();
-            }
-        }
-
-        if (HasVoidBell && _playerCharacter != null && _playerCharacter.IsAlive)
-        {
-            bool isSprinting = _movementController != null && _movementController.IsSprinting && _movementController.IsMoving;
-            if (isSprinting)
-            {
-                if (VoidBellChimeTimer.ExpiredOrNotRunning(Runner))
-                {
-                    VoidBellChimeTimer = TickTimer.CreateFromSeconds(Runner, _voidBellChimeIntervalSeconds);
-                    RPC_PlayVoidBellChime();
-                }
             }
         }
     }
@@ -122,27 +138,21 @@ public sealed class PlayerInventoryPassiveEffectsController : NetworkBehaviour
     {
         if (_lootReceiver == null)
         {
-            HasChaosCoin = false;
-            HasPilgrimLight = false;
-            HasSanctuaryHeart = false;
-            HasVoidBell = false;
-            HasFamineIdol = false;
-            HasWandererEye = false;
+            _hasChaosCoin = false;
+            _hasPilgrimLight = false;
+            _hasSanctuaryHeart = false;
+            _hasVoidBell = false;
+            _hasFamineIdol = false;
+            _hasWandererEye = false;
             return;
         }
 
-        HasChaosCoin = _lootReceiver.GetLootAmount(ChaosCoinId) > 0;
-        HasPilgrimLight = _lootReceiver.GetLootAmount(PilgrimLightId) > 0;
-        HasSanctuaryHeart = _lootReceiver.GetLootAmount(SanctuaryHeartId) > 0;
-        HasVoidBell = _lootReceiver.GetLootAmount(VoidBellId) > 0;
-        HasFamineIdol = _lootReceiver.GetLootAmount(FamineIdolId) > 0;
-        HasWandererEye = _lootReceiver.GetLootAmount(WandererEyeId) > 0;
-    }
-
-    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-    private void RPC_PlayVoidBellChime()
-    {
-        OnVoidBellChime?.Invoke();
+        _hasChaosCoin = _lootReceiver.GetLootAmount(ChaosCoinId) > 0;
+        _hasPilgrimLight = _lootReceiver.GetLootAmount(PilgrimLightId) > 0;
+        _hasSanctuaryHeart = _lootReceiver.GetLootAmount(SanctuaryHeartId) > 0;
+        _hasVoidBell = _lootReceiver.GetLootAmount(VoidBellId) > 0;
+        _hasFamineIdol = _lootReceiver.GetLootAmount(FamineIdolId) > 0;
+        _hasWandererEye = _lootReceiver.GetLootAmount(WandererEyeId) > 0;
     }
 
     private void CacheDependencies()
