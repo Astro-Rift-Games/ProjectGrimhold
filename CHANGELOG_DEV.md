@@ -6,6 +6,12 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **loot:** add test spawner and pickup prefabs for raid item validation ([8463a4d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8463a4d4b53d75a667559aca257efafc0e36a1da))
+- **loot:** implement inventory passive effects for expedition treasures ([7aa4c09](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7aa4c09b33fecd92bb6b1b90b44a955ccfecf519))
+- **consumables:** implement mana restoration and consumption speed gates ([74b0835](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/74b0835bddd8277c897c818be46d0297498e4fe2))
+- **loot:** implement cooperative Chaos Coin bonus loot roll ([01e86d0](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/01e86d0f58f6d4e22de0b33f91f9233b513ba7f8))
+- **loot:** register 39 MVP items and normalize consumable catalog ([4bf2cb8](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4bf2cb8be6b618c763748c8086118b0118d81b09))
+- **loot:** refactor taxonomy and item contracts with formal naming ([49de0ef](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/49de0efd345c37432f5e340a248df1a6679357fe))
 - **backend:** permit dev webhook secret under explicit risk flag ([987a203](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/987a203c014baf03b6944fa791c27b2988e54c1f))
 - **dungeon-pressure:** add collapse music and falling ceiling particles ([eb00230](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/eb00230abb5f49ce18f6926bb6f6c1cb2f7c0f0f))
 - **lighting:** add light prop extinction support and prop prefabs ([a5ccb45](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a5ccb45149e51dcd843ad7a3aa50df94640d9486))
@@ -293,6 +299,9 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Bug Fixes
 
+- **loot:** attach passive effects controller and sync drop definition ([02e956b](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/02e956b00784ff9022b1f9ea453f3244f4580aa4))
+- **loot:** expand catalog index capacity in packed origin buffer ([a2fb465](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a2fb465360e7dd83f922ae1e91d6d99706ac6ae3))
+- **loot:** resolve ProfileId string comparison in Chaos Coin evaluator ([c554a42](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c554a42e3e473aed7c57a3655e75c21a575d3b9a))
 - **commerce:** reject multi-line merchant drafts before submission ([088a773](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/088a773b350ff49eee5b9222c9b41d9586f8debf))
 - **networking:** fail closed on unverified identity and raid closure gaps ([e0b80b6](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e0b80b6519be585cc8f3bb00d44d08d31022373c))
 - **extraction:** keep team progress when the Host migrates ([8462eac](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8462eac968ca5c3562e3a2fce11715ea712eca68))
