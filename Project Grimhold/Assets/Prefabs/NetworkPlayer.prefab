@@ -8351,6 +8351,9 @@ MonoBehaviour:
   _shieldDefenseController: {fileID: 8400000000000000005}
   _downedStateController: {fileID: 1608558313308446850}
   _defenseMitigationConstant: 100
+  _manaController: {fileID: 9200000000000000199}
+  _passiveEffectsController: {fileID: 4100000000000000201}
+  _lootReceiver: {fileID: 3651456422916611865}
   _ProfileIdString:
     _length: 0
     _data:
@@ -8422,6 +8425,8 @@ MonoBehaviour:
     RawValue: 0
   _AimStanceStartTick: 0
   _IsMoving:
+    RawValue: 0
+  _IsSprinting:
     RawValue: 0
 --- !u!114 &2769229401594790361
 MonoBehaviour:
@@ -8982,7 +8987,6 @@ MonoBehaviour:
   _combatController: {fileID: 2769229401594790361}
   _characterSource: {fileID: 729366679366126330}
   _participantLink: {fileID: 5489547608340585132}
-  _State: 0
 --- !u!114 &8121909954639136857
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9014,9 +9018,6 @@ MonoBehaviour:
   _config: {fileID: 11400000, guid: 8f4d2742272b465690541c37b55a3120, type: 2}
   _characterSource: {fileID: 729366679366126330}
   _extractionController: {fileID: 8121909954639136856}
-  _CurrentProgress: 0
-  _AssignmentRequested:
-    RawValue: 0
 --- !u!114 &3762360656477037451
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9044,6 +9045,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerConsumableNetworkController
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
   _characterSource: {fileID: 729366679366126330}
+  _throwingDaggerPrefab:
+    RawGuidValue: 00000000000000000000000000000000
+  _explosiveBombPrefab:
+    RawGuidValue: 00000000000000000000000000000000
+  _smokeZonePrefab:
+    RawGuidValue: 00000000000000000000000000000000
+  _throwableImpactLayerMask:
+    serializedVersion: 2
+    m_Bits: 3264
+  _maxThrowDistance: 7
 --- !u!114 &2262447401525612929
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9765,6 +9776,26 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerImmobilizationNetworkEffect
   _character: {fileID: 729366679366126330}
   _purificationEffect: {fileID: 7776138370272337216}
+--- !u!114 &4100000000000000201
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b00aea49cfe846109efb2dcf4a137da8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerInventoryPassiveEffectsController
+  _chaosCoinMaxHealthMultiplier: 0.8
+  _pilgrimLightStaminaRegenMultiplier: 1.35
+  _sanctuaryHeartDamageTakenMultiplier: 0.85
+  _voidBellSprintSpeedMultiplier: 1.15
+  _voidBellChimeIntervalSeconds: 2
+  _voidBellAudibleRadius: 15
+  _famineIdolAggroRangeMultiplier: 1.5
+  _wandererEyeVisionRadiusMultiplier: 0.75
 --- !u!1 &4550749441162253346
 GameObject:
   m_ObjectHideFlags: 0
@@ -16252,24 +16283,3 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1f7b3d9a2c6e4f80b5a1d7e3c9f2a648, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RaidMinimapPresenter
-
---- !u!114 &4100000000000000201
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4369124737019072436}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b00aea49cfe846109efb2dcf4a137da8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerInventoryPassiveEffectsController
-  _chaosCoinMaxHealthMultiplier: 0.8
-  _pilgrimLightStaminaRegenMultiplier: 1.35
-  _sanctuaryHeartDamageTakenMultiplier: 0.85
-  _voidBellSprintSpeedMultiplier: 1.15
-  _voidBellChimeIntervalSeconds: 2
-  _voidBellAudibleRadius: 15
-  _famineIdolAggroRangeMultiplier: 1.5
-  _wandererEyeVisionRadiusMultiplier: 0.75

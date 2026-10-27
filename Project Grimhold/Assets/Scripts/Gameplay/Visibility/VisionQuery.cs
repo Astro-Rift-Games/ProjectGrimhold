@@ -71,6 +71,10 @@ namespace ProjectGrimhold.Gameplay.Visibility
             }
 
             int hitCount = Physics2D.Linecast(_origin, point, _obstacleFilter, _hitBuffer);
+            if (SmokeZoneRegistry.IsLineOccluded(_origin, point))
+            {
+                return false;
+            }
             for (int i = 0; i < hitCount; i++)
             {
                 Collider2D hitCollider = _hitBuffer[i].collider;
@@ -112,6 +116,7 @@ namespace ProjectGrimhold.Gameplay.Visibility
                 nearestDistance = Mathf.Min(nearestDistance, _hitBuffer[i].distance);
             }
 
+            nearestDistance = SmokeZoneRegistry.CastOcclusion(_origin, direction, nearestDistance);
             return nearestDistance;
         }
 

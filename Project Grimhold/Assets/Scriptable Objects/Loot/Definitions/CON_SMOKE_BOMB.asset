@@ -34,7 +34,7 @@ MonoBehaviour:
   _canBeDiscarded: 1
   _canBeUsed: 1
   _missionCompatible: 0
-  _useMode: 1
+  _useMode: 3
   _extractionValuePerUnit: 45
   _sellValuePerUnit: 45
   _buyValuePerUnit: 90

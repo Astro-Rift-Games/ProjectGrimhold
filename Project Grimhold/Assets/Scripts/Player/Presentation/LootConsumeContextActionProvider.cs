@@ -25,7 +25,9 @@ public sealed class LootConsumeContextActionProvider : ILootContextActionProvide
         }
 
         // Solo mostramos la acción si el objeto tiene un efecto consumible asociado
-        if (context.Definition.ConsumableDefinition == null || context.Definition.ConsumableDefinition.Effect == null)
+        bool isStandardConsumable = context.Definition.ConsumableDefinition != null && context.Definition.ConsumableDefinition.Effect != null;
+        bool isAimedQuickSlot = context.Definition.CanBeUsed && context.Definition.UseMode == ItemUseMode.AimedQuickSlot;
+        if (!isStandardConsumable && !isAimedQuickSlot)
         {
             return;
         }

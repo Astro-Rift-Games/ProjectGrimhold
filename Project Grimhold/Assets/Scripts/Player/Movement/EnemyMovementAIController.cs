@@ -562,7 +562,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
         }
 
         // Check LOS for pursuit.
-        bool hasLOS = !Physics2D.Linecast(enemyPos, targetPos, _obstacleLayer);
+        bool hasLOS = !Physics2D.Linecast(enemyPos, targetPos, _obstacleLayer) && !SmokeZoneRegistry.IsLineOccluded(enemyPos, targetPos);
 
         if (hasLOS)
         {
@@ -676,7 +676,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
             }
 
             // LOS check: Linecast is sufficient for detection (CircleCast is reserved for wall-steering).
-            bool hasLOS = !Physics2D.Linecast(enemyPos, candidatePos, _obstacleLayer);
+            bool hasLOS = !Physics2D.Linecast(enemyPos, candidatePos, _obstacleLayer) && !SmokeZoneRegistry.IsLineOccluded(enemyPos, candidatePos);
             if (!hasLOS)
             {
                 continue;

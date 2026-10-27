@@ -80,6 +80,7 @@ public sealed class PlayerInputReader : MonoBehaviour
     /// gameplay input is not suppressed (so never with the inventory or a menu open).
     /// This intention is local only and is never included in <see cref="PlayerNetworkInput"/>.
     /// </summary>
+    public Vector2 AimWorldPosition => _aimWorldPosition;
     public event Action<int> QuickSlotActivated;
 
     private void Awake()
