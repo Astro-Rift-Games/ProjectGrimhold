@@ -237,10 +237,10 @@ public sealed class LocalProfileStore
     }
 
     /// <summary>
-    /// Debits <paramref name="price"/> Currency and unlocks the ability in one transaction.
-    /// Attribute requirements do not condition acquisition; an owned ability cannot be bought again.
+    /// Evaluates whether an ability purchase is valid against current local profile state.
+    /// Does not mutate state or commit.
     /// </summary>
-    public AbilityPurchaseResult TryPurchaseAbility(AbilityId abilityId, long price)
+    public AbilityPurchaseResult EvaluateAbilityPurchase(AbilityId abilityId, long price)
     {
         if (!abilityId.IsValid)
         {
@@ -260,6 +260,11 @@ public sealed class LocalProfileStore
                 return AbilityPurchaseResult.ProfileUnavailable;
             }
 
+            if (current.PendingReservation != null)
+            {
+                return AbilityPurchaseResult.ReservationPending;
+            }
+
             switch (ValidateAbilityUnlock(current, abilityId))
             {
                 case AbilityUnlockResult.UnknownAbility:
@@ -273,6 +278,57 @@ public sealed class LocalProfileStore
                 return AbilityPurchaseResult.InsufficientCurrency;
             }
 
+            return AbilityPurchaseResult.Success;
+        }
+    }
+
+    /// <summary>
+    /// Applies a confirmed authoritative ability purchase from the backend.
+    /// Sets new balance (or debits price), adds ability to UnlockedAbilities, and updates remote revision.
+    /// </summary>
+    public AbilityPurchaseResult ApplyConfirmedAbilityPurchase(AbilityId abilityId, long price, int remoteRevision, long? newBalance = null)
+    {
+        if (!abilityId.IsValid)
+        {
+            return AbilityPurchaseResult.InvalidAbility;
+        }
+
+        lock (_sync)
+        {
+            LocalProfileSnapshot current = _repository.Snapshot;
+            if (!IsAvailable || current == null || current.ProfileId != _profileId)
+            {
+                return AbilityPurchaseResult.ProfileUnavailable;
+            }
+
+            LocalProfileSnapshot next = current.Clone();
+            next.Currency = newBalance ?? (next.Currency - price);
+            if (!next.UnlockedAbilities.Contains(abilityId))
+            {
+                next.UnlockedAbilities.Add(abilityId);
+            }
+            next.RemoteRevision = remoteRevision;
+            return Commit(next) == StashOperationResult.Success
+                ? AbilityPurchaseResult.Success
+                : AbilityPurchaseResult.PersistenceFailed;
+        }
+    }
+
+    /// <summary>
+    /// Debits <paramref name="price"/> Currency and unlocks the ability in one transaction.
+    /// Attribute requirements do not condition acquisition; an owned ability cannot be bought again.
+    /// </summary>
+    public AbilityPurchaseResult TryPurchaseAbility(AbilityId abilityId, long price)
+    {
+        var eval = EvaluateAbilityPurchase(abilityId, price);
+        if (eval != AbilityPurchaseResult.Success)
+        {
+            return eval;
+        }
+
+        lock (_sync)
+        {
+            LocalProfileSnapshot current = _repository.Snapshot;
             LocalProfileSnapshot next = current.Clone();
             next.Currency -= price;
             next.UnlockedAbilities.Add(abilityId);

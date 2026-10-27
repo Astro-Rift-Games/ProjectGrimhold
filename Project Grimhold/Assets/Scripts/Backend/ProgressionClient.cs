@@ -42,6 +42,24 @@ namespace Grimhold.Backend
         }
 
         // ------------------------------------------------------------------
+        // Purchase ability
+        // ------------------------------------------------------------------
+
+        public static async Task<(bool success, PurchaseAbilityResult data, BackendError error)>
+            PurchaseAbilityAsync(BackendConfiguration config, string token, string transactionId, string abilityId, int expectedRevision)
+        {
+            var baseUrl = config.BaseUrl.TrimEnd('/');
+            var url = $"{baseUrl}/character/me/abilities/purchase";
+            var request = new PurchaseAbilityRequest
+            {
+                transactionId = transactionId,
+                abilityId = abilityId,
+                expectedRevision = expectedRevision
+            };
+            return await PostJson<PurchaseAbilityRequest, PurchaseAbilityResult>(config, token, url, request);
+        }
+
+        // ------------------------------------------------------------------
         // Shared helpers
         // ------------------------------------------------------------------
 

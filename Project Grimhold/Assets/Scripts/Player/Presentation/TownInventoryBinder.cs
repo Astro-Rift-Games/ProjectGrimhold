@@ -148,7 +148,7 @@ public sealed class TownInventoryBinder : NetworkBehaviour
             return;
         }
 
-        _abilityVendorPresenter.BindProfile(_profileContext.Store);
+        _abilityVendorPresenter.BindProfile(_profileContext.Store, _profileContext.AbilityPurchaseService);
     }
 
     private void OnInputReaderChanged(PlayerInputReader inputReader)

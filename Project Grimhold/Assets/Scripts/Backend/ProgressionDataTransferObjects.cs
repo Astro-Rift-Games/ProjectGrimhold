@@ -13,6 +13,7 @@ namespace Grimhold.Backend
         public long experience;
         public int  lastAppliedProgressionResultSequence;
         public CharacterAttributesData characterAttributes;
+        public string[] unlockedAbilities;
         public int  revision;
     }
 
@@ -35,6 +36,18 @@ namespace Grimhold.Backend
         public int revision;
     }
 
+    [Serializable]
+    public struct PurchaseAbilityResult
+    {
+        public bool alreadySecured;
+        public string transactionId;
+        public string abilityId;
+        public long price;
+        public long currency;
+        public string[] unlockedAbilities;
+        public int revision;
+    }
+
     // ---------------------------------------------------------------------------
     // Outbound DTOs (requests to the backend)
     // ---------------------------------------------------------------------------
@@ -43,6 +56,14 @@ namespace Grimhold.Backend
     public struct CommitProgressionRequest
     {
         public string attribute;
+        public int expectedRevision;
+    }
+
+    [Serializable]
+    public struct PurchaseAbilityRequest
+    {
+        public string transactionId;
+        public string abilityId;
         public int expectedRevision;
     }
 }

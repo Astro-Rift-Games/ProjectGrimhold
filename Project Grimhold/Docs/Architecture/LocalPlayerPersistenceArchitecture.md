@@ -243,6 +243,15 @@ capacity. A rejected operation moves nothing and never creates a Pickup.
 Extraction receipts and the rest of the aggregate are cached across processes; remote durability
 and replay acceptance remain backend responsibilities.
 
+### Ability Repertoire Hydration Contract (TASK-224)
+
+Unlocked abilities (`UnlockedAbilities`) are durable and authoritative in the backend (`Character.unlockedAbilities`).
+They are returned at login and during profile reconciliation via `GET /character/me/progression` and hydrated in
+`ApplicationStashServiceBootstrapper.HydrateSnapshot`. Hydration populates `snapshot.UnlockedAbilities` strictly from
+the authoritative backend list, dropping any unrecorded local unlocks and filtering unknown definitions against
+`AbilityDefinitionCatalog`. Revalidation of prepared abilities (`PreparedAbilityLoadout.TryRevalidateAfterAttributeChange`)
+is subsequently evaluated against this hydrated set.
+
 Schema version 4 persists this Weapon Set contract. Schema 3 maps historical Weapon Slot 1 to Set A
 Main Hand and Weapon Slot 2 to Set B Main Hand; both Off Hands start empty. Pending reservations use
 the same migration. Earlier schemas did not distinguish
