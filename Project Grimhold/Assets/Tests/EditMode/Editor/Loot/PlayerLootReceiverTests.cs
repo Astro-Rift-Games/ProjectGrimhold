@@ -20,7 +20,7 @@ namespace Tests.EditMode.Loot
         public void RaidDistinctLootCapacity_IsExplicitlyThirty()
         {
             Assert.That(PlayerLootReceiver.MaxDistinctLootTypes, Is.EqualTo(30));
-            Assert.That(PlayerLootReceiver.MaxCatalogEntries, Is.EqualTo(64));
+            Assert.That(PlayerLootReceiver.MaxCatalogEntries, Is.EqualTo(128));
         }
 
         [Test]
