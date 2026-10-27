@@ -3,6 +3,8 @@ using System.Collections.Generic;
 /// <summary>
 /// Offers "assign to Quick Slot N" for Quick Slot compatible definitions. Assigning only binds the
 /// definition; it never changes the items, so it stays available whatever the equipment gate says.
+/// Under Doc 14 §12.1 (TASK-230), duplicate assignment is prevented; assigning to another slot
+/// requires unassigning the item first.
 /// </summary>
 public sealed class LootQuickSlotContextActionProvider : ILootContextActionProvider
 {
@@ -33,8 +35,11 @@ public sealed class LootQuickSlotContextActionProvider : ILootContextActionProvi
             return;
         }
 
-        bool enabled = _canMutate == null || _canMutate();
         QuickSlotBindings bindings = _controller.Bindings;
+        int currentSlot = bindings.FindSlot(context.Entry.LootId);
+        bool canMutate = _canMutate == null || _canMutate();
+        bool enabled = canMutate && currentSlot < 0;
+
         for (int slot = 0; slot < QuickSlotBindings.SlotCount; slot++)
         {
             if (bindings.Get(slot).Equals(context.Entry.LootId))

@@ -48,4 +48,4 @@ MonoBehaviour:
     _down: {fileID: 0}
     _left: {fileID: 0}
     _right: {fileID: 0}
-  _quickSlotCompatible: 0
+  _quickSlotCompatible: 1

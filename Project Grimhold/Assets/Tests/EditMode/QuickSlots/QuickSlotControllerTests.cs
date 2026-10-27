@@ -4,12 +4,13 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEditor;
 
-[Category("TASK214")]
+[Category("TASK214"), Category("TASK230")]
 public sealed class QuickSlotControllerTests
 {
     private static readonly ProfileId Profile = new ProfileId("21521521521521521521521521521521");
     private static readonly LootId Potion = new LootId("healthpotion");
     private static readonly LootId Rapier = new LootId("rapier");
+    private static readonly LootId Compass = new LootId("UTL_RUNE_COMPASS");
 
     private LootDefinitionCatalog _catalog;
     private LocalProfileStore _store;
@@ -47,6 +48,18 @@ public sealed class QuickSlotControllerTests
     }
 
     [Test]
+    public void Assign_UtilityWithQuickSlotCompatible_IsAccepted()
+    {
+        _inventory.Set(new LootEntry(Compass, 1));
+
+        var result = _controller.TryAssign(2, Compass);
+
+        Assert.That(result, Is.EqualTo(QuickSlotAssignmentResult.Success));
+        Assert.That(_store.GetQuickSlots().Get(2), Is.EqualTo(Compass));
+        Assert.That(_controller.GetAvailableAmount(Compass), Is.EqualTo(1));
+    }
+
+    [Test]
     public void Assign_AmountSumsEveryStackOfTheDefinition()
     {
         _inventory.Set(new LootEntry(Potion, 2), new LootEntry(Rapier, 1), new LootEntry(Potion, 3));
@@ -75,41 +88,54 @@ public sealed class QuickSlotControllerTests
     }
 
     [Test]
+    public void Assign_DefinitionAlreadyInAnotherSlot_IsRejectedWithAlreadyAssigned()
+    {
+        _inventory.Set(new LootEntry(Potion, 2));
+        _controller.TryAssign(0, Potion);
+
+        var result = _controller.TryAssign(1, Potion);
+
+        Assert.That(result, Is.EqualTo(QuickSlotAssignmentResult.AlreadyAssigned));
+        Assert.That(_store.GetQuickSlots().Get(0), Is.EqualTo(Potion));
+        Assert.That(_store.GetQuickSlots().IsAssigned(1), Is.False);
+    }
+
+    [Test]
     public void Assign_DoesNotChangeTheInventory()
     {
         _inventory.Set(new LootEntry(Potion, 2));
 
         _controller.TryAssign(0, Potion);
-        _controller.TryAssign(2, Potion);
-        _controller.TryClear(2);
+        _controller.TryClear(0);
 
         Assert.That(_inventory.Content, Has.Count.EqualTo(1));
         Assert.That(_inventory.Content[0], Is.EqualTo(new LootEntry(Potion, 2)));
     }
 
     [Test]
-    public void Depletion_WhenAllowed_UnassignsTheSlot()
+    public void Depletion_LeavesSlotBoundWithZeroAvailableUnits()
     {
         _inventory.Set(new LootEntry(Potion, 1));
         _controller.TryAssign(3, Potion);
 
-        _inventory.Set();
-
-        Assert.That(_store.GetQuickSlots().IsEmpty, Is.True);
-    }
-
-    [Test]
-    public void Depletion_WhileReleaseIsNotAllowed_KeepsTheBinding()
-    {
-        _inventory.Set(new LootEntry(Potion, 1));
-        _controller.TryAssign(3, Potion);
-        _canRelease = false;
-
-        _inventory.Set();
-        _canRelease = true;
         _inventory.Set();
 
         Assert.That(_store.GetQuickSlots().Get(3), Is.EqualTo(Potion));
+        Assert.That(_controller.GetAvailableAmount(Potion), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void PickingUpUnits_ReactivatesDepletedQuickSlot()
+    {
+        _inventory.Set(new LootEntry(Potion, 1));
+        _controller.TryAssign(3, Potion);
+
+        _inventory.Set();
+        Assert.That(_controller.GetAvailableAmount(Potion), Is.EqualTo(0));
+
+        _inventory.Set(new LootEntry(Potion, 5));
+        Assert.That(_store.GetQuickSlots().Get(3), Is.EqualTo(Potion));
+        Assert.That(_controller.GetAvailableAmount(Potion), Is.EqualTo(5));
     }
 
     [Test]

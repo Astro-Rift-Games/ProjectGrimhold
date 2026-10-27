@@ -274,7 +274,7 @@ public sealed class LootDefinition : ScriptableObject
             return false;
         }
 
-        if (_quickSlotCompatible && _consumableDefinition == null && !_canBeUsed)
+        if (_quickSlotCompatible && _consumableDefinition == null && !_canBeUsed && _category != LootCategory.Utility)
         {
             error = $"Loot definition '{_id}' is Quick Slot compatible but has neither ConsumableDefinition nor CanBeUsed enabled.";
             return false;
