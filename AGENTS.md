@@ -108,5 +108,6 @@ Read the relevant repository skill when available rather than duplicating its pr
 
 - Existing work-item implementation, review, debugging or completion: [grimhold-task-execution](.agents/skills/grimhold-task-execution/SKILL.md).
 - Drafting a commit title/description: [grimhold-commit-message](.agents/skills/grimhold-commit-message/SKILL.md).
+- Designing or creating HacknPlan tasks and user stories: [hacknplan-task-design](.agents/skills/hacknplan-task-design/SKILL.md).
 
 After adding, moving or editing project skills, run `gentle-ai skill-registry refresh --force` when available; otherwise verify the skill paths/references directly and report that registry refresh was not run.
