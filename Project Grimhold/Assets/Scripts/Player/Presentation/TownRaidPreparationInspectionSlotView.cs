@@ -9,6 +9,7 @@ public sealed class TownRaidPreparationInspectionSlotView : MonoBehaviour, IPoin
 {
     [SerializeField] private EquipmentSlot _slot;
     [SerializeField] private Image _icon;
+    [SerializeField] private EquipmentSlotIconPresentation _emptyCategory = new();
 
     public EquipmentSlot Slot => _slot;
     public LootDefinition Definition { get; private set; }
@@ -19,6 +20,8 @@ public sealed class TownRaidPreparationInspectionSlotView : MonoBehaviour, IPoin
     {
         Definition = definition;
         if (_icon == null) return;
+        if (_emptyCategory?.TryPresent(_icon, definition != null ? definition.Icon : null,
+            definition == null && !reserved, reserved ? 0.35f : 1f) == true) return;
         _icon.sprite = definition != null ? definition.Icon : null;
         _icon.enabled = _icon.sprite != null;
         Color color = _icon.color;

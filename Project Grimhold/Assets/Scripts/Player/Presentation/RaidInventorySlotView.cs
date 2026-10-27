@@ -14,6 +14,8 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
     [SerializeField]
     private Image _icon;
 
+    [SerializeField] private EquipmentSlotIconPresentation _emptyCategory = new();
+
     [SerializeField]
     private TMP_Text _nameText;
 
@@ -25,6 +27,14 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     [SerializeField]
     private Image _background;
+
+    // Optional authored skin. Unconfigured views retain their original color-only behavior.
+    [SerializeField] private Sprite _emptySprite;
+    [SerializeField] private Sprite _occupiedSprite;
+    [SerializeField] private Sprite _hoveredSprite;
+    [SerializeField] private Sprite _selectedSprite;
+    [SerializeField] private Sprite _invalidSprite;
+    [SerializeField] private Sprite _reservedSprite;
 
     [SerializeField]
     private Color _normalColor = new(0.12f, 0.12f, 0.14f, 0.95f);
@@ -48,6 +58,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
     private EquipmentSlot _assignedEquipmentSlot;
     private bool _isDragging;
     private bool _isSelected;
+    private bool _isHovered;
     private DropHighlightState _dropHighlight;
     private float _transferPulseRemaining;
     private const float TransferPulseDuration = 0.2f;
@@ -96,7 +107,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         _tooltip = data.Tooltip;
         _slotData = data;
 
-        if (_icon != null)
+        if (_icon != null && _emptyCategory?.TryPresent(_icon, data.Icon, false) != true)
         {
             _icon.color = new Color(_icon.color.r, _icon.color.g, _icon.color.b, 1f);
             _icon.sprite = data.Icon;
@@ -134,7 +145,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         {
             Clear();
             _isReserved = true;
-            if (_icon != null)
+            if (_icon != null && _emptyCategory?.TryPresent(_icon, data.Icon, false, ReservedIconAlpha) != true)
             {
                 _icon.sprite = data.Icon;
                 _icon.enabled = data.Icon != null;
@@ -147,6 +158,8 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         if (!data.IsOccupied)
         {
             Clear();
+            if (EquipmentSlotRules.IsEquipmentSlot(slot))
+                _emptyCategory?.TryPresent(_icon, null, true);
             if (_nameText != null) _nameText.text = $"{slotLabel}\nVacío";
             SetWeaponSetVisual(isActive, isInactiveSet);
             return;
@@ -230,7 +243,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         _isOccupied = false;
         _tooltip = default;
         _slotData = default;
-        if (_icon != null)
+        if (_icon != null && _emptyCategory?.TryPresent(_icon, null, false) != true)
         {
             _icon.color = new Color(_icon.color.r, _icon.color.g, _icon.color.b, 1f);
             _icon.sprite = null;
@@ -298,6 +311,8 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     public void OnPointerEnter(PointerEventData eventData)
     {
+        _isHovered = true;
+        RefreshBackground();
         if (_isOccupied && _tooltip.CanShow)
         {
             TooltipRequested?.Invoke(_tooltip, transform as RectTransform);
@@ -306,6 +321,8 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     public void OnPointerExit(PointerEventData eventData)
     {
+        _isHovered = false;
+        RefreshBackground();
         TooltipDismissRequested?.Invoke(transform as RectTransform);
     }
 
@@ -334,7 +351,11 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         RefreshBackground();
     }
 
-    private void OnDisable() => ClearTransferFeedback();
+    private void OnDisable()
+    {
+        _isHovered = false;
+        ClearTransferFeedback();
+    }
 
     private void Update()
     {
@@ -346,6 +367,22 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
     private void RefreshBackground()
     {
         if (_background == null) return;
+        if (_emptySprite != null)
+        {
+            Sprite sprite = _dropHighlight == DropHighlightState.Invalid ? _invalidSprite
+                : _dropHighlight == DropHighlightState.Valid ? _hoveredSprite
+                : _isReserved ? _reservedSprite
+                : _isSelected ? _selectedSprite
+                : _isHovered && _button != null && _button.interactable ? _hoveredSprite
+                : _isOccupied ? _occupiedSprite : _emptySprite;
+            _background.overrideSprite = null;
+            _background.sprite = sprite != null ? sprite : _emptySprite;
+            Color color = Color.white;
+            if (_isInactiveSet && _dropHighlight == DropHighlightState.None) color.a *= InactiveSetAlpha;
+            _background.color = Color.Lerp(color, new Color(0.25f, 0.8f, 0.4f, 1f),
+                _transferPulseRemaining / TransferPulseDuration);
+            return;
+        }
         Color restingColor = _dropHighlight switch
         {
             DropHighlightState.Valid => new Color(0.2f, 0.6f, 0.2f, 0.8f),

@@ -16,6 +16,10 @@ public sealed class TownPlayerMenuView : MonoBehaviour
     [SerializeField] private TMP_Text _titleText;
     [SerializeField] private Color _selectedTabColor = new(0.85f, 0.65f, 0.25f, 1f);
     [SerializeField] private Color _normalTabColor = new(0.25f, 0.2f, 0.15f, 1f);
+    [SerializeField] private Sprite _activeTabSprite;
+    [SerializeField] private Sprite _inactiveTabSprite;
+    [SerializeField] private Sprite _disabledTabSprite;
+    private string _selectedTabId;
 
     private readonly Dictionary<string, Button> _tabButtons = new(StringComparer.Ordinal);
     private readonly List<Action> _unsubscribe = new();
@@ -75,10 +79,12 @@ public sealed class TownPlayerMenuView : MonoBehaviour
             _unsubscribe.Add(() => button.onClick.RemoveListener(onClick));
             _tabButtons[id] = button;
         }
+        RefreshTabSprites();
     }
 
     public void SetSelected(string tabId)
     {
+        _selectedTabId = tabId;
         foreach (KeyValuePair<string, Button> entry in _tabButtons)
         {
             if (entry.Value.targetGraphic != null)
@@ -88,6 +94,7 @@ public sealed class TownPlayerMenuView : MonoBehaviour
                     : _normalTabColor;
             }
         }
+        RefreshTabSprites();
 
         if (_titleText != null && _tabButtons.TryGetValue(tabId ?? string.Empty, out Button selected))
         {
@@ -99,6 +106,25 @@ public sealed class TownPlayerMenuView : MonoBehaviour
     public void SetOpen(bool open)
     {
         UiPanelVisibility.SetVisible(_window, open);
+    }
+
+    private void Update() => RefreshTabSprites();
+
+    private void RefreshTabSprites()
+    {
+        if (_activeTabSprite == null || _inactiveTabSprite == null) return;
+        foreach (KeyValuePair<string, Button> entry in _tabButtons)
+        {
+            Button button = entry.Value;
+            if (button == null || button.targetGraphic is not Image image) continue;
+            // Persistent tab identity belongs to the view, not EventSystem pointer selection.
+            button.transition = UnityEngine.UI.Selectable.Transition.None;
+            Sprite sprite = !button.IsInteractable() && _disabledTabSprite != null ? _disabledTabSprite
+                : string.Equals(entry.Key, _selectedTabId, StringComparison.Ordinal) ? _activeTabSprite : _inactiveTabSprite;
+            if (image.sprite != sprite) image.sprite = sprite;
+            if (image.overrideSprite != sprite) image.overrideSprite = null;
+            if (image.color != Color.white) image.color = Color.white;
+        }
     }
 
     private void ClearTabs()

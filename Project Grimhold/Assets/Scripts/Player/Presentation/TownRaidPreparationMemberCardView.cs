@@ -14,6 +14,9 @@ public sealed class TownRaidPreparationMemberCardView : MonoBehaviour
     [SerializeField] private Image _mainHandIcon;
     [SerializeField] private Image _offHandIcon;
     [SerializeField] private Image _armorIcon;
+    [SerializeField] private EquipmentSlotIconPresentation _mainHandCategory = new();
+    [SerializeField] private EquipmentSlotIconPresentation _offHandCategory = new();
+    [SerializeField] private EquipmentSlotIconPresentation _armorCategory = new();
     [SerializeField] private Image _baseHead;
     [SerializeField] private Image _baseBody;
     [SerializeField] private Image _baseLeftHand;
@@ -60,9 +63,9 @@ public sealed class TownRaidPreparationMemberCardView : MonoBehaviour
         _nameText.text = member.DisplayName;
         _stateText.text = TownRaidPreparationMemberCardRules.StateLabel(member.IsReady);
         _hostIndicator.SetActive(member.IsHost);
-        PresentSummary(_mainHandIcon, member, EquipmentSlot.WeaponSetAMainHand);
-        PresentSummary(_offHandIcon, member, EquipmentSlot.WeaponSetAOffHand);
-        PresentSummary(_armorIcon, member, EquipmentSlot.Armor);
+        PresentSummary(_mainHandIcon, _mainHandCategory, member, EquipmentSlot.WeaponSetAMainHand);
+        PresentSummary(_offHandIcon, _offHandCategory, member, EquipmentSlot.WeaponSetAOffHand);
+        PresentSummary(_armorIcon, _armorCategory, member, EquipmentSlot.Armor);
         PresentOverlay(_helmet, _baseHead, member, EquipmentSlot.Helmet);
         PresentOverlay(_armor, _baseBody, member, EquipmentSlot.Armor);
         PresentOverlay(_leftGlove, _baseLeftHand, member, EquipmentSlot.Gloves);
@@ -75,9 +78,11 @@ public sealed class TownRaidPreparationMemberCardView : MonoBehaviour
         if (_canSelect) Selected?.Invoke(_profileId);
     }
 
-    private static void PresentSummary(Image image, in TownRaidPreparationPresentation.Member member, EquipmentSlot slot)
+    private static void PresentSummary(Image image, EquipmentSlotIconPresentation category, in TownRaidPreparationPresentation.Member member, EquipmentSlot slot)
     {
         var definition = TownRaidPreparationMemberCardRules.ResolveSummarySlot(member, slot, out bool reserved);
+        if (category?.TryPresent(image, definition != null ? definition.Icon : null,
+            definition == null && !reserved, reserved ? 0.35f : 1f) == true) return;
         image.sprite = definition != null ? definition.Icon : null;
         image.enabled = image.sprite != null;
         image.color = reserved ? new Color(1f, 1f, 1f, 0.35f) : Color.white;

@@ -1,0 +1,969 @@
+{
+  "image": "grimhold-ui-charcoal.png",
+  "width": 512,
+  "height": 736,
+  "origin": "top-left",
+  "cornerMaster": [
+    "KBBBBBK",
+    "BKKKKKB",
+    "BKB.BKB",
+    "BKB.BBK",
+    "BKB....",
+    "BBB....",
+    "KBK...."
+  ],
+  "palette": [
+    "#101214",
+    "#1A1E22",
+    "#252B31",
+    "#343D45",
+    "#49545F",
+    "#687480",
+    "#848F99",
+    "#A9844F",
+    "#D4B06A",
+    "#6F9A92",
+    "#8D5B57",
+    "#6F7D63",
+    "#E7DEC9"
+  ],
+  "sprites": [
+    {
+      "name": "panel_main",
+      "rect": {
+        "x": 16,
+        "y": 16,
+        "w": 144,
+        "h": 96
+      },
+      "unityRect": {
+        "x": 16,
+        "y": 624,
+        "w": 144,
+        "h": 96
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "panel_frame",
+      "rect": {
+        "x": 176,
+        "y": 16,
+        "w": 144,
+        "h": 96
+      },
+      "unityRect": {
+        "x": 176,
+        "y": 624,
+        "w": 144,
+        "h": 96
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "panel_secondary",
+      "rect": {
+        "x": 336,
+        "y": 16,
+        "w": 144,
+        "h": 96
+      },
+      "unityRect": {
+        "x": 336,
+        "y": 624,
+        "w": 144,
+        "h": 96
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "button_normal",
+      "rect": {
+        "x": 16,
+        "y": 128,
+        "w": 80,
+        "h": 32
+      },
+      "unityRect": {
+        "x": 16,
+        "y": 576,
+        "w": 80,
+        "h": 32
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "button_selected",
+      "rect": {
+        "x": 112,
+        "y": 128,
+        "w": 80,
+        "h": 32
+      },
+      "unityRect": {
+        "x": 112,
+        "y": 576,
+        "w": 80,
+        "h": 32
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "button_pressed",
+      "rect": {
+        "x": 208,
+        "y": 128,
+        "w": 80,
+        "h": 32
+      },
+      "unityRect": {
+        "x": 208,
+        "y": 576,
+        "w": 80,
+        "h": 32
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "button_disabled",
+      "rect": {
+        "x": 304,
+        "y": 128,
+        "w": 80,
+        "h": 32
+      },
+      "unityRect": {
+        "x": 304,
+        "y": 576,
+        "w": 80,
+        "h": 32
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "button_highlighted",
+      "rect": {
+        "x": 400,
+        "y": 128,
+        "w": 80,
+        "h": 32
+      },
+      "unityRect": {
+        "x": 400,
+        "y": 576,
+        "w": 80,
+        "h": 32
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "tab_active",
+      "rect": {
+        "x": 16,
+        "y": 176,
+        "w": 96,
+        "h": 32
+      },
+      "unityRect": {
+        "x": 16,
+        "y": 528,
+        "w": 96,
+        "h": 32
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "tab_inactive",
+      "rect": {
+        "x": 128,
+        "y": 176,
+        "w": 96,
+        "h": 32
+      },
+      "unityRect": {
+        "x": 128,
+        "y": 528,
+        "w": 96,
+        "h": 32
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "tab_disabled",
+      "rect": {
+        "x": 240,
+        "y": 176,
+        "w": 96,
+        "h": 32
+      },
+      "unityRect": {
+        "x": 240,
+        "y": 528,
+        "w": 96,
+        "h": 32
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "input_normal",
+      "rect": {
+        "x": 16,
+        "y": 224,
+        "w": 224,
+        "h": 32
+      },
+      "unityRect": {
+        "x": 16,
+        "y": 480,
+        "w": 224,
+        "h": 32
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "input_focused",
+      "rect": {
+        "x": 256,
+        "y": 224,
+        "w": 224,
+        "h": 32
+      },
+      "unityRect": {
+        "x": 256,
+        "y": 480,
+        "w": 224,
+        "h": 32
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "dialogue_panel",
+      "rect": {
+        "x": 16,
+        "y": 272,
+        "w": 432,
+        "h": 80
+      },
+      "unityRect": {
+        "x": 16,
+        "y": 384,
+        "w": 432,
+        "h": 80
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "dialogue_continue",
+      "rect": {
+        "x": 464,
+        "y": 304,
+        "w": 16,
+        "h": 16
+      },
+      "unityRect": {
+        "x": 464,
+        "y": 416,
+        "w": 16,
+        "h": 16
+      },
+      "border": {
+        "left": 0,
+        "right": 0,
+        "top": 0,
+        "bottom": 0
+      }
+    },
+    {
+      "name": "slot_empty",
+      "rect": {
+        "x": 16,
+        "y": 368,
+        "w": 64,
+        "h": 64
+      },
+      "unityRect": {
+        "x": 16,
+        "y": 304,
+        "w": 64,
+        "h": 64
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "slot_occupied",
+      "rect": {
+        "x": 112,
+        "y": 368,
+        "w": 64,
+        "h": 64
+      },
+      "unityRect": {
+        "x": 112,
+        "y": 304,
+        "w": 64,
+        "h": 64
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "slot_hovered",
+      "rect": {
+        "x": 208,
+        "y": 368,
+        "w": 64,
+        "h": 64
+      },
+      "unityRect": {
+        "x": 208,
+        "y": 304,
+        "w": 64,
+        "h": 64
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "slot_selected",
+      "rect": {
+        "x": 304,
+        "y": 368,
+        "w": 64,
+        "h": 64
+      },
+      "unityRect": {
+        "x": 304,
+        "y": 304,
+        "w": 64,
+        "h": 64
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "slot_active",
+      "rect": {
+        "x": 400,
+        "y": 368,
+        "w": 64,
+        "h": 64
+      },
+      "unityRect": {
+        "x": 400,
+        "y": 304,
+        "w": 64,
+        "h": 64
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "slot_disabled",
+      "rect": {
+        "x": 16,
+        "y": 448,
+        "w": 64,
+        "h": 64
+      },
+      "unityRect": {
+        "x": 16,
+        "y": 224,
+        "w": 64,
+        "h": 64
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "slot_locked",
+      "rect": {
+        "x": 112,
+        "y": 448,
+        "w": 64,
+        "h": 64
+      },
+      "unityRect": {
+        "x": 112,
+        "y": 224,
+        "w": 64,
+        "h": 64
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "slot_reserved",
+      "rect": {
+        "x": 208,
+        "y": 448,
+        "w": 64,
+        "h": 64
+      },
+      "unityRect": {
+        "x": 208,
+        "y": 224,
+        "w": 64,
+        "h": 64
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "slot_invalid",
+      "rect": {
+        "x": 304,
+        "y": 448,
+        "w": 64,
+        "h": 64
+      },
+      "unityRect": {
+        "x": 304,
+        "y": 224,
+        "w": 64,
+        "h": 64
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "slot_pending",
+      "rect": {
+        "x": 400,
+        "y": 448,
+        "w": 64,
+        "h": 64
+      },
+      "unityRect": {
+        "x": 400,
+        "y": 224,
+        "w": 64,
+        "h": 64
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "inner_flat",
+      "rect": {
+        "x": 16,
+        "y": 528,
+        "w": 144,
+        "h": 64
+      },
+      "unityRect": {
+        "x": 16,
+        "y": 144,
+        "w": 144,
+        "h": 64
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "inner_thin_border",
+      "rect": {
+        "x": 176,
+        "y": 528,
+        "w": 144,
+        "h": 64
+      },
+      "unityRect": {
+        "x": 176,
+        "y": 144,
+        "w": 144,
+        "h": 64
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "inner_header",
+      "rect": {
+        "x": 336,
+        "y": 528,
+        "w": 144,
+        "h": 64
+      },
+      "unityRect": {
+        "x": 336,
+        "y": 144,
+        "w": 144,
+        "h": 64
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 20,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "divider_horizontal",
+      "rect": {
+        "x": 16,
+        "y": 608,
+        "w": 320,
+        "h": 2
+      },
+      "unityRect": {
+        "x": 16,
+        "y": 126,
+        "w": 320,
+        "h": 2
+      },
+      "border": {
+        "left": 2,
+        "right": 2,
+        "top": 1,
+        "bottom": 0
+      }
+    },
+    {
+      "name": "divider_vertical",
+      "rect": {
+        "x": 368,
+        "y": 608,
+        "w": 2,
+        "h": 32
+      },
+      "unityRect": {
+        "x": 368,
+        "y": 96,
+        "w": 2,
+        "h": 32
+      },
+      "border": {
+        "left": 1,
+        "right": 0,
+        "top": 2,
+        "bottom": 2
+      }
+    },
+    {
+      "name": "scroll_track_vertical",
+      "rect": {
+        "x": 16,
+        "y": 656,
+        "w": 12,
+        "h": 64
+      },
+      "unityRect": {
+        "x": 16,
+        "y": 16,
+        "w": 12,
+        "h": 64
+      },
+      "border": {
+        "left": 3,
+        "right": 3,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "scroll_thumb_vertical",
+      "rect": {
+        "x": 48,
+        "y": 656,
+        "w": 12,
+        "h": 24
+      },
+      "unityRect": {
+        "x": 48,
+        "y": 56,
+        "w": 12,
+        "h": 24
+      },
+      "border": {
+        "left": 3,
+        "right": 3,
+        "top": 8,
+        "bottom": 8
+      }
+    },
+    {
+      "name": "scroll_cap_top",
+      "rect": {
+        "x": 80,
+        "y": 656,
+        "w": 12,
+        "h": 8
+      },
+      "unityRect": {
+        "x": 80,
+        "y": 72,
+        "w": 12,
+        "h": 8
+      },
+      "border": {
+        "left": 3,
+        "right": 3,
+        "top": 3,
+        "bottom": 3
+      }
+    },
+    {
+      "name": "scroll_cap_bottom",
+      "rect": {
+        "x": 112,
+        "y": 656,
+        "w": 12,
+        "h": 8
+      },
+      "unityRect": {
+        "x": 112,
+        "y": 72,
+        "w": 12,
+        "h": 8
+      },
+      "border": {
+        "left": 3,
+        "right": 3,
+        "top": 3,
+        "bottom": 3
+      }
+    },
+    {
+      "name": "scroll_arrow_up",
+      "rect": {
+        "x": 144,
+        "y": 656,
+        "w": 8,
+        "h": 8
+      },
+      "unityRect": {
+        "x": 144,
+        "y": 72,
+        "w": 8,
+        "h": 8
+      },
+      "border": {
+        "left": 0,
+        "right": 0,
+        "top": 0,
+        "bottom": 0
+      }
+    },
+    {
+      "name": "scroll_arrow_down",
+      "rect": {
+        "x": 176,
+        "y": 656,
+        "w": 8,
+        "h": 8
+      },
+      "unityRect": {
+        "x": 176,
+        "y": 72,
+        "w": 8,
+        "h": 8
+      },
+      "border": {
+        "left": 0,
+        "right": 0,
+        "top": 0,
+        "bottom": 0
+      }
+    },
+    {
+      "name": "scroll_track_horizontal",
+      "rect": {
+        "x": 224,
+        "y": 656,
+        "w": 96,
+        "h": 12
+      },
+      "unityRect": {
+        "x": 224,
+        "y": 68,
+        "w": 96,
+        "h": 12
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 3,
+        "bottom": 3
+      }
+    },
+    {
+      "name": "scroll_thumb_horizontal",
+      "rect": {
+        "x": 336,
+        "y": 656,
+        "w": 32,
+        "h": 12
+      },
+      "unityRect": {
+        "x": 336,
+        "y": 68,
+        "w": 32,
+        "h": 12
+      },
+      "border": {
+        "left": 8,
+        "right": 8,
+        "top": 3,
+        "bottom": 3
+      }
+    },
+    {
+      "name": "scroll_cap_left",
+      "rect": {
+        "x": 384,
+        "y": 656,
+        "w": 8,
+        "h": 12
+      },
+      "unityRect": {
+        "x": 384,
+        "y": 68,
+        "w": 8,
+        "h": 12
+      },
+      "border": {
+        "left": 3,
+        "right": 3,
+        "top": 3,
+        "bottom": 3
+      }
+    },
+    {
+      "name": "scroll_cap_right",
+      "rect": {
+        "x": 408,
+        "y": 656,
+        "w": 8,
+        "h": 12
+      },
+      "unityRect": {
+        "x": 408,
+        "y": 68,
+        "w": 8,
+        "h": 12
+      },
+      "border": {
+        "left": 3,
+        "right": 3,
+        "top": 3,
+        "bottom": 3
+      }
+    },
+    {
+      "name": "scroll_arrow_left",
+      "rect": {
+        "x": 432,
+        "y": 656,
+        "w": 8,
+        "h": 8
+      },
+      "unityRect": {
+        "x": 432,
+        "y": 72,
+        "w": 8,
+        "h": 8
+      },
+      "border": {
+        "left": 0,
+        "right": 0,
+        "top": 0,
+        "bottom": 0
+      }
+    },
+    {
+      "name": "scroll_arrow_right",
+      "rect": {
+        "x": 464,
+        "y": 656,
+        "w": 8,
+        "h": 8
+      },
+      "unityRect": {
+        "x": 464,
+        "y": 72,
+        "w": 8,
+        "h": 8
+      },
+      "border": {
+        "left": 0,
+        "right": 0,
+        "top": 0,
+        "bottom": 0
+      }
+    }
+  ],
+  "validation": {
+    "sprites": 42,
+    "nineSlices": 37,
+    "frameProfiles": 35,
+    "ornamentMasters": 1,
+    "mirroredInstances": 12,
+    "binaryAlpha": true,
+    "opaquePixels": 171908,
+    "transparentPixels": 204924,
+    "paletteColors": 13,
+    "colorRegionBoundariesChanged": false
+  },
+  "recolor": {
+    "mode": "charcoal-slate-palette-only",
+    "source": "grimhold-ui-rich.png",
+    "geometryChanged": false,
+    "alphaChanged": false,
+    "colorRegionBoundariesChanged": false,
+    "defaultMapping": {
+      "#151311": "#101214",
+      "#24201C": "#252B31",
+      "#35302A": "#343D45",
+      "#4A433A": "#49545F",
+      "#6B6256": "#687480",
+      "#8A7C69": "#848F99",
+      "#B08A57": "#A9844F",
+      "#D3AE68": "#D4B06A",
+      "#7FA49A": "#6F9A92",
+      "#8C6E4A": "#848F99",
+      "#A85C55": "#8D5B57",
+      "#6D7D57": "#6F7D63",
+      "#E7DCC5": "#E7DEC9"
+    },
+    "componentOverrides": {
+      "button_*": {
+        "#24201C": "#1A1E22"
+      },
+      "slot_locked": {
+        "#8C6E4A": "#A9844F"
+      }
+    },
+    "regionalOverrides": {
+      "sprites": [
+        "input_normal",
+        "input_focused",
+        "scroll_track_vertical",
+        "scroll_track_horizontal",
+        "slot_disabled",
+        "slot_reserved"
+      ],
+      "source": "#151311",
+      "target": "#1A1E22",
+      "region": "existing inner dark region, inset two pixels from original bounding box"
+    }
+  }
+}

@@ -8,6 +8,7 @@ public sealed class TownEquipmentSlotView : MonoBehaviour
 {
     [SerializeField] private EquipmentSlot _slot;
     [SerializeField] private Image _icon;
+    [SerializeField] private EquipmentSlotIconPresentation _emptyCategory = new();
     [SerializeField] private TMP_Text _nameText;
 
     private bool _hasItem;
@@ -33,7 +34,7 @@ public sealed class TownEquipmentSlotView : MonoBehaviour
 
     private void Apply(Sprite icon)
     {
-        if (_icon != null)
+        if (_icon != null && _emptyCategory?.TryPresent(_icon, icon, !_hasItem) != true)
         {
             _icon.sprite = icon;
             _icon.enabled = icon != null;

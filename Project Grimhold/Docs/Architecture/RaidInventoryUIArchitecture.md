@@ -106,6 +106,36 @@ outside attribute requirements during the MVP.
 
 ## Slot projection and metadata
 
+`RaidInventorySlotView` optionally binds authored charcoal empty, occupied, hover, selected,
+invalid-drop and reserved sprites. The slot view, not Button SpriteSwap, owns this background.
+Its existing selection/drop/reservation inputs determine the sprite; inactive-set alpha and the
+unscaled confirmed-transfer pulse remain independent and restore the current semantic resting
+appearance. Icons, tooltip data, gestures and gameplay capability rules are unchanged.
+Without authored sprite references, existing color-only presentation is retained for callers and
+test fixtures. The charcoal skin does not create new locked or pending gameplay states.
+
+Equipment cells retain exactly one non-raycast `Icon` Image. Its optional serialized
+`EquipmentSlotIconPresentation` swaps between the category sprite and actual item sprite;
+no `EmptyCategoryGlyph` GameObject or second icon Image is used.
+Every glyph is 16x16 source pixels, with the PNG and editable Aseprite importers configured at 16 PPU.
+The six neutral pixel glyphs (main hand, off hand, helmet, armor, gloves and boots) identify only
+genuinely empty equipment positions; A/B sets reuse their role glyphs. Main hand uses two crossed
+swords based on the ArmingSword silhouette, and off hand uses a single shield. Boots use a paired
+cuffed-boot silhouette with distinct toe boxes and soles. These are
+category cues, not equipment-eligibility rules. Generic inventory and
+Quick Slot presentation explicitly hides this layer. Occupied entries hide it even when item art
+is missing, and two-handed off-hand reservation retains the existing weapon icon/alpha rather
+than an empty-category indicator. Town character-sheet, preparation inspection and the three
+member-card summary cells follow the same emptiness rule; portrait layers are unaffected.
+Both empty and item styles (anchors, position, size, pivot and color) are authored with the
+single Image. This preserves manually adjusted empty-category size/opacity independently
+from item geometry and restores normal item alpha when equipping; reserved items retain
+their existing reduced alpha. Generic inventory and Quick Slot paths clear the category
+sprite rather than reusing it as an occupied fallback. Unconfigured views retain legacy behavior.
+The single Icon and its category configuration are authored in source prefabs, not created or
+discovered at runtime. The original
+charcoal frame atlas, slot state sprites and equipment compatibility rules remain unchanged.
+
 `PlayerLootReceiver.TryGetLootContent` emits catalog-index order. For TASK-218, the personal
 panel projects the owning client's presentation-local order described below, rather than catalog-index
 order; Town projects stored Loadout order. Container panels still preserve snapshot order.

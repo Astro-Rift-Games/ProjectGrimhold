@@ -80,6 +80,24 @@ enlarged. It returns to 1 while the `Selectable` is not interactable and resets 
 It complements the existing color/sprite `Selectable` transition and never changes
 interactability, layout or click handling.
 
+### Charcoal appearance bindings
+
+The approved `Assets/Art/UI/Charcoal/grimhold-ui-charcoal.png` is imported unchanged as 42
+point-filtered, uncompressed, full-rect sprites at 100 PPU, with exact authored slice borders.
+`Assets/Editor/CharcoalUiMigrationManifest.json` records every reviewed source-owned Image and
+its migration or exclusion reason, plus inherited consumers. Migration uses per-Image file IDs,
+not a legacy-atlas GUID substitution. Existing layout, listeners and component composition remain
+unchanged; circular HUD art, icons, masks, semantic fills, state overlays and full-screen dimmers
+keep their owners and assets. Rectangular migrated Images use multiplier 1 at canvas reference
+PPU 100; the protected circular HUD retains its original density.
+
+Buttons use all five authored native SpriteSwap states. TMP inputs use `input_focused` for
+focus/selection and preserve their existing events. `TownPlayerMenuView` owns persistent tab
+identity independently of EventSystem selection: optional active/inactive/disabled sprites bypass
+Selectable's temporary sprite transitions, while `UiButtonFeedback` still owns pointer scaling.
+Unconfigured menu views retain their existing color-only presentation. No global theme service
+or runtime asset search is introduced.
+
 `Grimhold/UI/Add Button Feedback To Prefabs And Open Scenes` (`UiButtonFeedbackInstaller`) adds it
 to every Button and Toggle under `Assets/Prefabs` and in the open scenes. It is idempotent and
 skips objects owned by a nested prefab. Re-run it after adding new buttons.
