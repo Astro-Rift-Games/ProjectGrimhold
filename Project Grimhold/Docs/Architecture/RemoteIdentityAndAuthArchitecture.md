@@ -111,5 +111,14 @@ To protect the authentication and gameplay infrastructure in staging and product
 *   **HTTPS**: Development currently occurs over HTTP. Production deployments must enforce HTTPS for all backend communication to secure credentials and JWTs in transit.
 *   **Temporary Persistence**: While `customNote` and `lastSeen` persist remotely, core gameplay state (Stash, Loadout, Receipts) currently remains local and temporary per process (as defined in `LocalPlayerPersistenceArchitecture.md`). Subsequent roadmap stages will migrate these to the authoritative backend.
 *   **Authoritative Session Revocation**: Accomplished in US-60 via SHA-256 token hashing and MongoDB TTL collections.
-*   **Extraction Result Producer Boundary & Simulation Trust (#400)**: While the backend cryptographically authenticates raid results (`AuthoritativeExtractionResult`) via HMAC-SHA256 signatures over a canonical pipe-delimited payload, in the current Listen Server MVP the Host runs the simulation and generates the signature. Real producer isolation requires Dedicated Servers (#400), where the secret and simulation authority are hosted on secure infrastructure out of reach of player clients. Full details and anti-replay invariants are specified in `ExtractionArchitecture.md`.
+*   **Extraction Result Producer Boundary & Bounded Host Trust (TASK-223 / SEC-223 / #400)**:
+    - **No Client Secrets**: Client assets and builds do not contain `WebhookSecret` or static signing keys.
+    - **Dedicated Server Target Architecture (#400)**: In dedicated or worker deployments, `WEBHOOK_SECRET` is held exclusively on secure server infrastructure. Payloads signed with this secret are verified via HMAC-SHA256 over the canonical representation.
+    - **Bounded Player-Host Authority (MVP)**: In peer-to-peer / player-hosted sessions, the host submits extraction results authenticated via JWT without holding cluster secrets. The backend enforces strict server-side bounds:
+        1. Target character must exist and possess an active `pendingReservation` (`422 NO_ACTIVE_RESERVATION`).
+        2. Host must be a validated participant in the raid session (`403 HOST_NOT_IN_RAID`).
+        3. Item count is bounded by player loadout capacity (maximum 30 slots, `422 EXCEEDS_INVENTORY_CAPACITY`), with valid loot identifiers and quantities (1..999, `422 INVALID_ITEM_SPECIFICATION`).
+        4. Experience is capped by the raid budget (maximum 5,000 XP, `422 EXCEEDS_EXPERIENCE_BUDGET`).
+        5. Forged or mismatched signatures are rejected with `401 INVALID_HOST_SIGNATURE`.
+    Full details and anti-replay invariants are specified in `ExtractionArchitecture.md`.
 

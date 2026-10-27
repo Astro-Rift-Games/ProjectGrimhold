@@ -455,7 +455,10 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService
             experienceGranted,
             issuedAt);
 
-        string hostSignature = RaidResultCanonicalizer.ComputeHmacSha256(canonicalMessage, _backendConfig?.WebhookSecret);
+        // Under Bounded Player-Host Authority (TASK-223 / SEC-223), the client no longer holds
+        // or uses a shared HMAC secret. The backend validates the host's JWT, raid membership,
+        // and per-raid loot/experience bounds.
+        string hostSignature = string.Empty;
 
         var request = new PublishExtractionResultRequest
         {

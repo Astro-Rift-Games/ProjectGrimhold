@@ -65,6 +65,12 @@ inventory before that ACK. `PlayerExtractionLootSaver` retains the complete snap
 resends it from State Authority until the local commit is acknowledged; duplicate receipts
 are accepted idempotently and a local persistence failure requires an explicit retry.
 
+Under Bounded Player-Host Authority (TASK-223 / SEC-223), State Authority (Host) publishes extraction
+results to `POST /character/raid/extraction-result` without holding or shipping cluster signing secrets
+(`WEBHOOK_SECRET`). The backend verifies host JWT identity, recipient raid reservation, and per-raid
+loot and experience bounds (maximum 30 inventory slots, 5,000 XP budget) before publishing the
+`AuthoritativeExtractionResult` consumed by the participant's extraction commit.
+
 ## Presentation and return
 
 While `Raiding`, local camera, HUD and minimap verify that their avatar matches the

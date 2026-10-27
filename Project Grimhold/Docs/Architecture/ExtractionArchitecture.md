@@ -290,11 +290,17 @@ workflow: Gameplay Tilemap overrides are authoritative, while unsaved edits and 
 
 ## Authoritative Extraction Result and Producer Boundary (US-58 / SEC-58)
 
-### Producer Authorization and Residual Host Simulation Risk (#400)
-1. **Producer Contract**: Only an authorized producer can publish an `AuthoritativeExtractionResult` to the backend (`POST /character/raid/extraction-result`). The payload must be signed using HMAC-SHA256 with the cluster secret (`WEBHOOK_SECRET`).
-2. **Dedicated Server Target Architecture**: The production architecture requires a Dedicated Server (or trusted backend worker) to hold `WEBHOOK_SECRET`, completely isolated from player-controlled machines. Shipping secrets or simulation authority on a player client cannot provide tamper resistance against a malicious host.
-3. **Listen Server MVP Boundary**: In the current peer-to-peer / Listen Server MVP prior to Dedicated Server (#400), the Photon Fusion State Authority (Host) acts as the producer.
-4. **Boundary Separation**: Backend cryptographic guarantees protect against transit tampering, payload fabrication by non-host clients, loot/XP modification, recipient impersonation, and multi-sequence replay attacks. However, signing payloads does **not** make the Host cheat-proof: a malicious Host controlling the local physics and combat simulation can fabricate gameplay outcomes. Full producer trustworthiness remains technically bound to the deployment of Dedicated Servers (#400).
+### Producer Authorization and Bounded Host Trust (TASK-223 / SEC-223 / #400)
+1. **No Shared Client Secrets**: The Unity client does not ship, store, or serialize `WebhookSecret` in assets or builds.
+2. **Dual-Mode Producer Verification**:
+   - **Dedicated Server Mode**: Infrastructure holding `WEBHOOK_SECRET` signs the canonical payload using HMAC-SHA256. Verified requests create `AuthoritativeExtractionResult` records.
+   - **Bounded Player-Host Authority (MVP)**: In player-hosted Fusion sessions, the host submits extraction results via authenticated JWT without a shared secret. The backend validates:
+     - Recipient character possesses an active `pendingReservation` for the raid (`422 NO_ACTIVE_RESERVATION`).
+     - Host is an active participant in that raid (`403 HOST_NOT_IN_RAID`).
+     - Item loadout capacity is capped at 30 slots (`422 EXCEEDS_INVENTORY_CAPACITY`) with valid loot identifiers and bounded amounts (`422 INVALID_ITEM_SPECIFICATION`).
+     - Experience granted is capped at the maximum raid budget of 5,000 XP (`422 EXCEEDS_EXPERIENCE_BUDGET`).
+     - Forged signatures or tampered payloads presenting invalid keys are rejected (`401 INVALID_HOST_SIGNATURE`).
+3. **Dedicated Server Target Architecture**: Full simulation authority isolation remains scheduled for Dedicated Server migration (#400). Bounded Player-Host Authority contains item and experience minting within legitimate gameplay parameters during the MVP.
 
 ### Canonical Result Contract
 The HMAC-SHA256 signature is evaluated over a deterministic canonical pipe-delimited string (`RaidResultCanonicalizer` in Unity, `raidResultCanonicalizer.js` in Backend):
