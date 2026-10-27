@@ -6,6 +6,11 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **pressure:** implement authoritative hybrid dungeon collapse progression ([a3d4712](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a3d47120d9e72ce9ef9f60bc8f923b8cfc1c5f0c))
+- **utilities:** implement rune compass and arcane detector ([3945782](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3945782aa49add1afa0de686ee02f8ff0d78d0cd))
+- **quickslots:** retain depleted slots and reject duplicate assignment ([6018d6d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6018d6d428e56965be6f9cc557cd8ec19cc6f96f))
+- **consumables:** add MVP offensive and tactical throwables ([9e7f6c4](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9e7f6c4d170aff8329900fcda012e193e26e67f3))
+- **abilities:** make Ability Vendor purchases authoritative and durable ([384785d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/384785d17e7749103d949529409dc6042c5ade53))
 - **loot:** add test spawner and pickup prefabs for raid item validation ([8463a4d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8463a4d4b53d75a667559aca257efafc0e36a1da))
 - **loot:** implement inventory passive effects for expedition treasures ([7aa4c09](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7aa4c09b33fecd92bb6b1b90b44a955ccfecf519))
 - **consumables:** implement mana restoration and consumption speed gates ([74b0835](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/74b0835bddd8277c897c818be46d0297498e4fe2))
@@ -299,6 +304,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Bug Fixes
 
+- **security:** eliminate client webhook secret and bound host extraction trust ([63f574d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/63f574df6c4328a34f620f7803a464a6ba9ce836))
 - **loot:** attach passive effects controller and sync drop definition ([02e956b](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/02e956b00784ff9022b1f9ea453f3244f4580aa4))
 - **loot:** expand catalog index capacity in packed origin buffer ([a2fb465](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a2fb465360e7dd83f922ae1e91d6d99706ac6ae3))
 - **loot:** resolve ProfileId string comparison in Chaos Coin evaluator ([c554a42](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c554a42e3e473aed7c57a3655e75c21a575d3b9a))
