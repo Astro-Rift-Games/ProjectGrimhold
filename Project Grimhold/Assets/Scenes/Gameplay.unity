@@ -308,6 +308,361 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 2045301596068397189, guid: b0cdd63a489a923439ec1acda9fd4d63, type: 3}
   m_PrefabInstance: {fileID: 58037601}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &81000001
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 520719758994245238, guid: e78d23e91d7a0a77ffc64b7dc871e953, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -23.12
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: e78d23e91d7a0a77ffc64b7dc871e953, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -21
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: e78d23e91d7a0a77ffc64b7dc871e953, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 647995032513395088, guid: e78d23e91d7a0a77ffc64b7dc871e953, type: 3}
+      propertyPath: SortKey
+      value: 699463764
+      objectReference: {fileID: 0}
+    - target: {fileID: 9071512846565298490, guid: e78d23e91d7a0a77ffc64b7dc871e953, type: 3}
+      propertyPath: m_Name
+      value: TestPickup_ManaPotion
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: e78d23e91d7a0a77ffc64b7dc871e953, type: 3}
+--- !u!1001 &81000002
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 520719758994245238, guid: 2fcb203ded95cd3609d6df65dd0a29f8, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -22.12
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: 2fcb203ded95cd3609d6df65dd0a29f8, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -21
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: 2fcb203ded95cd3609d6df65dd0a29f8, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 647995032513395088, guid: 2fcb203ded95cd3609d6df65dd0a29f8, type: 3}
+      propertyPath: SortKey
+      value: 2442274099
+      objectReference: {fileID: 0}
+    - target: {fileID: 9071512846565298490, guid: 2fcb203ded95cd3609d6df65dd0a29f8, type: 3}
+      propertyPath: m_Name
+      value: TestPickup_ManaFragment
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 2fcb203ded95cd3609d6df65dd0a29f8, type: 3}
+--- !u!1001 &81000003
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 520719758994245238, guid: 5e8782949c3edb3abf2c352ea535edcf, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -21.12
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: 5e8782949c3edb3abf2c352ea535edcf, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -21
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: 5e8782949c3edb3abf2c352ea535edcf, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 647995032513395088, guid: 5e8782949c3edb3abf2c352ea535edcf, type: 3}
+      propertyPath: SortKey
+      value: 4185084434
+      objectReference: {fileID: 0}
+    - target: {fileID: 9071512846565298490, guid: 5e8782949c3edb3abf2c352ea535edcf, type: 3}
+      propertyPath: m_Name
+      value: TestPickup_HealthPotion
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 5e8782949c3edb3abf2c352ea535edcf, type: 3}
+--- !u!1001 &81000004
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 520719758994245238, guid: 2ca0ab5a92dbcb6c4592ceea4bb66795, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -23.12
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: 2ca0ab5a92dbcb6c4592ceea4bb66795, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -19.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: 2ca0ab5a92dbcb6c4592ceea4bb66795, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 647995032513395088, guid: 2ca0ab5a92dbcb6c4592ceea4bb66795, type: 3}
+      propertyPath: SortKey
+      value: 1632927473
+      objectReference: {fileID: 0}
+    - target: {fileID: 9071512846565298490, guid: 2ca0ab5a92dbcb6c4592ceea4bb66795, type: 3}
+      propertyPath: m_Name
+      value: TestPickup_ChaosCoin
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 2ca0ab5a92dbcb6c4592ceea4bb66795, type: 3}
+--- !u!1001 &81000005
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 520719758994245238, guid: 8581f3ea52d2cef42bdb045375cefa83, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -22.320002
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: 8581f3ea52d2cef42bdb045375cefa83, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -19.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: 8581f3ea52d2cef42bdb045375cefa83, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 647995032513395088, guid: 8581f3ea52d2cef42bdb045375cefa83, type: 3}
+      propertyPath: SortKey
+      value: 3375737808
+      objectReference: {fileID: 0}
+    - target: {fileID: 9071512846565298490, guid: 8581f3ea52d2cef42bdb045375cefa83, type: 3}
+      propertyPath: m_Name
+      value: TestPickup_PilgrimLight
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 8581f3ea52d2cef42bdb045375cefa83, type: 3}
+--- !u!1001 &81000006
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 520719758994245238, guid: 0e5d4b3e3b9d0b5847fdd3c939337f02, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -21.52
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: 0e5d4b3e3b9d0b5847fdd3c939337f02, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -19.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: 0e5d4b3e3b9d0b5847fdd3c939337f02, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 647995032513395088, guid: 0e5d4b3e3b9d0b5847fdd3c939337f02, type: 3}
+      propertyPath: SortKey
+      value: 823580847
+      objectReference: {fileID: 0}
+    - target: {fileID: 9071512846565298490, guid: 0e5d4b3e3b9d0b5847fdd3c939337f02, type: 3}
+      propertyPath: m_Name
+      value: TestPickup_SanctuaryHeart
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 0e5d4b3e3b9d0b5847fdd3c939337f02, type: 3}
+--- !u!1001 &81000007
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 520719758994245238, guid: acbe0c0cf1312f3a138536f1a6c0b0b0, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -20.720001
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: acbe0c0cf1312f3a138536f1a6c0b0b0, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -19.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: acbe0c0cf1312f3a138536f1a6c0b0b0, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 647995032513395088, guid: acbe0c0cf1312f3a138536f1a6c0b0b0, type: 3}
+      propertyPath: SortKey
+      value: 2566391182
+      objectReference: {fileID: 0}
+    - target: {fileID: 9071512846565298490, guid: acbe0c0cf1312f3a138536f1a6c0b0b0, type: 3}
+      propertyPath: m_Name
+      value: TestPickup_VoidBell
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: acbe0c0cf1312f3a138536f1a6c0b0b0, type: 3}
+--- !u!1001 &81000008
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 520719758994245238, guid: 65805a934ae2a035ea0f60d50a85d285, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -19.92
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: 65805a934ae2a035ea0f60d50a85d285, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -19.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: 65805a934ae2a035ea0f60d50a85d285, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 647995032513395088, guid: 65805a934ae2a035ea0f60d50a85d285, type: 3}
+      propertyPath: SortKey
+      value: 14234221
+      objectReference: {fileID: 0}
+    - target: {fileID: 9071512846565298490, guid: 65805a934ae2a035ea0f60d50a85d285, type: 3}
+      propertyPath: m_Name
+      value: TestPickup_FamineIdol
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 65805a934ae2a035ea0f60d50a85d285, type: 3}
+--- !u!1001 &81000009
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 520719758994245238, guid: b61f5078e414a558bc42d04a51dbbec9, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -19.12
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: b61f5078e414a558bc42d04a51dbbec9, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -19.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: b61f5078e414a558bc42d04a51dbbec9, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 647995032513395088, guid: b61f5078e414a558bc42d04a51dbbec9, type: 3}
+      propertyPath: SortKey
+      value: 1757044556
+      objectReference: {fileID: 0}
+    - target: {fileID: 9071512846565298490, guid: b61f5078e414a558bc42d04a51dbbec9, type: 3}
+      propertyPath: m_Name
+      value: TestPickup_WandererEye
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: b61f5078e414a558bc42d04a51dbbec9, type: 3}
+--- !u!1 &82000001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 82000002}
+  - component: {fileID: 82000003}
+  m_Layer: 0
+  m_Name: '[LootTestSpawner]'
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &82000002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 82000001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -26.29, y: -20.37, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &82000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 82000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RaidLootTestSpawner
+  _pickupPrefab: {fileID: 647995032513395088, guid: 5d26f13a358d7894b9419465e4ba1869, type: 3}
+  _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
+  _spawnAllHotkey: 289
+  _manaPotion: {fileID: 11400000, guid: 7839d1743fa835c83321b5450915e343, type: 2}
+  _manaFragment: {fileID: 11400000, guid: 20440c15ceb9efecff6f2230c1edde47, type: 2}
+  _healthPotion: {fileID: 11400000, guid: 24a3850db41a2b33d4435b816dd4e4a5, type: 2}
+  _chaosCoin: {fileID: 11400000, guid: 1d44a8b530a48cd895a112783d7cc52d, type: 2}
+  _pilgrimLight: {fileID: 11400000, guid: 755c3c09023a345ab5db92e4887e26a7, type: 2}
+  _sanctuaryHeart: {fileID: 11400000, guid: 651ca375664ff35f7b8f992ca07a2039, type: 2}
+  _voidBell: {fileID: 11400000, guid: 2fce397122f2860402217adc54a92b1d, type: 2}
+  _famineIdol: {fileID: 11400000, guid: 553b67fbcc6cf7b653c618c9f57e46db, type: 2}
+  _wandererEye: {fileID: 11400000, guid: 4b5c132fb871b6efb6cd8e51b3a3a150, type: 2}
+  CustomItemToSpawn: {fileID: 0}
+  CustomItemAmount: 1
 --- !u!1001 &104836955
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -128220,3 +128575,13 @@ SceneRoots:
   - {fileID: 851534305}
   - {fileID: 454534411}
   - {fileID: 722681552}
+  - {fileID: 81000001}
+  - {fileID: 81000002}
+  - {fileID: 81000003}
+  - {fileID: 81000004}
+  - {fileID: 81000005}
+  - {fileID: 81000006}
+  - {fileID: 81000007}
+  - {fileID: 81000008}
+  - {fileID: 81000009}
+  - {fileID: 82000002}
