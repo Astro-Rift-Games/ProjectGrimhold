@@ -675,11 +675,19 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                 currentAmount,
                 GetEligibleAmount(index),
                 request.RequestedAmount,
-                out _,
+                out int consumedEligibleAmount,
                 out int remainingAmount,
                 out int remainingEligibleAmount))
         {
             FailExtractionCommitContract();
+        }
+
+        if (consumedEligibleAmount > 0 && _registry != null && _registry.IsPlayerEntity(request.DestinationId) &&
+            _lootCatalog != null && _lootCatalog.TryGet(request.LootId.Value, out LootDefinition extractedDef) &&
+            extractedDef.Category == LootCategory.Treasure &&
+            _registry.TryGetDungeonInstabilitySink(out IDungeonInstabilitySink containerInstabilitySink))
+        {
+            containerInstabilitySink.TryRecordTreasureFirstAcquisition(extractedDef.Family);
         }
 
         if (remainingAmount == 0)

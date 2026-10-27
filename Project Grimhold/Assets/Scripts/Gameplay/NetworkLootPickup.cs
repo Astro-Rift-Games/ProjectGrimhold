@@ -345,6 +345,12 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
                 progressAmount,
                 request.SimulationTick));
         }
+        if (eligibleAmount > 0 && _resolvedLootDefinition != null && _resolvedLootDefinition.Category == LootCategory.Treasure &&
+            _registry != null && _registry.TryGetDungeonInstabilitySink(out IDungeonInstabilitySink sink))
+        {
+            sink.TryRecordTreasureFirstAcquisition(_resolvedLootDefinition.Family);
+        }
+
         FirstAcquisitionEligibleAmount = 0;
 
         if (!CooldownExpiration.ExpiredOrNotRunning(Runner))

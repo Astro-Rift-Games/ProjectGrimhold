@@ -28,6 +28,7 @@ public sealed class EntityRegistry : MonoBehaviour
     private readonly Dictionary<EntityId, IKillExperienceSource> _killExperienceSources = new();
     private readonly Dictionary<EntityId, IExtractionSanctuary> _extractionSanctuaries = new();
     private readonly Dictionary<EntityId, ICombatContributionTracker> _combatContributionTrackers = new();
+    private IDungeonInstabilitySink _dungeonInstabilitySink;
     private readonly Dictionary<Collider2D, EntityId> _colliders = new();
     private readonly Dictionary<EntityId, DamageColliderRegistration> _damageColliderRegistrations = new();
     private readonly Dictionary<Collider2D, EntityId> _damageColliders = new();
@@ -60,6 +61,7 @@ public sealed class EntityRegistry : MonoBehaviour
         _colliders.Clear();
         _damageColliderRegistrations.Clear();
         _damageColliders.Clear();
+        _dungeonInstabilitySink = null;
     }
 
     private readonly struct DamageColliderRegistration
@@ -1184,5 +1186,25 @@ public sealed class EntityRegistry : MonoBehaviour
     public bool TryGetMissionProgressInteractionSource(EntityId id, out IMissionProgressInteractionSource source)
     {
         return _missionProgressInteractionSources.TryGetValue(id, out source);
+    }
+
+    public bool TryRegisterDungeonInstabilitySink(IDungeonInstabilitySink sink)
+    {
+        if (sink == null) return false;
+        _dungeonInstabilitySink = sink;
+        return true;
+    }
+
+    public bool TryUnregisterDungeonInstabilitySink(IDungeonInstabilitySink expectedSink)
+    {
+        if (_dungeonInstabilitySink != expectedSink) return false;
+        _dungeonInstabilitySink = null;
+        return true;
+    }
+
+    public bool TryGetDungeonInstabilitySink(out IDungeonInstabilitySink sink)
+    {
+        sink = _dungeonInstabilitySink;
+        return sink != null;
     }
 }
