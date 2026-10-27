@@ -11,11 +11,15 @@ using UnityEngine;
 [DisallowMultipleComponent]
 [RequireComponent(typeof(NetworkObject))]
 [RequireComponent(typeof(PlayerLootReceiver))]
-public sealed class PlayerConsumableNetworkController : NetworkBehaviour
+public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
+    IUtilityCooldownProvider,
+    IUtilityCooldownReceiver
 {
     public static readonly LootId ExplosiveBombId = new("CON_EXPLOSIVE_BOMB");
     public static readonly LootId ThrowingDaggerId = new("CON_THROWING_DAGGER");
     public static readonly LootId SmokeBombId = new("CON_SMOKE_BOMB");
+    public static readonly LootId RuneCompassId = new("UTL_RUNE_COMPASS");
+    public static readonly LootId ArcaneDetectorId = new("UTL_ARCANE_DETECTOR");
 
     [SerializeField] private LootDefinitionCatalog _lootCatalog;
     [SerializeField] private MonoBehaviour _characterSource;
@@ -35,6 +39,7 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
     private PlayerExtractionController _extraction;
     private IMovementState _movementState;
     private FusionProjectileSpawner _projectileSpawner;
+    private EntityRegistry _registry;
     private bool _dependenciesValid;
     private bool _spawned;
     private uint _clientNextSequence = 1;
@@ -50,9 +55,13 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
     [Networked] private uint ServerLastProcessedSequence { get; set; }
     [Networked] private Vector2 AimTargetPosition { get; set; }
     [Networked] private NetworkBool IsAimedThrowActive { get; set; }
+    [Networked] private TickTimer RuneCompassCooldown { get; set; }
+    [Networked] private TickTimer ArcaneDetectorCooldown { get; set; }
 
     public event Action<LootId> ConsumeConfirmed;
     public event Action<ConsumableFailureReason> ConsumeRejected;
+    public event Action<CardinalDirection, float> RuneCompassActivated;
+    public event Action<int, float> ArcaneDetectorActivated;
     public bool HasRequestInFlight => _clientInFlightSequence > 0;
     // Keep the gate closed through the completion tick, until the authoritative transaction clears it.
     public bool IsConsuming => _spawned && Object != null && Object.IsValid && ConsumptionTimer.IsRunning;
@@ -61,9 +70,12 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
         get
         {
             if (IsAimedThrowActive) return 0.5f;
-            return TryGetConsumingDefinition(out LootDefinition def) && def.ConsumableDefinition != null
-                ? def.ConsumableDefinition.MovementSpeedMultiplier
-                : 1f;
+            if (IsConsuming && TryGetConsumingDefinition(out LootDefinition def))
+            {
+                if (def.LootId == ArcaneDetectorId) return 0.5f;
+                if (def.ConsumableDefinition != null) return def.ConsumableDefinition.MovementSpeedMultiplier;
+            }
+            return 1f;
         }
     }
 
@@ -74,6 +86,7 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
         CacheDependencies();
         _dependenciesValid = ValidateDependencies();
         _matchController = Runner.GetComponent<NetworkMatchController>();
+        _registry = Runner.GetComponent<EntityRegistry>();
         _spawned = true;
         _clientNextSequence = ServerLastProcessedSequence + 1;
         _clientInFlightSequence = 0;
@@ -121,6 +134,18 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
         if (_lootReceiver != null && _lootReceiver.GetLootAmount(lootId) <= 0)
         {
             _confirmations.Enqueue(new Confirmation(catalogIndex, false, ConsumableFailureReason.InsufficientAmount));
+            return false;
+        }
+
+        if (lootId == RuneCompassId && !RuneCompassCooldown.ExpiredOrNotRunning(Runner))
+        {
+            _confirmations.Enqueue(new Confirmation(catalogIndex, false, ConsumableFailureReason.CooldownActive));
+            return false;
+        }
+
+        if (lootId == ArcaneDetectorId && !ArcaneDetectorCooldown.ExpiredOrNotRunning(Runner))
+        {
+            _confirmations.Enqueue(new Confirmation(catalogIndex, false, ConsumableFailureReason.CooldownActive));
             return false;
         }
 
@@ -175,6 +200,11 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
                     IsAimedThrowActive = false;
                     ExecuteSmokeZone(AimTargetPosition);
                 }
+                else if (_lootCatalog != null && _lootCatalog.TryGetByIndex(index, out LootDefinition def) && def.LootId == ArcaneDetectorId)
+                {
+                    ExecuteArcaneDetector();
+                    RPC_ReceiveConsumeConfirmation(sequence, index, true, (int)ConsumableFailureReason.None);
+                }
                 else
                 {
                     ConsumableResult result = ProcessAuthoritativeConsume(index);
@@ -197,6 +227,37 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
         }
 
         PlayerReviveGate.InterruptIfReviving(_character);
+
+        if (definition.Category == LootCategory.Utility)
+        {
+            if (definition.LootId == RuneCompassId)
+            {
+                if (!RuneCompassCooldown.ExpiredOrNotRunning(Runner))
+                {
+                    RPC_ReceiveConsumeConfirmation(pending, catalogIndex, false, (int)ConsumableFailureReason.CooldownActive);
+                    return;
+                }
+
+                RuneCompassCooldown = TickTimer.CreateFromSeconds(Runner, 30.0f);
+                CardinalDirection direction = ExecuteRuneCompass();
+                RPC_ReceiveCompassActivation(pending, (byte)direction, CardinalDirectionHelper.DisplayDuration);
+                RPC_ReceiveConsumeConfirmation(pending, catalogIndex, true, (int)ConsumableFailureReason.None);
+                return;
+            }
+            else if (definition.LootId == ArcaneDetectorId)
+            {
+                if (!ArcaneDetectorCooldown.ExpiredOrNotRunning(Runner))
+                {
+                    RPC_ReceiveConsumeConfirmation(pending, catalogIndex, false, (int)ConsumableFailureReason.CooldownActive);
+                    return;
+                }
+
+                ConsumptionCatalogIndex = catalogIndex;
+                ConsumptionRequestSequence = pending;
+                ConsumptionTimer = TickTimer.CreateFromSeconds(Runner, 2.0f);
+                return;
+            }
+        }
 
         if (definition.UseMode == ItemUseMode.AimedQuickSlot)
         {
@@ -299,6 +360,19 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
 
         if (definition.UseMode == ItemUseMode.AimedQuickSlot)
         {
+            return ConsumableFailureReason.None;
+        }
+
+        if (definition.Category == LootCategory.Utility)
+        {
+            if (definition.LootId == RuneCompassId && !RuneCompassCooldown.ExpiredOrNotRunning(Runner))
+            {
+                return ConsumableFailureReason.CooldownActive;
+            }
+            if (definition.LootId == ArcaneDetectorId && !ArcaneDetectorCooldown.ExpiredOrNotRunning(Runner))
+            {
+                return ConsumableFailureReason.CooldownActive;
+            }
             return ConsumableFailureReason.None;
         }
 
@@ -451,6 +525,131 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour
         _throwingDaggerPrefab = daggerPrefab;
         _explosiveBombPrefab = bombPrefab;
         _smokeZonePrefab = smokeZonePrefab;
+    }
+
+    public TickTimer GetUtilityCooldown(LootId lootId)
+    {
+        if (lootId == RuneCompassId) return RuneCompassCooldown;
+        if (lootId == ArcaneDetectorId) return ArcaneDetectorCooldown;
+        return default;
+    }
+
+    public void ClearUtilityCooldown(LootId lootId)
+    {
+        if (lootId == RuneCompassId) RuneCompassCooldown = TickTimer.None;
+        else if (lootId == ArcaneDetectorId) ArcaneDetectorCooldown = TickTimer.None;
+    }
+
+    public void SetUtilityCooldown(LootId lootId, TickTimer timer)
+    {
+        if (lootId == RuneCompassId)
+        {
+            if (RuneCompassCooldown.ExpiredOrNotRunning(Runner) || timer.TargetTick > RuneCompassCooldown.TargetTick)
+            {
+                RuneCompassCooldown = timer;
+            }
+        }
+        else if (lootId == ArcaneDetectorId)
+        {
+            if (ArcaneDetectorCooldown.ExpiredOrNotRunning(Runner) || timer.TargetTick > ArcaneDetectorCooldown.TargetTick)
+            {
+                ArcaneDetectorCooldown = timer;
+            }
+        }
+    }
+
+    private CardinalDirection ExecuteRuneCompass()
+    {
+        Vector2 playerPos = (Vector2)transform.position;
+        if (_registry != null && _registry.TryGetNearestExtractionSanctuary(playerPos, out _, out Vector2 sanctuaryPos))
+        {
+            return CardinalDirectionHelper.GetCardinalDirection(playerPos, sanctuaryPos);
+        }
+
+        var sanctuaries = UnityEngine.Object.FindObjectsByType<ExtractionSanctuary>(FindObjectsSortMode.None);
+        if (sanctuaries != null && sanctuaries.Length > 0)
+        {
+            float minSqr = float.MaxValue;
+            Vector2 nearestPos = default;
+            bool found = false;
+            for (int i = 0; i < sanctuaries.Length; i++)
+            {
+                if (sanctuaries[i] == null) continue;
+                Vector2 pos = sanctuaries[i].transform.position;
+                float sqr = (pos - playerPos).sqrMagnitude;
+                if (sqr < minSqr)
+                {
+                    minSqr = sqr;
+                    nearestPos = pos;
+                    found = true;
+                }
+            }
+            if (found)
+            {
+                return CardinalDirectionHelper.GetCardinalDirection(playerPos, nearestPos);
+            }
+        }
+
+        return CardinalDirection.None;
+    }
+
+    private void ExecuteArcaneDetector()
+    {
+        ArcaneDetectorCooldown = TickTimer.CreateFromSeconds(Runner, 20.0f);
+        Vector2 playerPos = (Vector2)transform.position;
+        Collider2D[] hits = Physics2D.OverlapCircleAll(playerPos, ArcaneElementDetectionRules.DetectionRadius);
+        var detectedNetworkIds = new List<NetworkId>();
+        var seenObjects = new HashSet<NetworkObject>();
+
+        for (int i = 0; i < hits.Length; i++)
+        {
+            if (hits[i] == null) continue;
+            NetworkObject no = hits[i].GetComponentInParent<NetworkObject>();
+            if (no == null || !no.IsValid || !seenObjects.Add(no)) continue;
+
+            if (no.TryGetComponent(out NetworkLootPickup pickup))
+            {
+                if (pickup.IsAvailable && ArcaneElementDetectionRules.IsArcaneDefinition(pickup.LootDefinition))
+                {
+                    detectedNetworkIds.Add(no.Id);
+                }
+            }
+            else if (no.TryGetComponent(out NetworkLootContainer container))
+            {
+                detectedNetworkIds.Add(no.Id);
+            }
+        }
+
+        RPC_ReceiveArcaneDetection(detectedNetworkIds.ToArray(), ArcaneElementDetectionRules.HighlightDuration);
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]
+    private void RPC_ReceiveCompassActivation(uint sequence, byte directionValue, float duration)
+    {
+        var direction = (CardinalDirection)directionValue;
+        RuneCompassActivated?.Invoke(direction, duration);
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]
+    private void RPC_ReceiveArcaneDetection(NetworkId[] detectedIds, float duration)
+    {
+        int count = detectedIds != null ? detectedIds.Length : 0;
+        if (detectedIds != null && Runner != null)
+        {
+            for (int i = 0; i < detectedIds.Length; i++)
+            {
+                if (Runner.TryFindObject(detectedIds[i], out NetworkObject no) && no != null)
+                {
+                    if (!no.TryGetComponent(out ArcaneHighlightEffect effect))
+                    {
+                        effect = no.gameObject.AddComponent<ArcaneHighlightEffect>();
+                    }
+                    effect.Initialize(duration, new Color(0.2f, 0.85f, 1f, 1f));
+                }
+            }
+        }
+
+        ArcaneDetectorActivated?.Invoke(count, duration);
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]

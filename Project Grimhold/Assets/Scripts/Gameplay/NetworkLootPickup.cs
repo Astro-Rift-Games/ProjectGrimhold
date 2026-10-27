@@ -52,6 +52,10 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
     [Networked]
     private RaidLootPickupCompactOriginState RaidOriginState { get; set; }
 
+    /// <summary>Remaining cooldown for reusable expedition utilities (Doc 14 TASK-234).</summary>
+    [Networked]
+    public TickTimer CooldownExpiration { get; set; }
+
     public bool IsAvailable => IsInitialized && IsPublished && !IsConsumed;
 
     public new EntityId Id => new EntityId(unchecked((int)Object.Id.Raw));
@@ -64,6 +68,7 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
     private bool _hasSpawnContentOverride;
     private int _spawnEligibleAmountOverride;
     private RaidLootOriginTransfer _spawnOriginOverride;
+    private TickTimer _spawnCooldownOverride;
     private LootDefinition _resolvedLootDefinition;
 
     /// <summary>Static loot definition resolved locally from replicated catalog identity.</summary>
@@ -130,6 +135,7 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         _spawnContentOverride = default;
         _hasSpawnContentOverride = false;
         _spawnOriginOverride = null;
+        _spawnCooldownOverride = default;
         _spawnStartsPublished = true;
     }
 
@@ -182,6 +188,25 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         int firstAcquisitionEligibleAmount,
         RaidLootOriginTransfer originTransfer)
     {
+        return TrySetSpawnContentOverride(
+            runner,
+            expectedObject,
+            entry,
+            initiallyPublished,
+            firstAcquisitionEligibleAmount,
+            originTransfer,
+            default);
+    }
+
+    internal bool TrySetSpawnContentOverride(
+        NetworkRunner runner,
+        NetworkObject expectedObject,
+        in LootEntry entry,
+        bool initiallyPublished,
+        int firstAcquisitionEligibleAmount,
+        RaidLootOriginTransfer originTransfer,
+        TickTimer cooldownExpiration)
+    {
         if (_hasSpawnContentOverride || runner == null || !runner.IsServer ||
             expectedObject == null || expectedObject.gameObject != gameObject ||
             expectedObject.GetComponent<NetworkLootPickup>() != this ||
@@ -200,6 +225,7 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         _spawnStartsPublished = initiallyPublished;
         _spawnEligibleAmountOverride = firstAcquisitionEligibleAmount;
         _spawnOriginOverride = originTransfer;
+        _spawnCooldownOverride = cooldownExpiration;
         if (_lootCatalog != null && _lootCatalog.TryGet(entry.LootId.Value, out LootDefinition overrideDef))
         {
             _lootDefinition = overrideDef;
@@ -321,6 +347,15 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         }
         FirstAcquisitionEligibleAmount = 0;
 
+        if (!CooldownExpiration.ExpiredOrNotRunning(Runner))
+        {
+            if (receiver is Component receiverComp &&
+                receiverComp.TryGetComponent<IUtilityCooldownReceiver>(out var cooldownReceiver))
+            {
+                cooldownReceiver.SetUtilityCooldown(_resolvedLootDefinition.LootId, CooldownExpiration);
+            }
+        }
+
         if (receiver is ILootPickupFeedbackSink feedbackSink)
         {
             feedbackSink.PublishPickupGrant(transferRequest);
@@ -359,6 +394,7 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         FirstAcquisitionEligibleAmount = _hasSpawnContentOverride
             ? _spawnEligibleAmountOverride
             : entry.Amount;
+        CooldownExpiration = _hasSpawnContentOverride ? _spawnCooldownOverride : default;
         IsConsumed = false;
         IsPublished = _hasSpawnContentOverride ? _spawnStartsPublished : true;
         RaidLootOriginTransfer originTransfer = _hasSpawnContentOverride

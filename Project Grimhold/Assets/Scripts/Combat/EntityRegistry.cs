@@ -631,6 +631,34 @@ public sealed class EntityRegistry : MonoBehaviour
     }
 
     /// <summary>
+    /// Resuelve el santuario de extracción más cercano a la posición dada (Doc 14 UTL_RUNE_COMPASS).
+    /// </summary>
+    public bool TryGetNearestExtractionSanctuary(Vector2 fromPosition, out IExtractionSanctuary nearestSanctuary, out Vector2 sanctuaryPosition)
+    {
+        nearestSanctuary = null;
+        sanctuaryPosition = default;
+        float minSqrDistance = float.MaxValue;
+
+        foreach (var kvp in _extractionSanctuaries)
+        {
+            IExtractionSanctuary candidate = kvp.Value;
+            if (candidate is Component comp && comp != null)
+            {
+                Vector2 pos = comp.transform.position;
+                float sqrDist = (pos - fromPosition).sqrMagnitude;
+                if (sqrDist < minSqrDistance)
+                {
+                    minSqrDistance = sqrDist;
+                    nearestSanctuary = candidate;
+                    sanctuaryPosition = pos;
+                }
+            }
+        }
+
+        return nearestSanctuary != null;
+    }
+
+    /// <summary>
     /// Returns whether a collider is eligible for damage detection for its entity.
     /// Entities without an explicit damage-collider registration retain legacy behavior
     /// in which every registered collider is eligible.

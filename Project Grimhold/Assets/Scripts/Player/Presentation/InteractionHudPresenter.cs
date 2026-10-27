@@ -142,7 +142,8 @@ public sealed class InteractionHudPresenter : MonoBehaviour
 
         if (!interactionEvent.Success &&
             interactionEvent.FailureReason == InteractionFailureReason.LootRejected &&
-            interactionEvent.LootFailureReason == LootTransferFailureReason.InventoryFull)
+            (interactionEvent.LootFailureReason == LootTransferFailureReason.InventoryFull ||
+             interactionEvent.LootFailureReason == LootTransferFailureReason.MaxTransportableExceeded))
         {
             TryPlayPickupRejection(interactionEvent.TargetId);
             HideFeedback();

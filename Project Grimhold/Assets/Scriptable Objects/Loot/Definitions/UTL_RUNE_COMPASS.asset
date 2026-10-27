@@ -31,9 +31,9 @@ MonoBehaviour:
   _canEnterDungeon: 1
   _canBeFoundInDungeon: 1
   _canBeDiscarded: 1
-  _canBeUsed: 0
+  _canBeUsed: 1
   _missionCompatible: 0
-  _useMode: 0
+  _useMode: 1
   _extractionValuePerUnit: 140
   _sellValuePerUnit: 140
   _buyValuePerUnit: 280

@@ -1242,6 +1242,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
                 ConsumableFailureReason.HealthFull => "Tu salud ya está al máximo.",
                 ConsumableFailureReason.ManaFull => "Tu maná ya está al máximo.",
                 ConsumableFailureReason.InsufficientAmount => "No tienes suficientes consumibles.",
+                ConsumableFailureReason.CooldownActive => "El objeto está en enfriamiento.",
                 _ => "No se pudo usar el objeto."
             };
             _view.ShowTransferFeedback(message);
@@ -1499,6 +1500,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             LootTransferFailureReason.ContainerUnavailable => "Contenedor no disponible",
             LootTransferFailureReason.PlayerUnavailable => "Jugador no disponible",
             LootTransferFailureReason.Overflow => "La cantidad excede el límite",
+            LootTransferFailureReason.MaxTransportableExceeded => "Límite transportable alcanzado",
             _ => isDeposit ? "No se pudo depositar el loot" : "No se pudo retirar el loot"
         };
     }
