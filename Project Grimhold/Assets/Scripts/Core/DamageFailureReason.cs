@@ -10,5 +10,6 @@ public enum DamageFailureReason
     TargetDead,
     SelfDamageRejected,
     MissingAuthority,
-    RejectedByTarget
+    RejectedByTarget,
+    FriendlyFireBlocked
 }

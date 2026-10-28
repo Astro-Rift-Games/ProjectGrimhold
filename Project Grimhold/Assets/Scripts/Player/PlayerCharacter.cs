@@ -343,6 +343,13 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
         out DamageResult result)
     {
         result = default;
+        if (IsDowned && request.IsAllyDirectDamage)
+        {
+            // No reserve mutation or NotifyDownedDamaged: revive must continue uninterrupted.
+            result = new DamageResult(Id, true, 0f, Health, false, DamageFailureReason.None);
+            return true;
+        }
+
         if (!IsDowned ||
             !_downedStateController.TryApplyDownedDamage(
                 mitigatedDamage,

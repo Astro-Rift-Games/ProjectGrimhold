@@ -25,6 +25,44 @@ namespace Tests.PlayMode.Loot
         }
 
         [UnityTest]
+        public IEnumerator AllyDamage_ResolverEnabled_AppliesConfiguredMultiplier()
+        {
+            yield return StartRunnerAndLoadPlayer();
+            Spawn(out PlayerCharacter target, out PlayerDownedStateNetworkController downed,
+                out NetworkLootContainer container);
+            NetworkObject attackerObject = _runner.Spawn(_playerPrefab, new Vector3(5f, 0f, 0f), Quaternion.identity);
+            var attacker = attackerObject.GetComponent<PlayerCharacter>();
+            var resolver = attackerObject.GetComponent<DamageResolver>();
+            Assert.That(resolver, Is.Not.Null);
+            SetField(resolver, "_allyDamageMultiplier", 0.5f);
+            resolver.AreInitialTeammates = (_, _) => true;
+            resolver.FriendlyFireEnabled = () => true;
+            _driver.RequestedAttackerId = attacker.Id;
+            _driver.RequestedResolver = resolver;
+            float before = target.Health;
+            yield return Hit(10f);
+            Assert.That(_driver.FirstResult.AppliedDamage, Is.EqualTo(5f).Within(0.001f));
+            Assert.That(target.Health, Is.EqualTo(before - 5f).Within(0.001f));
+        }
+
+        [UnityTest]
+        public IEnumerator AllyDamage_FriendlyFireEnabled_ClampsToOneHp()
+        {
+            yield return StartRunnerAndLoadPlayer();
+            Spawn(out PlayerCharacter player, out PlayerDownedStateNetworkController downed,
+                out NetworkLootContainer container);
+            _driver.RequestedAllyDirectDamage = true;
+            yield return Hit(100000f);
+            yield return Hit(100000f);
+            Assert.That(player.Health, Is.EqualTo(1f));
+            Assert.That(player.IsDowned, Is.False);
+            Assert.That(player.IsAlive, Is.True);
+            Assert.That(_driver.FirstResult.AppliedDamage, Is.Zero);
+            Assert.That(_driver.FirstResult.IsFatal, Is.False);
+            Assert.That(downed.DownedCycle, Is.Zero);
+        }
+
+        [UnityTest]
         public IEnumerator FatalHit_EntersDownedWithFullReserveAndNoCorpse()
         {
             yield return StartRunnerAndLoadPlayer();

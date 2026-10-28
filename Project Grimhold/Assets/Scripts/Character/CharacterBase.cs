@@ -149,13 +149,14 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
             return alternateResult;
         }
 
+        finalDamage = FriendlyFireRules.ClampDamage(Health, finalDamage, request.IsAllyDirectDamage);
         float previousHealth = Health;
         Health = Mathf.Max(0f, Health - finalDamage);
         float actualDamageApplied = previousHealth - Health;
 
         if (actualDamageApplied > 0f) OnDamageApplied(actualDamageApplied);
 
-        bool isFatal = Health <= 0f;
+        bool isFatal = !request.IsAllyDirectDamage && Health <= 0f;
 
         if (isFatal && TryInterceptFatalDamage(request))
         {
