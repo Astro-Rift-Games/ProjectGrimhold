@@ -58,6 +58,8 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     private EquipmentSlot _pendingSlot;
     private int _pendingRequestSequence;
     private NetworkId _pendingContainerId;
+    private int _pendingSourceInventorySlotIndex = -1;
+    private int _pendingExpectedInventoryRevision = -1;
     private int _nextRequestSequence;
     private int _appliedSlot1 = int.MinValue;
     private int _appliedSlot2 = int.MinValue;
@@ -176,10 +178,17 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         EquipmentSlot slot = _pendingSlot;
         int requestSequence = _pendingRequestSequence;
         NetworkId containerId = _pendingContainerId;
+        int sourceInventorySlotIndex = _pendingSourceInventorySlotIndex;
+        int expectedInventoryRevision = _pendingExpectedInventoryRevision;
         _hasPendingAuthorityRequest = false;
 
         EquipmentOperationResult result = EquipmentOperationResult.InvalidRequest;
-        if (requestKind == EquipmentRequestKind.Equip) result = TryEquipAuthority(catalogIndex, slot);
+        if (requestKind == EquipmentRequestKind.Equip)
+        {
+            result = sourceInventorySlotIndex == -1 && expectedInventoryRevision == -1
+                ? TryEquipAuthority(catalogIndex, slot)
+                : TryEquipAuthorityCore(catalogIndex, slot, sourceInventorySlotIndex, expectedInventoryRevision);
+        }
         else if (requestKind == EquipmentRequestKind.Unequip) result = TryUnequipAuthority(slot);
         else if (requestKind == EquipmentRequestKind.ContainerEquip) result = TryContainerEquipAuthority(containerId, catalogIndex, slot);
         RPC_ConfirmRequest(requestSequence, (int)result);
@@ -213,7 +222,16 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
                 WeaponEligibilityFailure.None);
     }
 
-    public bool TryRequestEquip(LootId lootId, EquipmentSlot slot)
+    public bool TryRequestEquip(LootId lootId, EquipmentSlot slot) =>
+        TryRequestEquipCore(lootId, slot, -1, -1);
+
+    public bool TryRequestEquip(LootId lootId, EquipmentSlot slot,
+        int sourceInventorySlotIndex, int expectedInventoryRevision) =>
+        LootTransferRequest.IsValidInventorySlotAddress(sourceInventorySlotIndex, expectedInventoryRevision) &&
+        TryRequestEquipCore(lootId, slot, sourceInventorySlotIndex, expectedInventoryRevision);
+
+    private bool TryRequestEquipCore(LootId lootId, EquipmentSlot slot,
+        int sourceInventorySlotIndex, int expectedInventoryRevision)
     {
         if (!IsEquipmentReadable || !HasInputAuthority || HasRequestInFlight)
         {
@@ -228,7 +246,8 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             return false;
         }
 
-        return TrySendRequest(EquipmentRequestKind.Equip, catalogIndex, slot);
+        return TrySendRequest(EquipmentRequestKind.Equip, catalogIndex, slot,
+            sourceInventorySlotIndex, expectedInventoryRevision);
     }
 
     public bool TryRequestContainerEquip(EntityId containerId, LootId lootId, EquipmentSlot slot)
@@ -672,6 +691,8 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         _pendingSlot = EquipmentSlotRules.IsValidSlotValue(slotValue) ? (EquipmentSlot)slotValue : EquipmentSlot.None;
         _pendingRequestSequence = requestSequence;
         _pendingContainerId = containerId;
+        _pendingSourceInventorySlotIndex = -1;
+        _pendingExpectedInventoryRevision = -1;
         _hasPendingAuthorityRequest = true;
         return default;
     }
@@ -683,6 +704,8 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         int catalogIndex,
         int slotValue,
         int requestSequence,
+        int sourceInventorySlotIndex,
+        int expectedInventoryRevision,
         RpcInfo info = default)
     {
         if (!HasStateAuthority || info.Source != Object.InputAuthority)
@@ -690,7 +713,10 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             return default;
         }
 
-        if (_hasPendingAuthorityRequest || !IsValidRequestKind(requestKind))
+        bool addressed = sourceInventorySlotIndex != -1 || expectedInventoryRevision != -1;
+        if (_hasPendingAuthorityRequest || !IsValidRequestKind(requestKind) ||
+            !LootTransferRequest.IsValidInventorySource(sourceInventorySlotIndex, expectedInventoryRevision) ||
+            (addressed && requestKind != (int)EquipmentRequestKind.Equip))
         {
             RPC_ConfirmRequest(requestSequence, (int)EquipmentOperationResult.InvalidRequest);
             return default;
@@ -702,6 +728,9 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             ? (EquipmentSlot)slotValue
             : EquipmentSlot.None;
         _pendingRequestSequence = requestSequence;
+        _pendingContainerId = default;
+        _pendingSourceInventorySlotIndex = sourceInventorySlotIndex;
+        _pendingExpectedInventoryRevision = expectedInventoryRevision;
         _hasPendingAuthorityRequest = true;
         return default;
     }
@@ -718,14 +747,17 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         _pendingPresentationResults.Enqueue((EquipmentOperationResult)resultValue);
     }
 
-    private bool TrySendRequest(EquipmentRequestKind kind, int catalogIndex, EquipmentSlot slot)
+    private bool TrySendRequest(EquipmentRequestKind kind, int catalogIndex, EquipmentSlot slot,
+        int sourceInventorySlotIndex = -1, int expectedInventoryRevision = -1)
     {
         int requestSequence = ++_nextRequestSequence;
         RpcInvokeInfo invokeInfo = RPC_RequestEquipment(
             (int)kind,
             catalogIndex,
             (int)slot,
-            requestSequence);
+            requestSequence,
+            sourceInventorySlotIndex,
+            expectedInventoryRevision);
         if (!WasAccepted(invokeInfo, HasStateAuthority))
         {
             return false;
@@ -854,10 +886,18 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     }
 #endif
 
-    private EquipmentOperationResult TryEquipAuthority(int catalogIndex, EquipmentSlot targetSlot)
+    private EquipmentOperationResult TryEquipAuthority(int catalogIndex, EquipmentSlot targetSlot) =>
+        TryEquipAuthorityCore(catalogIndex, targetSlot, -1, -1);
+
+    private EquipmentOperationResult TryEquipAuthorityCore(int catalogIndex, EquipmentSlot targetSlot,
+        int sourceInventorySlotIndex, int expectedInventoryRevision)
     {
         if (!ValidateEquipmentDependencies()) return EquipmentOperationResult.DependenciesUnavailable;
         if (!CanMutateEquipment()) return EquipmentOperationResult.PlayerUnavailable;
+        bool addressed = sourceInventorySlotIndex != -1 || expectedInventoryRevision != -1;
+        if (!LootTransferRequest.IsValidInventorySource(sourceInventorySlotIndex, expectedInventoryRevision) ||
+            (addressed && expectedInventoryRevision != _lootReceiver.Revision))
+            return EquipmentOperationResult.InvalidRequest;
         PlayerReviveGate.InterruptIfReviving(_character);
 
         if (!_lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition) || definition == null ||
@@ -865,6 +905,12 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         {
             return EquipmentOperationResult.InvalidEquipment;
         }
+
+        LootTransferRequest extraction = new LootTransferRequest(_lootReceiver.Id, _lootReceiver.Id,
+            definition.LootId, 1, Runner != null ? Runner.Tick : 0,
+            sourceInventorySlotIndex, expectedInventoryRevision);
+        if (addressed && _lootReceiver.ValidateExtraction(extraction) != LootTransferFailureReason.None)
+            return EquipmentOperationResult.InvalidRequest;
 
         if (!EquipmentSlotRules.IsHandSlot(targetSlot) && IsSlotOccupied(targetSlot))
         {
@@ -918,7 +964,6 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             }
         }
 
-        LootTransferRequest extraction = CreateInventoryTransfer(definition.LootId);
         if (_lootReceiver.ValidateExtraction(extraction) != LootTransferFailureReason.None ||
             !_lootReceiver.TryResolveRaidLootOriginTransfer(extraction, out RaidLootOriginTransfer originTransfer))
         {
@@ -953,20 +998,12 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             displacedEntries[index] = displaced;
         }
 
-        if (!CanApplyInventoryExchange(definition.LootId, displacedEntries))
+        // Plan outgoing removal and every displaced origin together, without touching
+        // replicated state. Separate receive validation here would miss the freed space.
+        if (!_lootReceiver.CanApplyInventoryExchange(
+                extraction, originTransfer, displacedEntries, displacedOrigins))
         {
             return EquipmentOperationResult.InventoryFull;
-        }
-
-        for (int index = 0; index < displacedEntries.Length; index++)
-        {
-            if (!displacedEntries[index].HasValue) continue;
-            LootTransferRequest receive = CreateInventoryTransfer(displacedEntries[index].Value.LootId);
-            if (_lootReceiver.ValidateRaidLootOriginReceive(receive, displacedTransfers[index]) !=
-                LootTransferFailureReason.None)
-            {
-                return EquipmentOperationResult.DependenciesUnavailable;
-            }
         }
 
         _lootReceiver.CommitRaidLootExtraction(extraction, originTransfer);
@@ -1042,13 +1079,10 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             if (!TryGetSlotRaidOrigin(displacedSlot, out displacedOrigins[index]) || !RaidLootOriginTransfer.TryCreate(displacedOrigins[index], 1, out displacedTransfers[index])) return EquipmentOperationResult.DependenciesUnavailable;
             displacedEntries[index] = displaced;
         }
-        if (!CanApplyInventoryExchange(definition.LootId, displacedEntries)) return EquipmentOperationResult.InventoryFull;
-        for (int index = 0; index < displacedEntries.Length; index++)
-        {
-            if (!displacedEntries[index].HasValue) continue;
-            LootTransferRequest receive = CreateInventoryTransfer(displacedEntries[index].Value.LootId);
-            if (_lootReceiver.ValidateRaidLootOriginReceive(receive, displacedTransfers[index]) != LootTransferFailureReason.None) return EquipmentOperationResult.DependenciesUnavailable;
-        }
+        // A container-owned incoming item frees no Inventory slot. Only the displaced
+        // equipment is received by Inventory, with its original exact origins.
+        if (!_lootReceiver.CanApplyInventoryExchange(null, null, displacedEntries, displacedOrigins))
+            return EquipmentOperationResult.InventoryFull;
 
         container.CommitRaidLootExtraction(extraction, originTransfer);
         for (int index = 0; index < displacedEntries.Length; index++)
@@ -1480,34 +1514,6 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             attributes,
             contributions,
             out effectiveDamage) && effectiveDamage > 0f;
-    }
-
-    private bool CanApplyInventoryExchange(LootId equippedLootId, LootEntry?[] displaced)
-    {
-        if (!_lootReceiver.TryGetLootContent(out IReadOnlyList<LootEntry> current)) return false;
-        var amounts = new Dictionary<LootId, int>(current.Count);
-        for (int index = 0; index < current.Count; index++)
-        {
-            amounts[current[index].LootId] = current[index].Amount;
-        }
-
-        if (!amounts.TryGetValue(equippedLootId, out int equippedAmount) || equippedAmount < 1)
-        {
-            return false;
-        }
-
-        if (equippedAmount == 1) amounts.Remove(equippedLootId);
-        else amounts[equippedLootId] = equippedAmount - 1;
-
-        for (int index = 0; index < displaced.Length; index++)
-        {
-            if (!displaced[index].HasValue) continue;
-            LootId lootId = displaced[index].Value.LootId;
-            amounts.TryGetValue(lootId, out int amount);
-            amounts[lootId] = amount + 1;
-        }
-
-        return amounts.Count <= _lootReceiver.SlotCapacity;
     }
 
     private bool CanMutateEquipment() => _character != null && _character.IsAlive &&

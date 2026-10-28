@@ -111,21 +111,38 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
     /// Sends one single-unit or full-stack inventory drop intention from Input Authority.
     /// State Authority resolves the final quantity from its current inventory snapshot.
     /// </summary>
-    public bool TryRequestDrop(LootId lootId, LootTransferQuantityMode quantityMode)
+    public bool TryRequestDrop(LootId lootId, LootTransferQuantityMode quantityMode) =>
+        TryRequestDropCore(lootId, quantityMode, -1, -1);
+
+    public bool TryRequestDrop(LootId lootId, LootTransferQuantityMode quantityMode,
+        int sourceInventorySlotIndex, int expectedInventoryRevision) =>
+        LootTransferRequest.IsValidInventorySlotAddress(sourceInventorySlotIndex, expectedInventoryRevision) &&
+        TryRequestDropCore(lootId, quantityMode, sourceInventorySlotIndex, expectedInventoryRevision);
+
+    private bool TryRequestDropCore(LootId lootId, LootTransferQuantityMode quantityMode,
+        int sourceInventorySlotIndex, int expectedInventoryRevision)
     {
         if (!HasInputAuthority || !_dependenciesValid || !IsGameplayPhaseActive() ||
             (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)) ||
             (_extractionController != null && _extractionController.State == ExtractionState.Extracted) ||
-            _lootCatalog == null || !_lootCatalog.TryGetIndex(lootId, out int catalogIndex) ||
-            !_clientRequest.TryCreateCandidate(catalogIndex, quantityMode, out LootDropRequestIdentity identity))
+            _lootCatalog == null || !_lootCatalog.TryGetIndex(lootId, out int catalogIndex))
         {
             return false;
         }
 
+        LootDropRequestIdentity identity;
+        bool created = sourceInventorySlotIndex == -1
+            ? _clientRequest.TryCreateCandidate(catalogIndex, quantityMode, out identity)
+            : _clientRequest.TryCreateCandidate(catalogIndex, quantityMode,
+                sourceInventorySlotIndex, expectedInventoryRevision, out identity);
+        if (!created) return false;
+
         RpcInvokeInfo invokeInfo = RPC_RequestDrop(
             catalogIndex,
             (int)quantityMode,
-            identity.RequestSequence);
+            identity.RequestSequence,
+            identity.SourceInventorySlotIndex,
+            identity.ExpectedInventoryRevision);
         if (!WasAccepted(invokeInfo, HasStateAuthority))
         {
             return false;
@@ -151,6 +168,8 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
         int catalogIndex,
         int quantityModeValue,
         uint requestSequence,
+        int sourceInventorySlotIndex,
+        int expectedInventoryRevision,
         RpcInfo info = default)
     {
         if (!HasStateAuthority || info.Source != Object.InputAuthority)
@@ -183,7 +202,9 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
         var identity = new LootDropRequestIdentity(
             requestSequence,
             catalogIndex,
-            (LootTransferQuantityMode)quantityModeValue);
+            (LootTransferQuantityMode)quantityModeValue,
+            sourceInventorySlotIndex,
+            expectedInventoryRevision);
         LootDropRequestState.Disposition disposition =
             _authoritativeRequests.TryEnqueue(identity, out LootDropConfirmation cached);
 
@@ -299,34 +320,37 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
             return Rejected(identity, tick, LootDropFailureReason.InvalidLoot);
         }
 
-        int availableAmount = _lootReceiver.GetLootAmount(definition.LootId);
-        LootTransferFailureReason quantityFailure = LootTransferQuantityResolver.Resolve(
-            identity.QuantityMode,
-            availableAmount,
-            out int requestedAmount);
+        if (!LootTransferRequest.IsValidInventorySource(identity.SourceInventorySlotIndex, identity.ExpectedInventoryRevision))
+            return Rejected(identity, tick, LootDropFailureReason.InvalidLoot);
+
+        LootTransferRequest originPlanningRequest;
+        LootTransferFailureReason quantityFailure;
+        if (identity.HasInventorySlotAddress)
+        {
+            quantityFailure = _lootReceiver.ResolveInventorySlotExtraction(_lootReceiver.Id, definition.LootId,
+                identity.QuantityMode, identity.SourceInventorySlotIndex, identity.ExpectedInventoryRevision, tick,
+                out originPlanningRequest);
+        }
+        else
+        {
+            quantityFailure = LootTransferQuantityResolver.Resolve(identity.QuantityMode,
+                _lootReceiver.GetLootAmount(definition.LootId), out int amount);
+            originPlanningRequest = new LootTransferRequest(_lootReceiver.Id, _lootReceiver.Id, definition.LootId, amount, tick);
+        }
         if (quantityFailure != LootTransferFailureReason.None)
-        {
             return Rejected(identity, tick, ToDropFailure(quantityFailure));
-        }
-
-        if (!TryResolveDropPosition(out Vector2 dropPosition))
-        {
-            return Rejected(identity, tick, LootDropFailureReason.NoValidPosition);
-        }
-
+        int requestedAmount = originPlanningRequest.RequestedAmount;
         var entry = new LootEntry(definition.LootId, requestedAmount);
-        var originPlanningRequest = new LootTransferRequest(
-            _lootReceiver.Id,
-            _lootReceiver.Id,
-            definition.LootId,
-            requestedAmount,
-            tick);
         if (!_lootReceiver.TryResolveRaidLootOriginTransfer(
                 originPlanningRequest,
                 out RaidLootOriginTransfer originTransfer))
         {
             return Rejected(identity, tick, LootDropFailureReason.PlayerUnavailable);
         }
+        // Stale/address/provenance rejection precedes geometry queries and provisional spawning.
+        if (!TryResolveDropPosition(out Vector2 dropPosition))
+            return Rejected(identity, tick, LootDropFailureReason.NoValidPosition);
+
         TickTimer utilityCooldown = default;
         if (TryGetComponent<IUtilityCooldownProvider>(out var cooldownProvider))
         {
@@ -374,7 +398,9 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
             callbackPickup.Id,
             definition.LootId,
             requestedAmount,
-            tick);
+            tick,
+            identity.SourceInventorySlotIndex,
+            identity.ExpectedInventoryRevision);
         LootTransferFailureReason extractionFailure = _lootReceiver.ValidateExtraction(extraction);
         if (extractionFailure != LootTransferFailureReason.None)
         {

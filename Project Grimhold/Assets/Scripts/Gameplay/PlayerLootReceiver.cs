@@ -4,36 +4,28 @@ using Fusion;
 using UnityEngine;
 
 /// <summary>
-/// Owns the player's temporary loot collection for the current incursion.
-/// State Authority is the only writer, while Fusion snapshots provide a consistent
-/// read-only view to the owning player and other peers observing the player object.
+/// Owns the player's temporary physical inventory. Quantity and Raid origin live together
+/// in each replicated slot; aggregate snapshots are detached projections, never a second store.
+/// State Authority is the only writer. Proxies may read slots and aggregate quantities.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class PlayerLootReceiver : NetworkBehaviour,
-    IInventoryReadSource,
-    ILootReceiver,
-    ILootExtractor,
-    ILootContentReader,
-    ILootQuantityReader,
-    ILootSlotCapacityReader,
-    ILootPickupFeedbackSink,
-    IRaidLootOriginSource,
-    IRaidLootOriginReceiver
+    IInventoryReadSource, ILootReceiver, ILootExtractor, ILootContentReader,
+    ILootQuantityReader, ILootSlotCapacityReader, ILootPickupFeedbackSink,
+    IRaidLootOriginSource, IRaidLootOriginReceiver
 {
     public const int MaxCatalogEntries = RaidLootOriginPackedBuffer.MaximumCatalogEntries;
-    public const int MaxDistinctLootTypes = RaidLootOriginPackedBuffer.MaximumStacks;
+    public const int MaxDistinctLootTypes = LootInventoryRules.PhysicalSlotCount;
+    public const int PhysicalSlotCount = LootInventoryRules.PhysicalSlotCount;
+    private const int OriginCount = RaidLootOriginPackedBuffer.MaximumPlayerOrigins + 1;
 
-    [SerializeField]
-    private LootDefinitionCatalog _lootCatalog;
+    [SerializeField] private LootDefinitionCatalog _lootCatalog;
+    [SerializeField, Range(1, PhysicalSlotCount)] private int _slotCapacity = PhysicalSlotCount;
 
-    [SerializeField, Range(1, MaxDistinctLootTypes)]
-    private int _slotCapacity = 30;
+    [Networked, Capacity(PhysicalSlotCount)]
+    private NetworkArray<LootInventorySlot> LootInventory => default;
 
-    [Networked, Capacity(MaxDistinctLootTypes)]
-    private NetworkDictionary<int, int> LootInventory => default;
-
-    [Networked]
-    public int LootChangeSequence { get; private set; }
+    [Networked] public int LootChangeSequence { get; private set; }
 
     private EntityRegistry _registry;
     private ICharacter _character;
@@ -44,45 +36,56 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     private readonly Queue<LootGrantPresentationEvent> _pendingPresentationEvents = new();
     private int _lastNotifiedLootRevision;
 
-    /// <summary>
-    /// Gets the loot definition catalog.
-    /// </summary>
     public LootDefinitionCatalog LootCatalog => _lootCatalog;
-
-    /// <summary>
-    /// Local presentation notification emitted during Render on the receiving player's peer.
-    /// </summary>
     public event Action<LootGrantPresentationEvent> LootGranted;
     public event Action Changed;
-
-    /// <summary>
-    /// Gets the number of distinct loot definitions currently held.
-    /// </summary>
-    public int DistinctLootCount => LootInventory.Count;
-
-    /// <summary>
-    /// Gets the configured gameplay capacity measured in distinct positive loot stacks.
-    /// </summary>
-    public int SlotCapacity => _slotCapacity;
     public int Revision => LootChangeSequence;
-
-    /// <summary>
-    /// Gets the number of occupied gameplay slots from the replicated inventory.
-    /// Commits preserve the invariant that every stored quantity is positive.
-    /// </summary>
-    public int OccupiedSlotCount => LootInventory.Count;
     public bool IsRaidLootOriginAware => _raidOriginState != null;
 
-    public new EntityId Id
+    /// <summary>
+    /// Production capacity is 30. A lower serialized/test limit restricts occupied slots,
+    /// not addresses or storage length. Lowering it never compacts or discards existing state.
+    /// </summary>
+    public int SlotCapacity => _slotCapacity;
+    public int OccupiedSlotCount
     {
         get
         {
-            if (_character != null)
-            {
-                return _character.Id;
-            }
-            return default;
+            int count = 0;
+            for (int index = 0; index < PhysicalSlotCount; index++)
+                if (!LootInventory[index].IsEmpty) count++;
+            return count;
         }
+    }
+
+    public int DistinctLootCount
+    {
+        get
+        {
+            // Seven-bit catalog indices; no allocation or secondary mutable count.
+            Span<bool> seen = stackalloc bool[MaxCatalogEntries];
+            seen.Clear();
+            int count = 0;
+            for (int index = 0; index < PhysicalSlotCount; index++)
+            {
+                LootInventorySlot slot = LootInventory[index];
+                if (!slot.IsValid || seen[slot.CatalogIndex]) continue;
+                seen[slot.CatalogIndex] = true;
+                count++;
+            }
+            return count;
+        }
+    }
+
+    public new EntityId Id => _character != null ? _character.Id : default;
+
+    /// <summary>Reads one stable physical address, including an empty slot, without authority.</summary>
+    public bool TryGetInventorySlot(int slotIndex, out LootInventorySlot slot)
+    {
+        slot = default;
+        if (slotIndex < 0 || slotIndex >= PhysicalSlotCount) return false;
+        slot = LootInventory[slotIndex];
+        return slot.IsEmpty || slot.IsValid;
     }
 
     private void Awake()
@@ -94,41 +97,26 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
 
     public override void Spawned()
     {
+        // Never initialize or repack slots here: CopyStateFrom owns restore storage.
         _lastNotifiedLootRevision = LootChangeSequence;
-        if (!ValidateDependencies())
-        {
-            return;
-        }
-
-        if (!HasStateAuthority)
-        {
-            return;
-        }
-
+        if (!ValidateDependencies() || !HasStateAuthority) return;
         _registry = Runner.GetComponent<EntityRegistry>();
-        if (_registry != null)
-        {
-            _registeredId = Id;
-            _isRegistered = _registry.TryRegisterLootReceiver(_registeredId, this);
-            if (!_isRegistered)
-            {
-                Debug.LogError($"{nameof(PlayerLootReceiver)}: Failed to register to {nameof(EntityRegistry)} with ID {_registeredId}.", this);
-            }
-        }
-        else
+        if (_registry == null)
         {
             Debug.LogError($"{nameof(PlayerLootReceiver)}: EntityRegistry was not found on the NetworkRunner.", this);
+            return;
         }
+        _registeredId = Id;
+        _isRegistered = _registry.TryRegisterLootReceiver(_registeredId, this);
+        if (!_isRegistered)
+            Debug.LogError($"{nameof(PlayerLootReceiver)}: Failed to register to {nameof(EntityRegistry)} with ID {_registeredId}.", this);
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
         if (_isRegistered && _registry != null)
-        {
             _registry.TryUnregisterLootReceiver(_registeredId, this);
-            _isRegistered = false;
-        }
-
+        _isRegistered = false;
         _pendingPresentationEvents.Clear();
     }
 
@@ -139,793 +127,298 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
             _lastNotifiedLootRevision = LootChangeSequence;
             Changed?.Invoke();
         }
-
         while (_pendingPresentationEvents.Count > 0)
-        {
             LootGranted?.Invoke(_pendingPresentationEvents.Dequeue());
-        }
     }
 
-    /// <summary>
-    /// Validates a complete loot reception without mutating replicated state.
-    /// State Authority must call <see cref="CommitReceive"/> immediately after a
-    /// successful validation and without allowing an intervening state change.
-    /// </summary>
     public LootTransferFailureReason ValidateReceive(in LootTransferRequest request)
     {
-        if (!HasStateAuthority)
-        {
-            return LootTransferFailureReason.MissingAuthority;
-        }
-
-        if (IsExtractionLocked())
-        {
+        LootTransferFailureReason failure = ValidateRequest(request, receiving: true, out int catalogIndex);
+        if (failure != LootTransferFailureReason.None) return failure;
+        Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
+        if (!TryReadSlots(slots)) return LootTransferFailureReason.ContainerUnavailable;
+        if (!_lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition) ||
+            definition.StackMax <= 0 || definition.MaxTransportable < 0)
             return LootTransferFailureReason.ContainerUnavailable;
-        }
+        if (!TryGetTotal(slots, catalogIndex, out int current)) return LootTransferFailureReason.Overflow;
+        if (current > int.MaxValue - request.RequestedAmount) return LootTransferFailureReason.Overflow;
+        if (definition.MaxTransportable > 0 && request.RequestedAmount > definition.MaxTransportable - current)
+            return LootTransferFailureReason.MaxTransportableExceeded;
+        if (!IsRaidLootOriginAware)
+            return LootInventoryRules.ValidateReceive(slots, catalogIndex, RaidLootOrigin.Dungeon,
+                definition.StackMax, definition.MaxTransportable, request.RequestedAmount, _slotCapacity);
 
-        if (request.SourceId.Value == 0)
+        // The ordinary request has no origin. This necessary upper bound must not reject a
+        // full inventory's compatible Player partial stack by assuming Dungeon. Exact joint
+        // capacity (including competition for holes) is checked with the resolved payload below.
+        int occupied = 0;
+        long capacity = 0;
+        foreach (LootInventorySlot slot in slots)
         {
-            return LootTransferFailureReason.SourceNotFound;
+            if (slot.IsEmpty) continue;
+            occupied++;
+            if (slot.CatalogIndex == catalogIndex) capacity += definition.StackMax - slot.Quantity;
         }
+        capacity += (long)Math.Max(0, _slotCapacity - occupied) * definition.StackMax;
+        return request.RequestedAmount > capacity ? LootTransferFailureReason.InventoryFull : LootTransferFailureReason.None;
+    }
 
-        if (request.DestinationId.Value == 0 || request.DestinationId != Id)
-        {
-            return LootTransferFailureReason.DestinationNotFound;
-        }
-
-        if (!request.LootId.IsValid)
-        {
+    /// <summary>Builds an exact-address request without substituting another stack or revision.</summary>
+    public LootTransferFailureReason ResolveInventorySlotExtraction(EntityId destinationId, LootId lootId,
+        LootTransferQuantityMode quantityMode, int sourceInventorySlotIndex, int expectedInventoryRevision,
+        int simulationTick, out LootTransferRequest request)
+    {
+        request = default;
+        if (!LootTransferRequest.IsValidInventorySlotAddress(sourceInventorySlotIndex, expectedInventoryRevision))
             return LootTransferFailureReason.InvalidLoot;
-        }
-
-        if (request.RequestedAmount <= 0)
-        {
-            return LootTransferFailureReason.InvalidAmount;
-        }
-
-        if (_lootCatalog == null)
-        {
-            return LootTransferFailureReason.ContainerUnavailable;
-        }
-
-        if (!LootInventoryRules.IsValidSlotCapacity(_slotCapacity, MaxDistinctLootTypes))
-        {
-            return LootTransferFailureReason.ContainerUnavailable;
-        }
-
-        if (!_lootCatalog.TryGetIndex(request.LootId, out int definitionIndex))
-        {
-            return LootTransferFailureReason.InvalidLoot;
-        }
-
-        if (definitionIndex < 0 || definitionIndex >= MaxCatalogEntries)
-        {
-            Debug.LogError($"{nameof(PlayerLootReceiver)}: Loot index {definitionIndex} cannot be represented by the network inventory.", this);
-            return LootTransferFailureReason.ContainerUnavailable;
-        }
-
-        NetworkDictionary<int, int> inventory = LootInventory;
-        bool alreadyHeld = inventory.TryGet(definitionIndex, out int currentAmount);
-        if (_raidOriginState != null && alreadyHeld &&
-            !_raidOriginState.HasExactInventoryTotal(definitionIndex, currentAmount))
-        {
-            Debug.LogError($"{nameof(PlayerLootReceiver)} has inconsistent Raid origin state.", this);
-            return LootTransferFailureReason.ContainerUnavailable;
-        }
-
-        if (_lootCatalog.TryGetByIndex(definitionIndex, out LootDefinition definition) && definition != null)
-        {
-            if (definition.MaxTransportable > 0 && currentAmount + request.RequestedAmount > definition.MaxTransportable)
-            {
-                return LootTransferFailureReason.MaxTransportableExceeded;
-            }
-        }
-
-        LootTransferFailureReason inventoryFailure = LootInventoryRules.ValidateReceive(
-            alreadyHeld,
-            currentAmount,
-            inventory.Count,
-            _slotCapacity,
-            request.RequestedAmount);
-
-        if (inventoryFailure != LootTransferFailureReason.None)
-        {
-            return inventoryFailure;
-        }
-
-        if (!alreadyHeld && inventory.Count >= inventory.Capacity)
-        {
-            Debug.LogError($"{nameof(PlayerLootReceiver)}: Network inventory capacity was exhausted despite validated catalog configuration.", this);
-            return LootTransferFailureReason.ContainerUnavailable;
-        }
-
+        var unit = new LootTransferRequest(Id, destinationId, lootId, 1, simulationTick,
+            sourceInventorySlotIndex, expectedInventoryRevision);
+        LootTransferFailureReason failure = ValidateExtraction(unit);
+        if (failure != LootTransferFailureReason.None) return failure;
+        failure = LootTransferQuantityResolver.Resolve(quantityMode,
+            LootInventory[sourceInventorySlotIndex].Quantity, out int amount);
+        if (failure != LootTransferFailureReason.None) return failure;
+        request = new LootTransferRequest(Id, destinationId, lootId, amount, simulationTick,
+            sourceInventorySlotIndex, expectedInventoryRevision);
         return LootTransferFailureReason.None;
     }
 
-    /// <summary>
-    /// Commits a previously validated complete reception.
-    /// An inability to apply the request indicates a caller or integration contract violation,
-    /// not a gameplay rejection.
-    /// </summary>
-    public void CommitReceive(in LootTransferRequest request)
-    {
-        if (_raidOriginState != null)
-        {
-            FailCommitContract(nameof(CommitReceive));
-            return;
-        }
-
-        CommitReceiveQuantity(request);
-    }
-
-    private void CommitReceiveQuantity(in LootTransferRequest request)
-    {
-        EnsureReceiveCommitContract(request, out int definitionIndex, out int currentAmount);
-
-        NetworkDictionary<int, int> inventory = LootInventory;
-
-        inventory.Set(
-            definitionIndex,
-            LootInventoryRules.CalculateReceivedAmount(currentAmount, request.RequestedAmount));
-
-        LootChangeSequence++;
-    }
-
-    /// <summary>
-    /// Validates a complete loot extraction without mutating replicated state.
-    /// State Authority must call <see cref="CommitExtraction"/> immediately after a
-    /// successful validation and without allowing an intervening state change.
-    /// </summary>
     public LootTransferFailureReason ValidateExtraction(in LootTransferRequest request)
     {
-        if (!HasStateAuthority)
-        {
-            Debug.Log($"[ShopTransaction] ValidateExtraction failed: MissingAuthority. Id={Id.Value}, HasStateAuth={HasStateAuthority}");
-            return LootTransferFailureReason.MissingAuthority;
-        }
-
-        if (IsExtractionLocked())
-        {
-            Debug.Log($"[ShopTransaction] ValidateExtraction failed: ContainerUnavailable (ExtractionLocked)");
-            return LootTransferFailureReason.ContainerUnavailable;
-        }
-
-        if (request.SourceId.Value == 0 || request.SourceId != Id)
-        {
-            Debug.Log($"[ShopTransaction] ValidateExtraction failed: SourceNotFound. ReqSource={request.SourceId.Value}, MyId={Id.Value}");
-            return LootTransferFailureReason.SourceNotFound;
-        }
-
-        if (request.DestinationId.Value == 0)
-        {
-            Debug.Log($"[ShopTransaction] ValidateExtraction failed: DestinationNotFound. ReqDest={request.DestinationId.Value}");
-            return LootTransferFailureReason.DestinationNotFound;
-        }
-
-        if (!request.LootId.IsValid)
-        {
-            return LootTransferFailureReason.InvalidLoot;
-        }
-
-        if (request.RequestedAmount <= 0)
-        {
-            return LootTransferFailureReason.InvalidAmount;
-        }
-
-        if (_lootCatalog == null)
-        {
-            return LootTransferFailureReason.ContainerUnavailable;
-        }
-
-        if (!LootInventoryRules.IsValidSlotCapacity(_slotCapacity, MaxDistinctLootTypes))
-        {
-            return LootTransferFailureReason.ContainerUnavailable;
-        }
-
-        if (!_lootCatalog.TryGetIndex(request.LootId, out int definitionIndex))
-        {
-            return LootTransferFailureReason.InvalidLoot;
-        }
-
-        if (definitionIndex < 0 || definitionIndex >= MaxCatalogEntries)
-        {
-            Debug.LogError($"{nameof(PlayerLootReceiver)}: Loot index {definitionIndex} cannot be represented by the network inventory.", this);
-            return LootTransferFailureReason.ContainerUnavailable;
-        }
-
-        NetworkDictionary<int, int> inventory = LootInventory;
-        bool alreadyHeld = inventory.TryGet(definitionIndex, out int currentAmount);
-        if (_raidOriginState != null && alreadyHeld &&
-            !_raidOriginState.HasExactInventoryTotal(definitionIndex, currentAmount))
-        {
-            Debug.LogError($"{nameof(PlayerLootReceiver)} has inconsistent Raid origin state.", this);
-            return LootTransferFailureReason.ContainerUnavailable;
-        }
-        
-        var ruleResult = LootInventoryRules.ValidateExtraction(
-            alreadyHeld,
-            currentAmount,
-            request.RequestedAmount);
-            
-        if (ruleResult != LootTransferFailureReason.None)
-        {
-            Debug.Log($"[ShopTransaction] ValidateExtraction failed: LootInventoryRules returned {ruleResult}. alreadyHeld={alreadyHeld}, currentAmount={currentAmount}, reqAmount={request.RequestedAmount}");
-        }
-        
-        return ruleResult;
+        LootTransferFailureReason failure = ValidateRequest(request, receiving: false, out int catalogIndex);
+        if (failure != LootTransferFailureReason.None) return failure;
+        Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
+        if (!TryReadSlots(slots)) return LootTransferFailureReason.ContainerUnavailable;
+        if (request.HasInventorySlotAddress) return ValidateAddressedSlot(slots, catalogIndex, request);
+        if (!TryGetTotal(slots, catalogIndex, out int amount)) return LootTransferFailureReason.Overflow;
+        return amount < request.RequestedAmount ? LootTransferFailureReason.InsufficientAmount : LootTransferFailureReason.None;
     }
 
-    /// <summary>
-    /// Commits a previously validated complete extraction without resolving or
-    /// modifying the destination endpoint.
-    /// </summary>
+    public void CommitReceive(in LootTransferRequest request)
+    {
+        Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
+        if (IsRaidLootOriginAware || ValidateReceive(request) != LootTransferFailureReason.None ||
+            !TryReadSlots(slots) || !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) ||
+            TryReceiveOrigin(slots, catalogIndex, RaidLootOrigin.Dungeon, request.RequestedAmount) != LootTransferFailureReason.None)
+        {
+            FailCommitContract(nameof(CommitReceive));
+            return;
+        }
+        WriteSlots(slots);
+    }
+
     public void CommitExtraction(in LootTransferRequest request)
     {
-        if (_raidOriginState != null)
+        Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
+        if (IsRaidLootOriginAware || ValidateExtraction(request) != LootTransferFailureReason.None ||
+            !TryReadSlots(slots) || !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) ||
+            !TryExtractInventoryRequest(slots, catalogIndex, request, null))
         {
             FailCommitContract(nameof(CommitExtraction));
             return;
         }
-
-        CommitExtractionQuantity(request);
+        WriteSlots(slots);
     }
 
-    private void CommitExtractionQuantity(in LootTransferRequest request)
+    public LootTransferFailureReason ValidateRaidLootOriginReceive(in LootTransferRequest request, RaidLootOriginTransfer transfer)
     {
-        EnsureExtractionCommitContract(request, out int definitionIndex, out int currentAmount);
-
-        NetworkDictionary<int, int> inventory = LootInventory;
-
-        int remainingAmount = LootInventoryRules.CalculateRemainingAmount(
-            currentAmount,
-            request.RequestedAmount);
-        if (remainingAmount == 0)
-        {
-            inventory.Remove(definitionIndex);
-        }
-        else
-        {
-            inventory.Set(definitionIndex, remainingAmount);
-        }
-
-        LootChangeSequence++;
+        LootTransferFailureReason failure = ValidateReceive(request);
+        if (failure != LootTransferFailureReason.None) return failure;
+        if (!IsRaidLootOriginAware || !IsExactTransfer(transfer, request.RequestedAmount))
+            return LootTransferFailureReason.ContainerUnavailable;
+        Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
+        if (!TryReadSlots(slots) || !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex))
+            return LootTransferFailureReason.ContainerUnavailable;
+        return TryReceiveTransfer(slots, catalogIndex, transfer);
     }
 
-    /// <summary>
-    /// Sends pickup-specific presentation only after a world pickup has committed successfully.
-    /// Generic loot transfers never call this integration boundary.
-    /// </summary>
-    public void PublishPickupGrant(in LootTransferRequest request)
+    public void CommitRaidLootReceive(in LootTransferRequest request, RaidLootOriginTransfer transfer)
     {
-        if (!HasStateAuthority || request.DestinationId != Id || request.SourceId.Value == 0 ||
-            request.RequestedAmount <= 0 || _lootCatalog == null ||
-            !_lootCatalog.TryGetIndex(request.LootId, out int definitionIndex))
-        {
-            Debug.LogError($"{nameof(PlayerLootReceiver)}: Invalid pickup feedback contract.", this);
-            throw new InvalidOperationException("Pickup feedback requires a successfully committed request on State Authority.");
-        }
-
-        RPC_ReceiveLootGrant(
-            LootChangeSequence,
-            request.SourceId.Value,
-            definitionIndex,
-            request.RequestedAmount,
-            request.SimulationTick);
-    }
-
-    [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]
-    private void RPC_ReceiveLootGrant(
-        int sequence,
-        int sourceIdValue,
-        int definitionIndex,
-        int amount,
-        int simulationTick)
-    {
-        if (_lootCatalog == null || !_lootCatalog.TryGetByIndex(definitionIndex, out LootDefinition definition))
-        {
-            Debug.LogError($"{nameof(PlayerLootReceiver)}: Cannot resolve loot grant index {definitionIndex} for local presentation.", this);
-            return;
-        }
-
-        _pendingPresentationEvents.Enqueue(new LootGrantPresentationEvent(
-            sequence,
-            new EntityId(sourceIdValue),
-            Id,
-            definition.LootId,
-            amount,
-            simulationTick));
-    }
-
-    /// <summary>
-    /// Gets the aggregated amount held for a loot definition.
-    /// </summary>
-    public int GetLootAmount(LootId lootId)
-    {
-        if (_lootCatalog == null || !_lootCatalog.TryGetIndex(lootId, out int definitionIndex))
-        {
-            return 0;
-        }
-
-        return LootInventory.TryGet(definitionIndex, out int amount) && amount > 0 ? amount : 0;
-    }
-
-    /// <summary>
-    /// Creates a stable, immutable snapshot of the currently held loot.
-    /// Mutating or replacing the returned entries cannot change networked state.
-    /// </summary>
-    public IReadOnlyList<LootEntry> GetLootContent()
-    {
-        if (!TryGetLootContent(out IReadOnlyList<LootEntry> entries))
-        {
-            throw new InvalidOperationException($"{nameof(PlayerLootReceiver)} cannot resolve the complete loot contents from its catalog.");
-        }
-
-        return entries;
-    }
-
-    /// <summary>
-    /// Attempts to create a complete immutable snapshot of the held loot.
-    /// No partial content is returned when catalog resolution fails.
-    /// </summary>
-    public bool TryGetLootContent(out IReadOnlyList<LootEntry> content)
-    {
-        content = Array.Empty<LootEntry>();
-        if (_lootCatalog == null)
-        {
-            return false;
-        }
-
-        var entries = new List<LootEntry>(LootInventory.Count);
-        int definitionCount = _lootCatalog.DefinitionCount;
-
-        for (int index = 0; index < definitionCount; index++)
-        {
-            if (!LootInventory.TryGet(index, out int amount))
-            {
-                continue;
-            }
-
-            if (!_lootCatalog.TryGetByIndex(index, out LootDefinition definition))
-            {
-                return false;
-            }
-
-            if (amount <= 0)
-            {
-                return false;
-            }
-
-            entries.Add(new LootEntry(definition.LootId, amount));
-        }
-
-        if (entries.Count != LootInventory.Count)
-        {
-            return false;
-        }
-
-        content = entries.AsReadOnly();
-        return true;
-    }
-
-    /// <summary>
-    /// Checks whether the replicated inventory still exactly matches a previously
-    /// captured snapshot without mutating any loot state.
-    /// </summary>
-    internal bool TryMatchesExactContent(IReadOnlyList<LootEntry> expected, out string error)
-    {
-        error = null;
-        if (!TryGetLootContent(out IReadOnlyList<LootEntry> current))
-        {
-            error = "Current inventory cannot be resolved completely.";
-            return false;
-        }
-
-        return TryCompareExactContent(expected, current, out error);
-    }
-
-    /// <summary>
-    /// Clears the complete inventory only when it still exactly matches a snapshot
-    /// captured earlier in the same authoritative transaction.
-    /// </summary>
-    internal bool TryClearExactContent(IReadOnlyList<LootEntry> expected, out string error)
-    {
-        error = null;
-        if (!HasStateAuthority)
-        {
-            error = "State Authority is required.";
-            return false;
-        }
-
-        if (!TryGetLootContent(out IReadOnlyList<LootEntry> current) ||
-            !TryCompareExactContent(expected, current, out error))
-        {
-            error ??= "Current inventory cannot be resolved completely.";
-            return false;
-        }
-
-        if (current.Count == 0)
-        {
-            return true;
-        }
-
-        if (_raidOriginState != null)
-        {
-            error = "Raid inventory requires an origin-aware exact clear.";
-            return false;
-        }
-
-        LootInventory.Clear();
-        LootChangeSequence++;
-        return true;
-    }
-
-    /// <summary>
-    /// Calculates the current economic sell value from replicated quantities and local definitions.
-    /// The total is derived and is never stored as separate mutable network state.
-    /// </summary>
-    public long CalculateTotalValue()
-    {
-        if (!TryCalculateTotalValue(out long total))
-        {
-            throw new InvalidOperationException($"{nameof(PlayerLootReceiver)} cannot calculate a complete value from its catalog.");
-        }
-
-        return total;
-    }
-
-    /// <summary>
-    /// Attempts to calculate the complete derived economic sell value.
-    /// The output remains zero when any catalog entry or arithmetic operation is invalid.
-    /// </summary>
-    public bool TryCalculateTotalValue(out long total)
-    {
-        total = 0;
-        return TryGetLootContent(out IReadOnlyList<LootEntry> content) &&
-            LootInventoryValueCalculator.TryCalculate(content, _lootCatalog, out total);
-    }
-
-    /// <summary>
-    /// Resolves immutable visual metadata for a loot identifier from the assigned catalog.
-    /// </summary>
-    public bool TryResolveDefinition(LootId lootId, out LootDefinition definition)
-    {
-        definition = null;
-        return _lootCatalog != null && _lootCatalog.TryGet(lootId.Value, out definition);
-    }
-
-    private static bool TryCompareExactContent(
-        IReadOnlyList<LootEntry> expected,
-        IReadOnlyList<LootEntry> current,
-        out string error)
-    {
-        error = null;
-        if (expected == null || current == null || expected.Count != current.Count)
-        {
-            error = "Snapshot count differs from the current inventory.";
-            return false;
-        }
-
-        var expectedIds = new HashSet<LootId>();
-        for (int index = 0; index < expected.Count; index++)
-        {
-            LootEntry entry = expected[index];
-            if (!entry.IsValid || !expectedIds.Add(entry.LootId))
-            {
-                error = "Snapshot contains an invalid or duplicate stack.";
-                return false;
-            }
-
-            bool found = false;
-            for (int currentIndex = 0; currentIndex < current.Count; currentIndex++)
-            {
-                if (current[currentIndex].Equals(entry))
-                {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found)
-            {
-                error = "Snapshot content differs from the current inventory.";
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private bool ValidateDependencies()
-    {
-        if (_character == null)
-        {
-            Debug.LogError($"{nameof(PlayerLootReceiver)}: No component implementing {nameof(ICharacter)} is found on {gameObject.name}.", this);
-            return false;
-        }
-
-        if (_lootCatalog == null)
-        {
-            Debug.LogError($"{nameof(PlayerLootReceiver)}: Loot catalog is not assigned on {gameObject.name}.", this);
-            return false;
-        }
-
-        if (!LootInventoryRules.IsValidSlotCapacity(_slotCapacity, MaxDistinctLootTypes))
-        {
-            Debug.LogError($"{nameof(PlayerLootReceiver)}: Raid distinct-loot capacity must be between 1 and {MaxDistinctLootTypes}.", this);
-            return false;
-        }
-
-        if (!_lootCatalog.TryValidate(out string catalogError))
-        {
-            Debug.LogError($"{nameof(PlayerLootReceiver)}: Loot catalog is invalid. {catalogError}", this);
-            return false;
-        }
-
-        if (_lootCatalog.DefinitionCount > MaxCatalogEntries)
-        {
-            Debug.LogError($"{nameof(PlayerLootReceiver)}: Loot catalog contains {_lootCatalog.DefinitionCount} definitions, exceeding the catalog-index representation limit of {MaxCatalogEntries}.", this);
-            return false;
-        }
-
-        return true;
-    }
-
-    private void EnsureReceiveCommitContract(
-        in LootTransferRequest request,
-        out int definitionIndex,
-        out int currentAmount)
-    {
-        definitionIndex = default;
-        currentAmount = default;
-        if (!HasStateAuthority || IsExtractionLocked() || request.SourceId.Value == 0 || request.DestinationId != Id ||
-            request.RequestedAmount <= 0 || _lootCatalog == null ||
-            !_lootCatalog.TryGetIndex(request.LootId, out definitionIndex) ||
-            definitionIndex < 0 || definitionIndex >= MaxCatalogEntries)
-        {
-            FailCommitContract(nameof(CommitReceive));
-        }
-
-        NetworkDictionary<int, int> inventory = LootInventory;
-        bool alreadyHeld = inventory.TryGet(definitionIndex, out currentAmount);
-        if ((!alreadyHeld && (inventory.Count >= _slotCapacity || inventory.Count >= inventory.Capacity)) ||
-            (alreadyHeld && currentAmount <= 0) || currentAmount > int.MaxValue - request.RequestedAmount ||
-            (_lootCatalog.TryGetByIndex(definitionIndex, out LootDefinition definition) && definition != null &&
-             definition.MaxTransportable > 0 && currentAmount + request.RequestedAmount > definition.MaxTransportable))
-        {
-            FailCommitContract(nameof(CommitReceive));
-        }
-    }
-
-    private void EnsureExtractionCommitContract(
-        in LootTransferRequest request,
-        out int definitionIndex,
-        out int currentAmount)
-    {
-        definitionIndex = default;
-        currentAmount = default;
-        if (!HasStateAuthority || IsExtractionLocked() || request.SourceId != Id || request.DestinationId.Value == 0 ||
-            request.RequestedAmount <= 0 || _lootCatalog == null ||
-            !_lootCatalog.TryGetIndex(request.LootId, out definitionIndex) ||
-            definitionIndex < 0 || definitionIndex >= MaxCatalogEntries ||
-            !LootInventory.TryGet(definitionIndex, out currentAmount) || currentAmount < request.RequestedAmount)
-        {
-            FailCommitContract(nameof(CommitExtraction));
-        }
-    }
-
-    private void FailCommitContract(string commitName)
-    {
-        Debug.LogError($"{nameof(PlayerLootReceiver)}: {commitName} contract was violated after successful validation.", this);
-        throw new InvalidOperationException($"{commitName} preconditions changed after successful validation.");
-    }
-
-    /// <summary>
-    /// Extraction state is the single source of truth for the inventory freeze.
-    /// The extraction saver may still call <see cref="TryClearExactContent"/>
-    /// to finalize its already-validated transaction.
-    /// </summary>
-    private bool IsExtractionLocked()
-    {
-        return _extractionController != null &&
-            _extractionController.State == ExtractionState.Extracted;
-    }
-
-    /// <summary>
-    /// Initializes the exact loadout supplied by the authoritative raid admission.
-    /// Validation completes before the network dictionary is modified, so invalid
-    /// input cannot leave a partially initialized inventory.
-    /// </summary>
-    public bool TryInitializeLoadout(IReadOnlyList<LootEntry> loadoutItems, out string error)
-    {
-        error = null;
-        if (!HasStateAuthority)
-        {
-            error = "Loadout initialization requires State Authority.";
-            return false;
-        }
-
-        if (_raidOriginState != null)
-        {
-            error = "Raid loadout initialization requires the admitted ProfileId.";
-            return false;
-        }
-
-        if (!RaidLoadoutRules.TryValidate(loadoutItems, _lootCatalog, _slotCapacity, out error))
-        {
-            return false;
-        }
-
-        NetworkDictionary<int, int> inventory = LootInventory;
-        if (inventory.Count != 0)
-        {
-            if (TryMatchesInitialLoadout(inventory, loadoutItems))
-            {
-                return true;
-            }
-
-            error = "Player loot inventory was already initialized with different content.";
-            return false;
-        }
-
-        for (int index = 0; index < loadoutItems.Count; index++)
-        {
-            LootEntry entry = loadoutItems[index];
-            if (!_lootCatalog.TryGetIndex(entry.LootId, out int definitionIndex))
-            {
-                error = $"Loot catalog does not contain '{entry.LootId.Value}'.";
-                return false;
-            }
-
-            inventory.Set(definitionIndex, entry.Amount);
-        }
-
-        if (loadoutItems.Count > 0)
-        {
-            LootChangeSequence++;
-        }
-
-        return true;
-    }
-
-    /// <summary>Initializes admitted Raid loadout quantity and Player(RaidParticipantId) provenance.</summary>
-    public bool TryInitializeRaidLoadout(
-        IReadOnlyList<LootEntry> loadoutItems,
-        RaidParticipantId participantId,
-        out string error)
-    {
-        error = null;
-        if (!HasStateAuthority || _raidOriginState == null)
-        {
-            error = "Raid loadout initialization requires State Authority and Raid origin composition.";
-            return false;
-        }
-
-        if (!RaidLoadoutRules.TryValidate(loadoutItems, _lootCatalog, _slotCapacity, out error) ||
-            LootInventory.Count != 0)
-        {
-            error ??= "Player loot inventory was already initialized.";
-            return false;
-        }
-
-        NetworkDictionary<int, int> inventory = LootInventory;
-        try
-        {
-            for (int index = 0; index < loadoutItems.Count; index++)
-            {
-                LootEntry entry = loadoutItems[index];
-                _lootCatalog.TryGetIndex(entry.LootId, out int definitionIndex);
-                inventory.Set(definitionIndex, entry.Amount);
-            }
-
-            if (!_raidOriginState.TryInitializePlayerLoadout(
-                    loadoutItems, _lootCatalog, participantId, out error))
-            {
-                inventory.Clear();
-                return false;
-            }
-        }
-        catch (Exception exception)
-        {
-            inventory.Clear();
-            error = $"Raid loadout initialization failed before provenance was committed. {exception.Message}";
-            return false;
-        }
-
-        if (loadoutItems.Count > 0)
-        {
-            LootChangeSequence++;
-        }
-
-        return true;
-    }
-
-    public bool TryResolveRaidLootOriginTransfer(
-        in LootTransferRequest request,
-        out RaidLootOriginTransfer transfer) =>
-        TryResolveRaidLootOriginTransfer(request, RaidLootOriginSelectionOrder.Canonical, out transfer);
-
-    public bool TryResolveRaidLootOriginTransfer(
-        in LootTransferRequest request,
-        RaidLootOriginSelectionOrder selectionOrder,
-        out RaidLootOriginTransfer transfer)
-    {
-        transfer = null;
-        return _raidOriginState != null && request.SourceId == Id && _lootCatalog != null &&
-            _lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) &&
-            _raidOriginState.TryResolveInventoryTransfer(
-                catalogIndex,
-                request.RequestedAmount,
-                out transfer,
-                selectionOrder);
-    }
-
-    public LootTransferFailureReason ValidateRaidLootOriginReceive(
-        in LootTransferRequest request,
-        RaidLootOriginTransfer transfer)
-    {
-        if (!HasStateAuthority)
-        {
-            return LootTransferFailureReason.MissingAuthority;
-        }
-
-        return _raidOriginState != null && request.DestinationId == Id && _lootCatalog != null &&
-            _lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) &&
-            transfer != null && transfer.TryGetTotal(out int total) && total == request.RequestedAmount &&
-            _raidOriginState.CanReceiveInventory(catalogIndex, transfer)
-                ? LootTransferFailureReason.None
-                : LootTransferFailureReason.ContainerUnavailable;
-    }
-
-    public void CommitRaidLootExtraction(
-        in LootTransferRequest request,
-        RaidLootOriginTransfer transfer)
-    {
-        if (_raidOriginState == null || _lootCatalog == null ||
-            !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex))
-        {
-            FailCommitContract(nameof(CommitRaidLootExtraction));
-            return;
-        }
-
-        CommitExtractionQuantity(request);
-        _raidOriginState.CommitExtractInventory(catalogIndex, transfer);
-    }
-
-    public void CommitRaidLootReceive(
-        in LootTransferRequest request,
-        RaidLootOriginTransfer transfer)
-    {
-        if (_raidOriginState == null || _lootCatalog == null ||
-            !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex))
+        Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
+        if (ValidateRaidLootOriginReceive(request, transfer) != LootTransferFailureReason.None ||
+            !TryReadSlots(slots) || !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) ||
+            TryReceiveTransfer(slots, catalogIndex, transfer) != LootTransferFailureReason.None)
         {
             FailCommitContract(nameof(CommitRaidLootReceive));
             return;
         }
+        WriteSlots(slots);
+    }
 
-        CommitReceiveQuantity(request);
-        _raidOriginState.CommitReceiveInventory(catalogIndex, transfer);
+    public void CommitRaidLootExtraction(in LootTransferRequest request, RaidLootOriginTransfer transfer)
+    {
+        Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
+        if (!IsRaidLootOriginAware || ValidateExtraction(request) != LootTransferFailureReason.None ||
+            !IsExactTransfer(transfer, request.RequestedAmount) || !TryReadSlots(slots) ||
+            !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) ||
+            !TryExtractInventoryRequest(slots, catalogIndex, request, transfer))
+        {
+            FailCommitContract(nameof(CommitRaidLootExtraction));
+            return;
+        }
+        WriteSlots(slots);
+    }
+
+    public bool TryResolveRaidLootOriginTransfer(in LootTransferRequest request, out RaidLootOriginTransfer transfer) =>
+        TryResolveRaidLootOriginTransfer(request, RaidLootOriginSelectionOrder.Canonical, out transfer);
+
+    public bool TryResolveRaidLootOriginTransfer(in LootTransferRequest request,
+        RaidLootOriginSelectionOrder selectionOrder, out RaidLootOriginTransfer transfer)
+    {
+        transfer = null;
+        if (!IsRaidLootOriginAware || request.SourceId != Id || _lootCatalog == null ||
+            (selectionOrder != RaidLootOriginSelectionOrder.Canonical && selectionOrder != RaidLootOriginSelectionOrder.PlayerFirst) ||
+            !LootTransferRequest.IsValidInventorySource(request.SourceInventorySlotIndex, request.ExpectedInventoryRevision) ||
+            !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex)) return false;
+        if (request.HasInventorySlotAddress)
+        {
+            Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
+            if (!request.IsValid || request.ExpectedInventoryRevision != Revision || !TryReadSlots(slots) ||
+                ValidateAddressedSlot(slots, catalogIndex, request) != LootTransferFailureReason.None) return false;
+            return RaidLootOriginTransfer.TryCreate(slots[request.SourceInventorySlotIndex].Origin,
+                request.RequestedAmount, out transfer);
+        }
+        return TryResolveInventoryTransfer(catalogIndex, request.RequestedAmount, selectionOrder, out transfer);
+    }
+
+    internal bool TryResolveInventoryTransfer(int catalogIndex, int amount,
+        RaidLootOriginSelectionOrder selectionOrder, out RaidLootOriginTransfer transfer)
+    {
+        transfer = null;
+        if (amount <= 0 || (selectionOrder != RaidLootOriginSelectionOrder.Canonical &&
+            selectionOrder != RaidLootOriginSelectionOrder.PlayerFirst)) return false;
+        Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
+        Span<int> quantities = stackalloc int[OriginCount];
+        quantities.Clear();
+        if (!TryReadSlots(slots) || !TryGetTotal(slots, catalogIndex, out int total) || total < amount) return false;
+        foreach (LootInventorySlot slot in slots)
+            if (slot.IsValid && slot.CatalogIndex == catalogIndex) quantities[OriginIndex(slot.Origin)] += slot.Quantity;
+        Span<int> selected = stackalloc int[OriginCount];
+        selected.Clear();
+        int remaining = amount;
+        int count = 0;
+        for (int step = 0; step < OriginCount && remaining > 0; step++)
+        {
+            int originIndex = selectionOrder == RaidLootOriginSelectionOrder.PlayerFirst
+                ? (step + 1) % OriginCount : step;
+            int taken = Math.Min(remaining, quantities[originIndex]);
+            selected[originIndex] = taken;
+            remaining -= taken;
+            if (taken > 0) count++;
+        }
+        var buckets = new RaidLootOriginBucket[count];
+        int destination = 0;
+        for (int index = 0; index < OriginCount; index++)
+            if (selected[index] > 0) buckets[destination++] = new RaidLootOriginBucket(OriginAt(index), selected[index]);
+        transfer = new RaidLootOriginTransfer(buckets);
+        return true;
+    }
+
+    /// <summary>
+    /// Preflights the complete equipment exchange on stack-local storage. Container equip
+    /// passes no outgoing Inventory item; addressed equip removes only its selected physical unit.
+    /// This writes nothing, including on a later displaced-item failure.
+    /// </summary>
+    internal bool CanApplyInventoryExchange(LootId? outgoingLootId, RaidLootOriginTransfer outgoing,
+        IReadOnlyList<LootEntry?> incoming, IReadOnlyList<RaidLootOrigin> origins)
+    {
+        if (!HasStateAuthority) return false;
+        LootTransferRequest? request = null;
+        if (outgoingLootId.HasValue)
+        {
+            if (!TryGetTransferTotal(outgoing, out int amount)) return false;
+            request = new LootTransferRequest(Id, Id, outgoingLootId.Value, amount, 0);
+        }
+        return CanApplyInventoryExchangeCore(request, outgoing, incoming, origins);
+    }
+
+    internal bool CanApplyInventoryExchange(in LootTransferRequest outgoing, RaidLootOriginTransfer transfer,
+        IReadOnlyList<LootEntry?> incoming, IReadOnlyList<RaidLootOrigin> origins) =>
+        CanApplyInventoryExchangeCore(outgoing, transfer, incoming, origins);
+
+    private bool CanApplyInventoryExchangeCore(LootTransferRequest? outgoing, RaidLootOriginTransfer transfer,
+        IReadOnlyList<LootEntry?> incoming, IReadOnlyList<RaidLootOrigin> origins)
+    {
+        if (!HasStateAuthority || IsExtractionLocked() || !IsRaidLootOriginAware || incoming == null ||
+            origins == null || incoming.Count != origins.Count) return false;
+        Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
+        if (!TryReadSlots(slots)) return false;
+        if (outgoing.HasValue)
+        {
+            LootTransferRequest request = outgoing.Value;
+            if (ValidateExtraction(request) != LootTransferFailureReason.None ||
+                !IsExactTransfer(transfer, request.RequestedAmount) ||
+                !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) ||
+                !TryExtractInventoryRequest(slots, catalogIndex, request, transfer)) return false;
+        }
+        for (int index = 0; index < incoming.Count; index++)
+        {
+            if (!incoming[index].HasValue) continue;
+            LootEntry entry = incoming[index].Value;
+            if (!entry.IsValid || !_lootCatalog.TryGetIndex(entry.LootId, out int incomingIndex) ||
+                TryReceiveOrigin(slots, incomingIndex, origins[index], entry.Amount) != LootTransferFailureReason.None)
+                return false;
+        }
+        return true;
+    }
+
+    public int GetLootAmount(LootId lootId)
+    {
+        if (_lootCatalog == null || !_lootCatalog.TryGetIndex(lootId, out int catalogIndex)) return 0;
+        long total = 0;
+        for (int index = 0; index < PhysicalSlotCount; index++)
+        {
+            LootInventorySlot slot = LootInventory[index];
+            if (slot.IsValid && slot.CatalogIndex == catalogIndex) total += slot.Quantity;
+        }
+        return total <= int.MaxValue ? (int)total : 0;
+    }
+
+    public IReadOnlyList<LootEntry> GetLootContent()
+    {
+        if (!TryGetLootContent(out IReadOnlyList<LootEntry> entries))
+            throw new InvalidOperationException($"{nameof(PlayerLootReceiver)} cannot resolve the complete loot contents from its catalog.");
+        return entries;
+    }
+
+    public bool TryGetLootContent(out IReadOnlyList<LootEntry> content)
+    {
+        content = Array.Empty<LootEntry>();
+        Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
+        if (!TryReadSlots(slots)) return false;
+        var entries = new List<LootEntry>();
+        for (int index = 0; index < _lootCatalog.DefinitionCount; index++)
+        {
+            if (!TryGetTotal(slots, index, out int amount)) return false;
+            if (amount == 0) continue;
+            if (!_lootCatalog.TryGetByIndex(index, out LootDefinition definition)) return false;
+            entries.Add(new LootEntry(definition.LootId, amount));
+        }
+        content = entries.AsReadOnly();
+        return true;
     }
 
     internal bool TryGetRaidLootOriginEntries(out IReadOnlyList<RaidLootOriginEntry> entries)
     {
         entries = Array.Empty<RaidLootOriginEntry>();
-        return _raidOriginState != null && _raidOriginState.TryGetInventoryEntries(_lootCatalog, out entries);
-    }
-
-    internal bool TryMatchesExactRaidContent(
-        IReadOnlyList<LootEntry> expectedLoot,
-        IReadOnlyList<RaidLootOriginEntry> expectedOrigins,
-        out string error)
-    {
-        error = null;
-        if (!TryMatchesExactContent(expectedLoot, out error) ||
-            !TryGetRaidLootOriginEntries(out IReadOnlyList<RaidLootOriginEntry> currentOrigins) ||
-            !RaidOriginEntriesEqual(expectedOrigins, currentOrigins))
+        Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
+        if (!IsRaidLootOriginAware || !TryReadSlots(slots)) return false;
+        var result = new List<RaidLootOriginEntry>();
+        Span<int> quantities = stackalloc int[OriginCount];
+        for (int catalogIndex = 0; catalogIndex < _lootCatalog.DefinitionCount; catalogIndex++)
         {
-            error ??= "Raid inventory provenance differs from the expected snapshot.";
-            return false;
+            quantities.Clear();
+            if (!TryGetTotal(slots, catalogIndex, out _)) return false;
+            foreach (LootInventorySlot slot in slots)
+                if (slot.IsValid && slot.CatalogIndex == catalogIndex) quantities[OriginIndex(slot.Origin)] += slot.Quantity;
+            for (int originIndex = 0; originIndex < OriginCount; originIndex++)
+            {
+                if (quantities[originIndex] == 0) continue;
+                if (!_lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition)) return false;
+                result.Add(new RaidLootOriginEntry(definition.LootId, OriginAt(originIndex), quantities[originIndex]));
+            }
         }
-
+        entries = result.AsReadOnly();
         return true;
     }
 
@@ -935,141 +428,381 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         return _lootCatalog != null && _lootCatalog.TryGetIndex(lootId, out catalogIndex);
     }
 
-    internal bool TryClearExactRaidContent(
-        IReadOnlyList<LootEntry> expectedLoot,
-        IReadOnlyList<RaidLootOriginEntry> expectedOrigins,
-        out string error)
+    internal bool TryMatchesExactContent(IReadOnlyList<LootEntry> expected, out string error)
     {
         error = null;
-        if (_raidOriginState == null || !TryGetLootContent(out IReadOnlyList<LootEntry> current) ||
-            !TryCompareExactContent(expectedLoot, current, out error) ||
-            !_raidOriginState.TryClearExactInventory(expectedOrigins, _lootCatalog, out error))
+        if (!TryGetLootContent(out IReadOnlyList<LootEntry> current))
         {
-            error ??= "Raid inventory differs from the expected snapshot.";
+            error = "Current inventory cannot be resolved completely.";
             return false;
         }
+        return TryCompareExactContent(expected, current, out error);
+    }
 
-        LootInventory.Clear();
-        if (current.Count > 0)
+    internal bool TryMatchesExactRaidContent(IReadOnlyList<LootEntry> expectedLoot,
+        IReadOnlyList<RaidLootOriginEntry> expectedOrigins, out string error)
+    {
+        if (!TryMatchesExactContent(expectedLoot, out error) ||
+            !TryGetRaidLootOriginEntries(out IReadOnlyList<RaidLootOriginEntry> currentOrigins) ||
+            !RaidOriginEntriesEqual(expectedOrigins, currentOrigins))
         {
-            LootChangeSequence++;
+            error ??= "Raid inventory provenance differs from the expected snapshot.";
+            return false;
         }
         return true;
     }
 
-    private static bool RaidOriginEntriesEqual(
-        IReadOnlyList<RaidLootOriginEntry> expected,
-        IReadOnlyList<RaidLootOriginEntry> current)
+    internal bool TryClearExactContent(IReadOnlyList<LootEntry> expected, out string error)
     {
+        error = null;
+        if (!HasStateAuthority || IsRaidLootOriginAware)
+        {
+            error = "State Authority and a non-Raid inventory are required for quantity-only clear.";
+            return false;
+        }
+        if (!TryMatchesExactContent(expected, out error)) return false;
+        ClearSlots();
+        return true;
+    }
+
+    internal bool TryClearExactRaidContent(IReadOnlyList<LootEntry> expectedLoot,
+        IReadOnlyList<RaidLootOriginEntry> expectedOrigins, out string error)
+    {
+        error = null;
+        if (!HasStateAuthority || !IsRaidLootOriginAware)
+        {
+            error = "Raid inventory clear requires State Authority and Raid origin composition.";
+            return false;
+        }
+        if (!TryMatchesExactRaidContent(expectedLoot, expectedOrigins, out error)) return false;
+        ClearSlots();
+        return true;
+    }
+
+    public bool TryInitializeLoadout(IReadOnlyList<LootEntry> loadoutItems, out string error) =>
+        TrySetLoadout(loadoutItems, RaidLootOrigin.Dungeon, raid: false, replace: false, out error);
+
+    public bool TryInitializeRaidLoadout(IReadOnlyList<LootEntry> loadoutItems,
+        RaidParticipantId participantId, out string error)
+    {
+        if (!RaidLootOrigin.TryCreatePlayer(participantId, out RaidLootOrigin origin))
+        {
+            error = "Raid loadout requires a valid admitted RaidParticipantId.";
+            return false;
+        }
+        return TrySetLoadout(loadoutItems, origin, raid: true, replace: false, out error);
+    }
+
+    public bool TryForceSyncLoadout(IReadOnlyList<LootEntry> loadoutItems, out string error) =>
+        TrySetLoadout(loadoutItems, RaidLootOrigin.Dungeon, raid: false, replace: true, out error);
+
+    private bool TrySetLoadout(IReadOnlyList<LootEntry> entries, RaidLootOrigin origin,
+        bool raid, bool replace, out string error)
+    {
+        error = null;
+        if (!HasStateAuthority || IsExtractionLocked() || IsRaidLootOriginAware != raid ||
+            !LootInventoryRules.IsValidSlotCapacity(_slotCapacity, PhysicalSlotCount))
+        {
+            error = "Loadout requires available State Authority, valid capacity and the matching Raid origin composition.";
+            return false;
+        }
+        if (!RaidLoadoutRules.TryValidate(entries, _lootCatalog, _slotCapacity, out error)) return false;
+        Span<LootInventorySlot> planned = stackalloc LootInventorySlot[PhysicalSlotCount];
+        planned.Clear();
+        // Build and validate the complete physical loadout before writing any quantity/origin.
+        for (int index = 0; index < entries.Count; index++)
+        {
+            LootEntry entry = entries[index];
+            if (!_lootCatalog.TryGetIndex(entry.LootId, out int catalogIndex) ||
+                TryReceiveOrigin(planned, catalogIndex, origin, entry.Amount) != LootTransferFailureReason.None)
+            {
+                error = "Loadout exceeds physical stack capacity or item transport limits.";
+                return false;
+            }
+        }
+        if (!replace && OccupiedSlotCount > 0)
+        {
+            // Preserve the non-Raid initialization's existing idempotent aggregate contract;
+            // Raid admission is one-shot and never reconstructs origins on restored storage.
+            if (!raid && TryMatchesExactContent(entries, out _)) return true;
+            error = "Player loot inventory was already initialized.";
+            return false;
+        }
+        WriteSlots(planned, advanceIfUnchanged: replace);
+        return true;
+    }
+
+    public long CalculateTotalValue()
+    {
+        if (!TryCalculateTotalValue(out long total))
+            throw new InvalidOperationException($"{nameof(PlayerLootReceiver)} cannot calculate a complete value from its catalog.");
+        return total;
+    }
+
+    public bool TryCalculateTotalValue(out long total)
+    {
+        total = 0;
+        return TryGetLootContent(out IReadOnlyList<LootEntry> content) &&
+            LootInventoryValueCalculator.TryCalculate(content, _lootCatalog, out total);
+    }
+
+    public bool TryResolveDefinition(LootId lootId, out LootDefinition definition)
+    {
+        definition = null;
+        return _lootCatalog != null && _lootCatalog.TryGet(lootId.Value, out definition);
+    }
+
+    public void PublishPickupGrant(in LootTransferRequest request)
+    {
+        if (!HasStateAuthority || request.DestinationId != Id || request.SourceId.Value == 0 ||
+            request.RequestedAmount <= 0 || _lootCatalog == null ||
+            !_lootCatalog.TryGetIndex(request.LootId, out int definitionIndex))
+        {
+            Debug.LogError($"{nameof(PlayerLootReceiver)}: Invalid pickup feedback contract.", this);
+            throw new InvalidOperationException("Pickup feedback requires a successfully committed request on State Authority.");
+        }
+        RPC_ReceiveLootGrant(LootChangeSequence, request.SourceId.Value, definitionIndex, request.RequestedAmount, request.SimulationTick);
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]
+    private void RPC_ReceiveLootGrant(int sequence, int sourceIdValue, int definitionIndex, int amount, int simulationTick)
+    {
+        if (_lootCatalog == null || !_lootCatalog.TryGetByIndex(definitionIndex, out LootDefinition definition))
+        {
+            Debug.LogError($"{nameof(PlayerLootReceiver)}: Cannot resolve loot grant index {definitionIndex} for local presentation.", this);
+            return;
+        }
+        _pendingPresentationEvents.Enqueue(new LootGrantPresentationEvent(
+            sequence, new EntityId(sourceIdValue), Id, definition.LootId, amount, simulationTick));
+    }
+
+    private LootTransferFailureReason ValidateRequest(in LootTransferRequest request, bool receiving, out int catalogIndex)
+    {
+        catalogIndex = -1;
+        if (!HasStateAuthority) return LootTransferFailureReason.MissingAuthority;
+        if (IsExtractionLocked()) return LootTransferFailureReason.ContainerUnavailable;
+        if (request.SourceId.Value == 0 || (!receiving && request.SourceId != Id)) return LootTransferFailureReason.SourceNotFound;
+        if (request.DestinationId.Value == 0 || (receiving && request.DestinationId != Id)) return LootTransferFailureReason.DestinationNotFound;
+        if (!request.LootId.IsValid || !LootTransferRequest.IsValidInventorySource(
+            request.SourceInventorySlotIndex, request.ExpectedInventoryRevision)) return LootTransferFailureReason.InvalidLoot;
+        // The token always belongs to SourceId, never to an incoming receiver.
+        if (!receiving && request.HasInventorySlotAddress && request.ExpectedInventoryRevision != Revision)
+            return LootTransferFailureReason.ContainerUnavailable;
+        if (request.RequestedAmount <= 0) return LootTransferFailureReason.InvalidAmount;
+        if (_lootCatalog == null || !LootInventoryRules.IsValidSlotCapacity(_slotCapacity, PhysicalSlotCount))
+            return LootTransferFailureReason.ContainerUnavailable;
+        if (!_lootCatalog.TryGetIndex(request.LootId, out catalogIndex)) return LootTransferFailureReason.InvalidLoot;
+        return catalogIndex < 0 || catalogIndex >= MaxCatalogEntries
+            ? LootTransferFailureReason.ContainerUnavailable : LootTransferFailureReason.None;
+    }
+
+    private bool TryReadSlots(Span<LootInventorySlot> slots)
+    {
+        if (_lootCatalog == null || _lootCatalog.DefinitionCount > MaxCatalogEntries ||
+            !LootInventoryRules.IsValidSlotCapacity(_slotCapacity, PhysicalSlotCount)) return false;
+        for (int index = 0; index < PhysicalSlotCount; index++)
+        {
+            LootInventorySlot slot = LootInventory[index];
+            if (!slot.IsEmpty && (!slot.IsValid || !_lootCatalog.TryGetByIndex(slot.CatalogIndex, out LootDefinition definition) ||
+                definition.StackMax < slot.Quantity || definition.MaxTransportable < 0)) return false;
+            slots[index] = slot;
+        }
+        return true;
+    }
+
+    private LootTransferFailureReason TryReceiveOrigin(Span<LootInventorySlot> slots, int catalogIndex, RaidLootOrigin origin, int amount)
+    {
+        if (catalogIndex < 0 || catalogIndex >= MaxCatalogEntries ||
+            !_lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition)) return LootTransferFailureReason.InvalidLoot;
+        return LootInventoryRules.TryReceive(slots, catalogIndex, origin, definition.StackMax,
+            definition.MaxTransportable, amount, _slotCapacity);
+    }
+
+    private LootTransferFailureReason TryReceiveTransfer(Span<LootInventorySlot> slots, int catalogIndex, RaidLootOriginTransfer transfer)
+    {
+        for (int index = 0; index < transfer.Count; index++)
+        {
+            RaidLootOriginBucket bucket = transfer.Buckets[index];
+            LootTransferFailureReason failure = TryReceiveOrigin(slots, catalogIndex, bucket.Origin, bucket.Amount);
+            if (failure != LootTransferFailureReason.None) return failure;
+        }
+        return LootTransferFailureReason.None;
+    }
+
+    private static LootTransferFailureReason ValidateAddressedSlot(ReadOnlySpan<LootInventorySlot> slots,
+        int catalogIndex, in LootTransferRequest request)
+    {
+        LootInventorySlot slot = slots[request.SourceInventorySlotIndex];
+        if (slot.IsEmpty) return LootTransferFailureReason.InsufficientAmount;
+        if (!slot.IsValid) return LootTransferFailureReason.ContainerUnavailable;
+        if (slot.CatalogIndex != catalogIndex) return LootTransferFailureReason.InvalidLoot;
+        return slot.Quantity < request.RequestedAmount
+            ? LootTransferFailureReason.InsufficientAmount : LootTransferFailureReason.None;
+    }
+
+    private static bool TryExtractInventoryRequest(Span<LootInventorySlot> slots, int catalogIndex,
+        in LootTransferRequest request, RaidLootOriginTransfer transfer)
+    {
+        if (!request.HasInventorySlotAddress)
+            return transfer == null
+                ? TryExtractOrigin(slots, catalogIndex, RaidLootOrigin.Dungeon, request.RequestedAmount)
+                : TryExtractTransfer(slots, catalogIndex, transfer);
+        if (!LootTransferRequest.IsValidInventorySlotAddress(request.SourceInventorySlotIndex, request.ExpectedInventoryRevision) ||
+            ValidateAddressedSlot(slots, catalogIndex, request) != LootTransferFailureReason.None) return false;
+        LootInventorySlot selected = slots[request.SourceInventorySlotIndex];
+        if (transfer != null && (transfer.Count != 1 || transfer.Buckets[0].Origin != selected.Origin ||
+            transfer.Buckets[0].Amount != request.RequestedAmount)) return false;
+        return LootInventoryRules.TryExtract(slots, request.SourceInventorySlotIndex, request.RequestedAmount) ==
+            LootTransferFailureReason.None;
+    }
+
+    private static bool TryExtractOrigin(Span<LootInventorySlot> slots, int catalogIndex, RaidLootOrigin origin, int amount)
+    {
+        int remaining = amount;
+        for (int index = 0; index < slots.Length && remaining > 0; index++)
+        {
+            LootInventorySlot slot = slots[index];
+            if (!slot.IsValid || slot.CatalogIndex != catalogIndex || slot.Origin != origin) continue;
+            int taken = Math.Min(remaining, slot.Quantity);
+            if (LootInventoryRules.TryExtract(slots, index, taken) != LootTransferFailureReason.None) return false;
+            remaining -= taken;
+        }
+        return remaining == 0;
+    }
+
+    private static bool TryExtractTransfer(Span<LootInventorySlot> slots, int catalogIndex, RaidLootOriginTransfer transfer)
+    {
+        for (int index = 0; index < transfer.Count; index++)
+        {
+            RaidLootOriginBucket bucket = transfer.Buckets[index];
+            if (!TryExtractOrigin(slots, catalogIndex, bucket.Origin, bucket.Amount)) return false;
+        }
+        return true;
+    }
+
+    private static bool TryGetTransferTotal(RaidLootOriginTransfer transfer, out int total)
+    {
+        // Canonical strict ordering proves uniqueness without TryGetTotal's HashSet allocation.
+        total = 0;
+        if (transfer == null || transfer.Count == 0) return false;
+        for (int index = 0; index < transfer.Count; index++)
+        {
+            RaidLootOriginBucket bucket = transfer.Buckets[index];
+            if (!bucket.IsValid || (index > 0 && transfer.Buckets[index - 1].Origin.CompareTo(bucket.Origin) >= 0) ||
+                total > int.MaxValue - bucket.Amount) return false;
+            total += bucket.Amount;
+        }
+        return true;
+    }
+
+    private static bool IsExactTransfer(RaidLootOriginTransfer transfer, int amount) =>
+        TryGetTransferTotal(transfer, out int total) && total == amount;
+
+    private static bool TryGetTotal(ReadOnlySpan<LootInventorySlot> slots, int catalogIndex, out int total)
+    {
+        long sum = 0;
+        foreach (LootInventorySlot slot in slots)
+            if (slot.IsValid && slot.CatalogIndex == catalogIndex) sum += slot.Quantity;
+        total = sum <= int.MaxValue ? (int)sum : 0;
+        return sum <= int.MaxValue;
+    }
+
+    private void WriteSlots(ReadOnlySpan<LootInventorySlot> slots, bool advanceIfUnchanged = false)
+    {
+        bool changed = false;
+        NetworkArray<LootInventorySlot> inventory = LootInventory;
+        for (int index = 0; index < PhysicalSlotCount; index++)
+        {
+            if (inventory[index] == slots[index]) continue;
+            inventory.Set(index, slots[index]);
+            changed = true;
+        }
+        if (changed || advanceIfUnchanged) LootChangeSequence++;
+    }
+
+    private void ClearSlots()
+    {
+        Span<LootInventorySlot> empty = stackalloc LootInventorySlot[PhysicalSlotCount];
+        empty.Clear();
+        WriteSlots(empty);
+    }
+
+    private static int OriginIndex(RaidLootOrigin origin) => origin.IsDungeon ? 0 : origin.PlayerParticipantId.Value;
+    private static RaidLootOrigin OriginAt(int index)
+    {
+        if (index == 0) return RaidLootOrigin.Dungeon;
+        RaidParticipantId.TryCreate(index, out RaidParticipantId participantId);
+        RaidLootOrigin.TryCreatePlayer(participantId, out RaidLootOrigin origin);
+        return origin;
+    }
+
+    private static bool TryCompareExactContent(IReadOnlyList<LootEntry> expected, IReadOnlyList<LootEntry> current, out string error)
+    {
+        error = null;
         if (expected == null || current == null || expected.Count != current.Count)
         {
+            error = "Snapshot count differs from the current inventory.";
             return false;
         }
-
+        var expectedIds = new HashSet<LootId>();
         for (int index = 0; index < expected.Count; index++)
         {
-            if (!expected[index].Equals(current[index]))
+            LootEntry entry = expected[index];
+            if (!entry.IsValid || !expectedIds.Add(entry.LootId))
             {
+                error = "Snapshot contains an invalid or duplicate stack.";
                 return false;
             }
+            bool found = false;
+            for (int currentIndex = 0; currentIndex < current.Count; currentIndex++)
+                if (current[currentIndex].Equals(entry)) { found = true; break; }
+            if (found) continue;
+            error = "Snapshot content differs from the current inventory.";
+            return false;
         }
-
         return true;
     }
 
-    /// <summary>
-    /// Forcibly clears and re-initializes the loadout. Intended for use in social hubs
-    /// where the local persistent loadout can change outside of network simulation.
-    /// </summary>
-    public bool TryForceSyncLoadout(IReadOnlyList<LootEntry> loadoutItems, out string error)
+    private static bool RaidOriginEntriesEqual(IReadOnlyList<RaidLootOriginEntry> expected, IReadOnlyList<RaidLootOriginEntry> current)
     {
-        error = null;
-        if (!HasStateAuthority)
-        {
-            error = "Loadout sync requires State Authority.";
-            UnityEngine.Debug.Log($"[ShopTransaction] TryForceSyncLoadout failed: {error}");
-            return false;
-        }
-
-        if (_raidOriginState != null)
-        {
-            error = "Raid loadout sync requires explicit admitted ProfileId provenance.";
-            return false;
-        }
-
-        if (!RaidLoadoutRules.TryValidate(loadoutItems, _lootCatalog, _slotCapacity, out error))
-        {
-            UnityEngine.Debug.Log($"[ShopTransaction] TryForceSyncLoadout validation failed: {error}");
-            return false;
-        }
-
-        // Explicitly remove all items instead of using Clear() which can be unreliable in some Fusion versions
-        var keysToRemove = new System.Collections.Generic.List<int>();
-        foreach (var kvp in LootInventory)
-        {
-            keysToRemove.Add(kvp.Key);
-        }
-        foreach (var key in keysToRemove)
-        {
-            LootInventory.Remove(key);
-        }
-
-        for (int index = 0; index < loadoutItems.Count; index++)
-        {
-            LootEntry entry = loadoutItems[index];
-            if (!_lootCatalog.TryGetIndex(entry.LootId, out int definitionIndex))
-            {
-                error = $"Loot catalog does not contain '{entry.LootId.Value}'.";
-                UnityEngine.Debug.Log($"[ShopTransaction] TryForceSyncLoadout failed: {error}");
-                return false;
-            }
-
-            LootInventory.Set(definitionIndex, entry.Amount);
-            UnityEngine.Debug.Log($"[ShopTransaction] TryForceSyncLoadout set {entry.LootId.Value} amount {entry.Amount}");
-        }
-
-        LootChangeSequence++;
+        if (expected == null || current == null || expected.Count != current.Count) return false;
+        for (int index = 0; index < expected.Count; index++)
+            if (!expected[index].Equals(current[index])) return false;
         return true;
     }
 
-    private bool TryMatchesInitialLoadout(
-        NetworkDictionary<int, int> inventory,
-        IReadOnlyList<LootEntry> expected)
+    private bool ValidateDependencies()
     {
-        if (inventory.Count != expected.Count)
+        if (_character == null || _lootCatalog == null ||
+            !LootInventoryRules.IsValidSlotCapacity(_slotCapacity, PhysicalSlotCount))
         {
+            Debug.LogError($"{nameof(PlayerLootReceiver)}: Character, loot catalog and physical slot capacity (1..30) are required.", this);
             return false;
         }
-
-        for (int index = 0; index < expected.Count; index++)
+        if (!_lootCatalog.TryValidate(out string error) || _lootCatalog.DefinitionCount > MaxCatalogEntries)
         {
-            if (!_lootCatalog.TryGetIndex(expected[index].LootId, out int definitionIndex) ||
-                !inventory.TryGet(definitionIndex, out int amount) ||
-                amount != expected[index].Amount)
-            {
-                return false;
-            }
+            Debug.LogError($"{nameof(PlayerLootReceiver)}: Invalid or oversized loot catalog. {error}", this);
+            return false;
         }
-
         return true;
+    }
+
+    private bool IsExtractionLocked() => _extractionController != null && _extractionController.State == ExtractionState.Extracted;
+
+    private void FailCommitContract(string commitName)
+    {
+        Debug.LogError($"{nameof(PlayerLootReceiver)}: {commitName} contract was violated after successful validation.", this);
+        throw new InvalidOperationException($"{commitName} preconditions changed after successful validation.");
     }
 
 #if UNITY_EDITOR
     private void OnValidate()
     {
-        if (_lootCatalog != null)
-        {
-            return;
-        }
-
+        if (_lootCatalog != null) return;
         string[] catalogGuids = UnityEditor.AssetDatabase.FindAssets("t:LootDefinitionCatalog");
-        if (catalogGuids.Length != 1)
-        {
-            return;
-        }
-
-        string catalogPath = UnityEditor.AssetDatabase.GUIDToAssetPath(catalogGuids[0]);
-        _lootCatalog = UnityEditor.AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(catalogPath);
+        if (catalogGuids.Length != 1) return;
+        _lootCatalog = UnityEditor.AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(
+            UnityEditor.AssetDatabase.GUIDToAssetPath(catalogGuids[0]));
     }
 #endif
 }

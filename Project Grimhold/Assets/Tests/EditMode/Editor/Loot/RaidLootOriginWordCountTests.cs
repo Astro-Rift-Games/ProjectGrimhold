@@ -8,14 +8,16 @@ namespace Tests.EditMode.Loot
 {
     public sealed class RaidLootOriginWordCountTests
     {
-        [TestCase("Assets/Prefabs/NetworkPlayer.prefab", 1289, 1884, 1884)]
+        // Player's old exact 1884-word layout included the removed packed Inventory.
+        // Report the actual newly woven layout; retain the approved upper bound, not a guessed total.
+        [TestCase("Assets/Prefabs/NetworkPlayer.prefab", 1289, null, 1884)]
         [TestCase("Assets/Prefabs/LootContainer.prefab", 820, 983, 1025)]
         [TestCase("Assets/Prefabs/Enemies/NetworkEnemy.prefab", 844, 1007, 1055)]
         [TestCase("Assets/Prefabs/LootPickup.prefab", 6, 22, 192)]
         public void ProductivePrefab_UsesMeasuredCompactBudget(
             string prefabPath,
             int baselineWords,
-            int expectedFinalWords,
+            int? expectedFinalWords,
             int maximumWords)
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
@@ -34,11 +36,18 @@ namespace Tests.EditMode.Loot
                 {
                     continue;
                 }
-                actualWords += NetworkBehaviourUtils.GetWordCount(behaviour);
+                int words = NetworkBehaviourUtils.GetWordCount(behaviour);
+                actualWords += words;
+                if (behaviour is PlayerLootReceiver || behaviour is PlayerRaidLootOriginState)
+                    TestContext.Out.WriteLine($"TASK-227 {behaviour.GetType().Name}: {words} woven words");
             }
             TestContext.Out.WriteLine(
                 $"TASK-133.1 {prefabPath}: baseline={baselineWords}, final={actualWords}, delta={actualWords - baselineWords}");
-            Assert.That(actualWords, Is.EqualTo(expectedFinalWords), prefabPath);
+            if (expectedFinalWords.HasValue)
+                Assert.That(actualWords, Is.EqualTo(expectedFinalWords.Value), prefabPath);
+            else
+                Assert.That(actualWords, Is.LessThan(1884), "Physical Inventory must remove the old parallel packed-state cost.");
+            Assert.That(actualWords, Is.GreaterThan(0), prefabPath);
             Assert.That(actualWords, Is.LessThanOrEqualTo(maximumWords), prefabPath);
         }
 

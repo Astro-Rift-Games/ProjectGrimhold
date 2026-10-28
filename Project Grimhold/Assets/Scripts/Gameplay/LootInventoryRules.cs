@@ -19,11 +19,12 @@ public static class LootInventoryRules
         RaidLootOrigin origin,
         int stackMax,
         int maxTransportable,
-        int requestedAmount)
+        int requestedAmount,
+        int slotCapacity = PhysicalSlotCount)
     {
         LootTransferFailureReason failure = GetReceiveCapacity(
             slots, catalogIndex, origin, stackMax, maxTransportable, requestedAmount,
-            out int currentTotal, out long capacity);
+            slotCapacity, out int currentTotal, out long capacity);
         if (failure != LootTransferFailureReason.None)
             return failure;
 
@@ -48,12 +49,13 @@ public static class LootInventoryRules
         int stackMax,
         int maxTransportable,
         int requestedAmount,
-        out int transferableAmount)
+        out int transferableAmount,
+        int slotCapacity = PhysicalSlotCount)
     {
         transferableAmount = 0;
         LootTransferFailureReason failure = GetReceiveCapacity(
             slots, catalogIndex, origin, stackMax, maxTransportable, requestedAmount,
-            out int currentTotal, out long capacity);
+            slotCapacity, out int currentTotal, out long capacity);
         if (failure != LootTransferFailureReason.None)
             return failure;
 
@@ -82,10 +84,11 @@ public static class LootInventoryRules
         RaidLootOrigin origin,
         int stackMax,
         int maxTransportable,
-        int requestedAmount)
+        int requestedAmount,
+        int slotCapacity = PhysicalSlotCount)
     {
         LootTransferFailureReason failure = ValidateReceive(
-            slots, catalogIndex, origin, stackMax, maxTransportable, requestedAmount);
+            slots, catalogIndex, origin, stackMax, maxTransportable, requestedAmount, slotCapacity);
         if (failure != LootTransferFailureReason.None)
             return failure;
 
@@ -155,6 +158,7 @@ public static class LootInventoryRules
         int stackMax,
         int maxTransportable,
         int requestedAmount,
+        int slotCapacity,
         out int currentTotal,
         out long capacity)
     {
@@ -164,20 +168,20 @@ public static class LootInventoryRules
             return LootTransferFailureReason.InvalidAmount;
         if (catalogIndex < 0 || catalogIndex >= RaidLootOriginPackedBuffer.MaximumCatalogEntries || !origin.IsValid)
             return LootTransferFailureReason.InvalidLoot;
-        if (slots.Length != PhysicalSlotCount || stackMax <= 0 || maxTransportable < 0)
+        if (slots.Length != PhysicalSlotCount || stackMax <= 0 || maxTransportable < 0 ||
+            !IsValidSlotCapacity(slotCapacity, PhysicalSlotCount))
             return LootTransferFailureReason.ContainerUnavailable;
 
         long total = 0;
+        int occupied = 0;
         for (int index = 0; index < slots.Length; index++)
         {
             LootInventorySlot slot = slots[index];
             if (slot.IsEmpty)
-            {
-                capacity += stackMax;
                 continue;
-            }
             if (!slot.IsValid)
                 return LootTransferFailureReason.ContainerUnavailable;
+            occupied++;
             if (slot.CatalogIndex != catalogIndex)
                 continue;
             if (slot.Quantity > stackMax)
@@ -188,6 +192,9 @@ public static class LootInventoryRules
                 capacity += stackMax - slot.Quantity;
         }
 
+        // A lower gameplay limit never resizes storage or moves existing slots. It only
+        // limits how many additional holes may be occupied; extraction remains possible.
+        capacity += (long)Math.Max(0, slotCapacity - occupied) * stackMax;
         if (total > int.MaxValue)
             return LootTransferFailureReason.Overflow;
         currentTotal = (int)total;

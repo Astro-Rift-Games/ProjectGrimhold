@@ -34,6 +34,7 @@ namespace Tests.PlayMode.Equipment
         private NetworkRunner _runner;
         private PlayerEquipmentSimulationDriver _driver;
         private PrimaryAttackStatusSimulationDriver _cooldownDriver;
+        private ExtractionProgressSimulationDriver _slotActionDriver;
         private PlayerWeaponEquipmentNetworkController _equipment;
         private PlayerLootReceiver _receiver;
         private PlayerCombatNetworkController _combat;
@@ -424,7 +425,16 @@ namespace Tests.PlayMode.Equipment
 
             Assert.That(source, Is.Not.Null);
             Assert.That(restored, Is.Not.Null);
+            PlayerLootReceiver restoredReceiver = restoredObject.GetComponent<PlayerLootReceiver>();
+            EquipmentTestContent.SetField(restoredReceiver, "_lootCatalog", _catalog);
+            restoredReceiver.CopyStateFrom(_receiver);
             restored.CopyStateFrom(source);
+            for (int index = 0; index < PlayerLootReceiver.PhysicalSlotCount; index++)
+            {
+                Assert.That(_receiver.TryGetInventorySlot(index, out LootInventorySlot expectedSlot), Is.True);
+                Assert.That(restoredReceiver.TryGetInventorySlot(index, out LootInventorySlot actualSlot), Is.True);
+                Assert.That(actualSlot, Is.EqualTo(expectedSlot));
+            }
 
             Assert.That(
                 source.TryGetInventoryEntries(_catalog, out IReadOnlyList<RaidLootOriginEntry> expected),
@@ -672,6 +682,115 @@ namespace Tests.PlayMode.Equipment
                 _meleeWeapon,
                 EquipmentSlot.WeaponSetAMainHand,
                 EquipmentOperationResult.Succeeded);
+        }
+
+        [UnityTest]
+        public IEnumerator AddressedEquip_SecondSameOriginStackLeavesFirstUntouched()
+        {
+            yield return StartRaidPlayer();
+            LogAssert.ignoreFailingMessages = false;
+            yield return SyncInventory(new[] { new LootEntry(_meleeWeapon.LootId, 2) });
+            Assert.That(_receiver.TryGetInventorySlot(0, out LootInventorySlot first), Is.True);
+            int revision = _receiver.Revision;
+
+            yield return EquipInventorySlot(1, revision, EquipmentOperationResult.Succeeded);
+
+            Assert.That(_receiver.TryGetInventorySlot(0, out LootInventorySlot remainingFirst), Is.True);
+            Assert.That(remainingFirst, Is.EqualTo(first));
+            Assert.That(_receiver.TryGetInventorySlot(1, out LootInventorySlot second), Is.True);
+            Assert.That(second.IsEmpty, Is.True);
+            Assert.That(_receiver.Revision, Is.EqualTo(revision + 1));
+            Assert.That(_receiver.GetLootAmount(_meleeWeapon.LootId), Is.EqualTo(1));
+            Assert.That(_equipment.TryGetSlotLoot(EquipmentSlot.WeaponSetAMainHand, out LootEntry equipped), Is.True);
+            Assert.That(equipped.LootId, Is.EqualTo(_meleeWeapon.LootId));
+        }
+
+        [UnityTest]
+        public IEnumerator AddressedEquip_UsesSecondStacksParticipantOriginNotCanonicalFirst()
+        {
+            yield return StartRaidPlayer();
+            LogAssert.ignoreFailingMessages = false;
+            yield return SyncInventory(new[] { new LootEntry(_meleeWeapon.LootId, 1) });
+            Assert.That(_receiver.TryGetInventorySlot(0, out LootInventorySlot first), Is.True);
+            yield return InSlotSimulation(() => GrantSlotTestLoot(_meleeWeapon.LootId, playerOrigin: 2));
+
+            yield return EquipInventorySlot(1, _receiver.Revision, EquipmentOperationResult.Succeeded);
+
+            Assert.That(_receiver.TryGetInventorySlot(0, out LootInventorySlot remainingFirst), Is.True);
+            Assert.That(remainingFirst, Is.EqualTo(first));
+            Assert.That(_receiver.TryGetInventorySlot(1, out LootInventorySlot second), Is.True);
+            Assert.That(second.IsEmpty, Is.True);
+            Assert.That(_equipment.TryGetSlotRaidOrigin(EquipmentSlot.WeaponSetAMainHand, out RaidLootOrigin origin), Is.True);
+            Assert.That(origin.PlayerParticipantId.Value, Is.EqualTo(2));
+        }
+
+        [UnityTest]
+        public IEnumerator AddressedEquip_RevisionChangedAfterSendRejectsWithoutRetargeting()
+        {
+            yield return StartRaidPlayer();
+            LogAssert.ignoreFailingMessages = false;
+            yield return SyncInventory(new[] { new LootEntry(_meleeWeapon.LootId, 2) });
+            Assert.That(_receiver.TryGetInventorySlot(0, out LootInventorySlot first), Is.True);
+            Assert.That(_receiver.TryGetInventorySlot(1, out LootInventorySlot second), Is.True);
+            int revision = _receiver.Revision;
+            int equipmentRevision = _equipment.ObservedEquipmentRevision;
+
+            // The local envelope is valid when sent; a different Inventory mutation in the
+            // same simulation action makes it stale before the queued authority request runs.
+            yield return EquipInventorySlot(1, revision, EquipmentOperationResult.InvalidRequest,
+                afterSent: () => GrantSlotTestLoot(_trinket.LootId, playerOrigin: 2));
+
+            Assert.That(_receiver.TryGetInventorySlot(0, out LootInventorySlot remainingFirst), Is.True);
+            Assert.That(_receiver.TryGetInventorySlot(1, out LootInventorySlot remainingSecond), Is.True);
+            Assert.That(remainingFirst, Is.EqualTo(first));
+            Assert.That(remainingSecond, Is.EqualTo(second));
+            Assert.That(_receiver.Revision, Is.EqualTo(revision + 1), "Only the unrelated grant may advance Inventory.");
+            Assert.That(_equipment.ObservedEquipmentRevision, Is.EqualTo(equipmentRevision));
+            Assert.That(_equipment.IsSlotOccupied(EquipmentSlot.WeaponSetAMainHand), Is.False);
+            Assert.That(_equipment.HasRequestInFlight, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator FullInventory_WeaponReplacementUsesOutgoingPhysicalSlot()
+        {
+            yield return StartRaidPlayer();
+            LogAssert.ignoreFailingMessages = false;
+            yield return Equip(_meleeWeapon, EquipmentOperationResult.Succeeded);
+            yield return SyncInventory(new[] { new LootEntry(_rangedWeapon.LootId, 1), new LootEntry(_trinket.LootId, 1) });
+            EquipmentTestContent.SetField(_receiver, "_slotCapacity", 2);
+            Assert.That(_receiver.OccupiedSlotCount, Is.EqualTo(2));
+
+            yield return EquipThroughAuthority(_rangedWeapon, EquipmentSlot.WeaponSetAMainHand, EquipmentOperationResult.Succeeded);
+
+            Assert.That(_receiver.OccupiedSlotCount, Is.EqualTo(2));
+            Assert.That(_receiver.GetLootAmount(_rangedWeapon.LootId), Is.Zero);
+            Assert.That(_receiver.GetLootAmount(_meleeWeapon.LootId), Is.EqualTo(1));
+            Assert.That(_receiver.GetLootAmount(_trinket.LootId), Is.EqualTo(1));
+            Assert.That(_equipment.TryGetSlotLoot(EquipmentSlot.WeaponSetAMainHand, out LootEntry equipped), Is.True);
+            Assert.That(equipped.LootId, Is.EqualTo(_rangedWeapon.LootId));
+            Assert.That(_equipment.TryGetSlotRaidOrigin(EquipmentSlot.WeaponSetAMainHand, out RaidLootOrigin origin), Is.True);
+            Assert.That(origin.PlayerParticipantId.Value, Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator FullInventory_TwoHandDisplacementRejectsWithoutPartialMutation()
+        {
+            yield return StartRaidPlayer(CreateAttributes(strength: 10));
+            LogAssert.ignoreFailingMessages = false;
+            yield return EquipThroughAuthority(_meleeWeapon, EquipmentSlot.WeaponSetAMainHand, EquipmentOperationResult.Succeeded);
+            yield return EquipThroughAuthority(_rangedWeapon, EquipmentSlot.WeaponSetAOffHand, EquipmentOperationResult.Succeeded);
+            yield return SyncInventory(new[] { new LootEntry(_greatsword.LootId, 1), new LootEntry(_trinket.LootId, 1) });
+            EquipmentTestContent.SetField(_receiver, "_slotCapacity", 2);
+            Assert.That(PlayerExpeditionLootSnapshot.TryCapture(_receiver, _equipment,
+                out PlayerExpeditionLootSnapshot before, out string error), Is.True, error);
+            int inventoryRevision = _receiver.Revision;
+            int equipmentRevision = _equipment.ObservedEquipmentRevision;
+
+            yield return EquipThroughAuthority(_greatsword, EquipmentSlot.WeaponSetAMainHand, EquipmentOperationResult.InventoryFull);
+
+            Assert.That(before.MatchesCurrent(_receiver, _equipment, out error), Is.True, error);
+            Assert.That(_receiver.Revision, Is.EqualTo(inventoryRevision));
+            Assert.That(_equipment.ObservedEquipmentRevision, Is.EqualTo(equipmentRevision));
         }
 
         [UnityTest]
@@ -1071,6 +1190,7 @@ namespace Tests.PlayMode.Equipment
             runnerObject.AddComponent<EntityRegistry>();
             _driver = runnerObject.AddComponent<PlayerEquipmentSimulationDriver>();
             _cooldownDriver = runnerObject.AddComponent<PrimaryAttackStatusSimulationDriver>();
+            _slotActionDriver = runnerObject.AddComponent<ExtractionProgressSimulationDriver>();
             _runner.ProvideInput = true;
 
             var start = _runner.StartGame(new StartGameArgs
@@ -1106,6 +1226,48 @@ namespace Tests.PlayMode.Equipment
                 () => _driver.CompletionSequence != previous,
                 "The inventory setup never ran inside Fusion simulation.");
             Assert.That(_driver.LastResult, Is.True, _driver.LastError);
+        }
+
+        private IEnumerator InSlotSimulation(Action action)
+        {
+            _slotActionDriver.ClearException();
+            _slotActionDriver.PendingAction = _ => action();
+            yield return WaitUntil(() => _slotActionDriver.PendingAction == null, "The addressed test action did not execute.");
+            Assert.That(_slotActionDriver.LastException, Is.Null, _slotActionDriver.LastException?.ToString());
+        }
+
+        private void GrantSlotTestLoot(LootId lootId, int playerOrigin)
+        {
+            Assert.That(RaidParticipantId.TryCreate(playerOrigin, out RaidParticipantId participantId), Is.True);
+            Assert.That(RaidLootOriginTransfer.TryCreatePlayer(participantId, 1, out RaidLootOriginTransfer transfer), Is.True);
+            var receive = new LootTransferRequest(new EntityId(int.MaxValue), _receiver.Id, lootId, 1, _runner.Tick);
+            Assert.That(_receiver.ValidateReceive(receive), Is.EqualTo(LootTransferFailureReason.None));
+            Assert.That(_receiver.ValidateRaidLootOriginReceive(receive, transfer), Is.EqualTo(LootTransferFailureReason.None));
+            _receiver.CommitRaidLootReceive(receive, transfer);
+        }
+
+        private IEnumerator EquipInventorySlot(int sourceSlot, int expectedRevision,
+            EquipmentOperationResult expected, Action afterSent = null)
+        {
+            EquipmentOperationResult observed = EquipmentOperationResult.None;
+            void OnResolved(EquipmentOperationResult result) => observed = result;
+            _equipment.EquipRequestResolved += OnResolved;
+            try
+            {
+                yield return InSlotSimulation(() =>
+                {
+                    Assert.That(_equipment.TryRequestEquip(_meleeWeapon.LootId, EquipmentSlot.WeaponSetAMainHand,
+                        sourceSlot, expectedRevision), Is.True);
+                    afterSent?.Invoke();
+                });
+                yield return WaitUntil(() => observed != EquipmentOperationResult.None,
+                    "The addressed equipment intention never resolved.");
+            }
+            finally
+            {
+                _equipment.EquipRequestResolved -= OnResolved;
+            }
+            Assert.That(observed, Is.EqualTo(expected));
         }
 
         /// <summary>Drives the full Input Authority intention and waits for the confirmation.</summary>
@@ -1184,7 +1346,7 @@ namespace Tests.PlayMode.Equipment
             {
                 typeof(PlayerWeaponEquipmentNetworkController)
                     .GetMethod("RPC_RequestEquipment", BindingFlags.Instance | BindingFlags.NonPublic)
-                    .Invoke(_equipment, new object[] { kind, catalogIndex, slotValue, sequence, default(RpcInfo) });
+                    .Invoke(_equipment, new object[] { kind, catalogIndex, slotValue, sequence, -1, -1, default(RpcInfo) });
 
                 yield return WaitUntil(
                     () => observed != EquipmentOperationResult.None,

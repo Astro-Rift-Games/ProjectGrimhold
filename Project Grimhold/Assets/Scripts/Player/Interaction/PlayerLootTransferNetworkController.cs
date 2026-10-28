@@ -124,7 +124,17 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         EntityId sourceId,
         EntityId destinationId,
         LootId lootId,
-        LootTransferQuantityMode quantityMode)
+        LootTransferQuantityMode quantityMode) =>
+        TryRequestTransferCore(sourceId, destinationId, lootId, quantityMode, -1, -1);
+
+    public bool TryRequestTransfer(EntityId sourceId, EntityId destinationId, LootId lootId,
+        LootTransferQuantityMode quantityMode, int sourceInventorySlotIndex, int expectedInventoryRevision) =>
+        LootTransferRequest.IsValidInventorySlotAddress(sourceInventorySlotIndex, expectedInventoryRevision) &&
+        TryRequestTransferCore(sourceId, destinationId, lootId, quantityMode,
+            sourceInventorySlotIndex, expectedInventoryRevision);
+
+    private bool TryRequestTransferCore(EntityId sourceId, EntityId destinationId, LootId lootId,
+        LootTransferQuantityMode quantityMode, int sourceInventorySlotIndex, int expectedInventoryRevision)
     {
         EntityId playerId = _character?.Id ?? default;
         bool playerIsSource = sourceId == playerId;
@@ -133,6 +143,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)) || sourceId.Value == 0 ||
             destinationId.Value == 0 || sourceId == destinationId ||
             playerIsSource == playerIsDestination ||
+            (sourceInventorySlotIndex != -1 && !playerIsSource) ||
             !IsSupportedQuantityMode(quantityMode) ||
             (_extractionController != null && _extractionController.State == ExtractionState.Extracted) ||
             _lootCatalog == null || !_lootCatalog.TryGetIndex(lootId, out int catalogIndex))
@@ -140,22 +151,21 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             return false;
         }
 
-        if (!_clientRequest.TryCreateCandidate(
-                sourceId,
-                destinationId,
-                catalogIndex,
-                quantityMode,
-                out LootTransferRequestIdentity identity))
-        {
-            return false;
-        }
+        LootTransferRequestIdentity identity;
+        bool created = sourceInventorySlotIndex == -1
+            ? _clientRequest.TryCreateCandidate(sourceId, destinationId, catalogIndex, quantityMode, out identity)
+            : _clientRequest.TryCreateCandidate(sourceId, destinationId, catalogIndex, quantityMode,
+                sourceInventorySlotIndex, expectedInventoryRevision, out identity);
+        if (!created) return false;
 
         RpcInvokeInfo invokeInfo = RPC_RequestTransfer(
             sourceId.Value,
             destinationId.Value,
             catalogIndex,
             (int)quantityMode,
-            identity.RequestSequence);
+            identity.RequestSequence,
+            identity.SourceInventorySlotIndex,
+            identity.ExpectedInventoryRevision);
         if (!WasAccepted(invokeInfo, HasStateAuthority))
         {
             return false;
@@ -194,7 +204,9 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
                 destinationId.Value,
                 catalogIndex,
                 (int)quantityMode,
-                requestSequence),
+                requestSequence,
+                -1,
+                -1),
             HasStateAuthority);
     }
 
@@ -289,6 +301,8 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         int catalogIndex,
         int quantityModeValue,
         uint requestSequence,
+        int sourceInventorySlotIndex,
+        int expectedInventoryRevision,
         RpcInfo info = default)
     {
         if (!HasStateAuthority || info.Source != Object.InputAuthority)
@@ -323,7 +337,9 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             new EntityId(sourceIdValue),
             new EntityId(destinationIdValue),
             catalogIndex,
-            (LootTransferQuantityMode)quantityModeValue);
+            (LootTransferQuantityMode)quantityModeValue,
+            sourceInventorySlotIndex,
+            expectedInventoryRevision);
 
         LootTransferRequestState.Disposition disposition =
             _authoritativeRequests.TryEnqueue(identity, out LootTransferConfirmation cached);
@@ -454,6 +470,12 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             return RejectedConfirmation(identity, tick, LootTransferFailureReason.MissingAuthority);
         }
 
+        if (!LootTransferRequest.IsValidInventorySource(identity.SourceInventorySlotIndex, identity.ExpectedInventoryRevision))
+            return RejectedConfirmation(identity, tick, LootTransferFailureReason.InvalidLoot);
+        // An addressed source is always this authenticated actor's Inventory, never a container.
+        if (identity.HasInventorySlotAddress && !isDeposit)
+            return RejectedConfirmation(identity, tick, LootTransferFailureReason.MissingAuthority);
+
         EntityId containerId = isDeposit ? identity.DestinationId : identity.SourceId;
         if (!TryResolveContainer(containerId, out NetworkLootContainer container))
         {
@@ -491,27 +513,26 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             return RejectedConfirmation(identity, tick, LootTransferFailureReason.InvalidLoot);
         }
 
-        int availableAmount = quantityReader.GetLootAmount(definition.LootId);
-        LootTransferFailureReason quantityFailure = LootTransferQuantityResolver.Resolve(
-            identity.QuantityMode,
-            availableAmount,
-            out int requestedAmount);
-        if (quantityFailure != LootTransferFailureReason.None)
+        LootTransferRequest request;
+        LootTransferFailureReason quantityFailure;
+        if (identity.HasInventorySlotAddress)
         {
-            return RejectedConfirmation(identity, tick, quantityFailure);
+            quantityFailure = _lootReceiver.ResolveInventorySlotExtraction(identity.DestinationId, definition.LootId,
+                identity.QuantityMode, identity.SourceInventorySlotIndex, identity.ExpectedInventoryRevision, tick, out request);
         }
+        else
+        {
+            quantityFailure = LootTransferQuantityResolver.Resolve(identity.QuantityMode,
+                quantityReader.GetLootAmount(definition.LootId), out int requestedAmount);
+            request = new LootTransferRequest(identity.SourceId, identity.DestinationId, definition.LootId, requestedAmount, tick);
+        }
+        if (quantityFailure != LootTransferFailureReason.None)
+            return RejectedConfirmation(identity, tick, quantityFailure);
 
         if (!IsContainerInRange(containerId, playerId))
         {
             return RejectedConfirmation(identity, tick, LootTransferFailureReason.OutOfRange);
         }
-
-        var request = new LootTransferRequest(
-            identity.SourceId,
-            identity.DestinationId,
-            definition.LootId,
-            requestedAmount,
-            tick);
 
         LootTransferResult result = LootTransferTransaction.Execute(
             extractor,

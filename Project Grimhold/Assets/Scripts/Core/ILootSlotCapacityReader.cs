@@ -1,6 +1,8 @@
 /// <summary>
 /// Read capability for gameplay slot capacity and current occupancy.
-/// One distinct positive loot identifier occupies one slot.
+/// Player Inventory counts physical stacks (including exact-origin subdivisions).
+/// Aggregate containers count distinct positive loot identifiers. The owning endpoint
+/// defines the storage model; this capability does not imply an aggregate snapshot's row count.
 /// </summary>
 public interface ILootSlotCapacityReader : IEntity
 {

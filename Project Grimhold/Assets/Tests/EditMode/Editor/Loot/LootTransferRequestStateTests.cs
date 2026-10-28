@@ -116,6 +116,45 @@ namespace Tests.EditMode.Loot
             Assert.That(confirmation.CatalogIndex, Is.EqualTo(99));
         }
 
+        [TestCase(8, 19)]
+        [TestCase(7, 20)]
+        public void AddressAndRevision_ArePartOfIdentityAndPendingProcessedConflictDetection(int changedSlot, int changedRevision)
+        {
+            var original = new LootTransferRequestIdentity(4, new EntityId(10), new EntityId(20), 2,
+                LootTransferQuantityMode.FullStack, 7, 19);
+            var duplicate = new LootTransferRequestIdentity(4, new EntityId(10), new EntityId(20), 2,
+                LootTransferQuantityMode.FullStack, 7, 19);
+            var conflict = new LootTransferRequestIdentity(4, new EntityId(10), new EntityId(20), 2,
+                LootTransferQuantityMode.FullStack, changedSlot, changedRevision);
+            Assert.That(duplicate, Is.EqualTo(original));
+            Assert.That(duplicate.GetHashCode(), Is.EqualTo(original.GetHashCode()));
+            Assert.That(conflict, Is.Not.EqualTo(original));
+            Assert.That(conflict.GetHashCode(), Is.Not.EqualTo(original.GetHashCode()));
+            var state = new LootTransferRequestState();
+            Assert.That(state.TryEnqueue(original, out _), Is.EqualTo(LootTransferRequestState.Disposition.AcceptedPending));
+            Assert.That(state.TryEnqueue(duplicate, out _), Is.EqualTo(LootTransferRequestState.Disposition.PendingDuplicate));
+            Assert.That(state.TryEnqueue(conflict, out _), Is.EqualTo(LootTransferRequestState.Disposition.PendingPayloadConflict));
+            Assert.That(state.TryConsume(out LootTransferRequestIdentity consumed), Is.True);
+            Assert.That(consumed, Is.EqualTo(original));
+            state.RecordProcessed(consumed, Rejected(consumed, LootTransferFailureReason.ContainerUnavailable));
+            Assert.That(state.TryEnqueue(conflict, out _), Is.EqualTo(LootTransferRequestState.Disposition.ProcessedPayloadConflict));
+            Assert.That(state.TryEnqueue(duplicate, out LootTransferConfirmation replay),
+                Is.EqualTo(LootTransferRequestState.Disposition.ProcessedDuplicate));
+            Assert.That(replay.Result.FailureReason, Is.EqualTo(LootTransferFailureReason.ContainerUnavailable));
+            Assert.That(state.HasPending, Is.False);
+        }
+
+        [Test]
+        public void AddressedAndLegacyPayloads_WithSameSequenceAreNotDuplicates()
+        {
+            var state = new LootTransferRequestState();
+            LootTransferRequestIdentity legacy = Identity(4, 10, 2);
+            var addressed = new LootTransferRequestIdentity(4, new EntityId(10), new EntityId(20), 2,
+                LootTransferQuantityMode.FullStack, 0, 19);
+            state.TryEnqueue(legacy, out _);
+            Assert.That(state.TryEnqueue(addressed, out _), Is.EqualTo(LootTransferRequestState.Disposition.PendingPayloadConflict));
+        }
+
         private static LootTransferRequestIdentity Identity(uint sequence, int sourceId, int catalogIndex) =>
             new(
                 sequence,
