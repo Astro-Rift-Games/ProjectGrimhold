@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aeed099a389008b44ad97674fa3f48c3, type: 3}
+  m_Name: RES_TANNED_LEATHER
+  m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
+  _id: RES_TANNED_LEATHER
+  _displayName: Tanned Leather
+  _description: Tough hide treated for armor crafting.
+  _icon: {fileID: 21300000, guid: 3968ca9e97ed44feac69874b87f09c5c, type: 3}
+  _worldSprite: {fileID: 21300000, guid: 3968ca9e97ed44feac69874b87f09c5c, type: 3}
+  _category: 1
+  _rarity: 0
+  _objectValue: 10
+  _stackMax: 10
+  _maxTransportable: 0
+  _family: CommonMaterials
+  _tags:
+  - resource
+  - common_material
+  _tradable: 1
+  _canBeTransferred: 1
+  _canEnterDungeon: 1
+  _canBeFoundInDungeon: 1
+  _canBeDiscarded: 1
+  _canBeUsed: 0
+  _missionCompatible: 0
+  _useMode: 0
+  _extractionValuePerUnit: 10
+  _sellValuePerUnit: 10
+  _buyValuePerUnit: 20
+  _defaultPickupQuantity: 1
+  _consumableDefinition: {fileID: 0}
+  _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
+  _armorDefinition: {fileID: 0}
+  _equipmentVisualDefinition: {fileID: 0}
+  _defenseSprites:
+    _up: {fileID: 0}
+    _down: {fileID: 0}
+    _left: {fileID: 0}
+    _right: {fileID: 0}
+  _quickSlotCompatible: 0

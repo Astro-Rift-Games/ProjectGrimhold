@@ -117,4 +117,18 @@ router.post('/raid/verify-admission', async (req, res, next) => {
   }
 });
 
+const AbilityService = require('../services/AbilityService');
+const { purchaseAbilityValidator } = require('../validators/ability.validators');
+
+// POST /character/me/abilities/purchase
+// Purchases an ability from the Ability Vendor.
+router.post('/me/abilities/purchase', purchaseAbilityValidator, async (req, res, next) => {
+  try {
+    const result = await AbilityService.purchaseAbility(req.accountId, req.body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

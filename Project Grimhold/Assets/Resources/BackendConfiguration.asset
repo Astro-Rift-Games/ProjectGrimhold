@@ -14,4 +14,3 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Grimhold.Backend.BackendConfiguration
   BaseUrl: https://projectgrimhold.onrender.com
   TimeoutSeconds: 60
-  WebhookSecret: dev-webhook-secret-do-not-use-in-prod

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d7fd9488000d3734a9e00ee676215985, type: 3}
   m_Name: DungeonAmbientVolumeProfile
   m_EditorClassIdentifier: 
-  m_Components:
+  components:
   - {fileID: 519400001}
 --- !u!114 &519400001
 MonoBehaviour:

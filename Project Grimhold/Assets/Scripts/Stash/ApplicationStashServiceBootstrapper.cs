@@ -172,8 +172,10 @@ public static class ApplicationStashServiceBootstrapper
         stashService.Initialize(store);
         loadoutService.Initialize(store);
         currencyService.Initialize(store);
+        var abilityPurchaseService = contextObject.AddComponent<RemoteAbilityPurchaseService>();
+        abilityPurchaseService.Initialize(store, reconciliationService);
         shopTransactionService.Initialize(store, _configuration, reconciliationService, _context.BuybackLedger);
-        _context.Initialize(store, stashService, loadoutService, currencyService, shopTransactionService);
+        _context.Initialize(store, stashService, loadoutService, currencyService, shopTransactionService, abilityPurchaseService);
         // HydrateSnapshot deliberately excludes this memory-only, backend-owned ledger.
         if (inventoryData.HasValue) _context.HydrateBuyback(inventoryData.Value);
 
@@ -239,7 +241,6 @@ public static class ApplicationStashServiceBootstrapper
     /// Updates the local snapshot with authoritative data from the backend.
     /// Note: The following local-only or unsynced fields are NOT overwritten by the backend:
     /// - ActiveMissions
-    /// - UnlockedAbilities
     /// - PreparedAbilities (unless revalidation fails due to attribute changes)
     /// - QuickSlots
     /// - Shop receipts
@@ -261,6 +262,7 @@ public static class ApplicationStashServiceBootstrapper
     {
         CharacterAttributeState? validatedAttributes = null;
         PreparedAbilityLoadout? validatedAbilities = null;
+        System.Collections.Generic.List<AbilityId> backendUnlockedAbilities = null;
 
         if (progressionData.HasValue)
         {
@@ -275,9 +277,29 @@ public static class ApplicationStashServiceBootstrapper
                 return false;
             }
 
+            if (prog.unlockedAbilities != null)
+            {
+                backendUnlockedAbilities = new System.Collections.Generic.List<AbilityId>();
+                foreach (var rawId in prog.unlockedAbilities)
+                {
+                    if (string.IsNullOrWhiteSpace(rawId)) continue;
+                    var abilityId = new AbilityId(rawId);
+                    if (abilityCatalog != null && !abilityCatalog.TryGet(abilityId, out _))
+                    {
+                        Debug.LogWarning($"[{nameof(ApplicationStashServiceBootstrapper)}] Hydration skipped unknown ability '{rawId}'.");
+                        continue;
+                    }
+                    if (!backendUnlockedAbilities.Contains(abilityId))
+                    {
+                        backendUnlockedAbilities.Add(abilityId);
+                    }
+                }
+            }
+
+            var abilityContext = backendUnlockedAbilities ?? snapshot.UnlockedAbilities;
             if (!PreparedAbilityLoadout.TryRevalidateAfterAttributeChange(
                     snapshot.PreparedAbilities,
-                    snapshot.UnlockedAbilities,
+                    abilityContext,
                     state,
                     abilityCatalog,
                     out PreparedAbilityLoadout revalidatedAbilities,
@@ -403,6 +425,12 @@ public static class ApplicationStashServiceBootstrapper
                 snapshot.LastProgressionReceipt = null;
             }
             
+            if (backendUnlockedAbilities != null)
+            {
+                snapshot.UnlockedAbilities.Clear();
+                snapshot.UnlockedAbilities.AddRange(backendUnlockedAbilities);
+            }
+
             snapshot.CharacterAttributes = validatedAttributes.Value;
             snapshot.PreparedAbilities = validatedAbilities.Value;
             snapshot.RemoteRevision = prog.revision;

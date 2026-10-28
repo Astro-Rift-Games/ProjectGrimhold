@@ -76,6 +76,9 @@ public static class LootContainerContentRoller
             out error);
     }
 
+    public const int ChaosCoinLootChanceBasisPoints = 2000;
+    public const ulong ChaosCoinSalt = 0xC4A05C0192A7E11DUL;
+
     /// <summary>
     /// Produces the base roll plus at most one distinct bonus stack. The bonus uses
     /// an independent deterministic stream so changing Luck never changes base content.
@@ -84,6 +87,28 @@ public static class LootContainerContentRoller
         ValidatedLootContainerContentSnapshot snapshot,
         ulong seed,
         int additionalLootChanceBasisPoints,
+        out IReadOnlyList<LootEntry> result,
+        out string error)
+    {
+        return TryRoll(
+            snapshot,
+            seed,
+            additionalLootChanceBasisPoints,
+            hasChaosCoin: false,
+            out result,
+            out error);
+    }
+
+    /// <summary>
+    /// Produces the base roll plus optional independent Luck and Chaos Coin bonus stacks.
+    /// The bonuses use independent deterministic streams so changing Luck or carrying Chaos Coin
+    /// never changes base content, and both rolls are mutually independent.
+    /// </summary>
+    public static bool TryRoll(
+        ValidatedLootContainerContentSnapshot snapshot,
+        ulong seed,
+        int additionalLootChanceBasisPoints,
+        bool hasChaosCoin,
         out IReadOnlyList<LootEntry> result,
         out string error)
     {
@@ -182,6 +207,41 @@ public static class LootContainerContentRoller
                 rolled.Add(new RolledEntry(
                     selected.CatalogIndex,
                     new LootEntry(selected.LootId, amount)));
+                remainingWeight = checked(remainingWeight - selected.Weight);
+                candidates.RemoveAt(selectedIndex);
+            }
+        }
+
+        if (hasChaosCoin && candidates.Count > 0 &&
+            rolled.Count < snapshot.SlotCapacity && rolled.Count < snapshot.NetworkCapacity)
+        {
+            var chaosRandom = new DeterministicRandom(seed ^ ChaosCoinSalt);
+            ulong chanceRoll = chaosRandom.NextBelow(
+                CharacterDerivedStatisticsCalculator.BasisPointsDenominator);
+            if (chanceRoll < (ulong)ChaosCoinLootChanceBasisPoints)
+            {
+                int selectedIndex = SelectWeightedIndex(
+                    candidates,
+                    remainingWeight,
+                    ref chaosRandom);
+                if (selectedIndex < 0)
+                {
+                    error = "Chaos coin weighted candidate selection failed.";
+                    return false;
+                }
+
+                ValidatedLootContainerContentSnapshot.Entry selected =
+                    candidates[selectedIndex];
+                int amount = NextInclusive(
+                    ref chaosRandom,
+                    selected.MinimumAmount,
+                    selected.MaximumAmount);
+                rolled.Add(new RolledEntry(
+                    selected.CatalogIndex,
+                    new LootEntry(selected.LootId, amount)));
+
+                remainingWeight = checked(remainingWeight - selected.Weight);
+                candidates.RemoveAt(selectedIndex);
             }
         }
 

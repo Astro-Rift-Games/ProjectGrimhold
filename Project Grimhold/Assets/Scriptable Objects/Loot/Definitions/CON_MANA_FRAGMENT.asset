@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aeed099a389008b44ad97674fa3f48c3, type: 3}
+  m_Name: CON_MANA_FRAGMENT
+  m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
+  _id: CON_MANA_FRAGMENT
+  _displayName: Mana Fragment
+  _description: A minor crystal shard releasing a burst of mana.
+  _icon: {fileID: 21300000, guid: b77b4a38f9eaab143b6e877a7ba93435, type: 3}
+  _worldSprite: {fileID: 21300000, guid: b77b4a38f9eaab143b6e877a7ba93435, type: 3}
+  _category: 3
+  _rarity: 0
+  _objectValue: 8
+  _stackMax: 10
+  _maxTransportable: 0
+  _family: Potions
+  _tags:
+  - consumable
+  - mana
+  _tradable: 1
+  _canBeTransferred: 1
+  _canEnterDungeon: 1
+  _canBeFoundInDungeon: 1
+  _canBeDiscarded: 1
+  _canBeUsed: 1
+  _missionCompatible: 0
+  _useMode: 1
+  _extractionValuePerUnit: 8
+  _sellValuePerUnit: 8
+  _buyValuePerUnit: 16
+  _defaultPickupQuantity: 1
+  _consumableDefinition: {fileID: 11400000, guid: f1809406c5cc483a8bd8d737927162ea, type: 2}
+  _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
+  _armorDefinition: {fileID: 0}
+  _equipmentVisualDefinition: {fileID: 0}
+  _defenseSprites:
+    _up: {fileID: 0}
+    _down: {fileID: 0}
+    _left: {fileID: 0}
+    _right: {fileID: 0}
+  _quickSlotCompatible: 1

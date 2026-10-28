@@ -5,5 +5,6 @@ public enum QuickSlotAssignmentResult
     InvalidItem = 2,
     NotCompatible = 3,
     NotInInventory = 4,
-    Unchanged = 5
+    Unchanged = 5,
+    AlreadyAssigned = 6
 }

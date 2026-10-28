@@ -32,19 +32,23 @@ public sealed class TownAbilityVendorPresenter : NetworkBehaviour
     private IDisposable _inputSuppression;
     private PlayerInputReader _inputReader;
     private LocalProfileStore _store;
+    private IAbilityPurchaseService _abilityPurchaseService;
     private bool _isListening;
+    private bool _isPurchaseInFlight;
 
-    /// <summary>Supplies the confirmed local profile store. Rebinding closes any open panel.</summary>
-    public void BindProfile(LocalProfileStore store)
+    /// <summary>Supplies the confirmed local profile store and optional remote purchase service. Rebinding closes any open panel.</summary>
+    public void BindProfile(LocalProfileStore store, IAbilityPurchaseService abilityPurchaseService = null)
     {
         ClosePanel();
         _store = store ?? throw new ArgumentNullException(nameof(store));
+        _abilityPurchaseService = abilityPurchaseService;
     }
 
     public void UnbindProfile()
     {
         ClosePanel();
         _store = null;
+        _abilityPurchaseService = null;
     }
 
     private void Awake()
@@ -226,9 +230,9 @@ public sealed class TownAbilityVendorPresenter : NetworkBehaviour
         AcquireInputSuppression();
     }
 
-    private void OnBuyRequested(AbilityId abilityId)
+    private async void OnBuyRequested(AbilityId abilityId)
     {
-        if (_store == null || _view == null || !_view.IsOpen)
+        if (_isPurchaseInFlight || _store == null || _view == null || !_view.IsOpen)
         {
             return;
         }
@@ -258,15 +262,35 @@ public sealed class TownAbilityVendorPresenter : NetworkBehaviour
             return;
         }
 
-        AbilityPurchaseResult result = _store.TryPurchaseAbility(abilityId, offer.Price);
+        _isPurchaseInFlight = true;
+        AbilityPurchaseResult result;
+        try
+        {
+            if (_abilityPurchaseService != null)
+            {
+                result = await _abilityPurchaseService.PurchaseAbilityAsync(_store.ProfileId, abilityId, offer.Price);
+            }
+            else
+            {
+                result = _store.TryPurchaseAbility(abilityId, offer.Price);
+            }
+        }
+        finally
+        {
+            _isPurchaseInFlight = false;
+        }
+
         if (result == AbilityPurchaseResult.PersistenceFailed || result == AbilityPurchaseResult.UnknownAbility)
         {
             Debug.LogWarning($"Ability Vendor purchase of '{abilityId}' failed: {result}.", this);
         }
 
-        _view.ShowFeedback(AbilityVendorFeedback.Describe(result));
-        _view.PulseFeedback(result == AbilityPurchaseResult.Success ? UiPulseKind.Success : UiPulseKind.Rejection);
-        Refresh();
+        if (_view != null && _view.IsOpen)
+        {
+            _view.ShowFeedback(AbilityVendorFeedback.Describe(result));
+            _view.PulseFeedback(result == AbilityPurchaseResult.Success ? UiPulseKind.Success : UiPulseKind.Rejection);
+            Refresh();
+        }
     }
 
     private bool TryFindEntry(AbilityId abilityId, out AbilityVendorEntry entry)

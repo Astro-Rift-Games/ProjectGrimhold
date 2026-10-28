@@ -137,6 +137,7 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
         TryAwardFatalAssistExperience(request, result);
         TryAwardFatalKillExperience(request, result);
         TryAwardFatalMissionProgress(request, result);
+        TryRecordFatalInstability(request, result);
         return CompleteResolution(request, result);
     }
 
@@ -286,6 +287,30 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
                 source.TargetId,
                 source.ZoneId,
                 isCompanionContribution: false);
+        }
+    }
+
+    private void TryRecordFatalInstability(in DamageRequest request, in DamageResult result)
+    {
+        if (!HasStateAuthority || !result.IsApplied || !result.IsFatal || _registry == null)
+        {
+            return;
+        }
+
+        if (_registry.IsPlayerEntity(request.TargetId))
+        {
+            return;
+        }
+
+        if (!_registry.TryGetDamageable(request.TargetId, out IDamageable target) ||
+            target is not EnemyCharacter enemy)
+        {
+            return;
+        }
+
+        if (_registry.TryGetDungeonInstabilitySink(out IDungeonInstabilitySink sink))
+        {
+            sink.TryRecordEnemyDefeat(enemy.CreatureTier, enemy.PopulationOrigin);
         }
     }
 }

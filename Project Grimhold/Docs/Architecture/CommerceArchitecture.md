@@ -406,6 +406,24 @@ resolved record the follow-up task that closed them.
     new trades. Resolving them without the requester needs an authoritative record of persisted
     tickets (backend).
 
+### Ability Vendor Persistence Contract (TASK-224)
+
+Town Ability Vendor purchases are authoritative and durable in the backend:
+1. **Catalog Parity:** The backend defines `ABILITY_CATALOG` (`backend/src/config/abilityCatalog.js`), mirroring all abilities offered in Unity's `AbilityVendorCatalog.asset` with authoritative server-side prices (enforced by parity test `backend/tests/ability.catalog.parity.test.js`).
+2. **Endpoint:** `POST /character/me/abilities/purchase` accepts `{ transactionId, abilityId, expectedRevision }`.
+3. **Invariants:**
+   - Single-document atomic update in MongoDB (`Character.findOneAndUpdate`).
+   - Deduplication: Idempotent transaction receipt window (`appliedShopReceipts` with `type: 'ability_purchase'`, `abilityId`, `totalAmount`). Replaying the same `transactionId` returns 200 with `alreadySecured: true`.
+   - Reservation Pending Guard: Blocked with 409 `RESERVATION_PENDING` if `inventory.pendingReservation` is active.
+   - Already Unlocked Guard: Blocked with 409 `ALREADY_UNLOCKED` if the ability is already in `unlockedAbilities`.
+   - Revision Guard: Optimistic concurrency control via `revision`. Blocked with 409 `REVISION_CONFLICT` if client revision does not match.
+   - Authoritative Price & Balance: Debits `price` from `inventory.currency`, atomic check `$gte: price`, returns 422 `INSUFFICIENT_FUNDS` if balance is insufficient.
+4. **Client Lifecycle:**
+   - `TownAbilityVendorPresenter` delegates purchases to `IAbilityPurchaseService` (`RemoteAbilityPurchaseService`).
+   - Preliminary dry run evaluates validity and balance locally via `LocalProfileStore.EvaluateAbilityPurchase`.
+   - Awaits backend acknowledgement; on success, commits locally via `ApplyConfirmedAbilityPurchase` updating currency balance, `UnlockedAbilities`, and `RemoteRevision`.
+   - On conflict or error, triggers safe reconciliation (`ProfileReconciliationService.ReconcileAsync`).
+
 ## Validation strategy
 
 EditMode owns draft editing/cancel, preview totals and final-state capacity, authority request

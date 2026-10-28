@@ -110,7 +110,7 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
         }
 
         if (_container.GenerationState == LootSourceGenerationState.Pending &&
-            !_container.TryResolveRandomContent(out string generationError))
+            !_container.TryResolveRandomContent(request.InteractorId, out string generationError))
         {
             Debug.LogError(
                 $"{nameof(NetworkLootContainerInteractable)} consumed Loot generation for '{name}' as Failed. {generationError}",

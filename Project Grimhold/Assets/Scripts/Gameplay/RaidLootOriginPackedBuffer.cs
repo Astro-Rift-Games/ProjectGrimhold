@@ -1,15 +1,15 @@
 using System;
 
-/// <summary>Bit packing for 6-bit catalog index, 5-bit stable origin slot and positive int amount.</summary>
+/// <summary>Bit packing for 7-bit catalog index, 5-bit stable origin slot and positive int amount.</summary>
 public static class RaidLootOriginPackedBuffer
 {
-    public const int MaximumCatalogEntries = 64;
+    public const int MaximumCatalogEntries = 128;
     public const int MaximumPlayerOrigins = RaidSessionRules.MaxParticipants;
     public const int OriginsPerLoot = MaximumPlayerOrigins + 1;
     public const int MaximumStacks = 30;
     public const int MaximumBuckets = MaximumStacks * OriginsPerLoot;
-    public const int KeyBits = 11;
-    public const int AmountBits = 32;
+    public const int KeyBits = 12;
+    public const int AmountBits = 31;
     public const int BitsPerBucket = KeyBits + AmountBits;
     public const int WordCapacity = (MaximumBuckets * BitsPerBucket + 31) / 32;
 

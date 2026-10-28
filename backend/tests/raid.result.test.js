@@ -305,3 +305,276 @@ test('RaidResultService.publishHostResult (US-58 / SEC-58.2)', async (t) => {
     }
   });
 });
+
+test('RaidResultService Bounded Player-Host Authority (TASK-223 / SEC-223)', async (t) => {
+  const Character = require('../src/models/Character');
+  const originalExists = Character.exists;
+  const originalFindOne = Character.findOne;
+  const originalFindById = Character.findById;
+  const originalResultFindOne = AuthoritativeExtractionResult.findOne;
+  const originalResultCreate = AuthoritativeExtractionResult.create;
+
+  let createArgs = null;
+  let mockExistingDoc = null;
+
+  const mockCharacters = new Map();
+
+  t.beforeEach(() => {
+    createArgs = null;
+    mockExistingDoc = null;
+    mockCharacters.clear();
+
+    mockCharacters.set('host_acc_123', {
+      _id: 'char_host_id',
+      accountId: 'host_acc_123',
+      name: 'HostCharacter',
+      inventory: {
+        pendingReservation: { reservationId: 'res_host' },
+        appliedExtractionReceipts: []
+      }
+    });
+
+    mockCharacters.set('player_acc_456', {
+      _id: 'char_player_id',
+      accountId: 'player_acc_456',
+      name: 'PlayerCharacter',
+      inventory: {
+        pendingReservation: { reservationId: 'res_player' },
+        appliedExtractionReceipts: []
+      }
+    });
+
+    Character.exists = async () => null;
+    Character.findOne = async (query) => {
+      if (query.accountId) return mockCharacters.get(query.accountId) || null;
+      return null;
+    };
+    Character.findById = async (id) => {
+      for (const char of mockCharacters.values()) {
+        if (char._id === id) return char;
+      }
+      return null;
+    };
+    AuthoritativeExtractionResult.findOne = async () => mockExistingDoc;
+    AuthoritativeExtractionResult.create = async (doc) => {
+      createArgs = doc;
+      return { ...doc, _id: 'mock_doc_id' };
+    };
+  });
+
+  t.afterEach(() => {
+    Character.exists = originalExists;
+    Character.findOne = originalFindOne;
+    Character.findById = originalFindById;
+    AuthoritativeExtractionResult.findOne = originalResultFindOne;
+    AuthoritativeExtractionResult.create = originalResultCreate;
+  });
+
+  const hostAccountId = 'host_acc_123';
+  const playerAccountId = 'player_acc_456';
+  const raidId = 'raid_bounded_1';
+  const resultId = 'res_bounded_001';
+  const issuedAt = '2026-10-27T12:00:00.000Z';
+
+  await t.test('successfully publishes unsigned result when host and recipient have active pendingReservation', async () => {
+    const payload = {
+      raidId,
+      resultId,
+      targetAccountId: playerAccountId,
+      items: [{ lootId: 'iron_ore', amount: 5 }],
+      preparedEquipment: { weaponSlot1: 'arming_sword' },
+      experienceGranted: 250,
+      hostSignature: '',
+      issuedAt
+    };
+
+    const result = await RaidResultService.publishHostResult(hostAccountId, payload);
+    assert.equal(result.status, 'published');
+    assert.equal(result.raidId, raidId);
+    assert.equal(result.accountId, playerAccountId);
+    assert.ok(createArgs);
+    assert.equal(createArgs.experienceGranted, 250);
+    assert.equal(createArgs.hostSignature, '');
+  });
+
+  await t.test('rejects with 422 NO_ACTIVE_RESERVATION when target character has no active reservation', async () => {
+    mockCharacters.get(playerAccountId).inventory.pendingReservation = null;
+
+    const payload = {
+      raidId,
+      resultId,
+      targetAccountId: playerAccountId,
+      items: [{ lootId: 'iron_ore', amount: 1 }],
+      experienceGranted: 50,
+      hostSignature: '',
+      issuedAt
+    };
+
+    await assert.rejects(
+      () => RaidResultService.publishHostResult(hostAccountId, payload),
+      err => {
+        assert.equal(err.statusCode, 422);
+        assert.equal(err.errorCode, 'NO_ACTIVE_RESERVATION');
+        return true;
+      }
+    );
+  });
+
+  await t.test('rejects with 403 HOST_NOT_IN_RAID when caller host has no reservation and no prior receipt for this raid', async () => {
+    const outsiderHost = 'outsider_host_acc';
+    mockCharacters.set(outsiderHost, {
+      _id: 'char_outsider_id',
+      accountId: outsiderHost,
+      name: 'OutsiderHost',
+      inventory: {
+        pendingReservation: null,
+        appliedExtractionReceipts: []
+      }
+    });
+
+    const payload = {
+      raidId,
+      resultId,
+      targetAccountId: playerAccountId,
+      items: [{ lootId: 'iron_ore', amount: 1 }],
+      experienceGranted: 50,
+      hostSignature: '',
+      issuedAt
+    };
+
+    await assert.rejects(
+      () => RaidResultService.publishHostResult(outsiderHost, payload),
+      err => {
+        assert.equal(err.statusCode, 403);
+        assert.equal(err.errorCode, 'HOST_NOT_IN_RAID');
+        return true;
+      }
+    );
+  });
+
+  await t.test('rejects with 422 EXCEEDS_INVENTORY_CAPACITY when items array exceeds 30 slots', async () => {
+    const items = [];
+    for (let i = 0; i < 31; i++) {
+      items.push({ lootId: `loot_item_${i}`, amount: 1 });
+    }
+
+    const payload = {
+      raidId,
+      resultId,
+      targetAccountId: playerAccountId,
+      items,
+      experienceGranted: 100,
+      hostSignature: '',
+      issuedAt
+    };
+
+    await assert.rejects(
+      () => RaidResultService.publishHostResult(hostAccountId, payload),
+      err => {
+        assert.equal(err.statusCode, 422);
+        assert.equal(err.errorCode, 'EXCEEDS_INVENTORY_CAPACITY');
+        return true;
+      }
+    );
+  });
+
+  await t.test('rejects with 422 INVALID_ITEM_SPECIFICATION when item amount is negative or non-integer', async () => {
+    const payload = {
+      raidId,
+      resultId,
+      targetAccountId: playerAccountId,
+      items: [{ lootId: 'gold', amount: -5 }],
+      experienceGranted: 100,
+      hostSignature: '',
+      issuedAt
+    };
+
+    await assert.rejects(
+      () => RaidResultService.publishHostResult(hostAccountId, payload),
+      err => {
+        assert.equal(err.statusCode, 422);
+        assert.equal(err.errorCode, 'INVALID_ITEM_SPECIFICATION');
+        return true;
+      }
+    );
+  });
+
+  await t.test('rejects with 422 EXCEEDS_EXPERIENCE_BUDGET when experienceGranted exceeds 5000 XP', async () => {
+    const payload = {
+      raidId,
+      resultId,
+      targetAccountId: playerAccountId,
+      items: [{ lootId: 'gold', amount: 10 }],
+      experienceGranted: 999999, // Exploit attempt
+      hostSignature: '',
+      issuedAt
+    };
+
+    await assert.rejects(
+      () => RaidResultService.publishHostResult(hostAccountId, payload),
+      err => {
+        assert.equal(err.statusCode, 422);
+        assert.equal(err.errorCode, 'EXCEEDS_EXPERIENCE_BUDGET');
+        return true;
+      }
+    );
+  });
+
+  await t.test('rejects with 422 INVALID_EXPERIENCE when experienceGranted is negative', async () => {
+    const payload = {
+      raidId,
+      resultId,
+      targetAccountId: playerAccountId,
+      items: [],
+      experienceGranted: -50,
+      hostSignature: '',
+      issuedAt
+    };
+
+    await assert.rejects(
+      () => RaidResultService.publishHostResult(hostAccountId, payload),
+      err => {
+        assert.equal(err.statusCode, 422);
+        assert.equal(err.errorCode, 'INVALID_EXPERIENCE');
+        return true;
+      }
+    );
+  });
+
+  await t.test('rejects with 401 INVALID_HOST_SIGNATURE when client presents forged or obsolete dev secret signature', async () => {
+    const canonical = buildCanonicalResultString({
+      raidId,
+      resultId,
+      targetAccountId: playerAccountId,
+      items: [{ lootId: 'gold', amount: 1000 }],
+      preparedEquipment: {},
+      experienceGranted: 1000,
+      issuedAt
+    });
+
+    // Attacker computes HMAC using leaked or stale development secret
+    const forgedSignature = crypto
+      .createHmac('sha256', 'old-leaked-dev-secret')
+      .update(canonical)
+      .digest('hex');
+
+    const payload = {
+      raidId,
+      resultId,
+      targetAccountId: playerAccountId,
+      items: [{ lootId: 'gold', amount: 1000 }],
+      experienceGranted: 1000,
+      hostSignature: forgedSignature,
+      issuedAt
+    };
+
+    await assert.rejects(
+      () => RaidResultService.publishHostResult(hostAccountId, payload),
+      err => {
+        assert.equal(err.statusCode, 401);
+        assert.equal(err.errorCode, 'INVALID_HOST_SIGNATURE');
+        return true;
+      }
+    );
+  });
+});

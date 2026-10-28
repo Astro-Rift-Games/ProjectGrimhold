@@ -12,4 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 35d1899af94f7b848a3c0f11f8f97123, type: 3}
   m_Name: HealthConsumableEffect
   m_EditorClassIdentifier: Assembly-CSharp::HealthConsumableEffect
-  _healAmount: 30
+  _healAmount: 40

@@ -1,3 +1,5 @@
+using System;
+
 /// <summary>
 /// Pure Quick Slot assignment rules. They never touch inventory contents, Origin or
 /// quantities: a binding only references a loot definition.
@@ -34,9 +36,15 @@ public static class QuickSlotAssignmentRules
             return QuickSlotAssignmentResult.NotInInventory;
         }
 
-        if (current.Get(slotIndex).Equals(lootId))
+        int existingSlot = current.FindSlot(lootId);
+        if (existingSlot >= 0)
         {
-            return QuickSlotAssignmentResult.Unchanged;
+            if (existingSlot == slotIndex)
+            {
+                return QuickSlotAssignmentResult.Unchanged;
+            }
+
+            return QuickSlotAssignmentResult.AlreadyAssigned;
         }
 
         next = current.With(slotIndex, lootId);
@@ -65,11 +73,10 @@ public static class QuickSlotAssignmentRules
     }
 
     /// <summary>
-    /// Clears every slot whose available amount dropped from positive to zero. A slot that
-    /// was already at zero, or whose previous amount was never observed, is kept so a
-    /// transient empty inventory (reservation, extraction, defeat) cannot erase bindings.
-    /// Amounts are indexed by slot.
+    /// Evaluates slot depletion. Under Doc 14 §12.2 (TASK-230), reaching zero units retains the slot
+    /// assignment in an inactive state instead of clearing it, so this always returns false.
     /// </summary>
+    [Obsolete("Depleted slots are retained with count 0 and inactive state (Doc 14 TASK-230).")]
     public static bool TryReleaseDepleted(
         QuickSlotBindings current,
         int[] previousAmounts,
@@ -77,24 +84,6 @@ public static class QuickSlotAssignmentRules
         out QuickSlotBindings next)
     {
         next = current;
-        bool changed = false;
-
-        if (previousAmounts == null || currentAmounts == null ||
-            previousAmounts.Length != QuickSlotBindings.SlotCount ||
-            currentAmounts.Length != QuickSlotBindings.SlotCount)
-        {
-            return false;
-        }
-
-        for (int i = 0; i < QuickSlotBindings.SlotCount; i++)
-        {
-            if (current.IsAssigned(i) && previousAmounts[i] > 0 && currentAmounts[i] <= 0)
-            {
-                next = next.Without(i);
-                changed = true;
-            }
-        }
-
-        return changed;
+        return false;
     }
 }

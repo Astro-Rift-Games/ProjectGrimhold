@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aeed099a389008b44ad97674fa3f48c3, type: 3}
+  m_Name: CON_EXPLOSIVE_BOMB
+  m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
+  _id: CON_EXPLOSIVE_BOMB
+  _displayName: Explosive Bomb
+  _description: A thrown device that detonates in a fiery blast.
+  _icon: {fileID: 21300000, guid: 3968ca9e97ed44feac69874b87f09c5c, type: 3}
+  _worldSprite: {fileID: 21300000, guid: 3968ca9e97ed44feac69874b87f09c5c, type: 3}
+  _category: 3
+  _rarity: 1
+  _objectValue: 30
+  _stackMax: 5
+  _maxTransportable: 0
+  _family: Offensive
+  _tags:
+  - consumable
+  - offensive
+  - explosive
+  _tradable: 1
+  _canBeTransferred: 1
+  _canEnterDungeon: 1
+  _canBeFoundInDungeon: 1
+  _canBeDiscarded: 1
+  _canBeUsed: 1
+  _missionCompatible: 0
+  _useMode: 3
+  _extractionValuePerUnit: 30
+  _sellValuePerUnit: 30
+  _buyValuePerUnit: 60
+  _defaultPickupQuantity: 1
+  _consumableDefinition: {fileID: 0}
+  _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
+  _armorDefinition: {fileID: 0}
+  _equipmentVisualDefinition: {fileID: 0}
+  _defenseSprites:
+    _up: {fileID: 0}
+    _down: {fileID: 0}
+    _left: {fileID: 0}
+    _right: {fileID: 0}
+  _quickSlotCompatible: 1

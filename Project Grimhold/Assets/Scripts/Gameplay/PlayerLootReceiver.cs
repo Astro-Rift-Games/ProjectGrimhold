@@ -213,6 +213,14 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
             return LootTransferFailureReason.ContainerUnavailable;
         }
 
+        if (_lootCatalog.TryGetByIndex(definitionIndex, out LootDefinition definition) && definition != null)
+        {
+            if (definition.MaxTransportable > 0 && currentAmount + request.RequestedAmount > definition.MaxTransportable)
+            {
+                return LootTransferFailureReason.MaxTransportableExceeded;
+            }
+        }
+
         LootTransferFailureReason inventoryFailure = LootInventoryRules.ValidateReceive(
             alreadyHeld,
             currentAmount,
@@ -680,7 +688,9 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         NetworkDictionary<int, int> inventory = LootInventory;
         bool alreadyHeld = inventory.TryGet(definitionIndex, out currentAmount);
         if ((!alreadyHeld && (inventory.Count >= _slotCapacity || inventory.Count >= inventory.Capacity)) ||
-            (alreadyHeld && currentAmount <= 0) || currentAmount > int.MaxValue - request.RequestedAmount)
+            (alreadyHeld && currentAmount <= 0) || currentAmount > int.MaxValue - request.RequestedAmount ||
+            (_lootCatalog.TryGetByIndex(definitionIndex, out LootDefinition definition) && definition != null &&
+             definition.MaxTransportable > 0 && currentAmount + request.RequestedAmount > definition.MaxTransportable))
         {
             FailCommitContract(nameof(CommitReceive));
         }

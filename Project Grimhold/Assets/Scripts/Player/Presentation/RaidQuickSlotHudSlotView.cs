@@ -36,6 +36,10 @@ public sealed class RaidQuickSlotHudSlotView : MonoBehaviour
     public void PresentEmpty()
     {
         SetIcon(null);
+        if (_icon != null)
+        {
+            _icon.color = Color.white;
+        }
         SetActive(_emptyRoot, true);
         SetActive(_unavailableOverlay, false);
         if (_amountText != null)
@@ -46,11 +50,15 @@ public sealed class RaidQuickSlotHudSlotView : MonoBehaviour
 
     /// <summary>
     /// Presents a bound definition with the units available in the Inventory. An unavailable
-    /// slot (no units, defeated or not in progress) keeps its icon and shows the overlay.
+    /// slot (no units, defeated or not in progress) keeps its icon, tints grayish, and shows the overlay.
     /// </summary>
     public void Present(Sprite icon, int amount, bool unavailable)
     {
         SetIcon(icon);
+        if (_icon != null)
+        {
+            _icon.color = unavailable ? new Color(0.5f, 0.5f, 0.5f, 0.6f) : Color.white;
+        }
         SetActive(_emptyRoot, false);
         SetActive(_unavailableOverlay, unavailable);
         if (_amountText != null)

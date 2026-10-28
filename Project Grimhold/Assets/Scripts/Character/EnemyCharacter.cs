@@ -12,6 +12,16 @@ public sealed class EnemyCharacter : CharacterBase, IAbilityEnemyTarget
 {
     [Networked]
     public EnemyPopulationOrigin PopulationOrigin { get; set; }
+
+    [Header("Creature Classification")]
+    [SerializeField]
+    private CreatureTier _creatureTier = CreatureTier.Ordinary;
+
+    public CreatureTier CreatureTier
+    {
+        get => _creatureTier;
+        set => _creatureTier = value;
+    }
     [Header("Death Dependencies")]
     [SerializeField]
     private EnemyMovementAIController _movementController;

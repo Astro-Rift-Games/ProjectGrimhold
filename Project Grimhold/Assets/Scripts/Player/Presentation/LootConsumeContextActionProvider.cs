@@ -24,8 +24,11 @@ public sealed class LootConsumeContextActionProvider : ILootContextActionProvide
             return;
         }
 
-        // Solo mostramos la acción si el objeto tiene un efecto consumible asociado
-        if (context.Definition.ConsumableDefinition == null || context.Definition.ConsumableDefinition.Effect == null)
+        // Mostramos la acción para consumibles estándar, objetos arrojables de quick slot y utilidades de expedición
+        bool isStandardConsumable = context.Definition.ConsumableDefinition != null && context.Definition.ConsumableDefinition.Effect != null;
+        bool isAimedQuickSlot = context.Definition.CanBeUsed && context.Definition.UseMode == ItemUseMode.AimedQuickSlot;
+        bool isUtility = context.Definition.Category == LootCategory.Utility && context.Definition.CanBeUsed;
+        if (!isStandardConsumable && !isAimedQuickSlot && !isUtility)
         {
             return;
         }

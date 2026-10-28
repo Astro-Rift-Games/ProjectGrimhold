@@ -243,6 +243,15 @@ capacity. A rejected operation moves nothing and never creates a Pickup.
 Extraction receipts and the rest of the aggregate are cached across processes; remote durability
 and replay acceptance remain backend responsibilities.
 
+### Ability Repertoire Hydration Contract (TASK-224)
+
+Unlocked abilities (`UnlockedAbilities`) are durable and authoritative in the backend (`Character.unlockedAbilities`).
+They are returned at login and during profile reconciliation via `GET /character/me/progression` and hydrated in
+`ApplicationStashServiceBootstrapper.HydrateSnapshot`. Hydration populates `snapshot.UnlockedAbilities` strictly from
+the authoritative backend list, dropping any unrecorded local unlocks and filtering unknown definitions against
+`AbilityDefinitionCatalog`. Revalidation of prepared abilities (`PreparedAbilityLoadout.TryRevalidateAfterAttributeChange`)
+is subsequently evaluated against this hydrated set.
+
 Schema version 4 persists this Weapon Set contract. Schema 3 maps historical Weapon Slot 1 to Set A
 Main Hand and Weapon Slot 2 to Set B Main Hand; both Off Hands start empty. Pending reservations use
 the same migration. Earlier schemas did not distinguish
@@ -269,11 +278,7 @@ pending reservation or item ownership, because bindings do not move items; the c
 definition is present in the Inventory the player is looking at (the Town Loadout or the Raid
 Inventory). A duplicated or malformed binding rejects the profile like other local-only state, while
 a definition that left the catalog or stopped being compatible loads as an unassigned slot.
-Bindings are not sent to the backend and backend hydration preserves them. A slot is unassigned
-only by `QuickSlotController` when its available units are observed dropping from positive to zero
-while releasing is allowed (Raid, `QuickSlotReleaseGate`: avatar alive and not Downed, no extraction
-in progress, match in progress and the participant `Raiding` with no finalization cause; Town: no
-pending reservation), so reservation, extraction, defeat and voluntary abandon never erase bindings.
+Bindings are not sent to the backend and backend hydration preserves them. Under Doc 14 §12.2 and TASK-230, available units dropping to zero no longer unassigns the slot. Instead, the slot binding is retained in an inactive state displaying count 0 and an unavailable overlay, automatically reactivating when units of that definition enter the inventory. Quick Slots strictly forbid assigning the same definition to more than one slot simultaneously (rejecting with QuickSlotAssignmentResult.AlreadyAssigned). Both Consumables and Utilities configured with QuickSlotCompatible = true are accepted. Explicit unassignment is performed via right-click or clear intention.
 
 Fusion may carry `ProfileId` and session snapshots for the active runner, but it does not
 own the local stash or loadout. A raid Host never reads another client's local aggregate.

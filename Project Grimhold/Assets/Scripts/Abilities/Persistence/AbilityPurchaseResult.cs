@@ -8,5 +8,7 @@ public enum AbilityPurchaseResult
     InvalidPrice,
     InsufficientCurrency,
     ProfileUnavailable,
-    PersistenceFailed
+    PersistenceFailed,
+    ReservationPending,
+    RevisionConflict
 }

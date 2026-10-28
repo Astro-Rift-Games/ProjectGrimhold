@@ -6,7 +6,7 @@ using Fusion;
 /// Character identity, health and damage behavior are inherited from CharacterBase.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class PlayerCharacter : CharacterBase
+public sealed class PlayerCharacter : CharacterBase, IManaReceiver
 {
     [SerializeField]
     private PlayerCorpseGenerationController _corpseGenerationController;
@@ -32,7 +32,70 @@ public sealed class PlayerCharacter : CharacterBase
     private PlayerStaminaNetworkController _staminaController;
     private PlayerConsumableNetworkController _consumableController;
 
+    [SerializeField]
+    private PlayerManaNetworkController _manaController;
+
+    [SerializeField]
+    private PlayerInventoryPassiveEffectsController _passiveEffectsController;
+
+    [SerializeField]
+    private PlayerLootReceiver _lootReceiver;
+
+    private int _clampedLootRevision = int.MinValue;
+
+    public PlayerInventoryPassiveEffectsController PassiveEffectsController => _passiveEffectsController;
+    public float VisionRadiusMultiplier => _passiveEffectsController != null ? _passiveEffectsController.VisionRadiusMultiplier : 1f;
+
     public bool IsConsuming => _consumableController != null && _consumableController.IsConsuming;
+    public float ConsumableMovementSpeedMultiplier =>
+        _consumableController != null && _consumableController.IsConsuming
+            ? _consumableController.VoluntaryMovementSpeedMultiplier
+            : 1f;
+
+    public float CurrentMana => _manaController != null ? _manaController.CurrentMana : 0f;
+    public float MaximumMana => _manaController != null && _manaController.TryGetMaximumMana(out float max) ? max : 0f;
+
+    public bool TryRestoreMana(float amount, out string failureReason)
+    {
+        if (_manaController == null)
+        {
+            failureReason = "El objetivo no puede gestionar maná.";
+            return false;
+        }
+
+        if (!IsAlive)
+        {
+            failureReason = "El objetivo está muerto.";
+            return false;
+        }
+
+        if (IsDowned)
+        {
+            failureReason = "El objetivo está derribado.";
+            return false;
+        }
+
+        if (!_manaController.TryGetMaximumMana(out float maximum))
+        {
+            failureReason = "El objetivo no puede gestionar maná.";
+            return false;
+        }
+
+        if (_manaController.CurrentMana >= maximum)
+        {
+            failureReason = "El maná ya está al máximo.";
+            return false;
+        }
+
+        if (!_manaController.TryRestore(amount))
+        {
+            failureReason = "No se pudo restaurar el maná.";
+            return false;
+        }
+
+        failureReason = string.Empty;
+        return true;
+    }
 
     protected override void OnDamageApplied(float amount) => _consumableController?.CancelConsumption();
     private bool _reportedMissingExtractionController;
@@ -117,12 +180,16 @@ public sealed class PlayerCharacter : CharacterBase
     /// </summary>
     protected override float ResolveMaximumHealth()
     {
-        if (TryGetRuntimeStatistics(out PlayerRuntimeStatistics statistics))
+        float maxHealth = TryGetRuntimeStatistics(out PlayerRuntimeStatistics statistics)
+            ? statistics.MaximumHealth
+            : base.ResolveMaximumHealth();
+
+        if (_passiveEffectsController != null && _passiveEffectsController.HasChaosCoin)
         {
-            return statistics.MaximumHealth;
+            maxHealth *= _passiveEffectsController.MaxHealthMultiplier;
         }
 
-        return base.ResolveMaximumHealth();
+        return maxHealth;
     }
 
     /// <summary>Gets the effective local projection without duplicating authoritative state.</summary>
@@ -181,20 +248,18 @@ public sealed class PlayerCharacter : CharacterBase
         }
 
         int equipmentRevision = _equipmentController.ObservedEquipmentRevision;
+        int lootRevision = _lootReceiver != null ? _lootReceiver.LootChangeSequence : 0;
         if (revision == _clampedAttributeRevision &&
-            equipmentRevision == _clampedEquipmentRevision)
+            equipmentRevision == _clampedEquipmentRevision &&
+            lootRevision == _clampedLootRevision)
         {
             return;
         }
 
-        if (!TryGetRuntimeStatistics(out PlayerRuntimeStatistics statistics))
-        {
-            return;
-        }
-
-        ClampCurrentHealthToMaximum(statistics.MaximumHealth);
+        ClampCurrentHealthToMaximum(ResolveMaximumHealth());
         _clampedAttributeRevision = revision;
         _clampedEquipmentRevision = equipmentRevision;
+        _clampedLootRevision = lootRevision;
     }
 
     protected override float CalculateMitigatedDamage(in DamageRequest request)
@@ -240,10 +305,17 @@ public sealed class PlayerCharacter : CharacterBase
             }
         }
 
-        return _shieldDefenseController != null &&
+        float finalMitigated = _shieldDefenseController != null &&
             _shieldDefenseController.TryMitigateDamage(request, mitigatedDamage, out float shieldMitigatedDamage)
                 ? shieldMitigatedDamage
                 : mitigatedDamage;
+
+        if (_passiveEffectsController != null && _passiveEffectsController.HasSanctuaryHeart)
+        {
+            finalMitigated *= _passiveEffectsController.DamageTakenMultiplier;
+        }
+
+        return finalMitigated;
     }
 
     protected override bool TryInterceptFatalDamage(in DamageRequest request)
@@ -439,6 +511,25 @@ public sealed class PlayerCharacter : CharacterBase
         if (_staminaController == null)
         {
             _staminaController = GetComponent<PlayerStaminaNetworkController>();
+        }
+
+        if (_manaController == null)
+        {
+            _manaController = GetComponent<PlayerManaNetworkController>();
+        }
+
+        if (_passiveEffectsController == null)
+        {
+            _passiveEffectsController = GetComponent<PlayerInventoryPassiveEffectsController>();
+            if (_passiveEffectsController == null)
+            {
+                _passiveEffectsController = gameObject.AddComponent<PlayerInventoryPassiveEffectsController>();
+            }
+        }
+
+        if (_lootReceiver == null)
+        {
+            _lootReceiver = GetComponent<PlayerLootReceiver>();
         }
     }
 

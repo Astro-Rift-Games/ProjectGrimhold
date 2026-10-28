@@ -327,6 +327,12 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
         {
             return Rejected(identity, tick, LootDropFailureReason.PlayerUnavailable);
         }
+        TickTimer utilityCooldown = default;
+        if (TryGetComponent<IUtilityCooldownProvider>(out var cooldownProvider))
+        {
+            utilityCooldown = cooldownProvider.GetUtilityCooldown(definition.LootId);
+        }
+
         bool overrideApplied = false;
         NetworkLootPickup callbackPickup = null;
         NetworkSpawnStatus spawnStatus = Runner.TrySpawn(
@@ -347,7 +353,8 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
                         entry,
                         false,
                         0,
-                        originTransfer);
+                        originTransfer,
+                        utilityCooldown);
             });
 
         bool validSpawn = spawnStatus == NetworkSpawnStatus.Spawned &&
@@ -376,6 +383,7 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
         }
 
         _lootReceiver.CommitRaidLootExtraction(extraction, originTransfer);
+        cooldownProvider?.ClearUtilityCooldown(definition.LootId);
         callbackPickup.CommitDropPublication(Runner, pickupObject);
         return new LootDropConfirmation(
             identity.RequestSequence,

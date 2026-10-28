@@ -157,3 +157,17 @@ locally during Render, outside simulation callbacks.
 
 Serialized integration must be applied and checked in Unity before acceptance. Source compilation
 alone does not validate Fusion weaving, prefab baking, Host/Client or Host Migration.
+
+
+## TASK-233: offensive and tactical throwable consumables
+
+Offensive and tactical consumables (`CON_EXPLOSIVE_BOMB`, `CON_THROWING_DAGGER`, `CON_SMOKE_BOMB`) execute through `PlayerConsumableNetworkController` using `ItemUseMode.AimedQuickSlot` triggered from Quick Slots targeting the player's aim/cursor position.
+
+### Immediate Consumption Rule
+Unlike timed consumables (potions) which deduct items only upon successful timer completion, throwables enforce immediate consumption: 1 unit is deducted from the player's inventory immediately when the State Authority confirms and begins the throw, regardless of whether the projectile hits, misses, or is blocked by geometry.
+
+### Throwable Mechanics
+- **`CON_EXPLOSIVE_BOMB`**: Thrown in a parabolic arc towards the target world position (clamped to 7.0m maximum throw distance and raycast against obstacle colliders). Detonates after a 1.5-second fuse delay from launch, dealing 50 neutral damage via `IDamageResolver` to all `IDamageable` entities within a 2.5m radius.
+- **`CON_THROWING_DAGGER`**: Fast linear directional projectile launched towards the player's aim direction. Deals 20 neutral damage to the first valid target or geometry collision, stopping and despawning without dropping to the ground.
+- **`CON_SMOKE_BOMB`**: Aimed throw with a short 0.5s execution channel that deploys a neutral smoke zone (`NetworkSmokeZone`) at the target location. Deals no damage; creates an area of radius 3.0m lasting 8.0s.
+- **Smoke Line-of-Sight Occlusion**: Active smoke zones register in `SmokeZoneRegistry`. Both player field-of-view (`VisionQuery`) and enemy perception sensors (`EnemyMovementAIController`) query `SmokeZoneRegistry.IsLineOccluded` to block vision through or into the smoke cloud. Point-blank mutual visibility within 1.2m is preserved when both viewer and target are inside the same smoke zone.

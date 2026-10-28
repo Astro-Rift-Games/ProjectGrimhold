@@ -105,6 +105,16 @@ public sealed class NetworkProjectile : NetworkBehaviour
         }
 
         // Align physical starting state and force Unity physics synchronization
+        if (Direction.sqrMagnitude > 0.0001f)
+        {
+            float angle = Mathf.Atan2(Direction.y, Direction.x) * Mathf.Rad2Deg;
+            transform.rotation = Quaternion.Euler(0f, 0f, angle);
+            if (_rigidbody != null)
+            {
+                _rigidbody.rotation = angle;
+            }
+        }
+
         if (_rigidbody != null)
         {
             _rigidbody.position = transform.position;
@@ -212,6 +222,14 @@ public sealed class NetworkProjectile : NetworkBehaviour
     public void SetRuntimeDependencies(IDamageResolver damageResolver)
     {
         _damageResolver = damageResolver;
+    }
+
+    public override void Render()
+    {
+        if (Direction.sqrMagnitude > 0.0001f)
+        {
+            transform.rotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(Direction.y, Direction.x) * Mathf.Rad2Deg);
+        }
     }
 
     public override void FixedUpdateNetwork()

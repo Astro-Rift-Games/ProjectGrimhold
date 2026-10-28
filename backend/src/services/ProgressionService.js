@@ -20,6 +20,7 @@ class ProgressionService {
         vitality: 5, resistance: 5, strength: 5,
         dexterity: 5, intelligence: 5, luck: 5, availablePoints: 10
       },
+      unlockedAbilities: character.unlockedAbilities || [],
       revision: character.revision || 0
     };
   }

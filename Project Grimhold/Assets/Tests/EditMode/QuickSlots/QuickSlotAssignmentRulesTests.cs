@@ -1,7 +1,7 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using NUnit.Framework;
 
-[Category("TASK214")]
+[Category("TASK214"), Category("TASK230")]
 public sealed class QuickSlotAssignmentRulesTests
 {
     private static readonly LootId Potion = new LootId("healthpotion");
@@ -48,16 +48,16 @@ public sealed class QuickSlotAssignmentRulesTests
     }
 
     [Test]
-    public void Assign_DefinitionAlreadyInAnotherSlot_MovesTheBinding()
+    public void Assign_DefinitionAlreadyInAnotherSlot_IsRejectedWithAlreadyAssigned()
     {
         QuickSlotAssignmentRules.TryAssign(QuickSlotBindings.Empty, 0, Potion, true, 1, out var first);
 
-        var result = QuickSlotAssignmentRules.TryAssign(first, 2, Potion, true, 1, out var moved);
+        var result = QuickSlotAssignmentRules.TryAssign(first, 2, Potion, true, 1, out var next);
 
-        Assert.That(result, Is.EqualTo(QuickSlotAssignmentResult.Success));
-        Assert.That(moved.IsAssigned(0), Is.False);
-        Assert.That(moved.Get(2), Is.EqualTo(Potion));
-        Assert.That(moved.FindSlot(Potion), Is.EqualTo(2));
+        Assert.That(result, Is.EqualTo(QuickSlotAssignmentResult.AlreadyAssigned));
+        Assert.That(next, Is.EqualTo(first));
+        Assert.That(next.Get(0), Is.EqualTo(Potion));
+        Assert.That(next.IsAssigned(2), Is.False);
     }
 
     [Test]
@@ -102,7 +102,7 @@ public sealed class QuickSlotAssignmentRulesTests
     }
 
     [Test]
-    public void ReleaseDepleted_PositiveToZero_ClearsOnlyThatSlot()
+    public void ReleaseDepleted_PositiveToZero_RetainsSlotBinding()
     {
         QuickSlotAssignmentRules.TryAssign(QuickSlotBindings.Empty, 0, Potion, true, 1, out var first);
         QuickSlotAssignmentRules.TryAssign(first, 1, Elixir, true, 1, out var both);
@@ -110,8 +110,8 @@ public sealed class QuickSlotAssignmentRulesTests
         bool changed = QuickSlotAssignmentRules.TryReleaseDepleted(
             both, new[] { 1, 2, 0, 0 }, new[] { 0, 2, 0, 0 }, out var next);
 
-        Assert.That(changed, Is.True);
-        Assert.That(next.IsAssigned(0), Is.False);
+        Assert.That(changed, Is.False);
+        Assert.That(next.Get(0), Is.EqualTo(Potion));
         Assert.That(next.Get(1), Is.EqualTo(Elixir));
     }
 

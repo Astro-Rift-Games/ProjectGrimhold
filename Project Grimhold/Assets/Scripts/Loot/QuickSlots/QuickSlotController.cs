@@ -3,8 +3,8 @@ using System;
 /// <summary>
 /// Local application-level view of the player's Quick Slots for one inventory the player is
 /// looking at (the Town Loadout or the Raid inventory). It validates assignments against that
-/// inventory, persists them through <see cref="LocalProfileStore"/> and releases a binding when
-/// its last available unit is observed leaving the inventory.
+/// inventory and persists them through <see cref="LocalProfileStore"/>.
+/// Under Doc 14 §12.2 (TASK-230), slots reaching 0 units remain assigned in an inactive state.
 /// Bindings only reference loot definitions, so nothing here moves or changes items.
 /// </summary>
 public sealed class QuickSlotController : IDisposable
@@ -21,14 +21,12 @@ public sealed class QuickSlotController : IDisposable
     public event Action Changed;
 
     /// <param name="canReleaseDepleted">
-    /// Whether a unit count dropping to zero may unassign the slot right now. It must be false
-    /// while the inventory is emptied for another reason (reservation, extraction, defeat), so
-    /// those transitions never erase bindings.
+    /// Legacy gate predicate kept for compatibility. Releasing on depletion is deprecated under TASK-230.
     /// </param>
     public QuickSlotController(
         LocalProfileStore store,
         IInventoryReadSource inventory,
-        Func<bool> canReleaseDepleted)
+        Func<bool> canReleaseDepleted = null)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
@@ -76,7 +74,8 @@ public sealed class QuickSlotController : IDisposable
     public bool IsCompatible(LootId lootId) =>
         lootId.IsValid && _store.LootCatalog != null &&
         _store.LootCatalog.TryGet(lootId.Value, out LootDefinition definition) &&
-        definition.QuickSlotCompatible;
+        definition.QuickSlotCompatible &&
+        (definition.Category == LootCategory.Consumable || definition.Category == LootCategory.Utility);
 
     public QuickSlotAssignmentResult TryAssign(int slotIndex, LootId lootId)
     {
@@ -112,8 +111,8 @@ public sealed class QuickSlotController : IDisposable
     }
 
     /// <summary>
-    /// A slot whose binding just changed starts from the units available now, so only a later
-    /// positive-to-zero transition releases it. Unchanged slots keep their observed baseline.
+    /// A slot whose binding just changed starts from the units available now.
+    /// Unchanged slots keep their observed baseline.
     /// </summary>
     private void BaselineChangedBindings()
     {
@@ -133,21 +132,11 @@ public sealed class QuickSlotController : IDisposable
     {
         BaselineChangedBindings();
         ReadSlotAmounts(_currentAmounts);
-        bool mayRelease = _canReleaseDepleted != null && _canReleaseDepleted();
-        bool released = mayRelease &&
-            QuickSlotAssignmentRules.TryReleaseDepleted(
-                Bindings, _previousAmounts, _currentAmounts, out QuickSlotBindings next) &&
-            _store.TrySetQuickSlots(next) == StashOperationResult.Success;
 
-        // Amounts are tracked even while releasing is not allowed, so a unit count that was
-        // already zero when releasing becomes allowed again is never treated as a new depletion.
+        // Depleted slots are kept bound with count 0 per Doc 14 §12.2 (TASK-230).
         Array.Copy(_currentAmounts, _previousAmounts, _previousAmounts.Length);
 
-        // A release commits through the store and already raised Changed.
-        if (!released)
-        {
-            Changed?.Invoke();
-        }
+        Changed?.Invoke();
     }
 
     private void ReadSlotAmounts(int[] amounts)

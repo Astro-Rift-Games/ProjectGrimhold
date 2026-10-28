@@ -7,6 +7,14 @@ using UnityEngine;
 public interface IConsumableEffect
 {
     /// <summary>
+    /// Determina si el efecto puede aplicarse sobre el objetivo en su estado actual.
+    /// </summary>
+    /// <param name="target">El personaje que desea consumir el objeto.</param>
+    /// <param name="failureReason">Mensaje descriptivo en caso de que no pueda aplicarse.</param>
+    /// <returns><see langword="true"/> si el efecto es válido para iniciarse; de lo contrario, <see langword="false"/>.</returns>
+    bool CanApply(ICharacter target, out string failureReason);
+
+    /// <summary>
     /// Intenta aplicar el efecto al objetivo especificado.
     /// </summary>
     /// <param name="target">El personaje que consume el objeto.</param>

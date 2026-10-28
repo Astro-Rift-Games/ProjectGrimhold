@@ -75,9 +75,10 @@ const buybackSchema = new mongoose.Schema({
 
 const shopReceiptSchema = new mongoose.Schema({
   transactionId: { type: String, required: true },
-  type:          { type: String, enum: ['buy', 'sell', 'buyback'], required: true },
+  type:          { type: String, enum: ['buy', 'sell', 'buyback', 'ability_purchase'], required: true },
   entryId:       { type: String },
   lootId:        { type: String },
+  abilityId:     { type: String, default: '' },
   amount:        { type: Number },
   totalAmount:   { type: Number },
   timestamp:     { type: Date, default: Date.now }
@@ -105,6 +106,7 @@ const characterSchema = new mongoose.Schema({
   appliedProgressionReceipts:           { type: [progressionReceiptSchema], default: [] },
   characterAttributes:                  { type: characterAttributeStateSchema, default: () => ({}) },
   preparedAbilities:                    { type: preparedAbilitiesSchema,       default: () => ({}) },
+  unlockedAbilities:                    { type: [String],                      default: [] },
   inventory: {
     buyback: { type: buybackSchema, default: () => ({}) },
     currency:           { type: Number, default: 0 },

@@ -9,7 +9,7 @@ public enum DungeonPressureState : byte
 }
 
 [DisallowMultipleComponent]
-public sealed class DungeonPressureController : NetworkBehaviour
+public sealed class DungeonPressureController : NetworkBehaviour, IDungeonInstabilitySink
 {
     [SerializeField]
     private DungeonPressureConfig _config;
@@ -26,8 +26,18 @@ public sealed class DungeonPressureController : NetworkBehaviour
     [Networked]
     public DungeonPressureState State { get; set; }
 
+    [Networked]
+    public int CurrentInstability { get; set; }
+
+    [Networked]
+    public int PhaseElapsedTicks { get; set; }
+
+    [Networked]
+    public int TotalElapsedTicks { get; set; }
+
     private NetworkMatchController _matchController;
     private NetworkSpawnManager _spawnManager;
+    private EntityRegistry _registry;
 
     public bool IsRunning => State == DungeonPressureState.Running;
     
@@ -35,10 +45,18 @@ public sealed class DungeonPressureController : NetworkBehaviour
         ? Mathf.CeilToInt((Phase == DungeonPressurePhase.Collapse ? CollapseRemainingTicks : RemainingTicks) * Runner.DeltaTime) 
         : 0;
 
+    public int InstabilityThreshold => _config != null ? _config.GetInstabilityThreshold(Phase) : int.MaxValue;
+    public int MinIntervalSeconds => _config != null ? _config.GetMinIntervalSeconds(Phase) : 0;
+    public float InstabilityProgress => InstabilityThreshold > 0 && InstabilityThreshold < int.MaxValue
+        ? Mathf.Clamp01((float)CurrentInstability / InstabilityThreshold)
+        : 0f;
+
     public override void Spawned()
     {
         _matchController = GetComponent<NetworkMatchController>();
         _spawnManager = Runner.GetComponent<NetworkSpawnManager>();
+        _registry = Runner.GetComponent<EntityRegistry>();
+        _registry?.TryRegisterDungeonInstabilitySink(this);
 
         if (HasStateAuthority)
         {
@@ -46,6 +64,9 @@ public sealed class DungeonPressureController : NetworkBehaviour
             {
                 State = DungeonPressureState.NotStarted;
                 Phase = DungeonPressurePhase.Normal;
+                CurrentInstability = 0;
+                PhaseElapsedTicks = 0;
+                TotalElapsedTicks = 0;
                 
                 if (_config == null)
                 {
@@ -71,6 +92,51 @@ public sealed class DungeonPressureController : NetworkBehaviour
         }
     }
 
+    public override void Despawned(NetworkRunner runner, bool hasState)
+    {
+        if (_registry != null)
+        {
+            _registry.TryUnregisterDungeonInstabilitySink(this);
+            _registry = null;
+        }
+    }
+
+    public bool TryRecordEnemyDefeat(CreatureTier tier, Spawning.EnemyPopulationOrigin origin)
+    {
+        if (!HasStateAuthority || State != DungeonPressureState.Running || Phase == DungeonPressurePhase.Collapse || _config == null)
+        {
+            return false;
+        }
+
+        int points = _config.GetEnemyPoints(tier, origin);
+        if (points <= 0) return false;
+
+        AddInstability(points);
+        return true;
+    }
+
+    public bool TryRecordTreasureFirstAcquisition(string treasureFamily)
+    {
+        if (!HasStateAuthority || State != DungeonPressureState.Running || Phase == DungeonPressurePhase.Collapse || _config == null)
+        {
+            return false;
+        }
+
+        int points = _config.GetTreasurePoints(treasureFamily);
+        if (points <= 0) return false;
+
+        AddInstability(points);
+        return true;
+    }
+
+    private void AddInstability(int points)
+    {
+        int threshold = _config.GetInstabilityThreshold(Phase);
+        int newInstability = CurrentInstability + points;
+        CurrentInstability = Mathf.Min(newInstability, threshold);
+        Debug.Log($"[DungeonPressureController] Added {points} instability points. CurrentInstability: {CurrentInstability}/{threshold} in phase {Phase}.");
+    }
+
     public override void FixedUpdateNetwork()
     {
         if (!HasStateAuthority || _matchController == null || _spawnManager == null)
@@ -92,6 +158,9 @@ public sealed class DungeonPressureController : NetworkBehaviour
         var phase = Phase;
         var remainingTicks = RemainingTicks;
         var collapseRemainingTicks = CollapseRemainingTicks;
+        var currentInstability = CurrentInstability;
+        var phaseElapsedTicks = PhaseElapsedTicks;
+        var totalElapsedTicks = TotalElapsedTicks;
         
         bool isInProgress = _matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
         bool isClosingOrFinished = _matchController.Phase == NetworkMatchController.MatchPhase.Closing || 
@@ -116,6 +185,9 @@ public sealed class DungeonPressureController : NetworkBehaviour
             state = State;
             remainingTicks = RemainingTicks;
             collapseRemainingTicks = CollapseRemainingTicks;
+            currentInstability = CurrentInstability;
+            phaseElapsedTicks = PhaseElapsedTicks;
+            totalElapsedTicks = TotalElapsedTicks;
         }
 
         if (EditorTimeMultiplier > 1f && state == DungeonPressureState.Running)
@@ -144,11 +216,18 @@ public sealed class DungeonPressureController : NetworkBehaviour
             ref collapseRemainingTicks,
             ref state,
             ref phase,
+            ref currentInstability,
+            ref phaseElapsedTicks,
+            ref totalElapsedTicks,
             isInProgress,
             isClosingOrFinished,
             _config.ReinforcementsThresholdSeconds,
             _config.CriticalPressureThresholdSeconds,
             _config.CollapseDurationSeconds,
+            _config.TotalDurationSeconds,
+            _config.GetInstabilityThreshold(phase),
+            _config.GetMinIntervalSeconds(phase),
+            _config.MinCollapseStartElapsedSeconds,
             Runner.DeltaTime);
 
         bool shouldTriggerAbsoluteClosure = State == DungeonPressureState.Running &&
@@ -176,6 +255,9 @@ public sealed class DungeonPressureController : NetworkBehaviour
         
         RemainingTicks = remainingTicks;
         CollapseRemainingTicks = collapseRemainingTicks;
+        CurrentInstability = currentInstability;
+        PhaseElapsedTicks = phaseElapsedTicks;
+        TotalElapsedTicks = totalElapsedTicks;
 
         if (shouldTriggerAbsoluteClosure)
         {
@@ -201,6 +283,14 @@ public sealed class DungeonPressureController : NetworkBehaviour
         _forceStartRequested = true;
     }
 
+    public void ForceAddInstability(int points)
+    {
+        if (HasStateAuthority && State == DungeonPressureState.Running)
+        {
+            AddInstability(points);
+        }
+    }
+
     private void AdvancePhaseInternal()
     {
         if (!HasStateAuthority || State == DungeonPressureState.Stopped || _config == null) return;
@@ -210,6 +300,9 @@ public sealed class DungeonPressureController : NetworkBehaviour
             State = DungeonPressureState.Running;
             Debug.Log("[DungeonPressureController] Force started RUNNING state via AdvancePhase.");
         }
+
+        CurrentInstability = 0;
+        PhaseElapsedTicks = 0;
 
         if (Phase == DungeonPressurePhase.Normal)
         {
@@ -227,7 +320,8 @@ public sealed class DungeonPressureController : NetworkBehaviour
         {
             Phase = DungeonPressurePhase.Collapse;
             RemainingTicks = 0;
-            CollapseRemainingTicks = Mathf.CeilToInt(_config.CollapseDurationSeconds / Runner.DeltaTime);
+            int totalClosureTicks = Mathf.CeilToInt((_config.TotalDurationSeconds + _config.CollapseDurationSeconds) / Runner.DeltaTime);
+            CollapseRemainingTicks = Mathf.Max(0, totalClosureTicks - TotalElapsedTicks);
             Debug.Log($"[DungeonPressureController] Advanced phase to {Phase}. CollapseRemainingTicks: {CollapseRemainingTicks}");
         }
         else if (Phase == DungeonPressurePhase.Collapse)

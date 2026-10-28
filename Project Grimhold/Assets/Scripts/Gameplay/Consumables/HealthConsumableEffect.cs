@@ -8,18 +8,53 @@ public sealed class HealthConsumableEffect : ConsumableEffectBase
 {
     [SerializeField, Min(1f)]
     [Tooltip("Cantidad de salud que recupera el consumible.")]
-    private float _healAmount = 30f;
+    private float _healAmount = 40f;
 
     /// <summary>
     /// Cantidad de salud configurada para recuperar.
     /// </summary>
     public float HealAmount => _healAmount;
 
-    public override bool TryApplyEffect(ICharacter target, out string failureReason)
+    public override bool CanApply(ICharacter target, out string failureReason)
     {
         if (target == null)
         {
             failureReason = "Objetivo no válido.";
+            return false;
+        }
+
+        if (target is CharacterBase character)
+        {
+            if (!character.IsAlive)
+            {
+                failureReason = "El objetivo está muerto.";
+                return false;
+            }
+
+            if (character is PlayerCharacter player && player.IsDowned)
+            {
+                failureReason = "El objetivo no puede recibir curación.";
+                return false;
+            }
+
+            if (character.Health >= character.MaxHealth)
+            {
+                failureReason = "La salud ya está al máximo.";
+                return false;
+            }
+
+            failureReason = string.Empty;
+            return true;
+        }
+
+        failureReason = "El objetivo no puede ser curado.";
+        return false;
+    }
+
+    public override bool TryApplyEffect(ICharacter target, out string failureReason)
+    {
+        if (!CanApply(target, out failureReason))
+        {
             return false;
         }
 

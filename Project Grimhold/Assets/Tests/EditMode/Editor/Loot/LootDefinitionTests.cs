@@ -77,10 +77,10 @@ namespace Tests.EditMode.Loot
             Assert.That(error, Does.Contain("empty or null ID"));
         }
 
-        [TestCase("Ancient_coin")]
         [TestCase("ancient coin")]
         [TestCase("ancient-coin")]
         [TestCase("ancient_coin!")]
+        [TestCase("con@potion")]
         public void InvalidIdFormat_FailsValidation(string invalidId)
         {
             SetValidDefaults();
@@ -93,6 +93,9 @@ namespace Tests.EditMode.Loot
         [TestCase("ancient")]
         [TestCase("ancient_coin_123")]
         [TestCase("123_scrap")]
+        [TestCase("CON_HEALTH_POTION")]
+        [TestCase("RES_SLIME_GEL")]
+        [TestCase("Ancient_coin")]
         public void ValidIdFormat_PassesValidation(string validId)
         {
             SetValidDefaults();
@@ -250,6 +253,123 @@ namespace Tests.EditMode.Loot
             Assert.That(typeof(LootDefinition).GetProperty("BuyValuePerUnit").CanWrite, Is.False);
             Assert.That(typeof(LootDefinition).GetProperty("DefaultPickupQuantity").CanWrite, Is.False);
             Assert.That(typeof(LootDefinition).GetProperty("ArmorDefinition").CanWrite, Is.False);
+            Assert.That(typeof(LootDefinition).GetProperty("ObjectValue").CanWrite, Is.False);
+            Assert.That(typeof(LootDefinition).GetProperty("StackMax").CanWrite, Is.False);
+            Assert.That(typeof(LootDefinition).GetProperty("MaxTransportable").CanWrite, Is.False);
+            Assert.That(typeof(LootDefinition).GetProperty("Family").CanWrite, Is.False);
+            Assert.That(typeof(LootDefinition).GetProperty("Tags").CanWrite, Is.False);
+            Assert.That(typeof(LootDefinition).GetProperty("Tradable").CanWrite, Is.False);
+            Assert.That(typeof(LootDefinition).GetProperty("CanBeTransferred").CanWrite, Is.False);
+            Assert.That(typeof(LootDefinition).GetProperty("CanEnterDungeon").CanWrite, Is.False);
+            Assert.That(typeof(LootDefinition).GetProperty("CanBeFoundInDungeon").CanWrite, Is.False);
+            Assert.That(typeof(LootDefinition).GetProperty("CanBeDiscarded").CanWrite, Is.False);
+            Assert.That(typeof(LootDefinition).GetProperty("CanBeUsed").CanWrite, Is.False);
+            Assert.That(typeof(LootDefinition).GetProperty("MissionCompatible").CanWrite, Is.False);
+            Assert.That(typeof(LootDefinition).GetProperty("UseMode").CanWrite, Is.False);
+        }
+
+        [Test]
+        public void NegativeObjectValue_FailsValidation()
+        {
+            SetValidDefaults();
+            SetField("_objectValue", -1);
+            bool result = _loot.TryValidate(out string error);
+            Assert.That(result, Is.False);
+            Assert.That(error, Does.Contain("negative ObjectValue"));
+        }
+
+        [Test]
+        public void ZeroObjectValue_PassesValidation()
+        {
+            SetValidDefaults();
+            SetField("_objectValue", 0);
+            bool result = _loot.TryValidate(out string error);
+            Assert.That(result, Is.True, error);
+        }
+
+        [TestCase(0)]
+        [TestCase(-1)]
+        public void InvalidStackMax_FailsValidation(int invalidStackMax)
+        {
+            SetValidDefaults();
+            SetField("_stackMax", invalidStackMax);
+            bool result = _loot.TryValidate(out string error);
+            Assert.That(result, Is.False);
+            Assert.That(error, Does.Contain("StackMax less than 1"));
+        }
+
+        [Test]
+        public void NegativeMaxTransportable_FailsValidation()
+        {
+            SetValidDefaults();
+            SetField("_maxTransportable", -1);
+            bool result = _loot.TryValidate(out string error);
+            Assert.That(result, Is.False);
+            Assert.That(error, Does.Contain("negative MaxTransportable"));
+        }
+
+        [Test]
+        public void DeprecatedQuestCategory_FailsValidation()
+        {
+            SetValidDefaults();
+            SetField("_category", (LootCategory)11);
+            bool result = _loot.TryValidate(out string error);
+            Assert.That(result, Is.False);
+            Assert.That(error, Does.Contain("deprecated category Quest"));
+        }
+
+        [Test]
+        public void Treasure_WithStackMaxGreaterThanOne_FailsValidation()
+        {
+            SetValidDefaults();
+            SetField("_category", LootCategory.Treasure);
+            SetField("_stackMax", 2);
+            bool result = _loot.TryValidate(out string error);
+            Assert.That(result, Is.False);
+            Assert.That(error, Does.Contain("must not be stackable"));
+        }
+
+        [Test]
+        public void Treasure_WithStackMaxOne_PassesValidation()
+        {
+            SetValidDefaults();
+            SetField("_category", LootCategory.Treasure);
+            SetField("_stackMax", 1);
+            bool result = _loot.TryValidate(out string error);
+            Assert.That(result, Is.True, error);
+        }
+
+        [Test]
+        public void CanonicalProperties_ReturnConfiguredValues()
+        {
+            SetValidDefaults();
+            SetField("_objectValue", 150);
+            SetField("_stackMax", 20);
+            SetField("_maxTransportable", 40);
+            SetField("_family", "Alchemy");
+            SetField("_tags", new string[] { "potion", "healing" });
+            SetField("_tradable", true);
+            SetField("_canBeTransferred", true);
+            SetField("_canEnterDungeon", true);
+            SetField("_canBeFoundInDungeon", true);
+            SetField("_canBeDiscarded", true);
+            SetField("_canBeUsed", true);
+            SetField("_missionCompatible", false);
+            SetField("_useMode", ItemUseMode.Instant);
+
+            Assert.That(_loot.ObjectValue, Is.EqualTo(150));
+            Assert.That(_loot.StackMax, Is.EqualTo(20));
+            Assert.That(_loot.MaxTransportable, Is.EqualTo(40));
+            Assert.That(_loot.Family, Is.EqualTo("Alchemy"));
+            Assert.That(_loot.Tags, Is.EquivalentTo(new[] { "potion", "healing" }));
+            Assert.That(_loot.Tradable, Is.True);
+            Assert.That(_loot.CanBeTransferred, Is.True);
+            Assert.That(_loot.CanEnterDungeon, Is.True);
+            Assert.That(_loot.CanBeFoundInDungeon, Is.True);
+            Assert.That(_loot.CanBeDiscarded, Is.True);
+            Assert.That(_loot.CanBeUsed, Is.True);
+            Assert.That(_loot.MissionCompatible, Is.False);
+            Assert.That(_loot.UseMode, Is.EqualTo(ItemUseMode.Instant));
         }
 
         [Test]

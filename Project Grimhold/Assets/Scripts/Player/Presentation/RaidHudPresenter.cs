@@ -209,6 +209,8 @@ public sealed class RaidHudPresenter : MonoBehaviour
         {
             _feedbackConsumable.ConsumeConfirmed -= OnConsumeConfirmed;
             _feedbackConsumable.ConsumeRejected -= OnConsumeRejected;
+            _feedbackConsumable.RuneCompassActivated -= OnRuneCompassActivated;
+            _feedbackConsumable.ArcaneDetectorActivated -= OnArcaneDetectorActivated;
         }
         _feedbackConsumable = null;
         _feedbackMovement = null;
@@ -254,6 +256,8 @@ public sealed class RaidHudPresenter : MonoBehaviour
         {
             _feedbackConsumable.ConsumeConfirmed -= OnConsumeConfirmed;
             _feedbackConsumable.ConsumeRejected -= OnConsumeRejected;
+            _feedbackConsumable.RuneCompassActivated -= OnRuneCompassActivated;
+            _feedbackConsumable.ArcaneDetectorActivated -= OnArcaneDetectorActivated;
         }
         _feedbackMovement = movement;
         _hasSprintRejectionBaseline = false;
@@ -262,6 +266,8 @@ public sealed class RaidHudPresenter : MonoBehaviour
         {
             _feedbackConsumable.ConsumeConfirmed += OnConsumeConfirmed;
             _feedbackConsumable.ConsumeRejected += OnConsumeRejected;
+            _feedbackConsumable.RuneCompassActivated += OnRuneCompassActivated;
+            _feedbackConsumable.ArcaneDetectorActivated += OnArcaneDetectorActivated;
         }
         if (empower == null || purification == null || immobilization == null || movement == null || consumable == null)
             Debug.LogError($"{nameof(RaidHudPresenter)} has missing serialized status feedback sources.", this);
@@ -291,13 +297,34 @@ public sealed class RaidHudPresenter : MonoBehaviour
         ConsumableFailureReason.TargetDead => "You are defeated.",
         ConsumableFailureReason.Downed => "You are downed.",
         ConsumableFailureReason.HealthFull => "Health is already full.",
+        ConsumableFailureReason.ManaFull => "Mana is already full.",
         ConsumableFailureReason.InsufficientAmount => "No items available.",
         ConsumableFailureReason.AbilityInProgress => "An ability is in progress.",
         ConsumableFailureReason.ConsumptionInProgress => "Already using an item.",
         ConsumableFailureReason.Interrupted => "Item use interrupted.",
         ConsumableFailureReason.TargetUnavailable => "Cannot use an item now.",
+        ConsumableFailureReason.CooldownActive => "Item is on cooldown.",
         _ => "Item could not be used."
     });
+
+    private void OnRuneCompassActivated(CardinalDirection direction, float duration)
+    {
+        if (direction != CardinalDirection.None)
+        {
+            ShowNotice($"Brújula Rúnica: Santuario hacia el {CardinalDirectionHelper.GetLocalizedName(direction)} ({CardinalDirectionHelper.GetAbbreviation(direction)})");
+        }
+        else
+        {
+            ShowNotice("Brújula Rúnica: No se detectaron santuarios en la zona.");
+        }
+    }
+
+    private void OnArcaneDetectorActivated(int detectedCount, float duration)
+    {
+        ShowNotice(detectedCount > 0
+            ? $"Detector Arcano: Se detectaron {detectedCount} elementos arcanos cercanos."
+            : "Detector Arcano: No se detectaron elementos arcanos en 10m.");
+    }
 
     private void OnSwitchRequested()
     {

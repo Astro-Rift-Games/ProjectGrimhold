@@ -156,7 +156,8 @@ public sealed class RaidQuickSlotHudPresenter : MonoBehaviour
             return;
         }
 
-        if (!_consumable.TryRequestConsume(lootId))
+        Vector2 aimPos = _inputReader != null ? _inputReader.AimWorldPosition : Vector2.zero;
+        if (!_consumable.TryRequestConsume(lootId, aimPos))
         {
             _feedbackPresenter?.ShowNotice("No puedes usar este objeto ahora.");
         }

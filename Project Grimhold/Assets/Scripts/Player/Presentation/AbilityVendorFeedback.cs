@@ -14,6 +14,8 @@ public static class AbilityVendorFeedback
         AbilityPurchaseResult.InvalidPrice => "This ability is not for sale",
         AbilityPurchaseResult.ProfileUnavailable => "Your profile is not available",
         AbilityPurchaseResult.PersistenceFailed => "The purchase could not be saved",
+        AbilityPurchaseResult.ReservationPending => "Cannot buy while raid reservation is pending",
+        AbilityPurchaseResult.RevisionConflict => "Profile out of sync. Please retry",
         _ => "Purchase not available"
     };
 }
