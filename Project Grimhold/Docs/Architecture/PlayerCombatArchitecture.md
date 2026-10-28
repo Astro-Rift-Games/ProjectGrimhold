@@ -232,7 +232,7 @@ with the participant's effective `CharacterAttributeState`. Equipment adapts the
 `WeaponOffensiveScaling` to resolved runtime contributions, calculates effective damage through the
 single canonical `WeaponDamageCalculator`, and builds a
 local, non-replicated `AttackExecutionParameters` value from the active weapon's damage, type,
-interval, effective range and knockback, configures the shared `MeleeAttack` or `RangedAttack`
+interval, effective range and knockback (original PE, not world units/s), configures the shared `MeleeAttack` or `RangedAttack`
 executor, and assigns it
 through `TrySetActiveAttack`. Inserting an inactive weapon never reconfigures either executor.
 Armor changes do not rebuild the weapon strategy or disturb the authoritative cooldown; their
@@ -310,14 +310,14 @@ replicated read model consumed by the six-direction shield presentation.
 ### 4. Melee Attack Strategy (`MeleeAttack` & `MeleeAttackConfig`)
 Executes instant damage detection in a localized area:
 * Reads radius, maximum targets and target mask from `MeleeAttackConfig`.
-* Receives damage, type, interval, effective range and knockback through `AttackExecutionParameters`.
+* Receives damage, type, interval, effective range and knockback (original PE) through `AttackExecutionParameters`.
 * Converts effective weapon range into the query's circle-center offset as `Range - Radius` and rejects `Range < Radius`.
 * Passes damage requests directly to the centralized `IDamageResolver`.
 
 ### 5. Ranged Attack Strategy (`RangedAttack` & `RangedAttackConfig`)
 Generates physical projectiles that traverse the world:
 * Reads projectile prefab, speed, lifetime, spawn offset and impact mask from `RangedAttackConfig`.
-* Receives damage, type, interval, maximum range and knockback through `AttackExecutionParameters`.
+* Receives damage, type, interval, maximum range and knockback (original PE) through `AttackExecutionParameters`.
 * Integrates a configurable **`ProjectileSpawnOffset`**, configured according to the combined collision bounds of the shooter and projectile, which offsets the initial projectile spawn coordinate in the direction of the aim vector to clear the shooter's own collider bounds.
 * A weapon may own its spawn point: `WeaponDefinition` carries an explicit override (`HasProjectileSpawnDistance` plus `ProjectileSpawnDistance`, finite and non-negative, ranged weapons only) that replaces the shared offset so the shot can start at the weapon tip. `PlayerWeaponEquipmentNetworkController.CreateExecutionParameters` passes it through the optional `AttackExecutionParameters` value; without it, and for enemies and traps, the shared `ProjectileSpawnOffset` applies.
 * Delegates spawning requests to an `IProjectileSpawner` instance.
@@ -405,9 +405,12 @@ separate `EquipmentVisualDefinition` concern.
 `WeaponDefinition` owns player weapon `BaseDamage`, `AttackIntervalSeconds`, `AttackReleaseSeconds` (the wind-up from
 acceptance to the projectile spawn or the melee hit; it replaces the former ranged-only `RangedReleaseSeconds`, and the
 serialized field keeps loading old assets through `FormerlySerializedAs`), effective `Range`,
-`StaminaCost`, `DamageType`, `KnockbackForce`, handedness, requirements and natural scaling
-attribute. `ArmorDefinition` owns integer Physical Defense, Magical Defense and one flat maximum
-Health, Stamina or Mana modifier. `EquipmentStatisticsCalculator` rebuilds a complete immutable
+`StaminaCost`, `DamageType`, `KnockbackForce` (original PE, not velocity), handedness, requirements and natural scaling
+attribute. Per “18 - Resolución de Impactos, Proyectiles y Knockback” §6, the receiver subtracts RE
+before the movement motor converts effective PE to travel (see `PlayerMovementArchitecture.md` §20.6).
+`ArmorDefinition` owns integer Physical Defense, Magical Defense, flat Knockback Resistance (RE) and
+one flat maximum Health, Stamina or Mana modifier; RE-only armor is also valid. Equipment RE is summed
+in `EquipmentStatisticsModifiers.KnockbackResistance`, without primary-attribute scaling. `EquipmentStatisticsCalculator` rebuilds a complete immutable
 `EquipmentStatisticsModifiers` snapshot from the four equipped armor definitions whenever
 `EquipmentRevision` changes; it never accumulates deltas. `StaminaCost` is validated weapon
 configuration but is not consumed yet. Bow, wand and staff templates reuse the shared ranged
@@ -505,7 +508,7 @@ remains an immediate executor for existing enemies/tests/other consumers; schedu
 the player combat boundary. No Animator, animation event, VFX, local input or RPC releases a shot.
 
 1. **Input and aim**: transport remains `PlayerNetworkInput`. Movement resolves the normalized networked `AimDirection` before combat; the shot direction is locked at acceptance.
-2. **Acceptance**: ready State Authority captures the ranged config and resolved statistics by value: direction, prefab GUID, impact mask, spawn offset, speed, lifetime, damage/type, range and knockback. The spawn offset is the weapon's own spawn distance when it sets one, otherwise the shared config offset. The existing presentation fields capture the original Main Hand catalog identity, acceptance origin/tick and sequence.
+2. **Acceptance**: ready State Authority captures the ranged config and resolved statistics by value: direction, prefab GUID, impact mask, spawn offset, speed, lifetime, damage/type, range and knockback (original PE, forwarded unchanged through `ProjectileSpawnRequest` and `DamageRequest` until receiver RE mitigation). The spawn offset is the weapon's own spawn distance when it sets one, otherwise the shared config offset. The existing presentation fields capture the original Main Hand catalog identity, acceptance origin/tick and sequence.
 3. **Deadline and cooldown**: `ReleaseTick = AcceptedTick + ceil(ReleaseDelay / Runner.DeltaTime)`. `ReleaseDelay` is `AttackReleaseSeconds`, unless the shooter holds the aim stance of a two-handed `AimStance` weapon and it is fully drawn (`PlayerMovementNetworkController.IsAimStanceFullyDrawn`, from `AimStanceStartTick` and the weapon's `AimStanceDrawSeconds`); that aimed shot uses the weapon's shorter `AimedReleaseSeconds` instead. The choice is made once at acceptance and is part of the committed `ReleaseTick` (`RangedAttack.TryAcceptRelease` takes it as an optional override), so the release snapshot, resimulation and Host Migration need no extra state. `LastAttackAimed` and `AttackPerformedEvent.IsAimed` tell presentation which timing applies. Attack Interval begins now, not at release and is unchanged by the aimed delay. An outstanding shot blocks another acceptance even if that interval expires first; acceptance validates finite origin/direction/config/timing before committing anything.
 4. **Continuation/cancellation**: the match phase comes from the runner-scoped `NetworkSpawnManager.MatchController` (the match is a spawned object, not necessarily a component on the runner). Before input processing, State Authority advances the pending value on forward ticks. Missing input, a cleared/reconfigured strategy or an Equipment switch cannot stall or alter it. Movement continues. Death, Downed, phase exit and explicit combat disable cancel it without refunding cooldown. Defense prevents same-tick acceptance but does not cancel an accepted wind-up.
 5. **Consume and spawn**: at or after the exact deadline, sample current authoritative AttackOrigin plus committed offset along committed aim, and use the containing avatar's current EntityId. Commit `Pending = false` before calling the spawner. Invalid release origin, absent spawner or spawn failure consumes the attempt and marks presentation cancelled; no perpetual pending state or retry loop remains.

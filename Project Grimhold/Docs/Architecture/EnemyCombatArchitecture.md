@@ -89,8 +89,12 @@ The attack hit-frame boundary stores the target `EntityId` accepted with the pen
 
 Enemy executors own serialized `AttackExecutionParameters` because they do not resolve player
 Equipment. Shared `AttackConfig` assets carry only execution behavior. Current melee Slimes retain
-damage `10`, Physical type, interval `0.5`, effective range `1.5` and knockback `7`; the ranged enemy
-retains damage `10`, Physical type, interval `0.5`, range `10` and knockback `6`. For melee, the
+damage `10`, Physical type, interval `0.5`, effective range `1.5` and knockback `7` original PE; the ranged enemy
+retains damage `10`, Physical type, interval `0.5`, range `10` and knockback `6` original PE (not world units/s).
+Per “18 - Resolución de Impactos, Proyectiles y Knockback” §6, receivers subtract RE before converting
+PE to travel. Enemy RE is serialized in `EnemyCharacter._knockbackResistance` (default 0); the enemy
+motor shares the single-active, strictly-greater-effective-PE replacement and curve model documented
+in `PlayerMovementArchitecture.md` §20.6. For melee, the
 query center remains `1.0` because the executor converts effective range as `1.5 - Radius(0.5)`.
 `MeleeAttackGizmoDrawer` reads this same executor transformation. `SlimeAttackConfig` remains an
 unused legacy asset and is not promoted into the productive attack path by this ownership refactor.

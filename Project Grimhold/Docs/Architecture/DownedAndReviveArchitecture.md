@@ -264,7 +264,7 @@ ritual (see section 13).
 | Rule | Mechanism | Status |
 |---|---|---|
 | Limited movement, no Sprint | `PlayerMovementNetworkController` multiplies voluntary speed by `DownedMovementSpeedMultiplier` (0.35 provisional) and disables Sprint without Stamina cost | Implemented |
-| Knockback allowed | Knockback motor unchanged | Implemented |
+| Knockback eligibility (Doc 18 §6.4 / Doc 13 §5) | No new or replacement knockback while already Downed; eligibility is captured before damage. Previously authorized travel continues through Downed; definitive Defeat cancels it on the next movement tick | Implemented |
 | No attack, shield, abilities | `PlayerCombatNetworkController`, `PlayerShieldDefenseNetworkController` check `PlayerDownedGate` | Implemented |
 | No equipment / Weapon Set changes | `PlayerWeaponEquipmentNetworkController` gate | Implemented |
 | No normal consumables | `PlayerConsumableNetworkController` gate | Implemented |
@@ -470,7 +470,7 @@ Design intent, not a guaranteed MVP requirement (GD). Contract for everything th
 | Q4 | Revive range, hold duration, Accelerated Resolution seconds | Game Design / balance | Revive resolved: 4 s and 1.5 u, serialized on `PlayerDownedRecoveryNetworkController`. Acceleration (~5 s) still open |
 | Q5 | Can a Downed player start the Sanctuary ritual, or only continue one in progress? | Game Design (GD 06 / 13) | Resolved by GD 06 §11 (only an Active member starts the ritual; becoming Downed does not cancel it) and GD 06 §13/§16 (the countdown starts by presence, so a connected Downed player in the area counts and can complete). The interaction gate already matches the start rule. Presence-based countdown acceptance of a Downed player is not yet verified by tests |
 | Q6 | Does Dungeon absolute close force Defeat or Abort for Downed players? | Game Design (GD 10) | Resolved by GD 10 §5.1 and GD 13 §13: absolute close gives definitive Defeat to everyone still inside, ignoring reserve and recovery. **Implementation gap:** closure currently aborts `Raiding` participants, Active ones included (pre-existing). Owner: TASK 453 or a Dungeon Session task; section 14 describes `ForceDefinitiveDefeat` |
-| Q7 | Do "both immobile" and "interrupted by movement" mean any movement, including the Downed's limited movement and knockback? | Game Design | Resolved: voluntary movement (`IsMoving`) of either avatar interrupts; knockback interrupts only when it breaks the range (GD: a displacement that breaks the condition) |
+| Q7 | Do "both immobile" and "interrupted by movement" mean any movement, including the Downed's limited movement and knockback? | Game Design | Resolved: voluntary movement (`IsMoving`) of either avatar interrupts; knockback interrupts only when it breaks the range (checked by `PlayerDownedRecoveryNetworkController`, not a knockback signal). Doc 18 §6.4 / Doc 13 §5 reject new/replacement knockback on an already Downed avatar; previously authorized travel completes unless definitive Defeat cancels it on the next movement tick |
 | Q8 | Reviver damage detection: any `Health` loss, or any hit including fully mitigated ones? | Combat Design | Resolved as a detectability decision: `Health` loss (polling); fully mitigated hits do not interrupt |
 | Q9 | PvP Last Hit attribution rules and amounts | Combat Design (US-50 / TASK 442), GD 05 | Data only (section 11) |
 
