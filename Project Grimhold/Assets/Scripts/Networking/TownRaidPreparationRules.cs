@@ -138,7 +138,8 @@ public static class TownRaidPreparationRules
             snapshot.State,
             members,
             snapshot.SnapshotRevision + 1,
-            snapshot.LaunchRevision);
+            snapshot.LaunchRevision,
+            friendlyFireEnabled: snapshot.FriendlyFireEnabled);
         return true;
     }
 
@@ -172,7 +173,8 @@ public static class TownRaidPreparationRules
             snapshot.State,
             members,
             snapshot.SnapshotRevision + 1,
-            snapshot.LaunchRevision);
+            snapshot.LaunchRevision,
+            friendlyFireEnabled: snapshot.FriendlyFireEnabled);
         return true;
     }
 
@@ -200,7 +202,8 @@ public static class TownRaidPreparationRules
             snapshot.State,
             members,
             snapshot.SnapshotRevision + 1,
-            snapshot.LaunchRevision);
+            snapshot.LaunchRevision,
+            friendlyFireEnabled: snapshot.FriendlyFireEnabled);
         return true;
     }
 
@@ -234,7 +237,8 @@ public static class TownRaidPreparationRules
             members,
             snapshot.SnapshotRevision + 1,
             launchRevision,
-            members.Length);
+            members.Length,
+            snapshot.FriendlyFireEnabled);
         return true;
     }
 
@@ -313,7 +317,8 @@ public static class TownRaidPreparationRules
             participants,
             localProfileId,
             snapshot.LaunchRevision,
-            out launchContext);
+            out launchContext,
+            snapshot.FriendlyFireEnabled);
     }
 
     /// <summary>
@@ -400,7 +405,8 @@ public static class TownRaidPreparationRules
             members,
             snapshot.SnapshotRevision + 1,
             snapshot.LaunchRevision,
-            snapshot.FrozenMemberCount);
+            snapshot.FrozenMemberCount,
+            snapshot.FriendlyFireEnabled);
         return true;
     }
 

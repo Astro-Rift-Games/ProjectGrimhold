@@ -26,6 +26,12 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     [SerializeField, Min(1f)]
     private float _coordinatedReleaseTimeoutSeconds = 15f;
 
+    [SerializeField]
+    private bool _friendlyFireEnabled;
+
+    [Networked]
+    public NetworkBool FriendlyFireEnabled { get; private set; }
+
     [Networked]
     public NetworkId DirectoryId { get; private set; }
 
@@ -237,6 +243,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         RaidCodeValue = _initialRaidCode.Value;
         HostProfileIdValue = _initialHostProfileId.Value;
         State = TownRaidPreparationState.Waiting;
+        FriendlyFireEnabled = _friendlyFireEnabled;
         IsAwaitingWeaponConsent = false;
         WeaponConsentRevision = 0;
         WeaponConsentMembershipRevision = 0;
@@ -738,7 +745,8 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
             members,
             SnapshotRevision,
             LaunchRevision,
-            FrozenMemberCount);
+            FrozenMemberCount,
+            FriendlyFireEnabled);
     }
 
     private int CountMembers()

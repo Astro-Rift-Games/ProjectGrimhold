@@ -17,6 +17,7 @@ public sealed class RaidLaunchContext
     public ProfileId HostProfileId { get; }
     public ProfileId LocalProfileId { get; }
     public int LaunchRevision { get; }
+    public bool FriendlyFireEnabled { get; }
     public IReadOnlyList<RaidLaunchParticipant> Participants => _readOnlyParticipants;
     public IReadOnlyList<ProfileId> ParticipantProfileIds => _readOnlyParticipantProfileIds;
 
@@ -25,12 +26,14 @@ public sealed class RaidLaunchContext
         ProfileId hostProfileId,
         IReadOnlyList<RaidLaunchParticipant> participants,
         ProfileId localProfileId,
-        int launchRevision)
+        int launchRevision,
+        bool friendlyFireEnabled)
     {
         RaidCode = raidCode;
         HostProfileId = hostProfileId;
         LocalProfileId = localProfileId;
         LaunchRevision = launchRevision;
+        FriendlyFireEnabled = friendlyFireEnabled;
         _participants = Copy(participants);
         _readOnlyParticipants = Array.AsReadOnly(_participants);
         _participantProfileIds = CopyProfiles(_participants);
@@ -47,7 +50,8 @@ public sealed class RaidLaunchContext
         IReadOnlyList<RaidLaunchParticipant> participants,
         ProfileId localProfileId,
         int launchRevision,
-        out RaidLaunchContext context)
+        out RaidLaunchContext context,
+        bool friendlyFireEnabled = false)
     {
         ProfileId[] participantProfileIds = CopyProfiles(participants);
         if (!raidCode.IsValid || !localProfileId.IsValid ||
@@ -65,7 +69,8 @@ public sealed class RaidLaunchContext
             hostProfileId,
             participants,
             localProfileId,
-            launchRevision);
+            launchRevision,
+            friendlyFireEnabled);
         return true;
     }
 

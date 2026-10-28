@@ -57,6 +57,9 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     [SerializeField, Min(1)]
     private int _developmentLaunchSequence = 1;
 
+    [SerializeField]
+    private bool _developmentFriendlyFireEnabled;
+
     private readonly SessionConnectionStateMachine _stateMachine = new();
     private bool _operationActive;
     private bool _isQuitting;
@@ -1875,7 +1878,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             participants,
             localProfile,
             Mathf.Max(1, _developmentLaunchSequence),
-            out launchContext);
+            out launchContext,
+            _developmentFriendlyFireEnabled);
     }
 
     private bool TryConfirmActiveReservation()

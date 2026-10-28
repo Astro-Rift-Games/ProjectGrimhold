@@ -279,12 +279,13 @@ public sealed class RaidParticipantSpawnRulesTests
                 typeof(ProfileId),
                 typeof(IReadOnlyList<RaidLaunchParticipant>),
                 typeof(ProfileId),
-                typeof(int)
+                typeof(int),
+                typeof(bool)
             },
             null);
         Assert.That(constructor, Is.Not.Null);
         return (RaidLaunchContext)constructor.Invoke(
-            new object[] { raidCode, new ProfileId("host"), participants, new ProfileId("host"), 1 });
+            new object[] { raidCode, new ProfileId("host"), participants, new ProfileId("host"), 1, false });
     }
 
     private static void SetPrivateField(object owner, string fieldName, object value)

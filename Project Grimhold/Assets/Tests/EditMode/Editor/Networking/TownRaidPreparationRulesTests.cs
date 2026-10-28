@@ -3,6 +3,42 @@ using Assert = NUnit.Framework.Assert;
 
 public sealed class TownRaidPreparationRulesTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public void FriendlyFire_IsPreservedThroughFreezeAcknowledgementAndLaunch(bool enabled)
+    {
+        TownRaidPreparationSnapshot source = CreateWaiting("100001", 2, true);
+        var waiting = new TownRaidPreparationSnapshot(source.RaidCode, source.HostProfileId,
+            source.State, source.Members, source.SnapshotRevision, friendlyFireEnabled: enabled);
+
+        Assert.That(TownRaidPreparationRules.TryFreeze(waiting, waiting.HostProfileId, 7, out var frozen), Is.True);
+        Assert.That(frozen.FriendlyFireEnabled, Is.EqualTo(enabled));
+        Assert.That(TownRaidPreparationRules.TrySetReady(frozen, frozen.HostProfileId, false, out _), Is.False);
+        Assert.That(TownRaidPreparationRules.TryFreeze(frozen, frozen.HostProfileId, 8, out _), Is.False);
+        Assert.That(TownRaidPreparationRules.TryAcknowledgeLaunch(frozen, frozen.HostProfileId, 7, out var acknowledged), Is.True);
+        Assert.That(acknowledged.FriendlyFireEnabled, Is.EqualTo(enabled));
+        Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(acknowledged, waiting.HostProfileId, out var context), Is.True);
+        Assert.That(context.FriendlyFireEnabled, Is.EqualTo(enabled));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void FriendlyFire_IsPreservedByWaitingMutations(bool enabled)
+    {
+        TownRaidPreparationSnapshot source = CreateWaiting("100001", 1, false);
+        var waiting = new TownRaidPreparationSnapshot(source.RaidCode, source.HostProfileId,
+            source.State, source.Members, source.SnapshotRevision, friendlyFireEnabled: enabled);
+        var client = new ProfileId("client");
+
+        Assert.That(TownRaidPreparationRules.TryAddMember(waiting, client, out var added), Is.True);
+        Assert.That(added.FriendlyFireEnabled, Is.EqualTo(enabled));
+        Assert.That(TownRaidPreparationRules.TrySetReady(added, client, true, out var ready), Is.True);
+        Assert.That(ready.FriendlyFireEnabled, Is.EqualTo(enabled));
+        Assert.That(TownRaidPreparationRules.TryRemoveMember(ready, client, out var removed), Is.True);
+        Assert.That(removed.FriendlyFireEnabled, Is.EqualTo(enabled));
+        Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(removed, removed.HostProfileId, out _), Is.False);
+    }
+
     [TestCase(1)]
     [TestCase(2)]
     [TestCase(16)]
