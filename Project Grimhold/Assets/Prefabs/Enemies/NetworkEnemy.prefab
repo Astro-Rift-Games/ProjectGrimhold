@@ -5321,7 +5321,7 @@ MonoBehaviour:
   _playerLayer:
     serializedVersion: 2
     m_Bits: 128
-  _knockbackFriction: 10
+  _knockbackCurveConfig: {fileID: 11400000, guid: 0e71b6227f6a64e4e9e777291fb30671, type: 2}
   _aggroAlertDuration: 5
   _pathfindingNavigator: {fileID: 4177264610414068062}
   _movementMotor: {fileID: 7201000000000000004}

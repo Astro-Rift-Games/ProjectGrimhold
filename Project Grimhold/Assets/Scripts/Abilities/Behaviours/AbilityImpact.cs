@@ -32,7 +32,7 @@ internal static class AbilityImpact
         }
         else if (knockbackForce > 0f && target is IKnockbackReceiver receiver)
         {
-            receiver.ReceiveKnockback(direction, knockbackForce);
+            receiver.ReceiveKnockback(new KnockbackRequest(direction, knockbackForce, receiver.IsKnockbackEligible));
         }
         return true;
     }

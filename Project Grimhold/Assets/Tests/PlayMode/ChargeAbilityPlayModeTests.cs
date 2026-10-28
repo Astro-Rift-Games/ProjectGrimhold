@@ -298,9 +298,13 @@ namespace Tests.PlayMode.Abilities
             Physics2D.SyncTransforms();
         }
 
-        private static Vector2 Knockback(Component enemy) => (Vector2)typeof(EnemyMovementAIController)
-            .GetProperty("KnockbackVelocity", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
-            .GetValue(enemy.GetComponent<EnemyMovementAIController>());
+        private static Vector2 Knockback(Component enemy)
+        {
+            var movement = enemy.GetComponent<EnemyMovementAIController>();
+            return (Vector2)typeof(EnemyMovementAIController)
+                .GetProperty("KnockbackDirection", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(movement) * movement.ActiveKnockbackEffectivePower;
+        }
 
 
         private NetworkObject LoadPrefab(string guid)

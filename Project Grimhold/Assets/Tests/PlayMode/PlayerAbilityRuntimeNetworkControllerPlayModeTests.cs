@@ -1113,7 +1113,7 @@ namespace Tests.PlayMode.Abilities
             Assert.That(firstAccepted.IsActive && secondAccepted.IsActive, Is.True, "Both executions are accepted.");
 
             yield return InSimulation(() =>
-                runtime.GetComponent<PlayerMovementNetworkController>().ApplyKnockbackImpulse(Vector2.right, 6f));
+                runtime.GetComponent<PlayerMovementNetworkController>().TryApplyKnockback(Vector2.right, 6f, true));
 
             Assert.That(interruptible.Stops, Is.EqualTo(1));
             Assert.That(interruptible.LastStop, Is.EqualTo(AbilityExecutionStopReason.Knockback));
@@ -1137,7 +1137,7 @@ namespace Tests.PlayMode.Abilities
             yield return PressSlot1();
 
             yield return InSimulation(() =>
-                runtime.GetComponent<PlayerMovementNetworkController>().ApplyKnockbackImpulse(Vector2.right, 0f));
+                runtime.GetComponent<PlayerMovementNetworkController>().TryApplyKnockback(Vector2.right, 0f, true));
 
             Assert.That(behaviour.Stops, Is.Zero, "A push that does not apply is not a knockback.");
             Assert.That(runtime.HasActiveExecution, Is.True);

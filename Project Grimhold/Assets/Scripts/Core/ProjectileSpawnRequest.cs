@@ -24,7 +24,7 @@ public readonly struct ProjectileSpawnRequest
     public bool EnemyOnly { get; }
 
     /// <summary>
-    /// Knockback force in world units per second applied to the target on impact.
+    /// Knockback power (PE original, Doc 18), converted to displacement by KnockbackCurveConfig after RE mitigation.
     /// Stored in the projectile's networked state and forwarded to the
     /// <see cref="DamageRequest"/> when the projectile hits a damageable entity.
     /// </summary>

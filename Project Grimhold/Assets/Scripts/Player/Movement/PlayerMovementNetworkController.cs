@@ -47,8 +47,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     private const float ValidMovementSqrThreshold = 0.000001f;
 
     [Header("Knockback")]
-    [Tooltip("Friction applied to decay knockback velocity over time.")]
-    [SerializeField, Min(0f)] private float _knockbackFriction = 10f;
+    [SerializeField] private KnockbackCurveConfig _knockbackCurveConfig;
 
     [SerializeField]
     private Vector2 _defaultFacingDirection = Vector2.down;
@@ -85,12 +84,16 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     [Networked]
     public NetworkBool IsSprinting { get; private set; }
 
-    /// <summary>
-    /// Current knockback velocity. Applied as displacement during ticks and decays via friction.
-    /// Only written by State Authority via <see cref="ApplyKnockbackImpulse"/>.
-    /// </summary>
-    [Networked]
-    private Vector2 KnockbackVelocity { get; set; }
+    // State Authority owns impact decisions; all simulating peers derive travel from this snapshot.
+    [Networked] private NetworkBool KnockbackActive { get; set; }
+    [Networked] private Vector2 KnockbackDirection { get; set; }
+    [Networked] private float KnockbackEffectivePower { get; set; }
+    [Networked] private float KnockbackDistance { get; set; }
+    [Networked] private int KnockbackStartTick { get; set; }
+    [Networked] private int KnockbackDurationTicks { get; set; }
+
+    internal bool IsKnockbackActive => KnockbackActive;
+    internal float ActiveKnockbackEffectivePower => KnockbackActive ? KnockbackEffectivePower : 0f;
 
     /// <summary>Unit direction of the active forced displacement. Written by State Authority only.</summary>
     [Networked]
@@ -150,7 +153,9 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
             IsAimStance = false;
             AimStanceStartTick = AimStanceDraw.NoStart;
             IsMoving = false;
+            ClearKnockback();
         }
+        // Restore spawns retain the copied start tick in Fusion's resumed tick domain, like aim stance.
     }
 
     public override void FixedUpdateNetwork()
@@ -238,15 +243,30 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
             : Vector2.zero;
         displacement += forcedStep;
 
-        // Apply decaying knockback velocity.
-        if (KnockbackVelocity.sqrMagnitude > 0.01f)
+        if (KnockbackActive)
         {
-            displacement += KnockbackVelocity * Runner.DeltaTime;
-            KnockbackVelocity = Vector2.Lerp(KnockbackVelocity, Vector2.zero, _knockbackFriction * Runner.DeltaTime);
-        }
-        else
-        {
-            KnockbackVelocity = Vector2.zero;
+            if (!KnockbackRules.ShouldContinue(isAlive))
+            {
+                if (HasStateAuthority)
+                {
+                    ClearKnockback();
+                }
+            }
+            else
+            {
+                // First step is on the tick after acceptance. No local accumulator: safe on resimulation.
+                int elapsed = (int)Runner.Tick - KnockbackStartTick;
+                if (elapsed > 0)
+                {
+                    displacement += KnockbackRules.ComputeStep(KnockbackDirection, KnockbackDistance,
+                        _knockbackCurveConfig.EvaluateProgress((elapsed - 1f) / KnockbackDurationTicks),
+                        _knockbackCurveConfig.EvaluateProgress((float)elapsed / KnockbackDurationTicks));
+                    if (HasStateAuthority && KnockbackRules.IsComplete(elapsed, KnockbackDurationTicks))
+                    {
+                        ClearKnockback();
+                    }
+                }
+            }
         }
 
         Vector2 appliedDisplacement = _movementMotor.Move(displacement);
@@ -342,28 +362,54 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     }
 
     /// <summary>
-    /// Accumulates a knockback impulse to be applied in the current simulation tick.
-    /// Requires State Authority. Called by <see cref="CharacterBase"/> after receiving damage.
-    ///
-    /// The displacement is computed as <c>-impactDirection * force * DeltaTime</c>.
-    /// It is additive: multiple simultaneous hits stack within the same tick.
+    /// Starts or strictly replaces effective-PE travel along positive direction. Without authority,
+    /// KeptActive means no mutation (not absorption); only Started/Replaced confirms application.
     /// </summary>
-    public void ApplyKnockbackImpulse(Vector2 impactDirection, float force)
+    public KnockbackDecision TryApplyKnockback(Vector2 direction, float effectivePower, bool wasEligibleAtImpact)
     {
-        if (!HasStateAuthority || force <= 0f)
+        if (!HasStateAuthority)
         {
-            return;
+            return KnockbackDecision.KeptActive;
+        }
+        if (!PlayerAimMath.TryNormalizeDirection(direction, out Vector2 normalizedDirection))
+        {
+            return KnockbackDecision.Absorbed;
         }
 
-        // Add to velocity so it decays over time.
-        KnockbackVelocity += impactDirection.normalized * force;
-        KnockbackSequence++;
+        KnockbackDecision decision = KnockbackRules.Resolve(
+            wasEligibleAtImpact, effectivePower, KnockbackActive, KnockbackEffectivePower);
+        if (decision != KnockbackDecision.Started && decision != KnockbackDecision.Replaced)
+        {
+            return decision;
+        }
+        if (!_dependenciesValid || _knockbackCurveConfig == null ||
+            !_knockbackCurveConfig.TryResolveProfile(effectivePower, Runner.DeltaTime, out float distance, out int durationTicks))
+        {
+            return KnockbackDecision.KeptActive;
+        }
 
-        // A push that applied is a Knockback: interruptible executions stop, the rest decide for themselves.
+        KnockbackDirection = normalizedDirection;
+        KnockbackEffectivePower = effectivePower;
+        KnockbackDistance = distance;
+        KnockbackStartTick = (int)Runner.Tick;
+        KnockbackDurationTicks = durationTicks;
+        KnockbackActive = true;
+        KnockbackSequence++;
         if (_abilityRuntime != null)
         {
             _abilityRuntime.InterruptActiveExecutions(AbilityExecutionStopReason.Knockback);
         }
+        return decision;
+    }
+
+    private void ClearKnockback()
+    {
+        KnockbackActive = false;
+        KnockbackDirection = Vector2.zero;
+        KnockbackEffectivePower = 0f;
+        KnockbackDistance = 0f;
+        KnockbackStartTick = 0;
+        KnockbackDurationTicks = 0;
     }
 
     /// <summary>
@@ -548,17 +594,22 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
 
     private bool ValidateDependencies()
     {
-        if (_movementMotor != null)
+        if (_movementMotor == null)
         {
-            return true;
+            Debug.LogError($"{nameof(PlayerMovementNetworkController)} requires {nameof(Kinematic2DMovementMotor)}.", this);
+            return false;
         }
-
-        Debug.LogError(
-            $"{nameof(PlayerMovementNetworkController)} requires " +
-            $"{nameof(Kinematic2DMovementMotor)}.",
-            this);
-
-        return false;
+        if (_knockbackCurveConfig == null)
+        {
+            Debug.LogError($"{nameof(PlayerMovementNetworkController)} requires a {nameof(KnockbackCurveConfig)}.", this);
+            return false;
+        }
+        if (!_knockbackCurveConfig.TryValidate(out string error))
+        {
+            Debug.LogError($"{nameof(PlayerMovementNetworkController)} has invalid knockback configuration: {error}", this);
+            return false;
+        }
+        return true;
     }
 
 #if UNITY_EDITOR

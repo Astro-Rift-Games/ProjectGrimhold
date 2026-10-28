@@ -15,7 +15,7 @@ public readonly struct DamageRequest
     public int SimulationTick { get; }
 
     /// <summary>
-    /// Knockback force in world units per second applied to the target on impact.
+    /// Knockback power (PE original, Doc 18), converted to displacement by KnockbackCurveConfig after RE mitigation.
     /// A value of 0 produces no knockback. Clamped to [0, ∞).
     /// </summary>
     public float KnockbackForce { get; }

@@ -86,6 +86,9 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
             ));
         }
 
+        // Doc 18 §4.3: capture eligibility before this hit can transition Active to Downed.
+        bool knockbackEligibleAtImpact = target is IKnockbackReceiver receiver && receiver.IsKnockbackEligible;
+
         // 4. Delegate damage application and handle authority validation within IDamageable
         DamageResult result = target.ApplyDamage(request);
 
@@ -96,7 +99,8 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
             request.KnockbackForce > 0f &&
             target is IKnockbackReceiver knockbackReceiver)
         {
-            knockbackReceiver.ReceiveKnockback(request.Direction, request.KnockbackForce);
+            knockbackReceiver.ReceiveKnockback(new KnockbackRequest(
+                request.Direction, request.KnockbackForce, knockbackEligibleAtImpact));
         }
 
         // 6. Alert enemy targets aggro'd by a player hit.

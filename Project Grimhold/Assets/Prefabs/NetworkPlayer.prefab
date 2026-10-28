@@ -8415,7 +8415,7 @@ MonoBehaviour:
   _staminaController: {fileID: 7201000000000000006}
   _shieldDefenseController: {fileID: 8400000000000000005}
   _SprintRejectedSequence: 0
-  _knockbackFriction: 10
+  _knockbackCurveConfig: {fileID: 11400000, guid: 0e71b6227f6a64e4e9e777291fb30671, type: 2}
   _defaultFacingDirection: {x: 0, y: -1}
   _IsControlEnabled:
     RawValue: 0

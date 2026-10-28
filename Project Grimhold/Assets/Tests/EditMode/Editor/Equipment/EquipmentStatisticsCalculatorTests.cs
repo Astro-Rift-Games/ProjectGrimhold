@@ -56,6 +56,45 @@ namespace Tests.EditMode.Equipment
         }
 
         [Test]
+        public void T01_T02_T10_Calculate_FourArmorPieces_AddsKnockbackResistance()
+        {
+            ArmorDefinition helmet = CreateArmor(1, 2, MaximumResourceType.Health, 10);
+            ArmorDefinition armor = CreateArmor(3, 4, MaximumResourceType.Stamina, 20);
+            ArmorDefinition gloves = CreateArmor(5, 6, MaximumResourceType.Mana, 30);
+            ArmorDefinition boots = CreateArmor(7, 8, MaximumResourceType.Health, 40);
+            SetField(helmet, "_knockbackResistance", 2);
+            SetField(armor, "_knockbackResistance", 3);
+            SetField(gloves, "_knockbackResistance", 5);
+            SetField(boots, "_knockbackResistance", 7);
+
+            Assert.That(EquipmentStatisticsCalculator.TryCalculate(
+                helmet, armor, gloves, boots,
+                out EquipmentStatisticsModifiers modifiers, out _), Is.True);
+
+            Assert.That(modifiers.KnockbackResistance, Is.EqualTo(17));
+            Assert.That(modifiers.PhysicalDefense, Is.EqualTo(16));
+        }
+
+        [Test]
+        public void T10_ArmorWithOnlyKnockbackResistance_ValidatesAndContributesResistance()
+        {
+            ArmorDefinition armor = ScriptableObject.CreateInstance<ArmorDefinition>();
+            _created.Add(armor);
+            SetField(armor, "_knockbackResistance", 20);
+
+            Assert.That(armor.TryValidate(out string error), Is.True, error);
+            Assert.That(EquipmentStatisticsCalculator.TryCalculate(
+                null, armor, null, null,
+                out EquipmentStatisticsModifiers modifiers, out _), Is.True);
+            Assert.That(modifiers.KnockbackResistance, Is.EqualTo(20));
+            Assert.That(modifiers.PhysicalDefense, Is.Zero);
+            Assert.That(modifiers.MagicalDefense, Is.Zero);
+            Assert.That(modifiers.MaximumHealthModifier, Is.Zero);
+            Assert.That(modifiers.MaximumStaminaModifier, Is.Zero);
+            Assert.That(modifiers.MaximumManaModifier, Is.Zero);
+        }
+
+        [Test]
         public void Calculate_RebuildsFromCurrentDefinitionsWithoutDrift()
         {
             ArmorDefinition previous = CreateArmor(10, 20, MaximumResourceType.Health, 30);

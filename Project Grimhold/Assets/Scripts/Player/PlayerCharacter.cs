@@ -129,6 +129,19 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
     /// <summary>A Downed player is still alive until the reserve is depleted.</summary>
     public override bool IsAlive => base.IsAlive || IsDowned;
 
+    /// <summary>Only Active players may authorize a new knockback impact.</summary>
+    public override bool IsKnockbackEligible => IsAlive && !IsDowned;
+
+    /// <summary>
+    /// Resolves equipment RE without primary-attribute scaling. Temporary effects granting RE
+    /// will be summed here when their design is defined.
+    /// </summary>
+    protected override float ResolveKnockbackResistance()
+    {
+        return TryGetEquipmentStatistics(out EquipmentStatisticsModifiers statistics, out _)
+            ? statistics.KnockbackResistance : 0f;
+    }
+
     /// <summary>Conventional healing does not restore Health while Downed.</summary>
     protected override bool CanReceiveHealing => !IsDowned && base.CanReceiveHealing;
 

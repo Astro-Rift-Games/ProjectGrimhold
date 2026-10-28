@@ -82,6 +82,7 @@ public sealed class WeaponDefinition : ScriptableObject
     public float Range => _range;
     public float StaminaCost => _staminaCost;
     public DamageType DamageType => _damageType;
+    /// <summary>Knockback power (PE original, Doc 18), converted by KnockbackCurveConfig after RE mitigation.</summary>
     public float KnockbackForce => _knockbackForce;
     public WeaponHandedness Handedness => _handedness;
     public AttackConfig PrimaryAttack => _primaryAttack;

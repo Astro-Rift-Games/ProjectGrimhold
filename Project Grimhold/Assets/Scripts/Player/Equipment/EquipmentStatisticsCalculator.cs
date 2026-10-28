@@ -17,15 +17,16 @@ public static class EquipmentStatisticsCalculator
         long maximumHealthModifier = 0;
         long maximumStaminaModifier = 0;
         long maximumManaModifier = 0;
+        long knockbackResistance = 0;
 
         if (!TryAccumulate(helmet, ref physicalDefense, ref magicalDefense,
-                ref maximumHealthModifier, ref maximumStaminaModifier, ref maximumManaModifier, out failure) ||
+                ref maximumHealthModifier, ref maximumStaminaModifier, ref maximumManaModifier, ref knockbackResistance, out failure) ||
             !TryAccumulate(armor, ref physicalDefense, ref magicalDefense,
-                ref maximumHealthModifier, ref maximumStaminaModifier, ref maximumManaModifier, out failure) ||
+                ref maximumHealthModifier, ref maximumStaminaModifier, ref maximumManaModifier, ref knockbackResistance, out failure) ||
             !TryAccumulate(gloves, ref physicalDefense, ref magicalDefense,
-                ref maximumHealthModifier, ref maximumStaminaModifier, ref maximumManaModifier, out failure) ||
+                ref maximumHealthModifier, ref maximumStaminaModifier, ref maximumManaModifier, ref knockbackResistance, out failure) ||
             !TryAccumulate(boots, ref physicalDefense, ref magicalDefense,
-                ref maximumHealthModifier, ref maximumStaminaModifier, ref maximumManaModifier, out failure))
+                ref maximumHealthModifier, ref maximumStaminaModifier, ref maximumManaModifier, ref knockbackResistance, out failure))
         {
             return false;
         }
@@ -60,12 +61,19 @@ public static class EquipmentStatisticsCalculator
             return false;
         }
 
+        if (knockbackResistance > int.MaxValue)
+        {
+            failure = EquipmentStatisticsCalculationFailure.KnockbackResistanceOverflow;
+            return false;
+        }
+
         modifiers = new EquipmentStatisticsModifiers(
             (int)physicalDefense,
             (int)magicalDefense,
             (int)maximumHealthModifier,
             (int)maximumStaminaModifier,
-            (int)maximumManaModifier);
+            (int)maximumManaModifier,
+            (int)knockbackResistance);
         return true;
     }
 
@@ -76,6 +84,7 @@ public static class EquipmentStatisticsCalculator
         ref long maximumHealthModifier,
         ref long maximumStaminaModifier,
         ref long maximumManaModifier,
+        ref long knockbackResistance,
         out EquipmentStatisticsCalculationFailure failure)
     {
         failure = EquipmentStatisticsCalculationFailure.None;
@@ -92,6 +101,7 @@ public static class EquipmentStatisticsCalculator
 
         physicalDefense += definition.PhysicalDefense;
         magicalDefense += definition.MagicalDefense;
+        knockbackResistance += definition.KnockbackResistance;
 
         MaximumResourceModifier resourceModifier = definition.MaximumResourceModifier;
         switch (resourceModifier.Resource)
