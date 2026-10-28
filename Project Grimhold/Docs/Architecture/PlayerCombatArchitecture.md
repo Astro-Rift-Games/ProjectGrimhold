@@ -349,7 +349,8 @@ Hit used by the PvE Kill Experience producer. `DamageResolver` resolves the targ
 source synchronously. The source requests ledger application before setting its replicated
 one-shot flag, so rejected rewards remain available and accepted deaths cannot reward twice.
 This direct relationship introduces no gameplay event, RPC, transaction service or coordinator.
-PvP remains blocked until networking provides an authoritative ally/enemy affiliation contract.
+Damage policy now uses authoritative initial Raid team affiliation (see Friendly Fire below).
+PvP reward attribution remains outside this PvE Kill Experience contract.
 
 ---
 
@@ -547,6 +548,35 @@ A network component that validates damage rules:
 * Queries target `IDamageable` from the `EntityRegistry`.
 * Excludes targets that cannot receive damage or are dead.
 * Calls `IDamageable.ApplyDamage()` on the target.
+
+### Friendly Fire
+
+TASK-245 (GD 19 §7, GD 10 §6.1) uses the Host's serialized
+`TownRaidPreparationNetworkController._friendlyFireEnabled` default (`false`), captured and
+replicated by Town State Authority, then frozen into `TownRaidPreparationSnapshot.FriendlyFireEnabled`
+and immutable `RaidLaunchContext.FriendlyFireEnabled`. The development path uses
+`SessionConnectionCoordinator._developmentFriendlyFireEnabled`; no UI toggle exists yet.
+`NetworkSpawnManager.TryGetRaidFriendlyFireEnabled(out bool)` exposes the Raid policy; unavailable
+policy means disabled. Retained launch context preserves it across Host Migration.
+
+* An ally hit requires two `PlayerCharacter` instances and
+  `AbilityAllyAffiliation.AreInitialTeammates`, using the initial Raid team roster and failing
+  closed for unresolved affiliation. Environmental (`AttackerId = 0`) and creature damage are not ally damage.
+* After target lookup, State Authority `DamageResolver` rejects disabled-policy ally hits with
+  non-applied `FriendlyFireBlocked`: no damage, knockback, aggro or contribution. Allowed ally
+  hits use serialized `_allyDamageMultiplier` (default 1.0); only the resolver rebuilds the
+  request with `DamageRequest.IsAllyDirectDamage = true`. Pure math lives in `FriendlyFireRules`.
+* `CharacterBase.ApplyDamage` clamps ally damage after mitigation to preserve at least 1 HP,
+  bypassing fatal/Downed interception. Ally hits on Downed players neither reduce the reserve nor
+  call `NotifyDownedDamaged`. Zero effective damage runs no damage-applied hooks and produces no
+  Health loss for reviver interruption polling.
+* Allowed ally hits may still apply eligible knockback at zero clamped damage. Zero-damage
+  `AbilityImpact` pushes also pass through the resolver; `NetworkExplosiveBomb` logs an error
+  and fails closed without one, never calling `ApplyDamage` directly. Aggro and contribution
+  require `AppliedDamage > 0` and a non-ally hit.
+
+No stun system exists and knockback does not become stun. Enemy-only targeting (Seismic Strike,
+Vital Drain, Trap and `enemyOnly` projectiles) is unchanged.
 
 ### 3. Entity Registration (`EntityRegistry` & `CharacterBase`)
 * Any damageable character must inherit from `CharacterBase` (which implements `IDamageable` and `ICharacter`).

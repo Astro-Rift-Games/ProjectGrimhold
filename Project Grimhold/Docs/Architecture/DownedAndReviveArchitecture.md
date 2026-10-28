@@ -79,6 +79,12 @@ Rule: no code may read `DownedHealth` as Health or write `Health` as part of a D
 transition except the dedicated restore path in section 6. Pure math stays in `DownedHealthRules`.
 Status: **Implemented**.
 
+Friendly Fire (TASK-245): resolver-authorized ally damage is clamped after mitigation to leave
+at least 1 normal HP, so it cannot cause Downed. On an already Downed target, ally hits do not
+reduce the reserve or call `NotifyDownedDamaged`, and therefore do not interrupt assisted revive
+through damage. Zero effective damage to the reviver causes no Health loss for interruption polling;
+allowed knockback remains subject to the movement/range rules in section 7.
+
 ## 5. Transitions and owners
 
 | # | Transition | Trigger | Owning component | Authority | Side effects | Status |
