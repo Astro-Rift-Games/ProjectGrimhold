@@ -323,6 +323,11 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
 
         if (profile != null)
         {
+            if (profile.components != null)
+            {
+                profile.components.RemoveAll(c => c == null);
+            }
+
             if (!profile.TryGet(out _vignette))
             {
                 _vignette = profile.Add<Vignette>(overrides: true);
