@@ -6,6 +6,7 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Features
 
+- **consumables:** add throwable pickups and refine throwable mechanics ([68e2be3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/68e2be370e27d3a728164f054fdbce53c196fc6c))
 - **pressure:** implement authoritative hybrid dungeon collapse progression ([a3d4712](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a3d47120d9e72ce9ef9f60bc8f923b8cfc1c5f0c))
 - **utilities:** implement rune compass and arcane detector ([3945782](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3945782aa49add1afa0de686ee02f8ff0d78d0cd))
 - **quickslots:** retain depleted slots and reject duplicate assignment ([6018d6d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6018d6d428e56965be6f9cc557cd8ec19cc6f96f))
@@ -304,6 +305,8 @@ Technical history of Project Grimhold generated from Git commits by `tools/chang
 
 ### Bug Fixes
 
+- **lighting:** prune missing volume components in ambient presenter ([6425f4d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6425f4da2d3764d643883a89e4666900bf571705))
+- **backend:** provide missing validation middleware for ability routes ([b26343a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b26343a5565481c176ec619927d1d8a441400c0a))
 - **security:** eliminate client webhook secret and bound host extraction trust ([63f574d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/63f574df6c4328a34f620f7803a464a6ba9ce836))
 - **loot:** attach passive effects controller and sync drop definition ([02e956b](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/02e956b00784ff9022b1f9ea453f3244f4580aa4))
 - **loot:** expand catalog index capacity in packed origin buffer ([a2fb465](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a2fb465360e7dd83f922ae1e91d6d99706ac6ae3))
