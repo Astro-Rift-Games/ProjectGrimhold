@@ -56,9 +56,9 @@ public sealed class NetworkExplosiveBomb : NetworkBehaviour
     [Networked]
     private NetworkBool HasDetonated { get; set; }
 
-    public float Damage => _damage;
-    public float Radius => _radius;
-    public float FuseSeconds => _fuseSeconds;
+    public float Damage { get => _damage; set => _damage = value; }
+    public float Radius { get => _radius; set => _radius = value; }
+    public float FuseSeconds { get => _fuseSeconds; set => _fuseSeconds = value; }
     public bool IsDetonated => HasDetonated;
 
     public void InitializeNetworkState(EntityId ownerId, Vector2 start, Vector2 target, IDamageResolver resolver = null)
@@ -194,20 +194,15 @@ public sealed class NetworkExplosiveBomb : NetworkBehaviour
             }
         }
 
-        RPC_PlayExplosionEffects(TargetPosition);
+        RPC_PlayExplosionEffects(TargetPosition, _radius);
 
         Runner.Despawn(Object);
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-    private void RPC_PlayExplosionEffects(Vector2 position)
+    private void RPC_PlayExplosionEffects(Vector2 position, float radius)
     {
-        if (_explosionParticles != null)
-        {
-            ParticleSystem ps = Instantiate(_explosionParticles, position, Quaternion.identity);
-            ps.Play();
-            Destroy(ps.gameObject, ps.main.duration + 0.5f);
-        }
+        PlayFireParticles(position, radius);
 
         if (_explosionSound != null)
         {
@@ -215,7 +210,92 @@ public sealed class NetworkExplosiveBomb : NetworkBehaviour
         }
     }
 
-    internal void Configure(float damage, float radius, float fuseSeconds)
+    private void PlayFireParticles(Vector2 position, float radius)
+    {
+        if (_explosionParticles != null)
+        {
+            ParticleSystem ps = Instantiate(_explosionParticles, position, Quaternion.identity);
+            ps.Play();
+            Destroy(ps.gameObject, ps.main.duration + ps.main.startLifetime.constantMax + 0.5f);
+            return;
+        }
+
+        SpawnProceduralFireExplosion(position, radius);
+    }
+
+    public static void SpawnProceduralFireExplosion(Vector2 position, float radius)
+    {
+        GameObject go = new GameObject("VFX_ExplosiveBomb_Fire");
+        go.transform.position = position;
+        go.SetActive(false);
+
+        ParticleSystem ps = go.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+        var main = ps.main;
+        main.duration = 0.5f;
+        main.loop = false;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(0.6f, 1.1f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(1.5f, Mathf.Max(2f, radius * 2.2f));
+        main.startSize = new ParticleSystem.MinMaxCurve(0.35f, 0.7f);
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.playOnAwake = false;
+
+        var emission = ps.emission;
+        emission.enabled = true;
+        emission.rateOverTime = 0f;
+        emission.SetBursts(new ParticleSystem.Burst[] { new(0f, 40, 55) });
+
+        var shape = ps.shape;
+        shape.shapeType = ParticleSystemShapeType.Circle;
+        shape.radius = Mathf.Max(0.2f, radius * 0.35f);
+
+        var colOverLifetime = ps.colorOverLifetime;
+        colOverLifetime.enabled = true;
+        Gradient grad = new Gradient();
+        grad.SetKeys(
+            new GradientColorKey[]
+            {
+                new(new Color(1f, 0.95f, 0.25f), 0f),
+                new(new Color(1f, 0.45f, 0.05f), 0.35f),
+                new(new Color(0.85f, 0.15f, 0.02f), 0.7f),
+                new(new Color(0.2f, 0.15f, 0.15f), 1.0f)
+            },
+            new GradientAlphaKey[]
+            {
+                new(1.0f, 0f),
+                new(0.9f, 0.4f),
+                new(0.4f, 0.75f),
+                new(0f, 1.0f)
+            }
+        );
+        colOverLifetime.color = new ParticleSystem.MinMaxGradient(grad);
+
+        var sizeOverLifetime = ps.sizeOverLifetime;
+        sizeOverLifetime.enabled = true;
+        AnimationCurve sizeCurve = new AnimationCurve();
+        sizeCurve.AddKey(0f, 0.4f);
+        sizeCurve.AddKey(0.25f, 1.0f);
+        sizeCurve.AddKey(1f, 0f);
+        sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1f, sizeCurve);
+
+        ParticleSystemRenderer renderer = go.GetComponent<ParticleSystemRenderer>();
+        renderer.sortingLayerName = "Default";
+        renderer.sortingOrder = 10;
+        Material mat = Resources.Load<Material>("Materials/Default-Particle");
+        if (mat == null)
+        {
+            Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Particles/Standard Unlit");
+            if (shader != null) mat = new Material(shader);
+        }
+        if (mat != null) renderer.material = mat;
+
+        go.SetActive(true);
+        ps.Play();
+        UnityEngine.Object.Destroy(go, 2.0f);
+    }
+
+    public void Configure(float damage, float radius, float fuseSeconds)
     {
         _damage = damage;
         _radius = radius;

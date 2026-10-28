@@ -24,6 +24,11 @@ public sealed class RaidLootTestSpawner : MonoBehaviour
     [SerializeField] private LootDefinition _manaFragment;
     [SerializeField] private LootDefinition _healthPotion;
 
+    [Header("Test Throwables")]
+    [SerializeField] private LootDefinition _explosiveBomb;
+    [SerializeField] private LootDefinition _smokeBomb;
+    [SerializeField] private LootDefinition _throwingDagger;
+
     [Header("Test MVP Treasures")]
     [SerializeField] private LootDefinition _chaosCoin;
     [SerializeField] private LootDefinition _pilgrimLight;
@@ -41,6 +46,12 @@ public sealed class RaidLootTestSpawner : MonoBehaviour
         if (_lootCatalog == null)
         {
             _lootCatalog = Resources.Load<LootDefinitionCatalog>("Loot/Catalogs/LootDefinitionCatalog");
+        }
+        if (_lootCatalog != null)
+        {
+            if (_explosiveBomb == null) _lootCatalog.TryGet("CON_EXPLOSIVE_BOMB", out _explosiveBomb);
+            if (_smokeBomb == null) _lootCatalog.TryGet("CON_SMOKE_BOMB", out _smokeBomb);
+            if (_throwingDagger == null) _lootCatalog.TryGet("CON_THROWING_DAGGER", out _throwingDagger);
         }
     }
 
@@ -71,6 +82,9 @@ public sealed class RaidLootTestSpawner : MonoBehaviour
             (_manaPotion, 2),
             (_manaFragment, 5),
             (_healthPotion, 2),
+            (_explosiveBomb, 3),
+            (_smokeBomb, 2),
+            (_throwingDagger, 5),
             (_chaosCoin, 1),
             (_pilgrimLight, 1),
             (_sanctuaryHeart, 1),

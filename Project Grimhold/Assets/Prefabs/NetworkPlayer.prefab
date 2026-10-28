@@ -9046,15 +9046,26 @@ MonoBehaviour:
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
   _characterSource: {fileID: 729366679366126330}
   _throwingDaggerPrefab:
-    RawGuidValue: 00000000000000000000000000000000
+    RawGuidValue: 8a414d957a3ff4a4986d927015eb8733
   _explosiveBombPrefab:
-    RawGuidValue: 00000000000000000000000000000000
+    RawGuidValue: 56d18b8e310b7684ba426e653d32a627
   _smokeZonePrefab:
-    RawGuidValue: 00000000000000000000000000000000
+    RawGuidValue: 6b30ec697296f084ba882dba18790102
   _throwableImpactLayerMask:
     serializedVersion: 2
     m_Bits: 3264
   _maxThrowDistance: 7
+  _explosiveBombDamage: 50
+  _explosiveBombRadius: 2.5
+  _explosiveBombFuseSeconds: 1.5
+  _explosiveBombMaxDistance: 7
+  _smokeBombRadius: 3
+  _smokeBombDuration: 8
+  _smokeBombActivationSeconds: 0.5
+  _smokeBombMaxDistance: 7
+  _throwingDaggerDamage: 20
+  _throwingDaggerRange: 12
+  _throwingDaggerSpeed: 16
 --- !u!114 &2262447401525612929
 MonoBehaviour:
   m_ObjectHideFlags: 0

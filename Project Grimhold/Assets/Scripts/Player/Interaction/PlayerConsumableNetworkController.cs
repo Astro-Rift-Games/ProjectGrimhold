@@ -31,6 +31,23 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
     [SerializeField] private LayerMask _throwableImpactLayerMask;
     [SerializeField, Min(1f)] private float _maxThrowDistance = 7f;
 
+    [Header("Explosive Bomb Configuration")]
+    [SerializeField, Min(0f)] private float _explosiveBombDamage = 50f;
+    [SerializeField, Min(0.1f)] private float _explosiveBombRadius = 2.5f;
+    [SerializeField, Min(0.1f)] private float _explosiveBombFuseSeconds = 1.5f;
+    [SerializeField, Min(1f)] private float _explosiveBombMaxDistance = 7f;
+
+    [Header("Smoke Bomb Configuration")]
+    [SerializeField, Min(0.1f)] private float _smokeBombRadius = 3f;
+    [SerializeField, Min(0.1f)] private float _smokeBombDuration = 8f;
+    [SerializeField, Min(0.05f)] private float _smokeBombActivationSeconds = 0.5f;
+    [SerializeField, Min(1f)] private float _smokeBombMaxDistance = 7f;
+
+    [Header("Throwing Dagger Configuration")]
+    [SerializeField, Min(0f)] private float _throwingDaggerDamage = 20f;
+    [SerializeField, Min(1f)] private float _throwingDaggerRange = 12f;
+    [SerializeField, Min(1f)] private float _throwingDaggerSpeed = 16f;
+
     private ICharacter _character;
     private PlayerLootReceiver _lootReceiver;
     private NetworkMatchController _matchController;
@@ -77,6 +94,28 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
             }
             return 1f;
         }
+    }
+
+    public float ExplosiveBombDamage { get => _explosiveBombDamage; set => _explosiveBombDamage = value; }
+    public float ExplosiveBombRadius { get => _explosiveBombRadius; set => _explosiveBombRadius = value; }
+    public float ExplosiveBombFuseSeconds { get => _explosiveBombFuseSeconds; set => _explosiveBombFuseSeconds = value; }
+    public float ExplosiveBombMaxDistance { get => _explosiveBombMaxDistance; set => _explosiveBombMaxDistance = value; }
+
+    public float SmokeBombRadius { get => _smokeBombRadius; set => _smokeBombRadius = value; }
+    public float SmokeBombDuration { get => _smokeBombDuration; set => _smokeBombDuration = value; }
+    public float SmokeBombActivationSeconds { get => _smokeBombActivationSeconds; set => _smokeBombActivationSeconds = value; }
+    public float SmokeBombMaxDistance { get => _smokeBombMaxDistance; set => _smokeBombMaxDistance = value; }
+
+    public float ThrowingDaggerDamage { get => _throwingDaggerDamage; set => _throwingDaggerDamage = value; }
+    public float ThrowingDaggerRange { get => _throwingDaggerRange; set => _throwingDaggerRange = value; }
+    public float ThrowingDaggerSpeed { get => _throwingDaggerSpeed; set => _throwingDaggerSpeed = value; }
+
+    public float GetMaxThrowDistance(LootId lootId)
+    {
+        if (lootId == ExplosiveBombId) return _explosiveBombMaxDistance;
+        if (lootId == SmokeBombId) return _smokeBombMaxDistance;
+        if (lootId == ThrowingDaggerId) return _throwingDaggerRange;
+        return _maxThrowDistance;
     }
 
     private void Awake() => CacheDependencies();
@@ -152,18 +191,19 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
         if (_lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition) &&
             definition.UseMode == ItemUseMode.AimedQuickSlot)
         {
+            float maxDist = GetMaxThrowDistance(definition.LootId);
             if (targetPosition == default)
             {
                 Vector2 dir = _movementState != null ? _movementState.FacingDirection : Vector2.down;
                 if (dir.sqrMagnitude < 0.001f) dir = Vector2.down;
-                targetPosition = (Vector2)transform.position + dir * 3f;
+                targetPosition = (Vector2)transform.position + dir * Mathf.Min(3f, maxDist);
             }
             else
             {
                 Vector2 offset = targetPosition - (Vector2)transform.position;
-                if (offset.magnitude > _maxThrowDistance)
+                if (offset.magnitude > maxDist)
                 {
-                    targetPosition = (Vector2)transform.position + offset.normalized * _maxThrowDistance;
+                    targetPosition = (Vector2)transform.position + offset.normalized * maxDist;
                 }
             }
         }
@@ -198,7 +238,6 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
                 if (IsAimedThrowActive)
                 {
                     IsAimedThrowActive = false;
-                    ExecuteSmokeZone(AimTargetPosition);
                 }
                 else if (_lootCatalog != null && _lootCatalog.TryGetByIndex(index, out LootDefinition def) && def.LootId == ArcaneDetectorId)
                 {
@@ -273,7 +312,7 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
             _lootReceiver.CommitRaidLootExtraction(request, origin);
             RPC_ReceiveConsumeConfirmation(pending, catalogIndex, true, (int)ConsumableFailureReason.None);
 
-            targetPosition = ResolveAimedTargetPosition(targetPosition);
+            targetPosition = ResolveAimedTargetPosition(targetPosition, definition.LootId);
 
             if (definition.LootId == ThrowingDaggerId)
             {
@@ -299,7 +338,8 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
                 ConsumptionRequestSequence = pending;
                 AimTargetPosition = targetPosition;
                 IsAimedThrowActive = true;
-                ConsumptionTimer = TickTimer.CreateFromSeconds(Runner, 0.5f);
+                ConsumptionTimer = TickTimer.CreateFromSeconds(Runner, _smokeBombActivationSeconds);
+                ExecuteSmokeZone((Vector2)transform.position, targetPosition);
             }
         }
         else
@@ -419,14 +459,15 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
         return ConsumableResult.Ok();
     }
 
-    private Vector2 ResolveAimedTargetPosition(Vector2 rawTarget)
+    private Vector2 ResolveAimedTargetPosition(Vector2 rawTarget, LootId lootId = default)
     {
+        float maxDist = !string.IsNullOrEmpty(lootId.Value) ? GetMaxThrowDistance(lootId) : _maxThrowDistance;
         Vector2 origin = (Vector2)transform.position;
         Vector2 offset = rawTarget - origin;
         float dist = offset.magnitude;
-        if (dist > _maxThrowDistance)
+        if (dist > maxDist)
         {
-            dist = _maxThrowDistance;
+            dist = maxDist;
             offset = offset.normalized * dist;
         }
 
@@ -434,7 +475,7 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
         {
             Vector2 facing = _movementState != null ? _movementState.FacingDirection : Vector2.down;
             if (facing.sqrMagnitude < 0.001f) facing = Vector2.down;
-            return origin + facing * 3f;
+            return origin + facing * Mathf.Min(3f, maxDist);
         }
 
         int obstacleMask = (1 << 6) | (1 << 11);
@@ -462,10 +503,10 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
             ownerId: _character.Id,
             origin: (Vector2)transform.position,
             direction: direction,
-            damage: 20f,
+            damage: _throwingDaggerDamage,
             damageType: DamageType.Physical,
-            speed: 16f,
-            maximumRange: 12f,
+            speed: _throwingDaggerSpeed,
+            maximumRange: _throwingDaggerRange,
             lifetimeSeconds: 2f,
             projectilePrefab: prefab,
             impactLayerMask: mask,
@@ -502,22 +543,29 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
         {
             if (no.TryGetComponent(out NetworkExplosiveBomb bomb))
             {
+                bomb.Configure(_explosiveBombDamage, _explosiveBombRadius, _explosiveBombFuseSeconds);
                 bomb.InitializeNetworkState(_character.Id, startPos, targetPosition, GetComponent<IDamageResolver>());
+            }
+        });
+    }
+
+    private void ExecuteSmokeZone(Vector2 startPos, Vector2 targetPosition)
+    {
+        if (!_smokeZonePrefab.IsValid || Runner == null) return;
+
+        Runner.TrySpawn(_smokeZonePrefab, out NetworkObject _, startPos, Quaternion.identity, null, (_, no) =>
+        {
+            if (no.TryGetComponent(out NetworkSmokeZone zone))
+            {
+                zone.Configure(_smokeBombRadius, _smokeBombDuration, _smokeBombActivationSeconds);
+                zone.InitializeThrow(startPos, targetPosition, _smokeBombRadius, _smokeBombDuration, _smokeBombActivationSeconds);
             }
         });
     }
 
     private void ExecuteSmokeZone(Vector2 targetPosition)
     {
-        if (!_smokeZonePrefab.IsValid || Runner == null) return;
-
-        Runner.TrySpawn(_smokeZonePrefab, out NetworkObject _, targetPosition, Quaternion.identity, null, (_, no) =>
-        {
-            if (no.TryGetComponent(out NetworkSmokeZone zone))
-            {
-                zone.Configure(3.0f, 8.0f);
-            }
-        });
+        ExecuteSmokeZone((Vector2)transform.position, targetPosition);
     }
 
     internal void ConfigureThrowables(NetworkPrefabRef daggerPrefab, NetworkPrefabRef bombPrefab, NetworkPrefabRef smokeZonePrefab)
