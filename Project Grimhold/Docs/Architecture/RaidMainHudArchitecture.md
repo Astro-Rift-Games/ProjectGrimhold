@@ -176,19 +176,28 @@ for state presentation.
 
 The local minimap is a separate `RaidMinimapPresenter`/`RaidMinimapView` section
 bound by `LocalPlayerHudBinder` and composed as the first child of `RaidRightPanel`; `RaidHudPresenter` retains responsibility only for textual HUD
-content and the expedition progress bar. `MinimapLayoutGenerator` derives the immutable `MinimapLayout` asset from the serialized
-`Floor`, `Walls` and `Obstacles` Tilemaps of the unique `Dungeon_Graybox` instance in saved `Gameplay.unity`, including its overrides, world placement,
+content and the expedition progress bar. Each Raid scene declares its own map with exactly one
+`RaidSceneMinimap`, which references that scene's generated `MinimapLayout` asset and the root that
+holds its `Floor`, `Walls` and `Obstacles` Tilemaps (for example the `Dungeon_Graybox` instance in
+`Gameplay.unity`). `MinimapLayoutGenerator` finds every scene
+that contains a `RaidSceneMinimap` and derives one immutable layout per scene from those saved Tilemaps,
+including their overrides, world placement,
 cell size, occupancy, original tile sprites/UVs/tints/transforms, ordered texture batches bound to
-embedded 2x2-averaged copies of the source atlases, and a versioned dependency hash.
+embedded 2x2-averaged copies of the source atlases, and a per-scene versioned dependency hash.
+On every bind, `RaidMinimapPresenter` resolves the single active `RaidSceneMinimap` once
+(`RaidSceneMinimap.TryResolveLoaded`) and configures the graphic with that layout. The layout serialized
+on the HUD prefab is only an editor preview. A loaded scene with zero, several or an empty declaration
+makes the minimap configuration invalid and logs an error. It never falls back to another map's layout.
 `RaidMinimapGraphic` renders that averaged tile art at reduced scale as
 north-up uGUI geometry inside a `RectMask2D`, with a centered local marker and a private Sanctuary marker. It
 adds no Canvas, camera, RenderTexture, networked property, RPC, event bus or gameplay timer. A
-changed graybox or imported art dependency is regenerated through the permanent editor generator;
-the prebuild hook verifies/regenerates freshness and fails the build on invalid sources. Only the
-generated asset is saved, leaving other dirty assets untouched. No hand-drawn/static PNG or
+changed map, scene declaration or imported art dependency regenerates that scene's layout through the permanent editor generator;
+the prebuild hook verifies/regenerates every declared scene and fails the build on invalid sources. Only the
+generated assets are saved, leaving other dirty assets untouched. Adding a new Raid map requires
+one `RaidSceneMinimap` that points to a new layout asset and to the map's Tilemap root; the generator fills the asset. No hand-drawn/static PNG or
 runtime Tilemap watcher is retained. The generated pivot is already in scene-world coordinates;
 the presenter applies no additional origin offset, keeping the fixed player marker aligned with
-the actual Gameplay placement without runtime scene lookup or applying scene overrides to the prefab.
+the actual placement of the loaded map without per-frame scene lookup or applying scene overrides to the prefab.
 Only the local player and its assigned extraction are shown; the latter appears after quota
 completion and assignment, before ritual completion, and never reveals another team's assignment.
 

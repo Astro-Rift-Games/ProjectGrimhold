@@ -102,7 +102,13 @@ public sealed class RaidMinimapPresenter : MonoBehaviour
             _configurationValid = false;
         }
 
-        if (_configurationValid && !_view.TryConfigureMap(_uiUnitsPerWorldUnit, _zoom, out error))
+        MinimapLayout sceneLayout = null;
+        if (_configurationValid && !RaidSceneMinimap.TryResolveLoaded(out sceneLayout, out error))
+        {
+            _configurationValid = false;
+        }
+
+        if (_configurationValid && !_view.TryConfigureMap(sceneLayout, _uiUnitsPerWorldUnit, _zoom, out error))
         {
             _configurationValid = false;
         }

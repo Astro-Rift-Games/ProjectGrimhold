@@ -18,6 +18,7 @@ namespace Tests.PlayMode.Presentation
         private const string PlayerGuid = "fea3a7b256f965a4eb9b965832939741";
         private const string ParticipantGuid = "c39d451563bae6e43934008a0dadc6d6";
         private const string SanctuaryPath = "Assets/Prefabs/ExtractionSanctuary.prefab";
+        private const string GameplayMinimapLayoutPath = "Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset";
 
         private NetworkRunner _runner;
         private EntityRegistry _registry;
@@ -36,6 +37,7 @@ namespace Tests.PlayMode.Presentation
         private CanvasGroup _visibility;
         private GameObject _inputOwner;
         private GameObject _nextSessionOwner;
+        private GameObject _sceneMinimap;
         private RaidTeamId _firstTeam;
         private RaidTeamId _secondTeam;
         private int _authoredImageCount;
@@ -105,6 +107,10 @@ namespace Tests.PlayMode.Presentation
             _visibility = _view.GetComponent<CanvasGroup>();
             _authoredImageCount = _view.GetComponentsInChildren<Image>(true).Length;
             Assert.That(_view.TryValidateConfiguration(out string error), Is.True, error);
+            // The HUD reads the layout declared by the loaded Raid scene.
+            _sceneMinimap = new GameObject("RaidSceneMinimap", typeof(RaidSceneMinimap));
+            _sceneMinimap.GetComponent<RaidSceneMinimap>().EditorConfigure(
+                AssetDatabase.LoadAssetAtPath<MinimapLayout>(GameplayMinimapLayoutPath), null);
             BindCurrentPlayer();
             yield return NextPresentation();
         }
@@ -125,6 +131,7 @@ namespace Tests.PlayMode.Presentation
             if (_runner != null) Object.DestroyImmediate(_runner.gameObject);
             if (_inputOwner != null) Object.DestroyImmediate(_inputOwner);
             if (_nextSessionOwner != null) Object.DestroyImmediate(_nextSessionOwner);
+            if (_sceneMinimap != null) Object.DestroyImmediate(_sceneMinimap);
         }
 
         [UnityTest]

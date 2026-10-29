@@ -118523,6 +118523,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: cf240c071e0e43f4dbe3a8173316e5b5, type: 3}
+--- !u!1 &442943250 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 190298113374133886, guid: cf240c071e0e43f4dbe3a8173316e5b5, type: 3}
+  m_PrefabInstance: {fileID: 442943249}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &454534411
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -127137,6 +127142,52 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4780114216659033895, guid: 2876756fa59a26d42a425ab27889fead, type: 3}
   m_PrefabInstance: {fileID: 1658846011}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1712597450
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1712597452}
+  - component: {fileID: 1712597451}
+  m_Layer: 0
+  m_Name: RaidSceneMinimap
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1712597451
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1712597450}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 43e78c673e1324a4c87b7be29ae3684a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RaidSceneMinimap
+  _layout: {fileID: 11400000, guid: f3c8a1e6b4d74920a7e5c2f9d1b6384a, type: 2}
+  _sourceTilemapRoot: {fileID: 442943250}
+--- !u!4 &1712597452
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1712597450}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1736134022
 GameObject:
   m_ObjectHideFlags: 0
@@ -128786,3 +128837,4 @@ SceneRoots:
   - {fileID: 2080598741}
   - {fileID: 7789167497110529267}
   - {fileID: 7254680747422540523}
+  - {fileID: 1712597452}

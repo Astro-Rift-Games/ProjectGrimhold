@@ -113,7 +113,8 @@ public sealed class RaidMinimapPrefabTests
             string path = AssetDatabase.GUIDToAssetPath(guid);
             foreach (Texture2D texture in AssetDatabase.LoadAllAssetsAtPath(path).OfType<Texture2D>())
             {
-                Assert.That(path, Is.EqualTo(MinimapLayoutGenerator.LayoutAssetPath));
+                // One generated layout per Raid scene; every averaged atlas lives inside one of them.
+                Assert.That(AssetDatabase.GetMainAssetTypeAtPath(path), Is.EqualTo(typeof(MinimapLayout)), path);
                 Assert.That(AssetDatabase.IsSubAsset(texture), Is.True);
             }
         }

@@ -84,6 +84,12 @@ public sealed class RaidMinimapView : MonoBehaviour
     /// </summary>
     public bool TryConfigureMap(float uiUnitsPerWorldUnit, float zoom, out string error)
     {
+        return TryConfigureMap(_mapGraphic != null ? _mapGraphic.Layout : null, uiUnitsPerWorldUnit, zoom, out error);
+    }
+
+    /// <summary>Configures the map with the layout declared by the loaded Raid scene.</summary>
+    public bool TryConfigureMap(MinimapLayout layout, float uiUnitsPerWorldUnit, float zoom, out string error)
+    {
         if (_mapGraphic == null || _mapRect == null || !IsPositiveFinite(uiUnitsPerWorldUnit) ||
             !IsPositiveFinite(zoom))
         {
@@ -91,7 +97,7 @@ public sealed class RaidMinimapView : MonoBehaviour
             return false;
         }
 
-        if (!_mapGraphic.TryConfigure(uiUnitsPerWorldUnit * zoom, out Vector2 uiSize, out error))
+        if (!_mapGraphic.TryConfigure(layout, uiUnitsPerWorldUnit * zoom, out Vector2 uiSize, out error))
         {
             return false;
         }

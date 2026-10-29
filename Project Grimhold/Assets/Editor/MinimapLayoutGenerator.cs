@@ -9,19 +9,23 @@ using UnityEngine.SceneManagement;
 using UnityEngine.Tilemaps;
 
 /// <summary>
-/// Generates the immutable minimap layout from the only authorized graybox Tilemaps.
-/// It runs in the editor only and never participates in gameplay or networking.
+/// Generates one immutable minimap layout per Raid scene. A scene opts in with a single
+/// <see cref="RaidSceneMinimap"/> that references its layout asset and the root holding its
+/// Floor, Walls and Obstacles Tilemaps. It runs in the editor only and never participates in
+/// gameplay or networking.
 /// </summary>
 public static class MinimapLayoutGenerator
 {
+    // The original Gameplay map, kept as named constants for its dedicated source tests.
     public const string SourcePrefabPath = "Assets/Prefabs/Dungeon_Graybox.prefab";
     public const string SourceScenePath = "Assets/Scenes/Gameplay.unity";
     public const string LayoutAssetPath = "Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset";
 
     private static bool _isGenerating;
-    private static readonly HashSet<string> SourceDependencies = new HashSet<string>();
+    private static readonly Dictionary<string, HashSet<string>> SourceDependencies =
+        new Dictionary<string, HashSet<string>>();
 
-    /// <summary>Regenerates the layout asset from Floor, Walls and Obstacles.</summary>
+    /// <summary>Regenerates every Raid scene layout from its Floor, Walls and Obstacles.</summary>
     [MenuItem("Tools/Project Grimhold/Regenerate Dungeon Minimap Layout")]
     public static void RegenerateFromMenu()
     {
@@ -31,11 +35,48 @@ public static class MinimapLayoutGenerator
         }
     }
 
+    /// <summary>Scenes that declare a <see cref="RaidSceneMinimap"/>, found by its script GUID.</summary>
+    public static List<string> FindMinimapScenes()
+    {
+        var scenes = new List<string>();
+        string marker = "guid: " + GetSceneMinimapScriptGuid();
+        foreach (string guid in AssetDatabase.FindAssets("t:Scene", new[] { "Assets" }))
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            if (File.Exists(path) && File.ReadAllText(path).Contains(marker)) scenes.Add(path);
+        }
+        scenes.Sort(StringComparer.Ordinal);
+        return scenes;
+    }
+
+    private static string GetSceneMinimapScriptGuid()
+    {
+        foreach (string guid in AssetDatabase.FindAssets("t:MonoScript RaidSceneMinimap"))
+        {
+            var script = AssetDatabase.LoadAssetAtPath<MonoScript>(AssetDatabase.GUIDToAssetPath(guid));
+            if (script != null && script.GetClass() == typeof(RaidSceneMinimap)) return guid;
+        }
+        throw new InvalidOperationException("RaidSceneMinimap script asset was not found.");
+    }
+
     /// <summary>
-    /// Regenerates the asset only when the serialized graybox data changed. This method is also
-    /// used by the import hook and tests to keep the generated layout verifiable.
+    /// Regenerates each Raid scene layout only when its serialized source data changed. This method
+    /// is also used by the import hook, the prebuild hook and tests to keep generated layouts verifiable.
     /// </summary>
     public static bool EnsureCurrentLayout(out string error)
+    {
+        var errors = new List<string>();
+        foreach (string scenePath in FindMinimapScenes())
+        {
+            if (!EnsureCurrentLayout(scenePath, out string sceneError)) errors.Add(sceneError);
+        }
+
+        error = errors.Count == 0 ? null : string.Join("\n", errors);
+        return errors.Count == 0;
+    }
+
+    /// <summary>Regenerates the layout declared by one Raid scene when its source changed.</summary>
+    public static bool EnsureCurrentLayout(string scenePath, out string error)
     {
         if (_isGenerating)
         {
@@ -43,7 +84,7 @@ public static class MinimapLayoutGenerator
             return true;
         }
 
-        if (!TryBuildGeneratedData(out MinimapLayoutGeneratedData data, out error))
+        if (!TryBuildGeneratedData(scenePath, out MinimapLayoutGeneratedData data, out string layoutPath, out error))
         {
             return false;
         }
@@ -52,9 +93,9 @@ public static class MinimapLayoutGenerator
         try
         {
             EnsureAssetFolders();
-            MinimapLayout layout = AssetDatabase.LoadAssetAtPath<MinimapLayout>(LayoutAssetPath);
+            MinimapLayout layout = AssetDatabase.LoadAssetAtPath<MinimapLayout>(layoutPath);
             if (layout == null || layout.SourceHash != data.SourceHash ||
-                !layout.TryValidate(out _) || !HasEmbeddedArt(layout))
+                !layout.TryValidate(out _) || !HasEmbeddedArt(layout, layoutPath))
             {
                 var textures = new Dictionary<Texture2D, Texture2D>();
                 MinimapMeshBatch[] batches;
@@ -75,9 +116,9 @@ public static class MinimapLayoutGenerator
                     if (layout == null)
                     {
                         layout = ScriptableObject.CreateInstance<MinimapLayout>();
-                        AssetDatabase.CreateAsset(layout, LayoutAssetPath);
+                        AssetDatabase.CreateAsset(layout, layoutPath);
                     }
-                    foreach (UnityEngine.Object asset in AssetDatabase.LoadAllAssetsAtPath(LayoutAssetPath))
+                    foreach (UnityEngine.Object asset in AssetDatabase.LoadAllAssetsAtPath(layoutPath))
                     {
                         if (!(asset is Texture2D)) continue;
                         AssetDatabase.RemoveObjectFromAsset(asset);
@@ -116,12 +157,12 @@ public static class MinimapLayoutGenerator
         }
     }
 
-    private static bool HasEmbeddedArt(MinimapLayout layout)
+    private static bool HasEmbeddedArt(MinimapLayout layout, string layoutPath)
     {
         for (int i = 0; i < layout.ArtBatchCount; i++)
         {
             Texture2D texture = layout.GetArtBatch(i).Texture;
-            if (!AssetDatabase.IsSubAsset(texture) || AssetDatabase.GetAssetPath(texture) != LayoutAssetPath)
+            if (!AssetDatabase.IsSubAsset(texture) || AssetDatabase.GetAssetPath(texture) != layoutPath)
                 return false;
         }
         return true;
@@ -143,28 +184,39 @@ public static class MinimapLayoutGenerator
         return new MinimapMeshBatch(texture, positions, uvs, colors, indices);
     }
 
-    /// <summary>Builds deterministic layout data without modifying assets.</summary>
+    /// <summary>Builds the Gameplay map layout data without modifying assets.</summary>
     public static bool TryBuildGeneratedData(
         out MinimapLayoutGeneratedData data,
         out string error)
     {
+        return TryBuildGeneratedData(SourceScenePath, out data, out _, out error);
+    }
+
+    /// <summary>Builds deterministic layout data for one Raid scene without modifying assets.</summary>
+    public static bool TryBuildGeneratedData(
+        string scenePath,
+        out MinimapLayoutGeneratedData data,
+        out string layoutPath,
+        out string error)
+    {
         data = default;
+        layoutPath = null;
         Scene scene = default;
         try
         {
-            // The saved scene contains authored Tilemap overrides absent from the prefab asset.
+            // The saved scene contains authored Tilemap overrides absent from prefab assets.
             // A preview scene reads those bytes without switching/saving the user's active scene.
-            scene = EditorSceneManager.OpenPreviewScene(SourceScenePath);
-            if (!TryFindSceneDungeon(scene, out GameObject root, out error) ||
-                !TryFindSourceTilemaps(root, out Tilemap floor, out Tilemap walls,
+            scene = EditorSceneManager.OpenPreviewScene(scenePath);
+            if (!TryFindSceneMinimap(scene, scenePath, out RaidSceneMinimap declaration, out layoutPath, out error) ||
+                !TryFindSourceTilemaps(declaration.SourceTilemapRoot, out Tilemap floor, out Tilemap walls,
                     out Tilemap obstacles, out error)) return false;
-            CollectSourceDependencies(floor, walls, obstacles);
-            return TryBuildGeneratedData(root, ComputeDependencyHash(),
+            CollectSourceDependencies(scenePath, declaration.SourceTilemapRoot, floor, walls, obstacles);
+            return TryBuildGeneratedData(declaration.SourceTilemapRoot, ComputeDependencyHash(scenePath),
                 out data, out error);
         }
         catch (Exception exception)
         {
-            error = $"{nameof(MinimapLayoutGenerator)} could not read {SourceScenePath}: {exception.Message}";
+            error = $"{nameof(MinimapLayoutGenerator)} could not read {scenePath}: {exception.Message}";
             return false;
         }
         finally
@@ -173,34 +225,56 @@ public static class MinimapLayoutGenerator
         }
     }
 
-    private static bool TryFindSceneDungeon(Scene scene, out GameObject dungeon, out string error)
+    private static bool TryFindSceneMinimap(
+        Scene scene,
+        string scenePath,
+        out RaidSceneMinimap declaration,
+        out string layoutPath,
+        out string error)
     {
-        dungeon = null;
+        declaration = null;
+        layoutPath = null;
         foreach (GameObject sceneRoot in scene.GetRootGameObjects())
         {
-            foreach (Transform candidate in sceneRoot.GetComponentsInChildren<Transform>(true))
+            foreach (RaidSceneMinimap candidate in sceneRoot.GetComponentsInChildren<RaidSceneMinimap>(true))
             {
-                GameObject owner = candidate.gameObject;
-                if (PrefabUtility.GetNearestPrefabInstanceRoot(owner) != owner ||
-                    PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(owner) != SourcePrefabPath) continue;
-                if (dungeon != null)
+                if (declaration != null)
                 {
-                    error = "Gameplay minimap requires exactly one Dungeon_Graybox prefab instance.";
+                    error = $"{scenePath} requires exactly one {nameof(RaidSceneMinimap)}.";
                     return false;
                 }
-                dungeon = owner;
+                declaration = candidate;
             }
         }
 
-        error = dungeon != null ? null : "Gameplay minimap is missing its Dungeon_Graybox prefab instance.";
-        return dungeon != null;
+        if (declaration == null)
+        {
+            error = $"{scenePath} has no {nameof(RaidSceneMinimap)}.";
+            return false;
+        }
+
+        layoutPath = declaration.Layout != null ? AssetDatabase.GetAssetPath(declaration.Layout) : null;
+        if (string.IsNullOrEmpty(layoutPath))
+        {
+            error = $"{nameof(RaidSceneMinimap)} in {scenePath} must reference a MinimapLayout asset.";
+            return false;
+        }
+
+        if (declaration.SourceTilemapRoot == null)
+        {
+            error = $"{nameof(RaidSceneMinimap)} in {scenePath} has no source Tilemap root.";
+            return false;
+        }
+
+        error = null;
+        return true;
     }
 
-    private static void CollectSourceDependencies(params Tilemap[] maps)
+    private static void CollectSourceDependencies(string scenePath, GameObject root, params Tilemap[] maps)
     {
-        SourceDependencies.Clear();
-        SourceDependencies.Add(SourceScenePath);
-        SourceDependencies.Add(SourcePrefabPath);
+        var dependencies = new HashSet<string> { scenePath };
+        string prefabPath = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(root);
+        if (!string.IsNullOrEmpty(prefabPath)) dependencies.Add(prefabPath);
         var tiles = new HashSet<TileBase>();
         foreach (Tilemap map in maps)
         {
@@ -210,21 +284,27 @@ public static class MinimapLayoutGenerator
                 if (tile == null || !tiles.Add(tile)) continue;
                 string path = AssetDatabase.GetAssetPath(tile);
                 foreach (string dependency in AssetDatabase.GetDependencies(path, true))
-                    if (dependency != LayoutAssetPath) SourceDependencies.Add(dependency);
+                    if (!IsGeneratedLayout(dependency)) dependencies.Add(dependency);
             }
         }
+        SourceDependencies[scenePath] = dependencies;
     }
 
-    private static string ComputeDependencyHash()
+    private static bool IsGeneratedLayout(string path)
     {
-        var paths = new List<string>(SourceDependencies);
+        return AssetDatabase.GetMainAssetTypeAtPath(path) == typeof(MinimapLayout);
+    }
+
+    private static string ComputeDependencyHash(string scenePath)
+    {
+        var paths = new List<string>(SourceDependencies[scenePath]);
         paths.Sort(StringComparer.Ordinal);
         var signature = new StringBuilder();
         foreach (string path in paths)
         {
             signature.Append(path).Append(':');
-            // Hash the source scene's own bytes, NOT its transitive dependency hash: the HUD
-            // can reference the generated layout, which would make that hash self-invalidating.
+            // Hash the source scene's own bytes, NOT its transitive dependency hash: the scene and the
+            // HUD reference generated layouts, which would make that hash self-invalidating.
             signature.Append(File.Exists(path) ? Hash128.Compute(File.ReadAllBytes(path)) :
                 AssetDatabase.GetAssetDependencyHash(path));
             if (File.Exists(path + ".meta")) signature.Append(Hash128.Compute(File.ReadAllBytes(path + ".meta")));
@@ -287,15 +367,30 @@ public static class MinimapLayoutGenerator
         }
     }
 
-    /// <summary>Checks import/delete/move paths without making the generated asset its own dependency.</summary>
+    /// <summary>Checks import/delete/move paths without making generated layouts their own dependency.</summary>
     public static bool IsSourceDependency(string path)
     {
-        if (path == SourceScenePath || path == SourcePrefabPath) return true;
-        if (path == LayoutAssetPath) return false;
+        if (IsGeneratedLayout(path)) return false;
+        if (path.EndsWith(".unity", StringComparison.Ordinal))
+        {
+            // A scene that gains, keeps or loses its RaidSceneMinimap changes the generated set.
+            if (SourceDependencies.ContainsKey(path)) return true;
+            string marker = "guid: " + GetSceneMinimapScriptGuid();
+            if (File.Exists(path) && File.ReadAllText(path).Contains(marker)) return true;
+        }
         if (SourceDependencies.Count == 0)
-            foreach (string dependency in AssetDatabase.GetDependencies(SourceScenePath, true))
-                if (dependency != LayoutAssetPath) SourceDependencies.Add(dependency);
-        return SourceDependencies.Contains(path);
+        {
+            foreach (string scenePath in FindMinimapScenes())
+            {
+                var dependencies = new HashSet<string>();
+                foreach (string dependency in AssetDatabase.GetDependencies(scenePath, true))
+                    if (!IsGeneratedLayout(dependency)) dependencies.Add(dependency);
+                SourceDependencies[scenePath] = dependencies;
+            }
+        }
+        foreach (HashSet<string> dependencies in SourceDependencies.Values)
+            if (dependencies.Contains(path)) return true;
+        return false;
     }
 
     internal static void ScheduleRefresh()
