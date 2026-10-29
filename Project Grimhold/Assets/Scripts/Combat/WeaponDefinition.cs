@@ -16,6 +16,10 @@ public sealed class WeaponDefinition : ScriptableObject
     [SerializeField, Min(0f), Tooltip("Gameplay wind-up from acceptance to the attack release (projectile spawn or melee hit). Independent of Animator and VFX.")]
     [FormerlySerializedAs("_rangedReleaseSeconds")]
     private float _attackReleaseSeconds;
+    [SerializeField, Tooltip("Uses an explicit load state and a separate Reload Time after each shot. Provisional Balance configuration.")]
+    private bool _usesReload;
+    [SerializeField, Min(0f), Tooltip("Reload Time, separate from the attack/Shot Interval and release delay. Provisional Balance value; Reload costs no Stamina.")]
+    private float _reloadSeconds;
     [SerializeField, Min(0f)] private float _range;
     [SerializeField, Min(0f), Tooltip("Aim stance weapons only. Seconds the stance takes to draw after it is entered. Until it is fully drawn the normal release seconds apply.")]
     private float _aimStanceDrawSeconds = DefaultAimStanceDrawSeconds;
@@ -66,6 +70,8 @@ public sealed class WeaponDefinition : ScriptableObject
     public float AttackIntervalSeconds => _attackIntervalSeconds;
     public float ExecutionWindowSeconds => _executionWindowSeconds;
     public float AttackReleaseSeconds => _attackReleaseSeconds;
+    public bool UsesReload => _usesReload;
+    public float ReloadSeconds => _reloadSeconds;
     public float AimStanceDrawSeconds => _aimStanceDrawSeconds;
     public float AimedReleaseSeconds => _aimedReleaseSeconds;
     public float AimStanceDrawnClipSeconds => _aimStanceDrawnClipSeconds;
@@ -121,6 +127,12 @@ public sealed class WeaponDefinition : ScriptableObject
         if (!IsFinite(_attackReleaseSeconds) || _attackReleaseSeconds < 0f)
         {
             error = $"Weapon definition '{name}' has invalid attack release delay.";
+            return false;
+        }
+
+        if (!IsFinite(_reloadSeconds) || _reloadSeconds < 0f)
+        {
+            error = $"Weapon definition '{name}' has invalid reload time '{_reloadSeconds}'.";
             return false;
         }
 

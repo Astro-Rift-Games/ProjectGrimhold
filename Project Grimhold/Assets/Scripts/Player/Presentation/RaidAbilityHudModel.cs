@@ -116,6 +116,7 @@ public static class RaidAbilityHudMessages
         AbilityActivationFailure.InsufficientResource => "Recurso insuficiente",
         AbilityActivationFailure.RequirementsNotMet => "Requisitos no cumplidos",
         AbilityActivationFailure.AlreadyExecuting => "Ya en ejecución",
+        AbilityActivationFailure.AttackInProgress => "Ataque en curso",
         AbilityActivationFailure.BehaviourRejected => "No se puede usar ahora",
         AbilityActivationFailure.InvalidPlan => "No se puede usar ahora",
         AbilityActivationFailure.AimUnavailable => "Apuntado no disponible",

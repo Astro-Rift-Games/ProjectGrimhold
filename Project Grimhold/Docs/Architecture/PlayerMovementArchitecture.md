@@ -1020,13 +1020,20 @@ derives whether Sprint applies for the current tick from valid movement intentio
 availability and a successful complete payment to `PlayerStaminaNetworkController`. Sprint has
 no independent `[Networked]` flag: when payment fails, the same input continues at walking speed.
 
-`ShouldSprint` reevaluates `isActionExecuting` every tick from
-`PlayerCombatNetworkController.IsExecutingWeaponAttack` or
-`PlayerAbilityRuntimeNetworkController.HasActiveExecution`. While either is true, Sprint provides
-no speed bonus, spends no sprint Stamina and emits no sprint-rejection telemetry. It resumes when
-execution ends if still held; `canMove` and base movement are unaffected by this Sprint gate.
-Movement runs at execution order `-10`, before combat at `-7`, so Sprint still applies on the tick
-an attack starts (known one-tick latency).
+`ShouldSprint` reevaluates `isActionExecuting` every tick (Game Design 17 §5, TASK-248). It is true
+while `PlayerCombatNetworkController.IsExecutingWeaponAttack` (Execution Window) or
+`HasPendingAttackRelease` (the accepted attack has not resolved yet), while
+`PlayerAbilityRuntimeNetworkController.HasActiveExecution`, while consuming, and on the tick
+`PlayerCombatNetworkController.IsOffensiveStartRequested(buttons)` reports a weapon start the
+active set can accept. While it is true, Sprint provides no speed bonus, spends no sprint Stamina
+and emits no sprint-rejection telemetry. It resumes when execution ends if still held; `canMove`
+and base movement are unaffected by this Sprint gate.
+
+Movement runs at execution order `-10`, before combat at `-7`. The offensive-request query lets
+Movement end Sprint on the attack's own tick: that tick already moves at walking speed and leaves
+the sprint Stamina for the attack cost. The query reads only replicated state (equipped weapon
+input mode, combat `PreviousButtons`, hand availability), so the predicting Input Authority
+evaluates it the same way. A request it reports that combat then rejects costs one tick of Sprint.
 
 `PlayerStaminaNetworkController.FixedUpdateNetwork()` runs before
 `PlayerMovementNetworkController.FixedUpdateNetwork()`. The current configured orders are `-11`

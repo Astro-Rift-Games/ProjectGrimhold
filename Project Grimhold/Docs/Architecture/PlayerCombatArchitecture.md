@@ -61,6 +61,32 @@ slot sequence independently, dispatches coalesced snapshots in acceptance-sequen
 pending timelines without start audio, and does not let
 Off-hand events replace Main-hand Animator/VFX timelines.
 
+## Combat action cycle (TASK-248)
+
+Game Design 17 §4-§7 and §9 own the cross-action rules; this section maps them onto the
+equipped-hand path.
+
+- **Attack during Sprint.** `IsOffensiveStartRequested(buttons)` reports a weapon start the active
+  set can accept this tick (Press/Hold input mode, hand availability, defense priority). Movement
+  ends Sprint on that same tick, before combat accepts the attack; locomotion continues at normal
+  speed. Sprint stays suppressed during the Execution Window and any pending release, and resumes
+  automatically if still held. See `PlayerMovementArchitecture.md` §20.1.
+- **Weapon Set switching.** It is rejected during `WeaponExecutionEndTick` and ability execution and
+  allowed right after, even while Attack Intervals continue.
+- **Load state (Crossbow).** `WeaponDefinition.UsesReload` and `ReloadSeconds` (Reload Time) are
+  separate from `AttackIntervalSeconds` (Shot Interval). Each hand's `WeaponHandAttackState.Reload`
+  (`WeaponReloadState`) becomes Unloaded on a committed shot. The authority advances it on forward
+  ticks once the hand's release has resolved, while its set is active, the avatar is not sprinting,
+  alive and not Downed, and combat is enabled. Any tick that does not meet those conditions
+  discards partial progress, so Sprint, a set switch or Downed interrupt the reload, and it restarts
+  from zero. Movement, damage and consumption do not interrupt it. An Unloaded hand is unavailable.
+  A stowed Loaded weapon stays Loaded. Reload costs no Stamina. Light Crossbow uses a provisional
+  1.3-second reload: 0.3 s release plus 1.3 s reload keeps the uninterrupted 1.6-second baseline cycle.
+- **Mutual exclusion.** Weapon attacks, abilities and consumable activations reject each other while
+  executing. A rejected request never cancels or queues the running one and spends no resource.
+- **Stamina.** A hand start checks the weapon's full cost before acceptance and debits it once at
+  valid acceptance (TASK-222).
+
 Off-hand weapons reuse the existing grip/renderer, but never the right-hand sprite or its absolute
 pose. `OffHandAnimationGenerator` derives six left-hand clips from the weapon's assigned Main Hand
 set and the real directional idle hand/grip anchors. The source set explicitly authors `OffHandStroke`:
@@ -1300,7 +1326,7 @@ for in-flight replication; local persistence stores `LootId` strings.
 
 ## Known Limitations and Technical Debt
 
-* **Ability/basic-attack exclusion is one-way**: basic attacks are blocked during ability execution. Blocking ability start during a basic attack remains a TASK-223 follow-up to the bidirectional incompatibility in Game Design 17 §7.3.
+* **Load state identity is template-based**: a hand's Unloaded state belongs to the weapon catalog identity that fired. Replacing that slot's weapon resets the state to Loaded, because unique weapon instances are not transported yet. Reload has no dedicated presentation; HUD availability reflects it through `TryGetAttackStatus`.
 
 * **Layer Configuration Dependency**: The system requires strict layer separation. If targets or obstacles are not on the correct layers specified in `MeleeAttackConfig` and `RangedAttackConfig`, collision queries will fail to report hits.
 * **Component Casting**: Configured strategies rely on a serialized `MonoBehaviour` cast to `IAttack`. An empty source is a valid neutral state; a non-empty source must implement the contract.

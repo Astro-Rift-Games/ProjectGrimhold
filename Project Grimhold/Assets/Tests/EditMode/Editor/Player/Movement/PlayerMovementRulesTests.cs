@@ -121,6 +121,17 @@ namespace Tests.EditMode.Player.Movement
         }
 
         [Test]
+        public void SprintIntent_StillHeld_ResumesImmediatelyWhenActionIncompatibilityEnds()
+        {
+            var input = new PlayerNetworkInput { MoveDirection = Vector2.right };
+            input.Buttons.Set(PlayerInputButton.Sprint, true);
+            Assert.That(PlayerMovementNetworkController.ShouldSprint(
+                in input, true, input.MoveDirection, true, isActionExecuting: true), Is.False);
+            Assert.That(PlayerMovementNetworkController.ShouldSprint(
+                in input, true, input.MoveDirection, true, isActionExecuting: false), Is.True);
+        }
+
+        [Test]
         public void ShouldSprint_WhileDowned_IsAlwaysFalse()
         {
             PlayerNetworkInput input = default;

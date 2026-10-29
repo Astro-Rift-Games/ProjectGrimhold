@@ -60,6 +60,190 @@ namespace Tests.PlayMode.Abilities
         }
 
         [UnityTest]
+        public IEnumerator AbilityDuringWeaponAttack_RejectsWithoutPaymentCooldownCancellationOrQueue()
+        {
+            yield return VerifyAbilityAttackExclusion(true);
+        }
+
+        [UnityTest]
+        public IEnumerator AbilityDuringWeaponExecutionWindow_RejectsEvenAfterReleaseResolved()
+        {
+            yield return VerifyAbilityAttackExclusion(false);
+        }
+
+        private IEnumerator VerifyAbilityAttackExclusion(bool pendingRelease)
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("ability-weapon-exclusion",
+                new PreparedAbilityLoadout(new AbilityId("arcane_projectile"), default)), true, "arcane_projectile");
+            var mana = GetMana(runtime);
+            yield return WaitUntil(() => runtime.IsInitialized && mana.IsInitialized);
+            var combat = runtime.GetComponent<PlayerCombatNetworkController>();
+            var behaviour = runtime.GetComponent<TestAbilityExecutionBehaviour>();
+            var rejections = new System.Collections.Generic.List<(UniversalAbilitySlot, AbilityActivationFailure)>();
+            runtime.ActivationRejected += (slot, failure) => rejections.Add((slot, failure));
+            MeleeAttackRelease release = default;
+            int executionEndTick = 0;
+            yield return InSimulation(() =>
+            {
+                // Install an accepted snapshot through its normal validation seam. A long deadline keeps
+                // this gate test independent of authored weapon animation timing and coroutine frame rate.
+                if (pendingRelease)
+                {
+                    var request = new AttackRequest(runtime.GetComponent<PlayerCharacter>().Id,
+                        Vector2.zero, Vector2.down, _runner.Tick);
+                    var parameters = new AttackExecutionParameters(1f, DamageType.Physical, 0f, 1f, 0f, 30f);
+                    int weaponIndex = runtime.GetComponent<PlayerWeaponEquipmentNetworkController>()
+                        .GetActiveWeaponCatalogIndexPlusOne();
+                    Assert.That(release.TryAccept(request, parameters, weaponIndex, _runner.DeltaTime), Is.True);
+                    SetNetworked(combat, "PendingMeleeRelease", release);
+                }
+                executionEndTick = _runner.Tick.Raw + Mathf.CeilToInt(30f / _runner.DeltaTime);
+                SetNetworked(combat, "WeaponExecutionEndTick", executionEndTick);
+            });
+            Assert.That(combat.IsExecutingWeaponAttack, Is.True);
+            Assert.That(combat.HasPendingAttackRelease, Is.EqualTo(pendingRelease));
+            float before = mana.CurrentMana;
+            yield return PressSlot1();
+            yield return WaitUntil(() => rejections.Count > 0);
+            Assert.That(rejections, Is.EqualTo(new[] { (UniversalAbilitySlot.Slot1, AbilityActivationFailure.AttackInProgress) }));
+            AssertRejected();
+            Assert.That(ReadExecutionEndTick(), Is.EqualTo(executionEndTick), "A rejected cast cannot cancel the weapon window.");
+            Assert.That(combat.HasPendingAttackRelease, Is.EqualTo(pendingRelease));
+            if (pendingRelease)
+                Assert.That(ReadRelease(), Is.EqualTo(release), "The accepted release must remain untouched.");
+
+            // SandboxCast uses the real start path. Ignore session rules bypasses attributes only,
+            // never action compatibility, payment or cooldown rules.
+            yield return InSimulation(() =>
+            {
+                Assert.That(runtime.SandboxSetIgnoreSessionRules(true), Is.True);
+                Assert.That(runtime.SandboxCast(UniversalAbilitySlot.Slot1), Is.EqualTo(AbilityActivationFailure.AttackInProgress));
+            });
+            AssertRejected();
+            yield return InSimulation(() => SetNetworked(combat, "WeaponExecutionEndTick", _runner.Tick.Raw));
+            Assert.That(combat.IsExecutingWeaponAttack, Is.False);
+            if (pendingRelease)
+            {
+                // A release may outlive its Execution Window; it must still block a fresh ability.
+                yield return PressSlot1();
+                AssertRejected();
+                Assert.That(ReadRelease(), Is.EqualTo(release));
+                yield return InSimulation(() =>
+                {
+                    var due = ReadRelease();
+                    due.ReleaseTick = _runner.Tick.Raw;
+                    SetNetworked(combat, "PendingMeleeRelease", due);
+                });
+                yield return WaitUntil(() => !combat.HasPendingAttackRelease);
+            }
+            yield return WaitTicks();
+            Assert.That(behaviour.Begins, Is.Zero, "Rejected held input cannot queue a cast when the attack ends.");
+            yield return PressSlot1();
+            Assert.That(runtime.GetLastActivationFailure(UniversalAbilitySlot.Slot1), Is.EqualTo(AbilityActivationFailure.None));
+            Assert.That(behaviour.Begins, Is.EqualTo(1));
+            Assert.That(runtime.TryGetSlot(UniversalAbilitySlot.Slot1, out var prepared), Is.True);
+            Assert.That(mana.CurrentMana, Is.EqualTo(before - prepared.Definition.Cost));
+            Assert.That(runtime.IsOnCooldown(UniversalAbilitySlot.Slot1), Is.True);
+
+            void AssertRejected()
+            {
+                Assert.That(runtime.GetLastActivationFailure(UniversalAbilitySlot.Slot1), Is.EqualTo(AbilityActivationFailure.AttackInProgress));
+                Assert.That(mana.CurrentMana, Is.EqualTo(before));
+                Assert.That(runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var snapshot), Is.True);
+                Assert.That(snapshot.Sequence, Is.Zero);
+                Assert.That(snapshot.IsActive, Is.False);
+                Assert.That(snapshot.Cooldown.IsRunning, Is.False);
+                Assert.That(behaviour.Begins, Is.Zero);
+                Assert.That(behaviour.Stops, Is.Zero);
+            }
+
+            MeleeAttackRelease ReadRelease() => (MeleeAttackRelease)typeof(PlayerCombatNetworkController)
+                .GetProperty("PendingMeleeRelease", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(combat);
+            int ReadExecutionEndTick() => (int)typeof(PlayerCombatNetworkController)
+                .GetProperty("WeaponExecutionEndTick", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(combat);
+        }
+
+        [UnityTest]
+        public IEnumerator ConsumableDuringWeaponExecutionWindow_RejectsWithoutSpendingOrQueuing()
+        {
+            yield return StartRunner();
+            var runtime = SpawnAvatar(SpawnParticipant("consumable-weapon-exclusion", default), true);
+            yield return WaitUntil(() => runtime.IsInitialized && GetMana(runtime).IsInitialized);
+            var consume = runtime.GetComponent<PlayerConsumableNetworkController>();
+            var combat = runtime.GetComponent<PlayerCombatNetworkController>();
+            var loot = runtime.GetComponent<PlayerLootReceiver>();
+            var mana = GetMana(runtime);
+            var potion = new LootId("CON_MANA_POTION");
+            int executionEndTick = 0;
+            yield return InSimulation(() =>
+            {
+                Assert.That(mana.TrySpend(40f), Is.True);
+                var request = new LootTransferRequest(new EntityId(123), loot.Id, potion, 2, _runner.Tick);
+                var origin = RaidLootOriginTransfer.Dungeon(2);
+                Assert.That(loot.ValidateRaidLootOriginReceive(request, origin), Is.EqualTo(LootTransferFailureReason.None));
+                loot.CommitRaidLootReceive(request, origin);
+                executionEndTick = _runner.Tick.Raw + Mathf.CeilToInt(30f / _runner.DeltaTime);
+                SetNetworked(combat, "WeaponExecutionEndTick", executionEndTick);
+            });
+            Assert.That(combat.HasPendingAttackRelease, Is.False, "Covers a resolved release with its window still active.");
+            Assert.That(combat.IsExecutingWeaponAttack, Is.True);
+            var rejections = new System.Collections.Generic.List<ConsumableFailureReason>();
+            int confirmations = 0;
+            consume.ConsumeRejected += failure => rejections.Add(failure);
+            consume.ConsumeConfirmed += _ => confirmations++;
+            Assert.That(consume.TryRequestConsume(potion), Is.True);
+            yield return WaitUntil(() => rejections.Count > 0);
+            Assert.That(rejections, Is.EqualTo(new[] { ConsumableFailureReason.TargetUnavailable }));
+            Assert.That(consume.IsConsuming, Is.False);
+            Assert.That(consume.HasRequestInFlight, Is.False);
+            Assert.That(loot.GetLootAmount(potion), Is.EqualTo(2));
+            Assert.That(mana.CurrentMana, Is.EqualTo(60f));
+            Assert.That((int)typeof(PlayerCombatNetworkController)
+                .GetProperty("WeaponExecutionEndTick", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(combat),
+                Is.EqualTo(executionEndTick));
+            MeleeAttackRelease pending = default;
+            yield return InSimulation(() =>
+            {
+                SetNetworked(combat, "WeaponExecutionEndTick", _runner.Tick.Raw);
+                var request = new AttackRequest(runtime.GetComponent<PlayerCharacter>().Id,
+                    Vector2.zero, Vector2.down, _runner.Tick);
+                var parameters = new AttackExecutionParameters(1f, DamageType.Physical, 0f, 1f, 0f, 30f);
+                int weaponIndex = runtime.GetComponent<PlayerWeaponEquipmentNetworkController>()
+                    .GetActiveWeaponCatalogIndexPlusOne();
+                Assert.That(pending.TryAccept(request, parameters, weaponIndex, _runner.DeltaTime), Is.True);
+                SetNetworked(combat, "PendingMeleeRelease", pending);
+            });
+            Assert.That(combat.IsExecutingWeaponAttack, Is.False);
+            Assert.That(combat.HasPendingAttackRelease, Is.True);
+            Assert.That(consume.TryRequestConsume(potion), Is.True);
+            yield return WaitUntil(() => rejections.Count == 2);
+            Assert.That(rejections[1], Is.EqualTo(ConsumableFailureReason.TargetUnavailable),
+                "Preserve the existing pending-release gate after the window ends.");
+            Assert.That((MeleeAttackRelease)typeof(PlayerCombatNetworkController)
+                .GetProperty("PendingMeleeRelease", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(combat), Is.EqualTo(pending));
+            Assert.That(consume.IsConsuming, Is.False);
+            Assert.That(loot.GetLootAmount(potion), Is.EqualTo(2));
+            Assert.That(mana.CurrentMana, Is.EqualTo(60f));
+            yield return InSimulation(() =>
+            {
+                pending.ReleaseTick = _runner.Tick.Raw;
+                SetNetworked(combat, "PendingMeleeRelease", pending);
+            });
+            yield return WaitUntil(() => !combat.HasPendingAttackRelease);
+            yield return WaitTicks();
+            Assert.That(consume.IsConsuming, Is.False, "The rejected request must not be deferred until the attack ends.");
+            Assert.That(loot.GetLootAmount(potion), Is.EqualTo(2));
+            Assert.That(confirmations, Is.Zero);
+            Assert.That(consume.TryRequestConsume(potion), Is.True);
+            yield return WaitUntil(() => consume.IsConsuming);
+            Assert.That(loot.GetLootAmount(potion), Is.EqualTo(2), "Normal timed consumption still pays at completion.");
+            yield return WaitUntil(() => confirmations == 1);
+            Assert.That(loot.GetLootAmount(potion), Is.EqualTo(1));
+            Assert.That(mana.CurrentMana, Is.EqualTo(100f));
+        }
+
+        [UnityTest]
         public IEnumerator AbilityCycle_EffectiveAttributeChangesAreRevalidatedAtUse()
         {
             yield return StartRunner();

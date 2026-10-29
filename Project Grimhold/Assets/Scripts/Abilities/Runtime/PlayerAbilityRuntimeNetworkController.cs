@@ -25,6 +25,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
     private NetworkRaidParticipant _boundParticipant;
     private NetworkString<_32> _boundGeneration;
     private NetworkSpawnManager _spawnManager;
+    private PlayerCombatNetworkController _combat;
     private bool _spawned;
     private bool _restoreSpawn;
     private bool _ended;
@@ -57,6 +58,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         _restoreInputBaselined = false;
         _activationRequests = default;
         _spawnManager = Runner.GetComponent<NetworkSpawnManager>();
+        _combat = GetComponent<PlayerCombatNetworkController>();
         _ended = false;
         _invalid = false;
         ClearLocalBinding();
@@ -280,7 +282,7 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
 
     /// <summary>
     /// Sandbox-only: when enabled, the cast-time attribute-requirement check is skipped. Alive/downed, match
-    /// phase, cooldown, resource and aim rules still apply. State Authority only; off by default.
+    /// phase, action compatibility, cooldown, resource and aim rules still apply. State Authority only; off by default.
     /// </summary>
     public bool SandboxSetIgnoreSessionRules(bool enabled)
     {
@@ -363,6 +365,9 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
         var match = _spawnManager != null ? _spawnManager.MatchController : null;
         if (match != null && match.Phase != NetworkMatchController.MatchPhase.InProgress)
             return AbilityActivationFailure.PlayerUnavailable;
+        // Reject the new intention without altering the accepted weapon execution or its release.
+        if (_combat != null && (_combat.IsExecutingWeaponAttack || _combat.HasPendingAttackRelease))
+            return AbilityActivationFailure.AttackInProgress;
         var behaviour = ReadBehaviour(slot);
         if (behaviour == null || !behaviour.isActiveAndEnabled) return AbilityActivationFailure.MissingBehaviour;
         bool requirementsMet = context.Definition.AreAttributeRequirementsSatisfiedBy(context.Attributes);
