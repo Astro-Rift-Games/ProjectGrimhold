@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 860,
-  "canonicalEntries": 857,
+  "rawCommits": 861,
+  "canonicalEntries": 858,
   "before": {
+    "Features": 311,
     "Refactoring": 13,
     "Bug Fixes": 75,
-    "Features": 310,
     "Architecture & Infrastructure": 12,
     "Other Changes": 352,
     "Documentation": 74,
     "Tests": 24
   },
   "after": {
+    "Features": 448,
     "Refactoring": 26,
     "Bug Fixes": 91,
-    "Features": 447,
     "Maintenance": 11,
     "Other Changes": 162,
     "Documentation": 89,
@@ -23,9 +23,9 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Build & Tooling": 426,
+    "Build & Tooling": 427,
+    "Tests": 506,
     "Documentation": 331,
-    "Tests": 505,
     "Combat": 306,
     "Inventory & Loot": 309,
     "Networking & Sessions": 250,
@@ -42,9 +42,9 @@
   },
   "canonical": {
     "sections": {
+      "Features": 447,
       "Refactoring": 26,
       "Bug Fixes": 90,
-      "Features": 446,
       "Maintenance": 11,
       "Other Changes": 161,
       "Documentation": 89,
@@ -52,9 +52,9 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "Build & Tooling": 424,
+      "Build & Tooling": 425,
+      "Tests": 504,
       "Documentation": 329,
-      "Tests": 503,
       "Combat": 304,
       "Inventory & Loot": 309,
       "Networking & Sessions": 250,
@@ -34029,8 +34029,8 @@
       "title": "2026-10 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 384,
-      "canonicalEntries": 382
+      "originalCommits": 385,
+      "canonicalEntries": 383
     },
     {
       "key": "history-2026-09",
@@ -34058,6 +34058,125 @@
     }
   ],
   "commits": [
+    {
+      "sha": "64e1de20a00c55c6ff42c323b9335b90ca387bea",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/64e1de20a00c55c6ff42c323b9335b90ca387bea",
+      "subject": "feat(changelog): summarize development progress and final outcomes",
+      "body": "Replace the statistics-first overview with bounded advances organized by\nperiod and system, ranked by relevance and evidence diversity.\n\nSynthesize concise outcomes and reconcile same-period reverts, removals,\nreplacements and reintroductions without advertising obsolete approaches.\nKeep original records, types, evidence and all supporting references in\nthe historical archives. Preserve classification, deduplication, public\nnotes, SemVer and publication behavior.\n\nAdd grouping and lifecycle regression coverage, regenerate the developer\nsummary, and document the selection policy and evidence limitations.\n\nValidation: 232 changelog tests passed; final lifecycle check 18/18.\nGeneration is idempotent; nine protected artifacts retain their hashes.\nDiscord integration remains separately stashed and is not included.\n",
+      "date": "2026-10-29T17:32:46-03:00",
+      "files": [
+        "CHANGELOG_DEV.md",
+        "odd/tasks/changelog-progress-summary.md",
+        "tools/changelog/README.md",
+        "tools/changelog/src/dev-highlight-outcomes.js",
+        "tools/changelog/src/render-dev.js",
+        "tools/changelog/tests/classification.test.js",
+        "tools/changelog/tests/highlight-lifecycle.test.js",
+        "tools/changelog/tests/logic.test.js",
+        "tools/changelog/tests/summary.test.js"
+      ],
+      "originalType": "feat",
+      "originalScope": "changelog",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "CHANGELOG_DEV.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/changelog-progress-summary.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/README.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/src/dev-highlight-outcomes.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/src/render-dev.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/classification.test.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/highlight-lifecycle.test.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/logic.test.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/summary.test.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "scope",
+          "value": "changelog",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "message-term",
+          "value": "changelog",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/classification.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/highlight-lifecycle.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/logic.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/summary.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "ce4eec009485ac27954bd07fe1ec62c035f620cd",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ce4eec009485ac27954bd07fe1ec62c035f620cd",

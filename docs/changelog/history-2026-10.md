@@ -4,18 +4,18 @@
 
 Release: Unreleased
 
-384 original commits; 382 canonical entries.
+385 original commits; 383 canonical entries.
 
 ## Canonical classification
 
-199 features; 57 bug fixes; 7 refactoring; 1 architecture & infrastructure; 74 documentation; 23 tests; 5 maintenance; 16 other changes
+200 features; 57 bug fixes; 7 refactoring; 1 architecture & infrastructure; 74 documentation; 23 tests; 5 maintenance; 16 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 55 | 5 | 0 | 0 | 16 | 2 |
 | Art & Animation | 32 | 9 | 1 | 0 | 4 | 7 |
 | Audio | 8 | 0 | 0 | 0 | 1 | 0 |
-| Build & Tooling | 163 | 33 | 7 | 1 | 17 | 5 |
+| Build & Tooling | 164 | 33 | 7 | 1 | 17 | 5 |
 | Combat | 75 | 10 | 3 | 0 | 42 | 3 |
 | Documentation | 82 | 29 | 2 | 0 | 28 | 4 |
 | Extraction | 17 | 10 | 1 | 0 | 11 | 2 |
@@ -24,12 +24,84 @@ Release: Unreleased
 | Movement | 23 | 3 | 0 | 0 | 6 | 0 |
 | Networking & Sessions | 57 | 19 | 0 | 0 | 11 | 5 |
 | Persistence & Backend | 25 | 26 | 0 | 0 | 13 | 1 |
-| Tests | 183 | 51 | 7 | 1 | 27 | 6 |
+| Tests | 184 | 51 | 7 | 1 | 27 | 6 |
 | UI | 67 | 13 | 3 | 0 | 20 | 6 |
 | Unassigned | 0 | 0 | 0 | 0 | 3 | 0 |
 | World & Visibility | 42 | 12 | 1 | 0 | 11 | 5 |
 
 ## Original commit records
+
+### 64e1de20a00c55c6ff42c323b9335b90ca387bea
+
+[64e1de20a00c55c6ff42c323b9335b90ca387bea](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/64e1de20a00c55c6ff42c323b9335b90ca387bea)
+
+Date: 2026-10-29T17:32:46-03:00 · Classification: Features (explicit) · Systems: Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(changelog): summarize development progress and final outcomes
+```
+
+#### Original body
+
+```text
+Replace the statistics-first overview with bounded advances organized by
+period and system, ranked by relevance and evidence diversity.
+
+Synthesize concise outcomes and reconcile same-period reverts, removals,
+replacements and reintroductions without advertising obsolete approaches.
+Keep original records, types, evidence and all supporting references in
+the historical archives. Preserve classification, deduplication, public
+notes, SemVer and publication behavior.
+
+Add grouping and lifecycle regression coverage, regenerate the developer
+summary, and document the selection policy and evidence limitations.
+
+Validation: 232 changelog tests passed; final lifecycle check 18/18.
+Generation is idempotent; nine protected artifacts retain their hashes.
+Discord integration remains separately stashed and is not included.
+```
+
+#### Changed paths
+
+```text
+CHANGELOG_DEV.md
+odd/tasks/changelog-progress-summary.md
+tools/changelog/README.md
+tools/changelog/src/dev-highlight-outcomes.js
+tools/changelog/src/render-dev.js
+tools/changelog/tests/classification.test.js
+tools/changelog/tests/highlight-lifecycle.test.js
+tools/changelog/tests/logic.test.js
+tools/changelog/tests/summary.test.js
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Build &amp; Tooling: CHANGELOG\_DEV.md
+- path → Build &amp; Tooling: odd/tasks/changelog-progress-summary.md
+- path → Build &amp; Tooling: tools/changelog/README.md
+- path → Build &amp; Tooling: tools/changelog/src/dev-highlight-outcomes.js
+- path → Build &amp; Tooling: tools/changelog/src/render-dev.js
+- path → Build &amp; Tooling: tools/changelog/tests/classification.test.js
+- path → Build &amp; Tooling: tools/changelog/tests/highlight-lifecycle.test.js
+- path → Build &amp; Tooling: tools/changelog/tests/logic.test.js
+- path → Build &amp; Tooling: tools/changelog/tests/summary.test.js
+- scope → Build &amp; Tooling: changelog
+- message-term → Build &amp; Tooling: changelog
+- path → Tests: tools/changelog/tests/classification.test.js
+- path → Tests: tools/changelog/tests/highlight-lifecycle.test.js
+- path → Tests: tools/changelog/tests/logic.test.js
+- path → Tests: tools/changelog/tests/summary.test.js
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### ce4eec009485ac27954bd07fe1ec62c035f620cd
 
