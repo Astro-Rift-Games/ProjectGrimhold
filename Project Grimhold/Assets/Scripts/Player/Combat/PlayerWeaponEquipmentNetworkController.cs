@@ -198,7 +198,9 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     {
         while (_pendingPresentationResults.Count > 0)
         {
-            EquipRequestResolved?.Invoke(_pendingPresentationResults.Dequeue());
+            // Dequeue first: `?.` skips argument evaluation when nothing is subscribed.
+            EquipmentOperationResult result = _pendingPresentationResults.Dequeue();
+            EquipRequestResolved?.Invoke(result);
         }
     }
 

@@ -192,6 +192,28 @@ namespace Tests.PlayMode.Loot
             Assert.That(pickup == null || pickup.Object == null || !pickup.Object.IsValid, Is.True);
         }
 
+        [UnityTest]
+        public IEnumerator PickupGrant_WithoutPresentationSubscriber_DrainsOnRender()
+        {
+            // Local Input Authority receives the grant RPC; no HUD subscribes in this fixture.
+            PlayerLootReceiver receiver = SpawnReceiver(_runner.LocalPlayer);
+            NetworkLootPickup pickup = SpawnPickup(RaidLootOriginTransfer.Dungeon(2));
+            yield return null;
+
+            InteractionResult result = default;
+            yield return Execute(() => result = Interact(pickup, receiver));
+            for (int frame = 0; frame < 3; frame++)
+                yield return null;
+
+            Assert.That(result.Success, Is.True);
+            Assert.That(receiver.GetLootAmount(Bone), Is.EqualTo(2));
+            FieldInfo queueField = typeof(PlayerLootReceiver).GetField("_pendingPresentationEvents",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(queueField, Is.Not.Null);
+            var pending = (Queue<LootGrantPresentationEvent>)queueField.GetValue(receiver);
+            Assert.That(pending.Count, Is.Zero, "Render must drain grant events without subscribers.");
+        }
+
         private InteractionResult Interact(NetworkLootPickup pickup, PlayerLootReceiver receiver) =>
             pickup.Interact(new InteractionRequest(receiver.Id, pickup.Id, _runner.Tick));
 
@@ -207,10 +229,10 @@ namespace Tests.PlayMode.Loot
             });
         }
 
-        private PlayerLootReceiver SpawnReceiver()
+        private PlayerLootReceiver SpawnReceiver(PlayerRef? inputAuthority = null)
         {
             NetworkObject avatar = _runner.Spawn(_playerPrefab, Vector3.zero, Quaternion.identity,
-                inputAuthority: null, onBeforeSpawned: (_, instance) =>
+                inputAuthority: inputAuthority, onBeforeSpawned: (_, instance) =>
                     SetField(instance.GetComponent<PlayerLootReceiver>(), "_lootCatalog", _catalog));
             ExtractionProgressTestAssertions.AssertRegistered(_runner, avatar);
             return avatar.GetComponent<PlayerLootReceiver>();

@@ -320,7 +320,9 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
 
         while (_pendingFeedbackEvents.Count > 0)
         {
-            CombatFeedbackResolved?.Invoke(_pendingFeedbackEvents.Dequeue());
+            // Dequeue first: `?.` skips argument evaluation when nothing is subscribed.
+            CombatPresentationEvent feedbackEvent = _pendingFeedbackEvents.Dequeue();
+            CombatFeedbackResolved?.Invoke(feedbackEvent);
         }
     }
 

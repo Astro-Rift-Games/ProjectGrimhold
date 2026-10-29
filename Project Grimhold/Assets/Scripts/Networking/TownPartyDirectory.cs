@@ -46,7 +46,12 @@ public sealed class TownPartyDirectory : NetworkBehaviour, IStateAuthorityChange
             _nextLocalEnsureRetryTime = 0f;
         }
         ObserveLocalParty();
-        while (_resultEvents.Count > 0) InvitationResultReceived?.Invoke(_resultEvents.Dequeue());
+        // Dequeue first: `?.` skips argument evaluation when nothing is subscribed.
+        while (_resultEvents.Count > 0)
+        {
+            TownPartyInvitationResultEvent resultEvent = _resultEvents.Dequeue();
+            InvitationResultReceived?.Invoke(resultEvent);
+        }
     }
 
     public override void FixedUpdateNetwork()

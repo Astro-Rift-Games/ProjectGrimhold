@@ -127,8 +127,13 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
             _lastNotifiedLootRevision = LootChangeSequence;
             Changed?.Invoke();
         }
+        // Dequeue before the null-conditional invoke: without a subscriber, `?.` would skip
+        // evaluating the argument and this loop would never drain.
         while (_pendingPresentationEvents.Count > 0)
-            LootGranted?.Invoke(_pendingPresentationEvents.Dequeue());
+        {
+            LootGrantPresentationEvent grantEvent = _pendingPresentationEvents.Dequeue();
+            LootGranted?.Invoke(grantEvent);
+        }
     }
 
     public LootTransferFailureReason ValidateReceive(in LootTransferRequest request)
