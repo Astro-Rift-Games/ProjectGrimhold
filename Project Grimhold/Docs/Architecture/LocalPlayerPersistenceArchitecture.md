@@ -126,9 +126,11 @@ It never changes identity, amount or `Origin` and never merges stacks. It reject
 like Quick Slot bindings it moves no ownership. It uses the same `StashTransferCoordinator`
 serialized queue and remote-first policy as transfers: backend write, then local apply. Remote
 failure or local divergence reconciles once and stops without retry. The reservation moves the
-Loadout in its stored order; the owning Raid presentation inherits that reserved order, without
-changing the replicated inventory representation. Raid-local Sort is not carried back on extraction;
-extraction retains its existing append behavior.
+Loadout in its stored order; admission materializes those aggregate entries into physical stacks
+under the [Player Inventory rules](LootInteractionArchitecture.md#player-physical-inventory).
+Raid presentation displays authoritative slot addresses, including holes, and Raid Sort is disabled.
+Town sorting and reservation order remain unchanged. Exact Raid slot positions are persisted in
+neither the backend nor the local cache/save; extraction retains its aggregate append behavior.
 
 Implemented (TASK-218; Host/Client validation pending), backend contract: no existing route writes order, so an authenticated character
 inventory order write is required (`PUT /character/me/inventory/order`). Its DTO carries
