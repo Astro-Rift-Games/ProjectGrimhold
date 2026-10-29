@@ -6,23 +6,23 @@ Technical history generated from Git by `tools/changelog`. Do not edit generated
 
 ## Systems at a glance
 
-856 canonical entries. Counts overlap when a commit has evidence for multiple systems; they are not additive.
+857 canonical entries. Counts overlap when a commit has evidence for multiple systems; they are not additive.
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 70 | 5 | 0 | 0 | 17 | 6 |
 | Art & Animation | 111 | 22 | 7 | 2 | 7 | 51 |
 | Audio | 19 | 1 | 1 | 0 | 2 | 5 |
-| Build & Tooling | 289 | 49 | 17 | 2 | 26 | 40 |
+| Build & Tooling | 289 | 49 | 18 | 2 | 26 | 40 |
 | Combat | 174 | 24 | 10 | 1 | 50 | 45 |
-| Documentation | 207 | 37 | 9 | 0 | 41 | 34 |
+| Documentation | 207 | 37 | 10 | 0 | 41 | 34 |
 | Extraction | 56 | 16 | 8 | 0 | 15 | 22 |
 | Input | 18 | 1 | 1 | 1 | 1 | 5 |
 | Inventory & Loot | 183 | 43 | 16 | 0 | 22 | 45 |
 | Movement | 52 | 7 | 3 | 1 | 7 | 16 |
 | Networking & Sessions | 144 | 27 | 8 | 0 | 19 | 52 |
 | Persistence & Backend | 86 | 36 | 5 | 2 | 19 | 32 |
-| Tests | 329 | 72 | 17 | 1 | 34 | 49 |
+| Tests | 329 | 72 | 18 | 1 | 34 | 49 |
 | UI | 142 | 21 | 13 | 0 | 24 | 61 |
 | Unassigned | 6 | 1 | 0 | 0 | 4 | 6 |
 | World & Visibility | 65 | 12 | 3 | 0 | 14 | 12 |
@@ -33,11 +33,11 @@ At most 6 periods and 3 concrete primary headlines per period. Documentation, te
 
 ### [2026-10 — Unreleased history](docs/changelog/history-2026-10.md)
 
-199 features; 57 bug fixes; 6 refactoring; 1 architecture & infrastructure; 74 documentation; 23 tests; 5 maintenance; 16 other changes. 383 original commits in detail.
+199 features; 57 bug fixes; 7 refactoring; 1 architecture & infrastructure; 74 documentation; 23 tests; 5 maintenance; 16 other changes. 384 original commits in detail.
 
+- **changelog:** reorganize and regenerate technical history ([ce4eec0](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ce4eec009485ac27954bd07fe1ec62c035f620cd))
 - **presentation:** drain render event queues without subscribers ([59cada5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/59cada58019373ad7ffb23ef9ab5494f3d461da0))
 - **loot:** collect world pickups partially when capacity runs out ([2e026ea](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2e026eabf23d52e7be527718f9f37cb9c8d59152))
-- **minimap:** resolve the minimap layout from the loaded Raid scene ([83f6422](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/83f64225817dfdfcc36b08c818945a289f1971d2))
 
 ### [2026-09 — Unreleased history](docs/changelog/history-2026-09.md)
 

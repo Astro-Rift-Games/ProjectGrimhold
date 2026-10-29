@@ -4,32 +4,160 @@
 
 Release: Unreleased
 
-383 original commits; 381 canonical entries.
+384 original commits; 382 canonical entries.
 
 ## Canonical classification
 
-199 features; 57 bug fixes; 6 refactoring; 1 architecture & infrastructure; 74 documentation; 23 tests; 5 maintenance; 16 other changes
+199 features; 57 bug fixes; 7 refactoring; 1 architecture & infrastructure; 74 documentation; 23 tests; 5 maintenance; 16 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 55 | 5 | 0 | 0 | 16 | 2 |
 | Art & Animation | 32 | 9 | 1 | 0 | 4 | 7 |
 | Audio | 8 | 0 | 0 | 0 | 1 | 0 |
-| Build & Tooling | 163 | 33 | 6 | 1 | 17 | 5 |
+| Build & Tooling | 163 | 33 | 7 | 1 | 17 | 5 |
 | Combat | 75 | 10 | 3 | 0 | 42 | 3 |
-| Documentation | 82 | 29 | 1 | 0 | 28 | 4 |
+| Documentation | 82 | 29 | 2 | 0 | 28 | 4 |
 | Extraction | 17 | 10 | 1 | 0 | 11 | 2 |
 | Input | 6 | 1 | 0 | 0 | 0 | 0 |
 | Inventory & Loot | 77 | 25 | 4 | 0 | 17 | 4 |
 | Movement | 23 | 3 | 0 | 0 | 6 | 0 |
 | Networking & Sessions | 57 | 19 | 0 | 0 | 11 | 5 |
 | Persistence & Backend | 25 | 26 | 0 | 0 | 13 | 1 |
-| Tests | 183 | 51 | 6 | 1 | 27 | 6 |
+| Tests | 183 | 51 | 7 | 1 | 27 | 6 |
 | UI | 67 | 13 | 3 | 0 | 20 | 6 |
 | Unassigned | 0 | 0 | 0 | 0 | 3 | 0 |
 | World & Visibility | 42 | 12 | 1 | 0 | 11 | 5 |
 
 ## Original commit records
+
+### ce4eec009485ac27954bd07fe1ec62c035f620cd
+
+[ce4eec009485ac27954bd07fe1ec62c035f620cd](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ce4eec009485ac27954bd07fe1ec62c035f620cd)
+
+Date: 2026-10-29T14:56:48-03:00 · Classification: Refactoring (explicit) · Systems: Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+refactor(changelog): reorganize and regenerate technical history
+```
+
+#### Original body
+
+```text
+Replace the monolithic development log with bounded system summaries
+and generated monthly archives containing all 859 original records.
+Recover 22 distinct canonical changes without losing commit links,
+subjects, bodies, paths or classification evidence.
+
+Use conservative historical classification and ancestry-aware patch
+identity. Preserve legitimate branch equivalents and cherry-picks,
+reverts, manual inversions and later reapplications.
+
+Keep player Markdown and JSON v1 explicit-note-only. Validate public
+notes before writes, including empty releases tagged on merge commits.
+Synchronize owned archives and preserve New-Testing automation.
+
+Add regression coverage and document generation and audit policy.
+Verification: 200 tests pass; strict regeneration and idempotence pass.
+Generated history reflects the audited parent; future generation
+includes this implementation commit without rewriting Git history.
+```
+
+#### Changed paths
+
+```text
+.github/workflows/changelog.yml
+CHANGELOG_DEV.md
+Project Grimhold/odd/tasks/changelog-history.md
+docs/changelog/README.md
+docs/changelog/generated-files.json
+docs/changelog/history-2026-07.md
+docs/changelog/history-2026-08.md
+docs/changelog/history-2026-09.md
+docs/changelog/history-2026-10.md
+docs/changelog/report.json
+tools/changelog/BOOTSTRAP.md
+tools/changelog/README.md
+tools/changelog/scripts/publish.sh
+tools/changelog/scripts/weekly-release.js
+tools/changelog/src/artifacts.js
+tools/changelog/src/classify.js
+tools/changelog/src/cli.js
+tools/changelog/src/commits.js
+tools/changelog/src/config.js
+tools/changelog/src/git.js
+tools/changelog/src/players.js
+tools/changelog/src/release-plan.js
+tools/changelog/src/render-dev.js
+tools/changelog/src/versions.js
+tools/changelog/tests/audit-regressions.test.js
+tools/changelog/tests/classification.test.js
+tools/changelog/tests/identity.test.js
+tools/changelog/tests/logic.test.js
+tools/changelog/tests/pipeline.test.js
+tools/changelog/tests/release-plan.test.js
+tools/changelog/tests/weekly-release.test.js
+```
+
+#### Classification evidence
+
+- type → Refactoring: refactor
+- path → Build &amp; Tooling: .github/workflows/changelog.yml
+- path → Build &amp; Tooling: CHANGELOG\_DEV.md
+- path → Build &amp; Tooling: Project Grimhold/odd/tasks/changelog-history.md
+- path → Build &amp; Tooling: docs/changelog/README.md
+- path → Build &amp; Tooling: docs/changelog/generated-files.json
+- path → Build &amp; Tooling: docs/changelog/history-2026-07.md
+- path → Build &amp; Tooling: docs/changelog/history-2026-08.md
+- path → Build &amp; Tooling: docs/changelog/history-2026-09.md
+- path → Build &amp; Tooling: docs/changelog/history-2026-10.md
+- path → Build &amp; Tooling: docs/changelog/report.json
+- path → Build &amp; Tooling: tools/changelog/BOOTSTRAP.md
+- path → Build &amp; Tooling: tools/changelog/README.md
+- path → Build &amp; Tooling: tools/changelog/scripts/publish.sh
+- path → Build &amp; Tooling: tools/changelog/scripts/weekly-release.js
+- path → Build &amp; Tooling: tools/changelog/src/artifacts.js
+- path → Build &amp; Tooling: tools/changelog/src/classify.js
+- path → Build &amp; Tooling: tools/changelog/src/cli.js
+- path → Build &amp; Tooling: tools/changelog/src/commits.js
+- path → Build &amp; Tooling: tools/changelog/src/config.js
+- path → Build &amp; Tooling: tools/changelog/src/git.js
+- path → Build &amp; Tooling: tools/changelog/src/players.js
+- path → Build &amp; Tooling: tools/changelog/src/release-plan.js
+- path → Build &amp; Tooling: tools/changelog/src/render-dev.js
+- path → Build &amp; Tooling: tools/changelog/src/versions.js
+- path → Build &amp; Tooling: tools/changelog/tests/audit-regressions.test.js
+- path → Build &amp; Tooling: tools/changelog/tests/classification.test.js
+- path → Build &amp; Tooling: tools/changelog/tests/identity.test.js
+- path → Build &amp; Tooling: tools/changelog/tests/logic.test.js
+- path → Build &amp; Tooling: tools/changelog/tests/pipeline.test.js
+- path → Build &amp; Tooling: tools/changelog/tests/release-plan.test.js
+- path → Build &amp; Tooling: tools/changelog/tests/weekly-release.test.js
+- scope → Build &amp; Tooling: changelog
+- message-term → Build &amp; Tooling: changelog
+- path → Documentation: docs/changelog/README.md
+- path → Documentation: docs/changelog/generated-files.json
+- path → Documentation: docs/changelog/history-2026-07.md
+- path → Documentation: docs/changelog/history-2026-08.md
+- path → Documentation: docs/changelog/history-2026-09.md
+- path → Documentation: docs/changelog/history-2026-10.md
+- path → Documentation: docs/changelog/report.json
+- path → Tests: tools/changelog/tests/audit-regressions.test.js
+- path → Tests: tools/changelog/tests/classification.test.js
+- path → Tests: tools/changelog/tests/identity.test.js
+- path → Tests: tools/changelog/tests/logic.test.js
+- path → Tests: tools/changelog/tests/pipeline.test.js
+- path → Tests: tools/changelog/tests/release-plan.test.js
+- path → Tests: tools/changelog/tests/weekly-release.test.js
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 59cada58019373ad7ffb23ef9ab5494f3d461da0
 

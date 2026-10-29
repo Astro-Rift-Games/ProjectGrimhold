@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 859,
-  "canonicalEntries": 856,
+  "rawCommits": 860,
+  "canonicalEntries": 857,
   "before": {
+    "Refactoring": 13,
     "Bug Fixes": 75,
     "Features": 310,
     "Architecture & Infrastructure": 12,
-    "Refactoring": 12,
     "Other Changes": 352,
     "Documentation": 74,
     "Tests": 24
   },
   "after": {
+    "Refactoring": 26,
     "Bug Fixes": 91,
     "Features": 447,
     "Maintenance": 11,
-    "Refactoring": 25,
     "Other Changes": 162,
     "Documentation": 89,
     "Tests": 29,
@@ -23,13 +23,13 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Build & Tooling": 426,
+    "Documentation": 331,
+    "Tests": 505,
     "Combat": 306,
     "Inventory & Loot": 309,
     "Networking & Sessions": 250,
-    "Tests": 504,
     "World & Visibility": 108,
-    "Build & Tooling": 425,
-    "Documentation": 330,
     "UI": 262,
     "Persistence & Backend": 180,
     "Abilities": 100,
@@ -42,23 +42,23 @@
   },
   "canonical": {
     "sections": {
+      "Refactoring": 26,
       "Bug Fixes": 90,
       "Features": 446,
       "Maintenance": 11,
-      "Refactoring": 25,
       "Other Changes": 161,
       "Documentation": 89,
       "Tests": 29,
       "Architecture & Infrastructure": 5
     },
     "systems": {
+      "Build & Tooling": 424,
+      "Documentation": 329,
+      "Tests": 503,
       "Combat": 304,
       "Inventory & Loot": 309,
       "Networking & Sessions": 250,
-      "Tests": 502,
       "World & Visibility": 106,
-      "Build & Tooling": 423,
-      "Documentation": 328,
       "UI": 261,
       "Persistence & Backend": 180,
       "Abilities": 98,
@@ -34029,8 +34029,8 @@
       "title": "2026-10 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 383,
-      "canonicalEntries": 381
+      "originalCommits": 384,
+      "canonicalEntries": 382
     },
     {
       "key": "history-2026-09",
@@ -34058,6 +34058,308 @@
     }
   ],
   "commits": [
+    {
+      "sha": "ce4eec009485ac27954bd07fe1ec62c035f620cd",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ce4eec009485ac27954bd07fe1ec62c035f620cd",
+      "subject": "refactor(changelog): reorganize and regenerate technical history",
+      "body": "Replace the monolithic development log with bounded system summaries\nand generated monthly archives containing all 859 original records.\nRecover 22 distinct canonical changes without losing commit links,\nsubjects, bodies, paths or classification evidence.\n\nUse conservative historical classification and ancestry-aware patch\nidentity. Preserve legitimate branch equivalents and cherry-picks,\nreverts, manual inversions and later reapplications.\n\nKeep player Markdown and JSON v1 explicit-note-only. Validate public\nnotes before writes, including empty releases tagged on merge commits.\nSynchronize owned archives and preserve New-Testing automation.\n\nAdd regression coverage and document generation and audit policy.\nVerification: 200 tests pass; strict regeneration and idempotence pass.\nGenerated history reflects the audited parent; future generation\nincludes this implementation commit without rewriting Git history.\n",
+      "date": "2026-10-29T14:56:48-03:00",
+      "files": [
+        ".github/workflows/changelog.yml",
+        "CHANGELOG_DEV.md",
+        "Project Grimhold/odd/tasks/changelog-history.md",
+        "docs/changelog/README.md",
+        "docs/changelog/generated-files.json",
+        "docs/changelog/history-2026-07.md",
+        "docs/changelog/history-2026-08.md",
+        "docs/changelog/history-2026-09.md",
+        "docs/changelog/history-2026-10.md",
+        "docs/changelog/report.json",
+        "tools/changelog/BOOTSTRAP.md",
+        "tools/changelog/README.md",
+        "tools/changelog/scripts/publish.sh",
+        "tools/changelog/scripts/weekly-release.js",
+        "tools/changelog/src/artifacts.js",
+        "tools/changelog/src/classify.js",
+        "tools/changelog/src/cli.js",
+        "tools/changelog/src/commits.js",
+        "tools/changelog/src/config.js",
+        "tools/changelog/src/git.js",
+        "tools/changelog/src/players.js",
+        "tools/changelog/src/release-plan.js",
+        "tools/changelog/src/render-dev.js",
+        "tools/changelog/src/versions.js",
+        "tools/changelog/tests/audit-regressions.test.js",
+        "tools/changelog/tests/classification.test.js",
+        "tools/changelog/tests/identity.test.js",
+        "tools/changelog/tests/logic.test.js",
+        "tools/changelog/tests/pipeline.test.js",
+        "tools/changelog/tests/release-plan.test.js",
+        "tools/changelog/tests/weekly-release.test.js"
+      ],
+      "originalType": "refactor",
+      "originalScope": "changelog",
+      "originalSection": "Refactoring",
+      "breaking": false,
+      "reverts": null,
+      "section": "Refactoring",
+      "confidence": "explicit",
+      "systems": [
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "refactor",
+          "supports": "Refactoring"
+        },
+        {
+          "source": "path",
+          "value": ".github/workflows/changelog.yml",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "CHANGELOG_DEV.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/odd/tasks/changelog-history.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/README.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/generated-files.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/history-2026-07.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/history-2026-08.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/history-2026-09.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/history-2026-10.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/report.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/BOOTSTRAP.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/README.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/scripts/publish.sh",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/scripts/weekly-release.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/src/artifacts.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/src/classify.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/src/cli.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/src/commits.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/src/config.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/src/git.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/src/players.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/src/release-plan.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/src/render-dev.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/src/versions.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/audit-regressions.test.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/classification.test.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/identity.test.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/logic.test.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/pipeline.test.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/release-plan.test.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/weekly-release.test.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "scope",
+          "value": "changelog",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "message-term",
+          "value": "changelog",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/README.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/generated-files.json",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/history-2026-07.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/history-2026-08.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/history-2026-09.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/history-2026-10.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/report.json",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/audit-regressions.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/classification.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/identity.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/logic.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/pipeline.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/release-plan.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/tests/weekly-release.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "59cada58019373ad7ffb23ef9ab5494f3d461da0",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/59cada58019373ad7ffb23ef9ab5494f3d461da0",
