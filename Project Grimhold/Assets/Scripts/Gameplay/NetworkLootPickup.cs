@@ -295,19 +295,15 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
                 false);
         }
 
-        var transferRequest = new LootTransferRequest(
-            Id,
-            request.InteractorId,
-            _resolvedLootDefinition.LootId,
-            SynchronizedAmount,
-            request.SimulationTick);
+        int totalAmount = SynchronizedAmount;
+        var transferRequest = CreateTransferRequest(request, totalAmount);
 
         // The pickup's reservation prevents two authoritative interactions from
         // delivering the same consumable source while reception is validated.
         IsConsumed = true;
         LootTransferFailureReason failureReason = receiver.ValidateReceive(transferRequest);
 
-        if (failureReason != LootTransferFailureReason.None)
+        if (failureReason != LootTransferFailureReason.None && !IsCapacityFailure(failureReason))
         {
             IsConsumed = false;
             return ToInteractionResult(LootTransferResult.Rejected(failureReason), false);
@@ -321,17 +317,61 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
             throw new System.InvalidOperationException("Raid pickup provenance composition is unavailable.");
         }
 
-        failureReason = originReceiver.ValidateRaidLootOriginReceive(transferRequest, originTransfer);
+        RaidLootOriginTransfer takenOrigins = originTransfer;
+        RaidLootOriginTransfer remainderOrigins = RaidLootOriginTransfer.Empty;
+        if (failureReason == LootTransferFailureReason.None)
+        {
+            failureReason = originReceiver.ValidateRaidLootOriginReceive(transferRequest, originTransfer);
+        }
+
+        // Doc 07 section 11: a capacity-limited stack is collected partially with the
+        // maximum admissible quantity; the remainder stays in this pickup with its origins.
+        if (failureReason != LootTransferFailureReason.None && IsCapacityFailure(failureReason))
+        {
+            int transferableAmount = ResolveTransferableAmount(
+                receiver, originReceiver, request, originTransfer, totalAmount - 1, ref failureReason);
+            if (transferableAmount > 0)
+            {
+                transferRequest = CreateTransferRequest(request, transferableAmount);
+                originTransfer.TrySplit(transferableAmount, out takenOrigins, out remainderOrigins);
+                failureReason = LootTransferFailureReason.None;
+            }
+        }
+
         if (failureReason != LootTransferFailureReason.None)
         {
             IsConsumed = false;
             return ToInteractionResult(LootTransferResult.Rejected(failureReason), false);
         }
 
+        int transferredAmount = transferRequest.RequestedAmount;
+        if (!LootFirstAcquisitionRules.TryResolveExtraction(
+                totalAmount,
+                FirstAcquisitionEligibleAmount,
+                transferredAmount,
+                out int eligibleAmount,
+                out int remainingAmount,
+                out int remainingEligibleAmount))
+        {
+            IsConsumed = false;
+            throw new System.InvalidOperationException(
+                $"{nameof(NetworkLootPickup)} first-acquisition state is inconsistent with its quantity.");
+        }
+
+        // Encode the remainder before any commit so a provenance failure cannot leave a
+        // receiver holding units that this pickup still represents.
+        RaidLootPickupCompactOriginState remainderOriginState = default;
+        if (remainingAmount > 0 &&
+            !RaidLootPickupOriginStateCodec.TryEncode(remainderOrigins, remainingAmount, out remainderOriginState))
+        {
+            IsConsumed = false;
+            throw new System.InvalidOperationException(
+                $"{nameof(NetworkLootPickup)} could not encode the provenance of its remaining stack.");
+        }
+
         // Commit cannot reject after successful prevalidation while State Authority
         // retains control. Any inability to apply is an integration contract violation.
-        originReceiver.CommitRaidLootReceive(transferRequest, originTransfer);
-        int eligibleAmount = FirstAcquisitionEligibleAmount;
+        originReceiver.CommitRaidLootReceive(transferRequest, takenOrigins);
         if (eligibleAmount > 0 && _resolvedLootDefinition.ExtractionValuePerUnit > 0 &&
             _registry.TryGetExtractionProgressReceiver(
                 request.InteractorId,
@@ -351,7 +391,7 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
             sink.TryRecordTreasureFirstAcquisition(_resolvedLootDefinition.Family);
         }
 
-        FirstAcquisitionEligibleAmount = 0;
+        FirstAcquisitionEligibleAmount = remainingEligibleAmount;
 
         if (!CooldownExpiration.ExpiredOrNotRunning(Runner))
         {
@@ -368,9 +408,83 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         }
         LootTransferResult transferResult = LootTransferResult.Succeeded(transferRequest);
 
+        if (remainingAmount > 0)
+        {
+            SynchronizedAmount = remainingAmount;
+            RaidOriginState = remainderOriginState;
+            IsConsumed = false;
+            return ToInteractionResult(transferResult, false);
+        }
+
         Runner.Despawn(Object);
         return ToInteractionResult(transferResult, true);
     }
+
+    private LootTransferRequest CreateTransferRequest(in InteractionRequest request, int amount) =>
+        new(Id, request.InteractorId, _resolvedLootDefinition.LootId, amount, request.SimulationTick);
+
+    /// <summary>
+    /// Finds the largest canonical prefix of this stack, up to <paramref name="maximumAmount"/>, that
+    /// both side-effect-free receiver validators accept. Canonical prefixes are nested, so admissibility
+    /// is monotonic and a binary search is exact. Returns zero and the one-unit failure when none fits.
+    /// </summary>
+    private int ResolveTransferableAmount(
+        ILootReceiver receiver,
+        IRaidLootOriginReceiver originReceiver,
+        in InteractionRequest request,
+        RaidLootOriginTransfer originTransfer,
+        int maximumAmount,
+        ref LootTransferFailureReason failureReason)
+    {
+        int admissible = 0;
+        int low = 1;
+        int high = maximumAmount;
+        while (low <= high)
+        {
+            int candidate = low + (high - low) / 2;
+            LootTransferFailureReason candidateFailure = ValidatePartialReceive(
+                receiver, originReceiver, request, originTransfer, candidate);
+            if (candidateFailure == LootTransferFailureReason.None)
+            {
+                admissible = candidate;
+                low = candidate + 1;
+                continue;
+            }
+
+            if (candidate == 1)
+            {
+                failureReason = candidateFailure;
+            }
+            high = candidate - 1;
+        }
+
+        return admissible;
+    }
+
+    private LootTransferFailureReason ValidatePartialReceive(
+        ILootReceiver receiver,
+        IRaidLootOriginReceiver originReceiver,
+        in InteractionRequest request,
+        RaidLootOriginTransfer originTransfer,
+        int amount)
+    {
+        if (!originTransfer.TrySplit(amount, out RaidLootOriginTransfer taken, out _))
+        {
+            throw new System.InvalidOperationException(
+                $"{nameof(NetworkLootPickup)} provenance does not match its quantity.");
+        }
+
+        LootTransferRequest candidateRequest = CreateTransferRequest(request, amount);
+        LootTransferFailureReason failure = receiver.ValidateReceive(candidateRequest);
+        return failure != LootTransferFailureReason.None
+            ? failure
+            : originReceiver.ValidateRaidLootOriginReceive(candidateRequest, taken);
+    }
+
+    private static bool IsCapacityFailure(LootTransferFailureReason failureReason) =>
+        failureReason is LootTransferFailureReason.InventoryFull or
+            LootTransferFailureReason.MaxTransportableExceeded or
+            LootTransferFailureReason.Overflow;
 
     private void InitializeAuthoritativeState()
     {

@@ -114,6 +114,31 @@ world drops. It replicates catalog index and quantity, resolves the shared
 interaction, transfer, feedback and despawn flow. Breakables release these
 pickups directly and never expose a container interaction; see
 `Docs/Architecture/BreakableLootArchitecture.md`.
+
+Pickup reception is automatically partial (Doc 07 sections 11 and 14). State
+Authority first validates the whole replicated stack. Only a capacity failure
+(`InventoryFull`, `MaxTransportableExceeded` or `Overflow`) triggers the partial
+path; every other rejection keeps the pickup unchanged. The admissible amount is
+the largest canonical prefix of the pickup's origins, taken Dungeon first and
+then by participant value through `RaidLootOriginTransfer.TrySplit`, that both
+side-effect-free receiver validators accept. Prefixes are nested, so the bounded
+binary search over that amount is exact. Zero admissible units reject with the
+one-unit failure. A partial success commits only the taken buckets, consumes
+first-acquisition eligibility eligible-first through
+`LootFirstAcquisitionRules`, and contributes Progress and treasure instability
+only for consumed eligible units. Pickup feedback reports the transferred
+amount. The pickup then writes the remaining quantity, origin state and
+eligibility, and stays published with the same `NetworkObject`. The result is
+`Succeeded(isConsumed: false)`. The remainder's origin state is encoded before
+the receiver commit, so a provenance failure cannot duplicate units. A complete
+transfer still despawns the pickup. Authoritative interactions run serially, so
+a later competitor revalidates against the remaining amount.
+
+Single-runner PlayMode coverage
+(`NetworkLootPickupPartialPickupPlayModeTests`) covers the complete, partial,
+zero-capacity, mixed-origin remainder and sequential-competitor cases. Replication
+of the reduced quantity to observing clients still requires Host/Client
+validation.
 World rendering remains prefab-owned rather than definition-owned: the generic
 pickup exposes a sorting layer and order, then applies both whenever it resolves
 a `LootDefinition.WorldSprite`. Dynamic loot therefore shares one configurable
