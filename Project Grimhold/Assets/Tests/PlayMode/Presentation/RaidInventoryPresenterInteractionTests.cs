@@ -1,12 +1,16 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System;
+using System.Collections;
 using System.Reflection;
+using Fusion;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.InputSystem.UI;
+using UnityEngine.EventSystems;
+using UnityEngine.TestTools;
 using Assert = NUnit.Framework.Assert;
 
 namespace Tests.PlayMode.Presentation
@@ -16,8 +20,10 @@ namespace Tests.PlayMode.Presentation
         private const string PlayerPrefabPath = "Assets/Prefabs/NetworkPlayer.prefab";
         private const string ChestPrefabPath = "Assets/Prefabs/LootContainer.prefab";
         private const string EnemyPrefabPath = "Assets/Prefabs/Enemies/NetworkEnemy.prefab";
+        private const string PhysicalUiCategory = "PhysicalRaidUi";
 
         private GameObject _playerInstance;
+        private GameObject _inventoryCanvas;
         private GameObject _inputReaderHolder;
         private GameObject _chestInstance;
         private GameObject _enemyInstance;
@@ -28,17 +34,34 @@ namespace Tests.PlayMode.Presentation
         private Action _localInteractHandler;
         private object _inputTestFixture;
         private Type _inputTestFixtureType;
+        private NetworkRunner _uiRunner;
+        private ExtractionProgressSimulationDriver _uiDriver;
+        private PlayerLootReceiver _uiReceiver;
+        private LootDefinitionCatalog _uiCatalog;
+        private bool _createdEquipmentContent;
+        private bool _fixtureNeedsCleanup;
+        private static readonly LootId Bone = new("bone");
 
         [SetUp]
         public void SetUp()
         {
-            _inputTestFixtureType = Type.GetType(
-                "UnityEngine.InputSystem.InputTestFixture, Unity.InputSystem.TestFramework",
-                true);
-            _inputTestFixture = Activator.CreateInstance(_inputTestFixtureType);
-            _inputTestFixtureType.GetMethod("Setup").Invoke(_inputTestFixture, null);
-
-            _keyboard = InputSystem.AddDevice<Keyboard>();
+            _fixtureNeedsCleanup = true;
+            _inputTestFixture = null;
+            _keyboard = null;
+            // Keep legacy keyboard tests isolated. Runner-backed gesture tests do not reset
+            // the Input System underneath the production prefab's DefaultInputActions modules.
+            if (!Equals(TestContext.CurrentContext.Test.Properties.Get("Category"), PhysicalUiCategory))
+            {
+                _inputTestFixtureType = Type.GetType(
+                    "UnityEngine.InputSystem.InputTestFixture, Unity.InputSystem.TestFramework", true);
+                _inputTestFixture = Activator.CreateInstance(_inputTestFixtureType);
+                _inputTestFixtureType.GetMethod("Setup").Invoke(_inputTestFixture, null);
+                _keyboard = InputSystem.AddDevice<Keyboard>();
+            }
+            else
+            {
+                LogAssert.ignoreFailingMessages = false;
+            }
 
             GameObject playerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
             Assert.That(playerPrefab, Is.Not.Null);
@@ -55,10 +78,24 @@ namespace Tests.PlayMode.Presentation
             Assert.That(_presenter, Is.Not.Null);
             Assert.That(_view, Is.Not.Null);
 
+            // Keep the network-player shell inactive and the presenter manually driven, but
+            // give the real view an active hierarchy. Otherwise Show cannot run OnEnable on
+            // an already-initialized transition, and pooled context buttons never run Awake
+            // to install their real Button.onClick listeners.
+            Assert.That(_presenter.gameObject, Is.SameAs(_view.gameObject));
+            _presenter.enabled = false;
+            _view.SetScreenVisible(false);
+            _inventoryCanvas = new GameObject("RaidInventoryInteractionTestCanvas", typeof(RectTransform), typeof(Canvas));
+            _inventoryCanvas.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+            _view.transform.SetParent(_inventoryCanvas.transform, false);
+            _view.gameObject.SetActive(true);
+            Assert.That(_view.isActiveAndEnabled, Is.True);
+            Assert.That(_view.IsOpen, Is.False);
+
             SetPresenterField(_presenter, "_inputReader", _inputReader);
 
             PlayerInputActions actions = ReadInputActions(_inputReader);
-            actions.asset.devices = new InputDevice[] { _keyboard };
+            if (_keyboard != null) actions.asset.devices = new InputDevice[] { _keyboard };
             EnsureInputEnabled(_inputReader);
 
             _chestInstance = UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(ChestPrefabPath));
@@ -71,14 +108,24 @@ namespace Tests.PlayMode.Presentation
         [TearDown]
         public void TearDown()
         {
+            // NUnit and Unity teardown ordering must not destroy a runner's registered
+            // input reader before its asynchronous shutdown has completed.
+            if (_uiRunner == null) CleanupFixture();
+        }
+
+        private void CleanupFixture()
+        {
+            if (!_fixtureNeedsCleanup) return;
+            _fixtureNeedsCleanup = false;
             UnsubscribeLocalInteract();
             if (_playerInstance != null) UnityEngine.Object.DestroyImmediate(_playerInstance);
+            if (_inventoryCanvas != null) UnityEngine.Object.DestroyImmediate(_inventoryCanvas);
             if (_inputReaderHolder != null) UnityEngine.Object.DestroyImmediate(_inputReaderHolder);
             if (_chestInstance != null) UnityEngine.Object.DestroyImmediate(_chestInstance);
             if (_enemyInstance != null) UnityEngine.Object.DestroyImmediate(_enemyInstance);
 
-            InputSystem.RemoveDevice(_keyboard);
-            _inputTestFixtureType.GetMethod("TearDown").Invoke(_inputTestFixture, null);
+            if (_keyboard != null) InputSystem.RemoveDevice(_keyboard);
+            if (_inputTestFixture != null) _inputTestFixtureType.GetMethod("TearDown").Invoke(_inputTestFixture, null);
         }
 
         // InputTestFixture keeps action states resolved before its Setup, so enabling the shared
@@ -199,7 +246,7 @@ namespace Tests.PlayMode.Presentation
             InvokeMethod(_presenter, "ObserveDowned");
             Assert.That(GetPresenterMode(_presenter), Is.EqualTo(mode));
             Assert.That(_view.TransferFeedbackText.text, Is.Empty);
-            if (mode == 1) Assert.That(_view.SortButton.interactable, Is.True);
+            if (mode == 1) Assert.That(_view.SortButton.interactable, Is.False, "Recovery does not enable Raid sorting.");
             downed = true;
             InvokeMethod(_presenter, "ObserveDowned");
             _presenter.SetGameplayMutationsBlocked(true);
@@ -275,7 +322,7 @@ namespace Tests.PlayMode.Presentation
         }
 
         [Test]
-        public void RaidSort_OnlyPersonalMode_SortsOnceAndAppendsNewLoot()
+        public void RaidSort_DisabledInPersonalAndContainerModes_DoesNotChangeDisplayOrSource()
         {
             var catalog = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(
                 "Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset");
@@ -289,22 +336,19 @@ namespace Tests.PlayMode.Presentation
             SetPresenterField(_presenter, "_lootCatalog", catalog);
             SetPresenterField(_presenter, "_isBound", true);
             SetPresenterField(_presenter, "_isRaidBinding", true);
-            SetPresenterMode(_presenter, 2);
-            InvokeMethod(_presenter, "OnSortRequested");
-            var field = typeof(RaidInventoryPresenter).GetField("_displayOrder", BindingFlags.Instance | BindingFlags.NonPublic);
-            var order = (RaidInventoryDisplayOrder)field.GetValue(_presenter);
-            Assert.That(order.Entries, Is.Empty, "Container mode must reject Sort.");
-            SetPresenterMode(_presenter, 1);
-            InvokeMethod(_presenter, "OnSortRequested");
-            Assert.That(order.Entries[0].LootId, Is.EqualTo(aFirst ? a.LootId : b.LootId));
-            source.Items.RemoveAt(1);
-            InvokeMethod(_presenter, "RefreshPlayerPanel");
-            source.Items.Insert(0, aFirst ? a : b);
-            InvokeMethod(_presenter, "RefreshPlayerPanel");
-            Assert.That(order.Entries[1].LootId, Is.EqualTo(aFirst ? a.LootId : b.LootId));
-            SetPresenterField(_presenter, "_gameplayMutationsBlocked", true);
-            InvokeMethod(_presenter, "OnSortRequested");
-            Assert.That(order.Entries[1].LootId, Is.EqualTo(aFirst ? a.LootId : b.LootId));
+            LootEntry[] before = source.Items.ToArray();
+            var order = (RaidInventoryDisplayOrder)GetPresenterField(_presenter, "_displayOrder");
+            foreach (int mode in new[] { 1, 2 })
+            {
+                SetPresenterMode(_presenter, mode);
+                InvokeMethod(_presenter, "UpdateSortInteractable");
+                Assert.That(typeof(RaidInventoryPresenter).GetProperty("CanSortInventory",
+                    BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_presenter), Is.False);
+                Assert.That(_view.SortButton.interactable, Is.False);
+                InvokeMethod(_presenter, "OnSortRequested");
+                Assert.That(order.Entries, Is.Empty, "Raid sorting may not create a local visual order.");
+                Assert.That(source.Items, Is.EqualTo(before));
+            }
         }
 
         [TestCase(2)]
@@ -332,6 +376,8 @@ namespace Tests.PlayMode.Presentation
         {
             SetPresenterMode(_presenter, 1); // ScreenMode.Personal
             SetViewScreenVisible(_view, true);
+            Assert.That(_view.IsOpen, Is.True, "The fixture must actually open the view before testing the input edge.");
+            Assert.That(_view.ScreenRootRect.gameObject.activeInHierarchy, Is.True);
             IDisposable suppression = _inputReader.AcquireGameplayInputSuppression();
             SetPresenterField(_presenter, "_inputSuppression", suppression);
             SetPresenterField(_presenter, "_inputReader", _inputReader);
@@ -629,6 +675,578 @@ namespace Tests.PlayMode.Presentation
             string message = method.Invoke(null, new object[] { reason }) as string;
 
             Assert.That(message, Is.EqualTo(expectedMessage));
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator RaidPhysicalRefresh_ShowsAllThirtyAddressesOriginsAndInteriorHole()
+        {
+            yield return BeginPhysicalUi();
+            LootDefinition bone = Definition(Bone);
+            yield return UiTick(() =>
+            {
+                GrantUiLoot(Bone, checked(bone.StackMax * 29 + 1), RaidLootOrigin.Dungeon);
+                ExtractUiSlot(7, bone.StackMax);
+                GrantUiLoot(Bone, 1, PlayerOrigin(2));
+                ExtractUiSlot(11, bone.StackMax);
+                EquipmentTestContent.SetField(_uiReceiver, "_slotCapacity", 2);
+            });
+            InvokeMethod(_presenter, "RefreshPlayerPanel");
+            Assert.That(_view.PlayerPanel.SlotCount, Is.EqualTo(30), "Gameplay occupancy limits cannot truncate physical addresses.");
+            RaidInventorySlotView[] views = PlayerSlots();
+            for (int index = 0; index < 30; index++)
+            {
+                Assert.That(_uiReceiver.TryGetInventorySlot(index, out LootInventorySlot source), Is.True);
+                RaidInventorySlotData displayed = SlotData(views[index]);
+                Assert.That(views[index].gameObject.activeSelf, Is.True);
+                Assert.That(displayed.SourceInventorySlotIndex, Is.EqualTo(index));
+                Assert.That(displayed.ExpectedInventoryRevision, Is.EqualTo(_uiReceiver.Revision));
+                Assert.That(displayed.IsOccupied, Is.EqualTo(!source.IsEmpty), $"Physical slot {index} was repacked.");
+                Assert.That(displayed.Amount, Is.EqualTo(source.Quantity));
+                if (source.IsValid)
+                {
+                    Assert.That(_uiCatalog.TryGetByIndex(source.CatalogIndex, out LootDefinition definition), Is.True);
+                    Assert.That(displayed.LootId, Is.EqualTo(definition.LootId));
+                    Assert.That(displayed.Origin, Is.EqualTo(source.Origin));
+                }
+                else
+                {
+                    Assert.That(displayed.LootId.IsValid, Is.False);
+                    Assert.That(displayed.Origin, Is.Null);
+                }
+            }
+            Assert.That(views[11].IsOccupied, Is.False);
+            Assert.That(SlotData(views[7]).Origin, Is.EqualTo(PlayerOrigin(2)));
+            Assert.That(SlotData(views[29]).Amount, Is.EqualTo(1));
+            Assert.That(_uiReceiver.TryCalculateTotalValue(out long total), Is.True);
+            Assert.That(_view.PlayerPanel.TotalValueText.text, Is.EqualTo($"Valor: {total}"));
+            Assert.That(((RaidInventoryDisplayOrder)GetPresenterField(_presenter, "_displayOrder")).Entries, Is.Empty);
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalDragDeposit_ForwardsCapturedAddressRevisionAndSelectedFullStack()
+        {
+            yield return BeginPhysicalUi();
+            yield return UiTick(() => GrantUiLoot(Bone, checked(Definition(Bone).StackMax + 1), RaidLootOrigin.Dungeon));
+            NetworkLootContainer container = BindUiContainer();
+            Assert.That(_uiReceiver.TryGetInventorySlot(0, out LootInventorySlot first), Is.True);
+            int revision = _uiReceiver.Revision;
+            LootTransferConfirmation? confirmed = null;
+            var controller = _uiReceiver.GetComponent<PlayerLootTransferNetworkController>();
+            controller.TransferConfirmed += result => confirmed = result;
+            BeginUiDrag(1);
+            yield return UiTick(() =>
+            {
+                DropUiOnContainer();
+                Assert.That(controller.DebugTryGetInFlightIdentity(out LootTransferRequestIdentity sent), Is.True);
+                Assert.That(sent.SourceInventorySlotIndex, Is.EqualTo(1));
+                Assert.That(sent.ExpectedInventoryRevision, Is.EqualTo(revision));
+                Assert.That(sent.QuantityMode, Is.EqualTo(LootTransferQuantityMode.FullStack));
+            });
+            yield return WaitForUi(() => confirmed.HasValue);
+            Assert.That(confirmed.Value.Result.Success, Is.True);
+            Assert.That(confirmed.Value.Result.TransferredAmount, Is.EqualTo(1));
+            Assert.That(container.GetLootAmount(Bone), Is.EqualTo(1));
+            Assert.That(_uiReceiver.TryGetInventorySlot(0, out LootInventorySlot remainingFirst), Is.True);
+            Assert.That(remainingFirst, Is.EqualTo(first));
+            Assert.That(_uiReceiver.TryGetInventorySlot(1, out LootInventorySlot selected), Is.True);
+            Assert.That(selected.IsEmpty, Is.True);
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalContextDropAll_UsesSelectedPlayersOriginAndSlotQuantity()
+        {
+            yield return BeginPhysicalUi();
+            yield return UiTick(() =>
+            {
+                GrantUiLoot(Bone, checked(Definition(Bone).StackMax + 1), RaidLootOrigin.Dungeon);
+                GrantUiLoot(Bone, 1, PlayerOrigin(2));
+            });
+            Assert.That(_uiReceiver.TryGetInventorySlot(0, out LootInventorySlot first), Is.True);
+            Assert.That(_uiReceiver.TryGetInventorySlot(1, out LootInventorySlot second), Is.True);
+            LootDropConfirmation? confirmed = null;
+            _uiReceiver.GetComponent<PlayerLootDropNetworkController>().DropConfirmed += result => confirmed = result;
+            OpenUiContext(2);
+            LootContextActionContext context = (LootContextActionContext)GetPresenterField(_presenter, "_contextActionContext");
+            Assert.That(context.SourceInventorySlotIndex, Is.EqualTo(2));
+            Assert.That(context.ExpectedInventoryRevision, Is.EqualTo(_uiReceiver.Revision));
+            Assert.That(context.Entry.Amount, Is.EqualTo(1));
+            yield return UiTick(() => ClickUiContextAction(LootDropContextActionProvider.DropAllId));
+            yield return WaitForUi(() => confirmed.HasValue);
+            Assert.That(confirmed.Value.Result.Success, Is.True);
+            Assert.That(confirmed.Value.Result.DroppedAmount, Is.EqualTo(1));
+            Assert.That(_uiReceiver.TryGetInventorySlot(0, out LootInventorySlot remainingFirst), Is.True);
+            Assert.That(_uiReceiver.TryGetInventorySlot(1, out LootInventorySlot remainingSecond), Is.True);
+            Assert.That(remainingFirst, Is.EqualTo(first));
+            Assert.That(remainingSecond, Is.EqualTo(second));
+            Assert.That(_uiReceiver.TryGetInventorySlot(2, out LootInventorySlot selected), Is.True);
+            Assert.That(selected.IsEmpty, Is.True);
+            int published = 0;
+            foreach (NetworkLootPickup pickup in UnityEngine.Object.FindObjectsByType<NetworkLootPickup>(FindObjectsSortMode.None))
+            {
+                if (pickup.Object == null || !pickup.Object.IsValid || pickup.Runner != _uiRunner) continue;
+                published++;
+                Assert.That(pickup.Amount, Is.EqualTo(1));
+                Assert.That(pickup.TryResolveRaidOriginTransfer(out RaidLootOriginTransfer transfer), Is.True);
+                Assert.That(transfer.Count, Is.EqualTo(1));
+                Assert.That(transfer.Buckets[0].Origin, Is.EqualTo(PlayerOrigin(2)));
+            }
+            Assert.That(published, Is.EqualTo(1));
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalContextEquip_SecondSameOriginSlotLeavesFirstUntouched() => EquipThroughUi(useContext: true);
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalDragEquip_SecondOriginReachesEquipmentWithoutCanonicalFallback() => EquipThroughUi(useContext: false);
+
+        private IEnumerator EquipThroughUi(bool useContext)
+        {
+            yield return BeginPhysicalUi();
+            _createdEquipmentContent = true;
+            LootDefinition helmet = EquipmentTestContent.CreateArmorDefinition("physical_ui_helmet", LootCategory.Helmet);
+            _uiCatalog = EquipmentTestContent.CreateCatalog(helmet);
+            EquipmentTestContent.SetField(_uiReceiver, "_lootCatalog", _uiCatalog);
+            var equipment = _uiReceiver.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            EquipmentTestContent.SetField(equipment, "_lootCatalog", _uiCatalog);
+            SetPresenterField(_presenter, "_lootCatalog", _uiCatalog);
+            yield return UiTick(() =>
+            {
+                GrantUiLoot(helmet.LootId, 1, RaidLootOrigin.Dungeon);
+                GrantUiLoot(helmet.LootId, 1, useContext ? RaidLootOrigin.Dungeon : PlayerOrigin(2));
+            });
+            EquipmentOperationResult result = EquipmentOperationResult.None;
+            equipment.EquipRequestResolved += observed => result = observed;
+            Assert.That(_uiReceiver.TryGetInventorySlot(0, out LootInventorySlot first), Is.True);
+            if (useContext) OpenUiContext(1); else BeginUiDrag(1);
+            yield return UiTick(() =>
+            {
+                if (useContext) ClickUiContextAction(new LootContextActionId("equipment.fixed-slot"));
+                else ((RaidInventorySlotView)typeof(RaidInventoryView).GetField("_helmetView",
+                    BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_view))
+                    .OnDrop(new PointerEventData(null) { button = PointerEventData.InputButton.Left });
+            });
+            yield return WaitForUi(() => result != EquipmentOperationResult.None);
+            Assert.That(result, Is.EqualTo(EquipmentOperationResult.Succeeded));
+            Assert.That(_uiReceiver.TryGetInventorySlot(0, out LootInventorySlot remainingFirst), Is.True);
+            Assert.That(remainingFirst, Is.EqualTo(first));
+            Assert.That(_uiReceiver.TryGetInventorySlot(1, out LootInventorySlot selected), Is.True);
+            Assert.That(selected.IsEmpty, Is.True);
+            Assert.That(equipment.TryGetSlotRaidOrigin(EquipmentSlot.Helmet, out RaidLootOrigin origin), Is.True);
+            Assert.That(origin, Is.EqualTo(useContext ? RaidLootOrigin.Dungeon : PlayerOrigin(2)));
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalContext_RevisionChangeClosesMenuAndCannotRetargetSameItem()
+        {
+            yield return BeginPhysicalUi();
+            yield return UiTick(() => GrantUiLoot(Bone, checked(Definition(Bone).StackMax + 1), RaidLootOrigin.Dungeon));
+            OpenUiContext(1);
+            int captured = _uiReceiver.Revision;
+            yield return UiTick(() => GrantUiLoot(new LootId("coins"), 1, RaidLootOrigin.Dungeon));
+            yield return WaitForUi(() => (int)GetPresenterField(_presenter, "_observedPlayerLootSequence") == _uiReceiver.Revision);
+            Assert.That(_uiReceiver.Revision, Is.Not.EqualTo(captured));
+            Assert.That(_view.ContextMenu.IsOpen, Is.False);
+            Assert.That(((LootContextActionContext)GetPresenterField(_presenter, "_contextActionContext")).IsValid, Is.False);
+            int amount = _uiReceiver.GetLootAmount(Bone);
+            yield return UiTick(() =>
+            {
+                // Invoke the real pooled button even though its menu root is now hidden.
+                ClickUiContextAction(LootDropContextActionProvider.DropAllId);
+                Assert.That(_uiReceiver.GetComponent<PlayerLootDropNetworkController>().HasRequestInFlight, Is.False);
+            });
+            Assert.That(_uiReceiver.GetLootAmount(Bone), Is.EqualTo(amount));
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalDrag_RevisionChangeCancelsPayloadBeforeDestinationAction()
+        {
+            yield return BeginPhysicalUi();
+            yield return UiTick(() => GrantUiLoot(Bone, checked(Definition(Bone).StackMax + 1), RaidLootOrigin.Dungeon));
+            NetworkLootContainer container = BindUiContainer();
+            BeginUiDrag(1);
+            yield return UiTick(() => GrantUiLoot(new LootId("coins"), 1, RaidLootOrigin.Dungeon));
+            yield return WaitForUi(() => (int)GetPresenterField(_presenter, "_observedPlayerLootSequence") == _uiReceiver.Revision);
+            Assert.That(((DragPayload)GetPresenterField(_presenter, "_activeDrag")).IsValid, Is.False);
+            int amount = _uiReceiver.GetLootAmount(Bone);
+            yield return UiTick(() =>
+            {
+                DropUiOnContainer();
+                Assert.That(_uiReceiver.GetComponent<PlayerLootTransferNetworkController>().HasRequestInFlight, Is.False);
+            });
+            Assert.That(_uiReceiver.GetLootAmount(Bone), Is.EqualTo(amount));
+            Assert.That(container.GetLootAmount(Bone), Is.Zero);
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalContext_StaleRevisionAtDispatchRejectsBeforePresentationRefresh()
+        {
+            yield return BeginPhysicalUi();
+            yield return UiTick(() => GrantUiLoot(Bone, checked(Definition(Bone).StackMax + 1), RaidLootOrigin.Dungeon));
+            NetworkLootContainer container = BindUiContainer();
+            OpenUiContext(1);
+            int captured = _uiReceiver.Revision;
+            int containerRevision = container.LootChangeSequence;
+            int equipmentRevision = _uiReceiver.GetComponent<PlayerWeaponEquipmentNetworkController>().EquipmentRevision;
+            LootInventorySlot[] inventory = null;
+            int revision = -1;
+            int dropNotifications = 0;
+            var drop = _uiReceiver.GetComponent<PlayerLootDropNetworkController>();
+            drop.RequestInFlightChanged += _ => dropNotifications++;
+            drop.DropConfirmed += _ => dropNotifications++;
+            drop.TransportRejected += _ => dropNotifications++;
+            yield return UiTick(() =>
+            {
+                GrantUiLoot(new LootId("coins"), 1, RaidLootOrigin.Dungeon);
+                revision = _uiReceiver.Revision;
+                inventory = ReadUiInventory();
+                Assert.That(revision, Is.Not.EqualTo(captured));
+                Assert.That((int)GetPresenterField(_presenter, "_observedPlayerLootSequence"), Is.EqualTo(captured));
+                Assert.That(SlotData(PlayerSlots()[1]).ExpectedInventoryRevision, Is.EqualTo(captured));
+                Assert.That(_view.ContextMenu.IsOpen, Is.True, "Refresh must not have dismissed this menu yet.");
+                Assert.That(((LootContextActionContext)GetPresenterField(_presenter, "_contextActionContext"))
+                    .ExpectedInventoryRevision, Is.EqualTo(captured));
+                // No yield or refresh between the authoritative mutation and this real button click.
+                ClickUiContextAction(LootDropContextActionProvider.DropAllId);
+                Assert.That((int)GetPresenterField(_presenter, "_observedPlayerLootSequence"), Is.EqualTo(captured));
+                Assert.That(_view.ContextMenu.IsOpen, Is.False);
+                Assert.That(((LootContextActionContext)GetPresenterField(_presenter, "_contextActionContext")).IsValid, Is.False);
+                AssertUiNoGameplayMutation(inventory, revision, container, containerRevision, equipmentRevision);
+            });
+            yield return UiTick(() => { });
+            AssertUiNoGameplayMutation(inventory, revision, container, containerRevision, equipmentRevision);
+            Assert.That(dropNotifications, Is.Zero, "A stale UI action must not send even an authority-rejected request.");
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalDrag_StaleRevisionAtDispatchRejectsBeforePresentationRefresh()
+        {
+            yield return BeginPhysicalUi();
+            yield return UiTick(() => GrantUiLoot(Bone, checked(Definition(Bone).StackMax + 1), RaidLootOrigin.Dungeon));
+            NetworkLootContainer container = BindUiContainer();
+            BeginUiDrag(1);
+            int captured = _uiReceiver.Revision;
+            int containerRevision = container.LootChangeSequence;
+            int equipmentRevision = _uiReceiver.GetComponent<PlayerWeaponEquipmentNetworkController>().EquipmentRevision;
+            LootInventorySlot[] inventory = null;
+            int revision = -1;
+            int transferNotifications = 0;
+            var transfer = _uiReceiver.GetComponent<PlayerLootTransferNetworkController>();
+            transfer.RequestInFlightChanged += _ => transferNotifications++;
+            transfer.TransferConfirmed += _ => transferNotifications++;
+            transfer.TransportRejected += _ => transferNotifications++;
+            yield return UiTick(() =>
+            {
+                GrantUiLoot(new LootId("coins"), 1, RaidLootOrigin.Dungeon);
+                revision = _uiReceiver.Revision;
+                inventory = ReadUiInventory();
+                Assert.That(revision, Is.Not.EqualTo(captured));
+                Assert.That((int)GetPresenterField(_presenter, "_observedPlayerLootSequence"), Is.EqualTo(captured));
+                Assert.That(SlotData(PlayerSlots()[1]).ExpectedInventoryRevision, Is.EqualTo(captured));
+                DragPayload payload = (DragPayload)GetPresenterField(_presenter, "_activeDrag");
+                Assert.That(payload.IsValid, Is.True, "Refresh must not have canceled this drag yet.");
+                Assert.That(payload.ExpectedInventoryRevision, Is.EqualTo(captured));
+                // No yield or refresh between the authoritative mutation and this real destination drop.
+                DropUiOnContainer();
+                Assert.That((int)GetPresenterField(_presenter, "_observedPlayerLootSequence"), Is.EqualTo(captured));
+                Assert.That(((DragPayload)GetPresenterField(_presenter, "_activeDrag")).IsValid, Is.False);
+                Assert.That(transfer.DebugTryGetInFlightIdentity(out _), Is.False);
+                AssertUiNoGameplayMutation(inventory, revision, container, containerRevision, equipmentRevision);
+            });
+            yield return UiTick(() => { });
+            AssertUiNoGameplayMutation(inventory, revision, container, containerRevision, equipmentRevision);
+            Assert.That(transferNotifications, Is.Zero, "A stale UI drop must not send even an authority-rejected request.");
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalContextConsume_ClickedDungeonStillSpendsDefinitionPlayerFirst()
+        {
+            yield return BeginPhysicalUi();
+            var potion = new LootId("healthpotion");
+            PlayerCharacter player = _uiReceiver.GetComponent<PlayerCharacter>();
+            yield return UiTick(() =>
+            {
+                GrantUiLoot(potion, 1, RaidLootOrigin.Dungeon);
+                GrantUiLoot(potion, 1, PlayerOrigin(2));
+                player.ApplyDamage(new DamageRequest(new EntityId(123), player.Id, 20,
+                    DamageType.TrueDamage, Vector2.right, Vector2.zero, _uiRunner.Tick));
+            });
+            Assert.That(_uiReceiver.TryGetInventorySlot(0, out LootInventorySlot dungeon), Is.True);
+            bool confirmed = false;
+            _uiReceiver.GetComponent<PlayerConsumableNetworkController>().ConsumeConfirmed += _ => confirmed = true;
+            OpenUiContext(0);
+            yield return UiTick(() => ClickUiContextAction(LootConsumeContextActionProvider.ConsumeId));
+            yield return WaitForUi(() => confirmed);
+            Assert.That(_uiReceiver.TryGetInventorySlot(0, out LootInventorySlot remainingDungeon), Is.True);
+            Assert.That(remainingDungeon, Is.EqualTo(dungeon), "Usar is definition-based, not clicked-origin extraction.");
+            Assert.That(_uiReceiver.TryGetInventorySlot(1, out LootInventorySlot spentPlayer), Is.True);
+            Assert.That(spentPlayer.IsEmpty, Is.True);
+            Assert.That(_uiReceiver.GetLootAmount(potion), Is.EqualTo(1));
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalContext_RepeatedBindDisableReenableRetainsOneWorkingDispatch()
+        {
+            yield return BeginPhysicalUi();
+            yield return UiTick(() => GrantUiLoot(Bone, 1, RaidLootOrigin.Dungeon));
+            var drop = _uiReceiver.GetComponent<PlayerLootDropNetworkController>();
+            int confirmations = 0;
+            drop.DropConfirmed += result =>
+            {
+                Assert.That(result.Result.Success, Is.True);
+                Assert.That(result.Result.DroppedAmount, Is.EqualTo(1));
+                confirmations++;
+            };
+            // The view now has an active host, so real presenter enable/disable callbacks
+            // are meaningful here. Personal mode needs no fabricated container watchdog state.
+            _presenter.enabled = true;
+            for (int cycle = 0; cycle < 2; cycle++)
+            {
+                _presenter.Bind(_uiReceiver, _inputReader, _uiReceiver.GetComponent<PlayerInteractionNetworkController>(),
+                    _uiReceiver.GetComponent<PlayerLootTransferNetworkController>(), drop,
+                    _uiReceiver.GetComponent<PlayerConsumableNetworkController>(),
+                    _uiReceiver.GetComponent<PlayerWeaponEquipmentNetworkController>(), _uiRunner, _uiReceiver.transform);
+                InvokeMethod(_presenter, "OpenPersonalInventory");
+                OpenUiContext(0);
+                Assert.That(ReadSuppressionCount(_inputReader), Is.EqualTo(1));
+                _presenter.enabled = false;
+                Assert.That(_presenter.IsOpen, Is.False);
+                Assert.That(_view.IsOpen, Is.False);
+                Assert.That(_view.ContextMenu.IsOpen, Is.False);
+                Assert.That(ReadSuppressionCount(_inputReader), Is.Zero);
+                _presenter.enabled = true;
+                Assert.That(_presenter.IsOpen, Is.False, "Reenable must not replay the old open intention.");
+                Assert.That(_view.IsOpen, Is.False);
+                yield return null;
+            }
+            InvokeMethod(_presenter, "OpenPersonalInventory");
+            OpenUiContext(0);
+            Assert.That(ReadSuppressionCount(_inputReader), Is.EqualTo(1));
+            yield return UiTick(() => ClickUiContextAction(LootDropContextActionProvider.DropAllId));
+            yield return WaitForUi(() => confirmations > 0);
+            yield return UiTick(() => { });
+            Assert.That(confirmations, Is.EqualTo(1));
+            Assert.That(_uiReceiver.GetLootAmount(Bone), Is.Zero);
+            Assert.That(drop.HasRequestInFlight, Is.False);
+            _presenter.Close();
+            Assert.That(ReadSuppressionCount(_inputReader), Is.Zero);
+        }
+
+        // Reuses the existing production prefab, runner composition and tick driver. The
+        // fixture's disabled presenter drives an active real view and real authoritative endpoints.
+        private IEnumerator BeginPhysicalUi()
+        {
+            var owner = new GameObject("PhysicalRaidUiTestRunner");
+            _uiRunner = owner.AddComponent<NetworkRunner>();
+            owner.AddComponent<EntityRegistry>();
+            Assert.That(PlayModeRunnerComposition.AddLocalInputContext(_uiRunner).TryRegister(_inputReader), Is.True);
+            PlayModeRunnerComposition.AddTeamExtractionProgress(_uiRunner);
+            _uiDriver = owner.AddComponent<ExtractionProgressSimulationDriver>();
+            _uiRunner.ProvideInput = true;
+            var start = _uiRunner.StartGame(new StartGameArgs
+            {
+                GameMode = GameMode.Single, SessionName = $"physical-ui-{Guid.NewGuid():N}",
+                SceneManager = owner.AddComponent<NetworkSceneManagerDefault>(),
+                ObjectProvider = owner.AddComponent<NetworkObjectProviderDefault>()
+            });
+            while (!start.IsCompleted) yield return null;
+            Assert.That(start.IsFaulted, Is.False, start.Exception?.ToString());
+            Assert.That(start.Result.Ok, Is.True, start.Result.ShutdownReason.ToString());
+            Assert.That(CharacterAttributeState.TryCreate(5, 5, 5, 5, 5, 5, 0, out CharacterAttributeState attributes), Is.True);
+            Assert.That(RaidParticipantId.TryCreate(1, out RaidParticipantId participantId), Is.True);
+            NetworkObject participant = _uiRunner.Spawn(UiPrefab("c39d451563bae6e43934008a0dadc6d6"),
+                inputAuthority: null, onBeforeSpawned: (_, instance) => instance.GetComponent<NetworkRaidParticipant>()
+                    .Initialize("physical-ui-profile", participantId, attributes, ExperienceCurve.InitialLevel, 0, "physical-ui-generation"));
+            NetworkObject avatar = _uiRunner.Spawn(UiPrefab("fea3a7b256f965a4eb9b965832939741"),
+                Vector3.zero, Quaternion.identity, _uiRunner.LocalPlayer,
+                onBeforeSpawned: (_, instance) => instance.GetComponent<RaidAvatarParticipantLink>().Initialize(participant));
+            ExtractionProgressTestAssertions.AssertRegistered(_uiRunner, avatar);
+            _uiReceiver = avatar.GetComponent<PlayerLootReceiver>();
+            _uiCatalog = _uiReceiver.LootCatalog;
+            Assert.That(_uiReceiver.HasInputAuthority, Is.True);
+            SetPresenterField(_presenter, "_lootCatalog", _uiCatalog);
+            _presenter.Bind(_uiReceiver, _inputReader, avatar.GetComponent<PlayerInteractionNetworkController>(),
+                avatar.GetComponent<PlayerLootTransferNetworkController>(), avatar.GetComponent<PlayerLootDropNetworkController>(),
+                avatar.GetComponent<PlayerConsumableNetworkController>(), avatar.GetComponent<PlayerWeaponEquipmentNetworkController>(),
+                _uiRunner, avatar.transform);
+            InvokeMethod(_presenter, "Subscribe");
+            InvokeMethod(_presenter, "OpenPersonalInventory");
+            Assert.That(_view.IsOpen, Is.True);
+            Assert.That(_view.ScreenRootRect.gameObject.activeInHierarchy, Is.True);
+            yield return null;
+        }
+
+        [UnityTearDown]
+        public IEnumerator StopPhysicalUi()
+        {
+            if (_uiRunner == null) yield break;
+            if (_presenter != null) _presenter.Unbind();
+            if (_uiRunner.IsRunning)
+            {
+                var shutdown = _uiRunner.Shutdown();
+                while (!shutdown.IsCompleted) yield return null;
+            }
+            if (_uiRunner != null) UnityEngine.Object.DestroyImmediate(_uiRunner.gameObject);
+            _uiRunner = null;
+            if (_createdEquipmentContent) EquipmentTestContent.Cleanup();
+            _createdEquipmentContent = false;
+            CleanupFixture();
+        }
+
+        private NetworkObject UiPrefab(string guid)
+        {
+            NetworkPrefabId id = _uiRunner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(guid));
+            Assert.That(id.IsValid, Is.True, guid);
+            return _uiRunner.Config.PrefabTable.Load(id, true);
+        }
+
+        private LootDefinition Definition(LootId id)
+        {
+            Assert.That(_uiCatalog.TryGet(id.Value, out LootDefinition definition), Is.True, id.Value);
+            return definition;
+        }
+
+        private void GrantUiLoot(LootId id, int amount, RaidLootOrigin origin)
+        {
+            var request = new LootTransferRequest(new EntityId(int.MaxValue), _uiReceiver.Id, id, amount, _uiRunner.Tick);
+            Assert.That(_uiReceiver.ValidateReceive(request), Is.EqualTo(LootTransferFailureReason.None));
+            Assert.That(RaidLootOriginTransfer.TryCreate(origin, amount, out RaidLootOriginTransfer transfer), Is.True);
+            Assert.That(_uiReceiver.ValidateRaidLootOriginReceive(request, transfer), Is.EqualTo(LootTransferFailureReason.None));
+            _uiReceiver.CommitRaidLootReceive(request, transfer);
+        }
+
+        private void ExtractUiSlot(int index, int amount)
+        {
+            var request = new LootTransferRequest(_uiReceiver.Id, _uiReceiver.Id, Bone, amount, _uiRunner.Tick, index, _uiReceiver.Revision);
+            Assert.That(_uiReceiver.ValidateExtraction(request), Is.EqualTo(LootTransferFailureReason.None));
+            Assert.That(_uiReceiver.TryResolveRaidLootOriginTransfer(request, out RaidLootOriginTransfer transfer), Is.True);
+            _uiReceiver.CommitRaidLootExtraction(request, transfer);
+        }
+
+        private NetworkLootContainer BindUiContainer()
+        {
+            bool initialized = false;
+            NetworkObject spawned = _uiRunner.Spawn(UiPrefab("2c19a78647c64b84a765ff0280706b7d"),
+                Vector3.right, Quaternion.identity, inputAuthority: null,
+                onBeforeSpawned: (runner, instance) => initialized = instance.GetComponent<NetworkLootContainer>()
+                    .TrySetInitialContentOverride(runner, instance, Array.Empty<LootEntry>()));
+            Assert.That(initialized, Is.True);
+            NetworkLootContainer container = spawned.GetComponent<NetworkLootContainer>();
+            SetPresenterField(_presenter, "_container", container);
+            SetPresenterMode(_presenter, 2);
+            Physics2D.SyncTransforms();
+            InvokeMethod(_presenter, "RefreshPlayerPanel");
+            // Deliberately retain the authored container pool and strict logs. Its known
+            // six-versus-thirty shortage is not repaired or ignored by this player-UI test.
+            InvokeMethod(_presenter, "RefreshContainerPanel");
+            _view.SetContainerPanelVisible(true);
+            return container;
+        }
+
+        private void OpenUiContext(int index)
+        {
+            SetPresenterMode(_presenter, 1);
+            InvokeMethod(_presenter, "RefreshPlayerPanel");
+            RaidInventorySlotView slot = PlayerSlots()[index];
+            Assert.That(slot.IsOccupied, Is.True, $"Physical slot {index} is not projected.");
+            slot.OnPointerClick(new PointerEventData(null) { button = PointerEventData.InputButton.Right });
+            Assert.That(_view.ContextMenu.IsOpen, Is.True);
+            Assert.That(_view.ContextMenu.gameObject.activeInHierarchy, Is.True,
+                "Real pooled buttons need an active hierarchy to install their Awake listeners.");
+        }
+
+        private void BeginUiDrag(int index)
+        {
+            InvokeMethod(_presenter, "RefreshPlayerPanel");
+            RaidInventorySlotView slot = PlayerSlots()[index];
+            Assert.That(slot.IsOccupied, Is.True, $"Physical slot {index} is not projected.");
+            slot.OnBeginDrag(new PointerEventData(null) { button = PointerEventData.InputButton.Left });
+            DragPayload payload = (DragPayload)GetPresenterField(_presenter, "_activeDrag");
+            Assert.That(payload.IsValid, Is.True);
+            Assert.That(payload.SourceInventorySlotIndex, Is.EqualTo(index));
+            Assert.That(payload.ExpectedInventoryRevision, Is.EqualTo(_uiReceiver.Revision));
+        }
+
+        private void ClickUiContextAction(LootContextActionId actionId)
+        {
+            foreach (RaidLootContextActionButton action in _view.ContextMenu.GetComponentsInChildren<RaidLootContextActionButton>(true))
+            {
+                var presented = (LootContextActionId)typeof(RaidLootContextActionButton).GetField("_actionId",
+                    BindingFlags.Instance | BindingFlags.NonPublic).GetValue(action);
+                if (!action.gameObject.activeSelf || presented != actionId) continue;
+                var button = (UnityEngine.UI.Button)typeof(RaidLootContextActionButton).GetField("_button",
+                    BindingFlags.Instance | BindingFlags.NonPublic).GetValue(action);
+                Assert.That(button.interactable, Is.True, actionId.ToString());
+                button.onClick.Invoke();
+                return;
+            }
+            Assert.Fail($"Requested context action was not presented: {actionId}.");
+        }
+
+        private void DropUiOnContainer()
+        {
+            var slots = (RaidInventorySlotView[])typeof(RaidLootPanelView).GetField("_authoredSlots",
+                BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_view.ContainerPanel);
+            slots[0].OnDrop(new PointerEventData(null) { button = PointerEventData.InputButton.Left });
+        }
+
+        private LootInventorySlot[] ReadUiInventory()
+        {
+            var slots = new LootInventorySlot[30];
+            for (int index = 0; index < slots.Length; index++)
+                Assert.That(_uiReceiver.TryGetInventorySlot(index, out slots[index]), Is.True);
+            return slots;
+        }
+
+        private void AssertUiNoGameplayMutation(LootInventorySlot[] inventory, int revision,
+            NetworkLootContainer container, int containerRevision, int equipmentRevision)
+        {
+            Assert.That(_uiReceiver.GetComponent<PlayerLootDropNetworkController>().HasRequestInFlight, Is.False);
+            Assert.That(_uiReceiver.GetComponent<PlayerLootTransferNetworkController>().HasRequestInFlight, Is.False);
+            Assert.That(_uiReceiver.GetComponent<PlayerConsumableNetworkController>().HasRequestInFlight, Is.False);
+            var equipment = _uiReceiver.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            Assert.That(equipment.HasRequestInFlight, Is.False);
+            Assert.That(equipment.EquipmentRevision, Is.EqualTo(equipmentRevision));
+            Assert.That(equipment.HasAnyEquipment, Is.False);
+            Assert.That(_uiReceiver.Revision, Is.EqualTo(revision));
+            Assert.That(ReadUiInventory(), Is.EqualTo(inventory), "All thirty quantities, addresses and origins must be unchanged.");
+            Assert.That(container.LootChangeSequence, Is.EqualTo(containerRevision));
+            Assert.That(container.TryGetLootContent(out var content), Is.True);
+            Assert.That(content, Is.Empty);
+            foreach (NetworkLootPickup pickup in UnityEngine.Object.FindObjectsByType<NetworkLootPickup>(FindObjectsSortMode.None))
+            {
+                Assert.That(pickup.Object == null || !pickup.Object.IsValid || pickup.Runner != _uiRunner, Is.True,
+                    "A stale intention must not publish a world pickup.");
+            }
+        }
+
+        private RaidInventorySlotView[] PlayerSlots() =>
+            (RaidInventorySlotView[])typeof(RaidLootPanelView).GetField("_authoredSlots",
+                BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_view.PlayerPanel);
+
+        private static RaidInventorySlotData SlotData(RaidInventorySlotView view) =>
+            (RaidInventorySlotData)typeof(RaidInventorySlotView).GetField("_slotData",
+                BindingFlags.Instance | BindingFlags.NonPublic).GetValue(view);
+
+        private static RaidLootOrigin PlayerOrigin(int value)
+        {
+            Assert.That(RaidParticipantId.TryCreate(value, out RaidParticipantId participant), Is.True);
+            Assert.That(RaidLootOrigin.TryCreatePlayer(participant, out RaidLootOrigin origin), Is.True);
+            return origin;
+        }
+
+        private IEnumerator UiTick(Action action)
+        {
+            _uiDriver.ClearException();
+            _uiDriver.PendingAction = _ => action();
+            yield return WaitForUi(() => _uiDriver.PendingAction == null);
+            Assert.That(_uiDriver.LastException, Is.Null, _uiDriver.LastException?.ToString());
+        }
+
+        private static IEnumerator WaitForUi(Func<bool> ready)
+        {
+            float deadline = Time.realtimeSinceStartup + 10f;
+            while (!ready() && Time.realtimeSinceStartup < deadline) yield return null;
+            Assert.That(ready(), Is.True, "Expected UI/authority transition did not complete.");
         }
 
         private static void SetKey(Keyboard keyboard, Key key, bool pressed)

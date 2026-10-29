@@ -46,15 +46,12 @@ public sealed class LootDropContextActionProvider : ILootContextActionProvider
             return false;
         }
 
-        if (actionId == DropSingleId)
-        {
-            return _controller.TryRequestDrop(
-                context.Entry.LootId,
-                LootTransferQuantityMode.SingleUnit);
-        }
-
-        return actionId == DropAllId && _controller.TryRequestDrop(
-            context.Entry.LootId,
-            LootTransferQuantityMode.FullStack);
+        if (actionId != DropSingleId && actionId != DropAllId) return false;
+        LootTransferQuantityMode mode = actionId == DropSingleId
+            ? LootTransferQuantityMode.SingleUnit : LootTransferQuantityMode.FullStack;
+        return context.HasInventorySlotAddress
+            ? _controller.TryRequestDrop(context.Entry.LootId, mode,
+                context.SourceInventorySlotIndex, context.ExpectedInventoryRevision)
+            : _controller.TryRequestDrop(context.Entry.LootId, mode);
     }
 }

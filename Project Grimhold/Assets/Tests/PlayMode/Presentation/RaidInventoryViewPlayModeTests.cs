@@ -391,7 +391,7 @@ namespace Tests.PlayMode.Presentation
         }
 
         [UnityTest]
-        public IEnumerator OccupiedSlot_MapsLeftToSingleUnitAndRightToFullStack()
+        public IEnumerator OccupiedContainerSlot_LeftClickDoesNotTransfer_RightClickRetainsFullStack()
         {
             _instance.SetActive(true);
             _view.SetScreenVisible(true);
@@ -421,11 +421,8 @@ namespace Tests.PlayMode.Presentation
 
             Assert.That(
                 receivedModes,
-                Is.EqualTo(new[]
-                {
-                    LootTransferQuantityMode.SingleUnit,
-                    LootTransferQuantityMode.FullStack
-                }));
+                Is.EqualTo(new[] { LootTransferQuantityMode.FullStack }),
+                "Do not restore obsolete left-click transfer while adding addressed gestures.");
 
             panel.RefreshInteraction(false, default);
             button.onClick.Invoke();
@@ -433,14 +430,14 @@ namespace Tests.PlayMode.Presentation
             {
                 button = PointerEventData.InputButton.Right
             });
-            Assert.That(receivedModes, Has.Count.EqualTo(2));
+            Assert.That(receivedModes, Has.Count.EqualTo(1));
 
             slot.Clear();
             slot.OnPointerClick(new PointerEventData(null)
             {
                 button = PointerEventData.InputButton.Right
             });
-            Assert.That(receivedModes, Has.Count.EqualTo(2));
+            Assert.That(receivedModes, Has.Count.EqualTo(1));
         }
 
         [UnityTest]
@@ -660,6 +657,146 @@ namespace Tests.PlayMode.Presentation
             _view.SetContainerPanelVisible(false);
             Assert.That(_view.TakeAllButton.interactable, Is.False);
         }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void PhysicalPanel_SecondDuplicateOwnsSelectionContextAndDrag(bool differentOrigin)
+        {
+            RaidLootPanelView panel = _view.PlayerPanel;
+            Assert.That(panel.EnsureSlotCount(30), Is.True);
+            panel.SetDragLocation(DragSlotLocation.Inventory);
+            RaidInventorySlotData[] data = PhysicalData(19, differentOrigin);
+            Assert.That(panel.Present(data, 13, false, RaidLootSlotInteractionMode.ContextMenu,
+                new LootId("bone"), 7), Is.True);
+            RaidInventorySlotView[] slots = AuthoredSlots(panel);
+            for (int index = 0; index < 30; index++)
+            {
+                Assert.That(slots[index].gameObject.activeSelf, Is.True);
+                Assert.That(ReadData(slots[index]).SourceInventorySlotIndex, Is.EqualTo(index));
+                Assert.That(ReadData(slots[index]).ExpectedInventoryRevision, Is.EqualTo(19));
+                Assert.That(typeof(RaidInventorySlotView).GetField("_isSelected", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .GetValue(slots[index]), Is.EqualTo(index == 7), $"Selection leaked to physical slot {index}.");
+            }
+            Assert.That(slots[1].IsOccupied, Is.False, "An interior hole must not be packed away.");
+            Assert.That(ReadData(slots[0]).Amount, Is.EqualTo(10));
+            Assert.That(ReadData(slots[7]).Amount, Is.EqualTo(3));
+            Assert.That(ReadData(slots[7]).Origin, Is.EqualTo(data[7].Origin));
+            int legacyContexts = 0;
+            int transfers = 0;
+            RaidInventorySlotData captured = default;
+            RectTransform anchor = null;
+            DragPayload drag = default;
+            panel.ContextRequested += (_, __) => legacyContexts++;
+            panel.SelectionRequested += (_, __) => transfers++;
+            panel.InventoryContextRequested += (selected, selectedAnchor) => { captured = selected; anchor = selectedAnchor; };
+            panel.DragStarted += payload => drag = payload;
+            slots[7].GetComponent<Button>().onClick.Invoke();
+            slots[7].OnPointerClick(new PointerEventData(null) { button = PointerEventData.InputButton.Left });
+            Assert.That(captured.IsOccupied, Is.False);
+            slots[7].OnPointerClick(new PointerEventData(null) { button = PointerEventData.InputButton.Right });
+            Assert.That(captured.SourceInventorySlotIndex, Is.EqualTo(7));
+            Assert.That(captured.ExpectedInventoryRevision, Is.EqualTo(19));
+            Assert.That(captured.Amount, Is.EqualTo(3));
+            Assert.That(captured.Origin, Is.EqualTo(data[7].Origin));
+            Assert.That(anchor, Is.SameAs(slots[7].transform));
+            Assert.That(legacyContexts, Is.Zero, "Do not also dispatch an ID-only action for a physical slot.");
+            Assert.That(transfers, Is.Zero);
+            slots[7].OnBeginDrag(new PointerEventData(null) { button = PointerEventData.InputButton.Left });
+            Assert.That(drag.SourceInventorySlotIndex, Is.EqualTo(7));
+            Assert.That(drag.ExpectedInventoryRevision, Is.EqualTo(19));
+            Assert.That(drag.Amount, Is.EqualTo(3));
+            Assert.That(drag.LootId, Is.EqualTo(new LootId("bone")));
+            Assert.That(drag.Source, Is.EqualTo(DragSlotLocation.Inventory));
+        }
+
+        [Test]
+        public void PhysicalTransferGesture_RightClickCarriesSelectedSnapshot_WithoutLegacyOrLeftClickDispatch()
+        {
+            RaidLootPanelView panel = _view.PlayerPanel;
+            Assert.That(panel.EnsureSlotCount(30), Is.True);
+            Assert.That(panel.Present(PhysicalData(19, false), null, false,
+                RaidLootSlotInteractionMode.Transfer, default), Is.True);
+            RaidInventorySlotData selected = default;
+            LootTransferQuantityMode mode = default;
+            int addressed = 0;
+            int legacy = 0;
+            panel.InventorySelectionRequested += (data, quantityMode) => { selected = data; mode = quantityMode; addressed++; };
+            panel.SelectionRequested += (_, __) => legacy++;
+            RaidInventorySlotView slot = AuthoredSlots(panel)[7];
+            slot.GetComponent<Button>().onClick.Invoke();
+            slot.OnPointerClick(new PointerEventData(null) { button = PointerEventData.InputButton.Left });
+            Assert.That(addressed, Is.Zero);
+            slot.OnPointerClick(new PointerEventData(null) { button = PointerEventData.InputButton.Right });
+            Assert.That(addressed, Is.EqualTo(1));
+            Assert.That(legacy, Is.Zero);
+            Assert.That(mode, Is.EqualTo(LootTransferQuantityMode.FullStack));
+            Assert.That(selected.SourceInventorySlotIndex, Is.EqualTo(7));
+            Assert.That(selected.ExpectedInventoryRevision, Is.EqualTo(19));
+            Assert.That(selected.Amount, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void PhysicalPanel_IdentityOnlySuccessCannotPulseFirstMatchingStack_ContainerStillCan()
+        {
+            RaidLootPanelView panel = _view.PlayerPanel;
+            Assert.That(panel.EnsureSlotCount(30), Is.True);
+            Assert.That(panel.Present(PhysicalData(19, true), null, false, false, default), Is.True);
+            _view.ShowTransferFeedback("Transferencia confirmada");
+            Assert.That(panel.ShowTransferSuccess(new LootId("bone")), Is.False);
+            foreach (RaidInventorySlotView slot in AuthoredSlots(panel))
+                Assert.That(slot.IsTransferFeedbackActive, Is.False);
+            Assert.That(_view.TransferFeedbackText.text, Is.EqualTo("Transferencia confirmada"));
+            RaidLootPanelView container = _view.ContainerPanel;
+            Assert.That(container.EnsureSlotCount(1), Is.True);
+            Assert.That(container.Present(new[] { RaidInventorySlotData.Create(
+                new LootEntry(new LootId("bone"), 13), null, null) }, null, false, false, default), Is.True);
+            Assert.That(container.ShowTransferSuccess(new LootId("bone")), Is.True);
+            Assert.That(AuthoredSlots(container)[0].IsTransferFeedbackActive, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator PhysicalSlot_SameItemWithNewRevisionDismissesStaleTooltip()
+        {
+            LootDefinition definition = CreateTooltipDefinition("Bone", LootCategory.Material);
+            SetPrivateField(definition, "_id", "bone");
+            RaidLootPanelView panel = _view.PlayerPanel;
+            Assert.That(panel.EnsureSlotCount(1), Is.True);
+            var first = RaidInventorySlotData.CreateInventorySlot(new LootEntry(new LootId("bone"), 3),
+                definition, null, 0, 19, RaidLootOrigin.Dungeon);
+            var second = RaidInventorySlotData.CreateInventorySlot(new LootEntry(new LootId("bone"), 3),
+                definition, null, 0, 20, RaidLootOrigin.Dungeon);
+            Object.DestroyImmediate(definition);
+            Assert.That(panel.Present(new[] { first }, null, false, false, default), Is.True);
+            RaidInventorySlotView slot = AuthoredSlots(panel)[0];
+            slot.OnPointerEnter(new PointerEventData(null));
+            Assert.That(_view.TooltipView.IsOpen, Is.True);
+            Assert.That(panel.Present(new[] { second }, null, false, false, default), Is.True);
+            Assert.That(_view.TooltipView.IsOpen, Is.False, "Matching LootId does not make an old physical snapshot current.");
+            yield return null;
+        }
+
+        private static RaidInventorySlotData[] PhysicalData(int revision, bool differentOrigin)
+        {
+            var result = new RaidInventorySlotData[30];
+            for (int index = 0; index < result.Length; index++)
+                result[index] = RaidInventorySlotData.EmptyInventorySlot(index, revision);
+            RaidParticipantId.TryCreate(2, out RaidParticipantId participant);
+            RaidLootOrigin.TryCreatePlayer(participant, out RaidLootOrigin playerOrigin);
+            var id = new LootId("bone");
+            result[0] = RaidInventorySlotData.CreateInventorySlot(new LootEntry(id, 10), null, null,
+                0, revision, RaidLootOrigin.Dungeon);
+            result[7] = RaidInventorySlotData.CreateInventorySlot(new LootEntry(id, 3), null, null,
+                7, revision, differentOrigin ? playerOrigin : RaidLootOrigin.Dungeon);
+            return result;
+        }
+
+        private static RaidInventorySlotView[] AuthoredSlots(RaidLootPanelView panel) =>
+            (RaidInventorySlotView[])typeof(RaidLootPanelView).GetField("_authoredSlots",
+                BindingFlags.Instance | BindingFlags.NonPublic).GetValue(panel);
+
+        private static RaidInventorySlotData ReadData(RaidInventorySlotView slot) =>
+            (RaidInventorySlotData)typeof(RaidInventorySlotView).GetField("_slotData",
+                BindingFlags.Instance | BindingFlags.NonPublic).GetValue(slot);
 
         private static RaidInventorySlotView GetFirstActiveSlot(RaidLootPanelView panel)
         {

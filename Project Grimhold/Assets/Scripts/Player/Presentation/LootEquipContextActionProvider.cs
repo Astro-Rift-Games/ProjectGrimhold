@@ -40,9 +40,13 @@ public sealed class LootEquipContextActionProvider : ILootContextActionProvider
 
     public bool TryExecute(LootContextActionId actionId, in LootContextActionContext context)
     {
+        if (!IsValidEquipment(context) || _controller == null || _controller.HasRequestInFlight) return false;
         EquipmentSlot slot = ResolveSlot(actionId, context.Definition.Category);
-        return slot != EquipmentSlot.None && IsValidEquipment(context) && _controller != null &&
-            !_controller.HasRequestInFlight && _controller.TryRequestEquip(context.Entry.LootId, slot);
+        if (slot == EquipmentSlot.None) return false;
+        return context.HasInventorySlotAddress
+            ? _controller.TryRequestEquip(context.Entry.LootId, slot,
+                context.SourceInventorySlotIndex, context.ExpectedInventoryRevision)
+            : _controller.TryRequestEquip(context.Entry.LootId, slot);
     }
 
     private void Add(

@@ -52,6 +52,8 @@ public sealed class RaidLootPanelView : MonoBehaviour
 
     public event Action<LootId, LootTransferQuantityMode> SelectionRequested;
     public event Action<LootId, RectTransform> ContextRequested;
+    public event Action<RaidInventorySlotData, LootTransferQuantityMode> InventorySelectionRequested;
+    public event Action<RaidInventorySlotData, RectTransform> InventoryContextRequested;
     public event Action<EquipmentTooltipPresentation, RectTransform> TooltipRequested;
     public event Action<RectTransform> TooltipDismissRequested;
 
@@ -66,9 +68,11 @@ public sealed class RaidLootPanelView : MonoBehaviour
     /// <summary>The complete slot pool authored in the prefab, shown or hidden but never created.</summary>
     public int AuthoredSlotCount => _authoredSlots?.Length ?? 0;
 
-    /// <summary>Targets the current destination projection, never a stale source slot index.</summary>
+    /// <summary>An ID-only confirmation cannot identify a physical destination cell.</summary>
     public bool ShowTransferSuccess(LootId lootId)
     {
+        for (int i = 0; i < _slots.Count; i++)
+            if (_slots[i].SourceInventorySlotIndex != -1) return false;
         for (int i = 0; i < _slots.Count; i++)
         {
             if (_slots[i].IsOccupied && _slots[i].LootId == lootId)
@@ -206,6 +210,8 @@ public sealed class RaidLootPanelView : MonoBehaviour
         {
             _authoredSlots[index].SelectionRequested += OnSlotSelectionRequested;
             _authoredSlots[index].ContextRequested += OnSlotContextRequested;
+            _authoredSlots[index].InventorySelectionRequested += OnInventorySelectionRequested;
+            _authoredSlots[index].InventoryContextRequested += OnInventoryContextRequested;
             _authoredSlots[index].TooltipRequested += OnSlotTooltipRequested;
             _authoredSlots[index].TooltipDismissRequested += OnSlotTooltipDismissRequested;
             
@@ -243,7 +249,8 @@ public sealed class RaidLootPanelView : MonoBehaviour
         long? totalValue,
         bool showEmpty,
         RaidLootSlotInteractionMode interactionMode,
-        LootId selectedLootId)
+        LootId selectedLootId,
+        int selectedInventorySlotIndex = -1)
     {
         if (slots == null || slots.Count != _slots.Count)
         {
@@ -256,7 +263,8 @@ public sealed class RaidLootPanelView : MonoBehaviour
             _slots[i].Present(in data);
             _slots[i].SetInteraction(
                 data.IsOccupied ? interactionMode : RaidLootSlotInteractionMode.ReadOnly,
-                data.IsOccupied && data.LootId == selectedLootId);
+                data.IsOccupied && data.LootId == selectedLootId &&
+                (!data.HasInventorySlotAddress || data.SourceInventorySlotIndex == selectedInventorySlotIndex));
         }
 
         PresentTotalValue(totalValue);
@@ -277,14 +285,16 @@ public sealed class RaidLootPanelView : MonoBehaviour
 
     public void RefreshInteraction(
         RaidLootSlotInteractionMode interactionMode,
-        LootId selectedLootId)
+        LootId selectedLootId,
+        int selectedInventorySlotIndex = -1)
     {
         for (int i = 0; i < _slots.Count; i++)
         {
             RaidInventorySlotView slot = _slots[i];
             slot.SetInteraction(
                 slot.IsOccupied ? interactionMode : RaidLootSlotInteractionMode.ReadOnly,
-                slot.IsOccupied && slot.LootId == selectedLootId);
+                slot.IsOccupied && slot.LootId == selectedLootId &&
+                (slot.SourceInventorySlotIndex == -1 || slot.SourceInventorySlotIndex == selectedInventorySlotIndex));
         }
     }
 
@@ -360,6 +370,8 @@ public sealed class RaidLootPanelView : MonoBehaviour
             {
                 _authoredSlots[i].SelectionRequested -= OnSlotSelectionRequested;
                 _authoredSlots[i].ContextRequested -= OnSlotContextRequested;
+                _authoredSlots[i].InventorySelectionRequested -= OnInventorySelectionRequested;
+                _authoredSlots[i].InventoryContextRequested -= OnInventoryContextRequested;
                 _authoredSlots[i].TooltipRequested -= OnSlotTooltipRequested;
                 _authoredSlots[i].TooltipDismissRequested -= OnSlotTooltipDismissRequested;
                 
@@ -380,6 +392,12 @@ public sealed class RaidLootPanelView : MonoBehaviour
     {
         ContextRequested?.Invoke(lootId, anchor);
     }
+
+    private void OnInventorySelectionRequested(RaidInventorySlotData data, LootTransferQuantityMode mode) =>
+        InventorySelectionRequested?.Invoke(data, mode);
+
+    private void OnInventoryContextRequested(RaidInventorySlotData data, RectTransform anchor) =>
+        InventoryContextRequested?.Invoke(data, anchor);
 
     private void OnSlotTooltipRequested(EquipmentTooltipPresentation presentation, RectTransform anchor) =>
         TooltipRequested?.Invoke(presentation, anchor);

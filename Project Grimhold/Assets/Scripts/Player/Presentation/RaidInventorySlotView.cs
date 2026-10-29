@@ -67,6 +67,8 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     public event Action<LootId, LootTransferQuantityMode> SelectionRequested;
     public event Action<LootId, RectTransform> ContextRequested;
+    public event Action<RaidInventorySlotData, LootTransferQuantityMode> InventorySelectionRequested;
+    public event Action<RaidInventorySlotData, RectTransform> InventoryContextRequested;
     public event Action<EquipmentTooltipPresentation, RectTransform> TooltipRequested;
     public event Action<RectTransform> TooltipDismissRequested;
     
@@ -77,6 +79,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     public LootId LootId => _lootId;
     public bool IsOccupied => _isOccupied;
+    public int SourceInventorySlotIndex => _slotData.SourceInventorySlotIndex;
 
     private void Awake()
     {
@@ -93,11 +96,17 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         if (!data.IsOccupied)
         {
             Clear();
+            _slotData = data; // Empty physical cells still retain their address and snapshot token.
             return;
         }
 
-        if (_isOccupied && _lootId != data.LootId)
+        bool snapshotChanged = (_slotData.HasInventorySlotAddress || data.HasInventorySlotAddress) &&
+            (_slotData.SourceInventorySlotIndex != data.SourceInventorySlotIndex ||
+             _slotData.ExpectedInventoryRevision != data.ExpectedInventoryRevision ||
+             !Nullable.Equals(_slotData.Origin, data.Origin) || _slotData.Amount != data.Amount);
+        if (_isOccupied && (_lootId != data.LootId || snapshotChanged))
         {
+            _isDragging = false;
             ClearTransferFeedback();
             TooltipDismissRequested?.Invoke(transform as RectTransform);
         }
@@ -233,6 +242,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
     {
         _isReserved = false;
         _isInactiveSet = false;
+        _isDragging = false;
         _transferPulseRemaining = 0f;
         _dropHighlight = DropHighlightState.None;
         if (_isOccupied)
@@ -285,7 +295,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     /// <summary>
     /// Converts a right click on an interactive occupied slot into a full-stack intention.
-    /// Left clicks continue through <see cref="Button.onClick"/> so keyboard submit behavior is preserved.
+    /// Left clicks do not transfer; dragging and context actions own Inventory gestures.
     /// </summary>
     public void OnPointerClick(PointerEventData eventData)
     {
@@ -299,13 +309,19 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
             _interactionMode == RaidLootSlotInteractionMode.TransferWithContextMenu)
         {
             TooltipDismissRequested?.Invoke(transform as RectTransform);
-            ContextRequested?.Invoke(_lootId, transform as RectTransform);
+            if (_slotData.HasInventorySlotAddress)
+                InventoryContextRequested?.Invoke(_slotData, transform as RectTransform);
+            else
+                ContextRequested?.Invoke(_lootId, transform as RectTransform);
             return;
         }
 
         if (_interactionMode == RaidLootSlotInteractionMode.Transfer)
         {
-            SelectionRequested?.Invoke(_lootId, LootTransferQuantityMode.FullStack);
+            if (_slotData.HasInventorySlotAddress)
+                InventorySelectionRequested?.Invoke(_slotData, LootTransferQuantityMode.FullStack);
+            else
+                SelectionRequested?.Invoke(_lootId, LootTransferQuantityMode.FullStack);
         }
     }
 
