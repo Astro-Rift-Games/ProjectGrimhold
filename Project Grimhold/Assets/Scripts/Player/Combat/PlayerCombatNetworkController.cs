@@ -424,6 +424,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                     GetBasicAttackDamageMultiplier());
             if (!accepted) return;
             // Capture all projectile data before the shared executor can be reconfigured.
+            release.EmpowerSourceParticipantValue = GetBasicAttackEmpowerSource().Value;
             PendingRangedRelease = release;
             releaseTick = release.ReleaseTick;
         }
@@ -496,6 +497,20 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         ? _empowerEffect.GetBasicAttackDamageMultiplier()
         : 1f;
 
+    private RaidParticipantId GetBasicAttackEmpowerSource()
+    {
+        return _empowerEffect != null && _empowerEffect.TryGetBasicAttackEmpowerSource(out RaidParticipantId id)
+            ? id : default;
+    }
+
+    private bool TrySpawnBasicAttackProjectile(in ProjectileSpawnRequest request, int sourceValue)
+    {
+        RaidParticipantId.TryCreate(sourceValue, out RaidParticipantId sourceId);
+        return _releaseSpawner is FusionProjectileSpawner spawner
+            ? spawner.Spawn(request, sourceId).WasSpawned
+            : _releaseSpawner != null && _releaseSpawner.Spawn(request).WasSpawned;
+    }
+
     private int GetActiveWeaponCatalogIndexPlusOne() => _equipmentController != null
         ? _equipmentController.GetActiveWeaponCatalogIndexPlusOne()
         : 0;
@@ -534,7 +549,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                 GetAttackOriginPosition(),
                 direction,
                 (int)Runner.Tick);
-            if (meleeAttack.Execute(in request, GetBasicAttackDamageMultiplier()).WasExecuted)
+            if (meleeAttack.Execute(in request, GetBasicAttackDamageMultiplier(), GetBasicAttackEmpowerSource()).WasExecuted)
                 LastAttackCancellationTick = -1;
         }
     }
@@ -547,7 +562,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         PendingRangedRelease = release; // Commit consumption BEFORE the irreversible spawn, even on failure.
         // A throwing adapter must also leave a consumed/cancelled shot; do not hide its exception.
         LastAttackCancellationTick = Runner.Tick;
-        if (valid && _releaseSpawner != null && _releaseSpawner.Spawn(request).WasSpawned)
+        if (valid && TrySpawnBasicAttackProjectile(request, release.EmpowerSourceParticipantValue))
             LastAttackCancellationTick = -1;
     }
 
@@ -711,6 +726,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                 TryResolveAimedReleaseSeconds(Runner.Tick, out float seconds) ? seconds : null;
             if (_releaseSpawner == null || !ranged.TryAcceptRelease(request, Runner.DeltaTime,
                 out state.Ranged, aimed, GetBasicAttackDamageMultiplier())) return false;
+            state.Ranged.EmpowerSourceParticipantValue = GetBasicAttackEmpowerSource().Value;
             state.ReleaseTick = state.Ranged.ReleaseTick;
             state.Aimed = aimed.HasValue;
         }
@@ -773,7 +789,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                     {
                         AttackRequest request = new(_character.Id, GetAttackOriginPosition(), direction, Runner.Tick);
                         AttackExecutionParameters parameters = release.ExecutionParameters;
-                        if (melee.Execute(request, parameters, GetBasicAttackDamageMultiplier()).WasExecuted)
+                        if (melee.Execute(request, parameters, GetBasicAttackDamageMultiplier(), GetBasicAttackEmpowerSource()).WasExecuted)
                         {
                             state.CancellationTick = -1;
                             HandAttacks.Set(index, state);
@@ -786,7 +802,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                 bool valid = state.Ranged.TryConsume(Runner.Tick, _character.Id, GetAttackOriginPosition(), out ProjectileSpawnRequest request);
                 state.CancellationTick = Runner.Tick;
                 HandAttacks.Set(index, state);
-                if (valid && _releaseSpawner != null && _releaseSpawner.Spawn(request).WasSpawned)
+                if (valid && TrySpawnBasicAttackProjectile(request, state.Ranged.EmpowerSourceParticipantValue))
                 {
                     state.CancellationTick = -1;
                     HandAttacks.Set(index, state);

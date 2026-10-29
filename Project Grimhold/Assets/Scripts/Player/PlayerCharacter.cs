@@ -388,7 +388,8 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
     /// <summary>
     /// Forces definitive defeat of this character due to teammate absence confirmation.
     /// Authoritatively clears Downed state without consuming reserves, sets Health to 0,
-    /// and triggers death/corpse conversion without applying synthetic damage or awarding Kill XP.
+    /// and triggers death/corpse conversion without synthetic damage. An existing Downed cycle
+    /// confirms its frozen PvP credit through the Downed-cycle observer.
     /// </summary>
     internal void ForceDefinitiveDefeatFromAbsence()
     {

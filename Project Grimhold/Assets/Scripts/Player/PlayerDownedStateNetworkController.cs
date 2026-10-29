@@ -29,6 +29,7 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
 
     private IDownedDrainGate _drainGate;
     private IDownedDamageObserver _damageObserver;
+    private IDownedCycleObserver _cycleObserver;
     private bool _isConfigurationValid;
     private bool _reportedInvalidConfiguration;
 
@@ -119,6 +120,7 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
         IsDowned = true;
         DownedHealth = reserve;
         DownedCycle++;
+        _cycleObserver?.NotifyDownedEntered(DownedCycle, attackerId, Runner.Tick);
         return true;
     }
 
@@ -156,7 +158,7 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
         return true;
     }
 
-    /// <summary>Clears Downed state without notifying anyone (used by forced definitive defeat).</summary>
+    /// <summary>Clears Downed state and confirms its cycle (also used by forced definitive defeat).</summary>
     internal void ClearDownedState(EntityId defeatCauserId = default)
     {
         if (!HasStateAuthority)
@@ -164,7 +166,8 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
             return;
         }
 
-        if (IsDowned)
+        bool wasDowned = IsDowned;
+        if (wasDowned)
         {
             DefeatCauserEntityId = defeatCauserId.Value;
             DefeatedCycle = DownedCycle;
@@ -172,6 +175,7 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
 
         IsDowned = false;
         DownedHealth = 0f;
+        if (wasDowned) _cycleObserver?.NotifyDownedCycleDefeated(DefeatedCycle);
     }
 
     /// <summary>
@@ -189,6 +193,7 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
         DownedHealth = 0f;
         DefeatCauserEntityId = 0;
         DefeatedCycle = 0;
+        _cycleObserver?.NotifyDownedCycleRecovered(DownedCycle);
         return true;
     }
 
@@ -202,6 +207,7 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
         // Optional collaborators: absent means the drain is never paused and nobody is notified.
         _drainGate ??= GetComponent<IDownedDrainGate>();
         _damageObserver ??= GetComponent<IDownedDamageObserver>();
+        _cycleObserver ??= GetComponent<IDownedCycleObserver>();
     }
 
     private void ValidateConfiguration()

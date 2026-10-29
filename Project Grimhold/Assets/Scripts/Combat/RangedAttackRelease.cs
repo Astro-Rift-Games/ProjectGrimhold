@@ -20,6 +20,8 @@ public struct RangedAttackRelease : INetworkStruct
     public DamageType DamageType;
     public float Range;
     public float Knockback;
+    // Captured alongside the player's multiplier at acceptance, not sampled again after wind-up.
+    public int EmpowerSourceParticipantValue;
 
     public bool TryAccept(in AttackRequest request, RangedAttackConfig config,
         in AttackExecutionParameters parameters, float deltaTime, float? releaseDelayOverrideSeconds = null)

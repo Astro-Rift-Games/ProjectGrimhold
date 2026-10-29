@@ -115,8 +115,21 @@ public sealed class RestorationAbilityBehaviour : AbilityExecutionBehaviour
         {
             PlayerCharacter ally = _allies[i];
             if (!CanReceiveRestoration(ally)) continue;
-            ally.ApplyHealing(new HealRequest(_healAmount));
+            ApplyRestoration(context.Character, ally, _healAmount, context.Runner.Tick);
         }
+    }
+
+    /// <summary>Shared resolution path: only restored missing Health on another avatar is effective support.</summary>
+    internal static HealResult ApplyRestoration(PlayerCharacter caster, PlayerCharacter ally, float amount, int tick)
+    {
+        HealResult result = ally.ApplyHealing(new HealRequest(amount));
+        if (result.Success && result.AmountHealed > 0f && ally != caster &&
+            PlayerPvpCombatCreditNetworkController.TryResolveSourceParticipant(caster, out var participant) &&
+            ally.TryGetComponent(out PlayerPvpCombatCreditNetworkController credit))
+        {
+            credit.RecordSupportReceived(participant.RaidParticipantId, tick);
+        }
+        return result;
     }
 
 #if UNITY_EDITOR

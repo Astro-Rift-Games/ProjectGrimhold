@@ -15,6 +15,8 @@ public readonly struct DamageRequest
     public Vector2 Direction { get; }
     public Vector2 HitPoint { get; }
     public int SimulationTick { get; }
+    /// <summary>Supporter of an empowered basic attack. Abilities leave this unset.</summary>
+    public RaidParticipantId EmpowerSourceId { get; }
 
     /// <summary>
     /// Knockback power (PE original, Doc 18), converted to displacement by KnockbackCurveConfig after RE mitigation.
@@ -31,7 +33,8 @@ public readonly struct DamageRequest
         Vector2 hitPoint,
         int simulationTick,
         float knockbackForce = 0f,
-        bool isAllyDirectDamage = false)
+        bool isAllyDirectDamage = false,
+        RaidParticipantId empowerSourceId = default)
     {
         AttackerId     = attackerId;
         TargetId       = targetId;
@@ -41,6 +44,7 @@ public readonly struct DamageRequest
         Direction      = direction.normalized;
         HitPoint       = hitPoint;
         SimulationTick = simulationTick;
+        EmpowerSourceId = empowerSourceId;
         KnockbackForce = Mathf.Max(0f, knockbackForce);
     }
 }

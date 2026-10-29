@@ -98,6 +98,10 @@ public sealed class EmpowerAbilityBehaviour : AbilityExecutionBehaviour
             return;
         }
 
+        RaidParticipantId sourceId = default;
+        if (PlayerPvpCombatCreditNetworkController.TryResolveSourceParticipant(context.Character, out var participant))
+            sourceId = participant.RaidParticipantId;
+
         for (int i = 0; i < _allies.Count; i++)
         {
             PlayerCharacter ally = _allies[i];
@@ -106,7 +110,7 @@ public sealed class EmpowerAbilityBehaviour : AbilityExecutionBehaviour
                 Debug.LogError($"{nameof(EmpowerAbilityBehaviour)} found an ally without {nameof(EmpowerNetworkEffect)}; it is skipped.", ally);
                 continue;
             }
-            effect.TryApply(_damageBonusFraction, _durationSeconds);
+            effect.TryApply(_damageBonusFraction, _durationSeconds, sourceId);
         }
     }
 

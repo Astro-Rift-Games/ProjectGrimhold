@@ -39,7 +39,35 @@ If a ledger is locked or rejects the reward, its bit is not granted. To guarante
 recovery, `KillExperienceSource` acts as the authoritative retry owner: it runs a local, tick-driven
 retry loop in `FixedUpdateNetwork` that exclusively attempts to grant pending bits until `GrantedAssistMask == EligibleAssistMask`.
 This preserves exact once-per-target rewards even across Host Migration without global polling or RPCs.
-PvP Assists have no producer yet.
+
+PvP Last Hit and Assists are produced by the victim avatar's
+`PlayerPvpCombatCreditNetworkController` (TASK-246), not `KillExperienceSource`.
+It freezes provisional credit on Active -> Downed, confirms it only on definitive Defeat of
+that cycle, and cancels it on revive through direct `IDownedCycleObserver` notifications.
+GD 19 §§4–6, 14 owns attribution: initial enemy/team affiliation, effective Active-target
+damage, effective Restoration support and effective Empower basic attacks qualify; no new
+contributions are recorded by the downing hit or against an already Downed victim.
+Only provisional credits reset each cycle: contribution/support history stays eligible until
+its configured tick window expires, including after revive. Latest effect kinds and ticks
+are replicated beside their target-owned registers for audit. CC/debuff and orb blocks are excluded.
+
+The player serializes non-negative `long` base PvP Experience (default 25). Confirmation
+requests `PvpKill` for that base and `PvpAssist` independently for each selected teammate
+(at most `_maxAssistsPerTarget`, default 1, 0 = unlimited; most recent contribution wins, ties to the lowest participant id)
+at integer-floor base / 2 (25 -> 12). Ledger acceptance atomically advances the matching XP
+and activity count before the producer consumes its pending bit. Missing recipients or rejected
+ledgers remain pending and retry each second; non-Raiding recipients and non-positive amounts
+are dropped without XP, while the confirmed attribution remains readable. Original source
+Downed/Defeat state does not invalidate the relationship.
+
+Cycle, source participant value, masks, confirmation, retry timer and contribution/support
+ticks/kinds are `[Networked]`; `CopyStateFrom` restores them and a restore-spawn guard prevents
+fresh initialization. Stable participant IDs require no remapping. Still-spawned defeated support
+recipients use a runner-scoped fallback after current-avatar clearing. Known limits: despawned
+original avatars/participants cannot resolve from the avatar `EntityId` in `DamageRequest`;
+victim-avatar despawn loses pending retries, and unresolved participants can leave bits pending
+until that despawn.
+Single-runner state-copy coverage is not proof of real Host Migration.
 
 Total Expedition Experience is derived from these accumulators and is never replicated as
 a second source of truth. The public snapshot exposes only this gameplay breakdown.
@@ -337,8 +365,9 @@ retry, RPC, generic transaction service or coordinator.
 Fusion snapshots and `CopyStateFrom` preserve `IsGranted` with the defeated target. Fresh
 State Authority spawns initialize it to false; Host Migration restore spawns do not overwrite
 the copied value and require no reference fixup. The current Kill Experience producer integrates creatures only.
-Player Kill Experience remains blocked until an external authoritative affiliation contract can
-distinguish allies from enemies; no runtime role or connection identity substitutes for it.
+Player Kill Experience has its own Downed-cycle producer described above. It uses the existing
+`RaidInitialAffiliationSnapshot` contract to distinguish initial enemies/allies, failing closed
+when affiliation cannot be resolved; runtime role and connection identity never substitute for it.
 
 ## First-open Exploration Experience producer
 

@@ -69,6 +69,9 @@ public sealed class NetworkProjectile : NetworkBehaviour
     [Networked]
     private float KnockbackForce { get; set; }
 
+    [Networked]
+    private int EmpowerSourceParticipantValue { get; set; }
+
     public bool IsImpactConsumed => ImpactConsumed;
     public bool IsImpactGeometryOnly => ImpactWasGeometryOnly;
 
@@ -189,7 +192,8 @@ public sealed class NetworkProjectile : NetworkBehaviour
     /// Initializes network properties of the projectile prior to spawning completing.
     /// Can only be called during the initialization callback of the spawner on the State Authority.
     /// </summary>
-    public void InitializeNetworkState(in ProjectileSpawnRequest request, int impactLayerMaskValue)
+    public void InitializeNetworkState(in ProjectileSpawnRequest request, int impactLayerMaskValue,
+        RaidParticipantId empowerSourceId = default)
     {
         if (!HasStateAuthority) return;
 
@@ -198,6 +202,7 @@ public sealed class NetworkProjectile : NetworkBehaviour
             sourceRegistry.TryGetDamageable(request.OwnerId, out IDamageable source) &&
             source is IAbilityEnemyTarget;
         OwnerEntityIdValue = request.OwnerId.Value;
+        EmpowerSourceParticipantValue = empowerSourceId.IsValid ? empowerSourceId.Value : 0;
         Damage = request.Damage;
         DamageType = request.DamageType;
         Direction = request.Direction;
@@ -326,6 +331,7 @@ public sealed class NetworkProjectile : NetworkBehaviour
                 // Attempt to apply damage if target is a damageable entity
                 if (_damageResolver != null && selectedTargetId.Value != 0)
                 {
+                    RaidParticipantId.TryCreate(EmpowerSourceParticipantValue, out RaidParticipantId empowerSourceId);
                     DamageRequest damageRequest = new DamageRequest(
                         new EntityId(OwnerEntityIdValue),
                         selectedTargetId,
@@ -334,7 +340,8 @@ public sealed class NetworkProjectile : NetworkBehaviour
                         Direction,
                         selectedHit.point,
                         Runner.Tick,
-                        KnockbackForce
+                        KnockbackForce,
+                        empowerSourceId: empowerSourceId
                     );
 
                     _damageResolver.Resolve(in damageRequest);
