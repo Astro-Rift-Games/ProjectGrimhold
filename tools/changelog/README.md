@@ -92,13 +92,87 @@ Run the tests with `npm test` inside `tools/changelog`.
 ## Technical history and evidence
 
 The generator reprocesses the entire reachable non-merge history on every run,
-not only future Conventional Commits. The main document is deliberately bounded:
-system/type counts plus at most six periods and three concrete primary headlines
-per period. All older periods remain navigable through `docs/changelog/README.md`.
+not only future Conventional Commits. The main document prioritizes recorded
+advances by period and system: at most six periods and three selected advances
+per period, with at most three related records per advance. Full metrics live in
+the existing classification report and archives, not a primary summary matrix.
+All older periods remain navigable through `docs/changelog/README.md`.
 The first development history (also after its initial tag) is split by **UTC author
 month**, not synthetic releases. Later stable tags retain their release boundaries.
 A release may contain commits from several months; author dates never determine
 revert ordering or publication order.
+
+### How the main summary chooses advances
+
+- Functional systems outrank routine tooling. Explicit change kind contributes:
+  features 12, fixes 10, performance 9, refactoring 7, reverts 6. Recognized functional
+  systems use relevance tier 300; unassigned concrete changes 200; supporting-only
+  work and routine infrastructure/tooling 100. The historical classification is unchanged.
+- Architectural infrastructure needs a structural subject (for example ownership,
+  authority, composition, recovery, migration or persistence), not just a configure/
+  prepare action. Anchored structural refactors such as decoupling simulation or
+  transport can also use the functional tier with kind priority 12 and a 3-point
+  architecture bonus. Breaking changes add 3. These are message-based selection
+  signals, not proof of current behavior, deployment, validation or completion.
+- Greedy selection adds 8 for a new displayed system, 3 for a new kind, and at most
+  2 for related records. Original history position, then SHA, breaks ties; recency
+  is not the sole selection rule. Scope evidence chooses the displayed system
+  first, then the strongest distinct-path evidence among existing functional labels.
+- Generic/unknown/secondary records and test/document-only paths stay in the full
+  archive, even when a subject uses `feat`. Routine Editor/tooling-only paths do not
+  outrank functional advances. Descriptions over 240 characters remain in the archive
+  rather than being cut in a way that could remove a qualification.
+- Display grouping requires an exact shared `TASK-<number>` in a subject or positive
+  `Refs`/`Fixes`/`Closes` line, **or** the same non-empty scope, an actual shared
+  implementation source file, and at least two meaningful shared subject terms.
+  Deferred/negative task lines, same-system labels, docs/tests/meta paths or scope
+  alone are insufficient. Every pair must have evidence; no transitive chaining.
+- Grouping is presentation only, never deduplication. Each highlight is one brief
+  evidence-backed synthesis, not a concatenation of descriptions or type labels.
+  Every supporting canonical reference remains linked; originals and types stay in
+  the unchanged historical records and classification report.
+  No generated prose claims that the combined feature is complete or still active.
+
+### Same-period outcome reconciliation
+
+Highlights are conservative deterministic templates, not AI-generated prose. A
+representative functional result may incorporate related fixes or refactoring;
+parallel migrations can share one target description. This is a lossy reading aid,
+not a replacement for the linked original records or proof of runtime acceptance.
+
+Only the highlight projection reconciles lifecycle changes, using the original
+newest-first Git topological order, never author dates. Initial tagged aggregation
+recovers that order from its source version rather than monthly concatenation.
+The existing `activeCommits` helper resolves exact revert chains and canonical
+aliases read-only; neither canonical identity nor public-note behavior changes.
+
+Explicit positive removal/replacement objects can supersede an earlier claim
+when they identify the same concrete topic in a shared scope/source, or directly
+name the affected implementation file's mechanism. Shared paths, task IDs or
+systems alone are not cancellation evidence. Negated, deferred, retained and
+context-only mentions are ignored. Partial removals do not automatically remove
+the whole feature. Replacement chains select the final recorded approach;
+revert-of-revert and later reintroduction retain their supporting history.
+
+A canceled approach is summarized as reverted/removed/replaced, not as a current
+addition. All supporting links remain, even when the contradiction spans more
+than three records; the synthesis stays short. Reconciliation is period-local:
+later periods do not rewrite earlier historical outcomes. No filename-difference
+or source-code deletion inference is made from the existing path-only metadata;
+ambiguous edits cannot establish lifecycle state. The historical archive/report,
+raw subjects/bodies/types, classifiers, deduplication, SemVer and publisher remain
+unchanged.
+
+### Initial history and releases
+
+Before the first stable tag there is no trustworthy post-release pending range.
+The main summary explicitly distinguishes **Unreleased** (no release baseline yet)
+from monthly **Initial development history** instead of labeling all months as one
+pending release. Once tags exist, the main summary presents each release once by
+version and the actual latest `Unreleased` range separately. Initial tagged history
+may still span several monthly archive files; those files, archive headings, report
+metadata, full records and classifications remain byte-for-byte unchanged by the
+summary-only temporal projection. No release, SemVer or publication rule changes.
 
 Classification is independent from public notes and SemVer:
 

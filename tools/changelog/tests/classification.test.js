@@ -103,7 +103,7 @@ test('summary is bounded and meaningful while archive index retains every releas
   const index = artifacts.find(file => file.name === 'docs/changelog/README.md').text;
   assert.ok(main.split('\n').length < 150);
   assert.doesNotMatch(main, /- Update\b/);
-  assert.match(main, /\| System \| Features \| Fixes \| Refactors/);
+  assert.doesNotMatch(main, /\| System \| Features \| Fixes \| Refactors/);
   assert.match(index, /v1\.1\.0/);
   assert.match(index, /v1\.40\.0/);
   assert.match(main, /Full archive/);

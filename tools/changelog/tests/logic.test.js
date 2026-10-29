@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseCommit, developerVersions } from '../src/commits.js';
 import { playerVersions, validateOverrides } from '../src/players.js';
-import { renderDev } from '../src/render-dev.js';
+import { developerArtifacts, renderDev } from '../src/render-dev.js';
 import {
   playersDocument,
   renderPlayers,
@@ -197,19 +197,24 @@ test('developer entries include scope, breaking marker and seven-character refs'
   const parsed = commit('feat(ui)!: New   panel');
   const markdown = renderDev(developerVersions(versions([parsed])));
 
-  assert.match(markdown, /- \*\*BREAKING\*\* \*\*ui:\*\* New panel \(\[aaaaaaa\]/);
+  assert.match(markdown, /- \*\*UI\*\* — \*\*BREAKING\*\* \*\*ui:\*\* New panel. \(\[aaaaaaa\]/);
   assert.match(markdown, new RegExp(`/commit/${firstSha}`));
 });
 
-test('developer summary exposes system/type counts rather than unbounded sections', () => {
+test('developer summary shows advances and keeps metrics outside the main summary', () => {
   const commits = [commit('fix: Door'), commit('feat: Panel', '', secondSha)];
-  const markdown = renderDev(developerVersions(versions(commits)));
+  const artifacts = developerArtifacts(developerVersions(versions(commits)));
+  const markdown = artifacts.find(file => file.name === 'CHANGELOG_DEV.md').text;
+  const report = JSON.parse(artifacts.find(file => file.name.endsWith('/report.json')).text);
 
-  assert.match(markdown, /System \| Features \| Fixes/);
-  assert.match(markdown, /1 features; 1 bug fixes/);
+  assert.doesNotMatch(markdown, /System \| Features \| Fixes|1 features; 1 bug fixes/);
+  assert.match(markdown, /Classification report/);
+  assert.match(markdown, /Panel\./);
+  assert.match(markdown, /Door\./);
+  assert.equal(report.canonical.sections.Features, 1);
+  assert.equal(report.canonical.sections['Bug Fixes'], 1);
   assert.doesNotMatch(markdown, /### Performance/);
 });
-
 test('developer changelog includes pending commits and compare link', () => {
   const pending = commit('fix: Pending door');
   const markdown = renderDev(developerVersions(versions([], [pending])));
@@ -222,7 +227,7 @@ test('developer changelog without tags links to branch history', () => {
   const markdown = renderDev(developerVersions([{ version: 'Unreleased', commits: [] }]));
 
   assert.match(markdown, /commits\/New-Testing/);
-  assert.match(markdown, /_No unreleased changes\._/);
+  assert.match(markdown, /No release baseline exists/);
 });
 
 test('player trailers map to the four categories in note order', () => {

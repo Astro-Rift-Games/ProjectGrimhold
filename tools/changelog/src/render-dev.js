@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { projectHighlightRecords, synthesizeAdvance } from './dev-highlight-outcomes.js';
 import { config, cleanOutput } from './config.js';
 import { classifyCommit, classificationCounts } from './classify.js';
 
@@ -82,40 +83,128 @@ function categorySummary(entries) {
   const counts = classificationCounts(entries).sections;
   return sectionOrder.filter(section => counts[section]).map(section => `${counts[section]} ${section.toLowerCase()}`).join('; ') || 'No canonical changes';
 }
-function headline(entry, settings) {
-  const breaking = entry.breaking ? '**BREAKING** ' : '';
-  const scope = entry.scope ? `**${markdown(entry.scope)}:** ` : '';
-  const refs = (entry.refs || [entry.sha]).slice(0, 3).map(sha => commitLink(sha, settings.repoUrl)).join(', ');
-  return `- ${breaking}${scope}${markdown(entry.description || entry.subject)} (${refs})`;
+// Summary policy is deliberately separate from classification, canonical identity,
+// archive periods and release planning. It only chooses which recorded changes to show.
+const supportingSystems = new Set(['Build & Tooling', 'Documentation', 'Tests']);
+const changePriority = { Features: 12, 'Bug Fixes': 10, Performance: 9, 'Architecture & Infrastructure': 5, Refactoring: 7, Reverts: 6 };
+const routineWords = new Set('add added implement implemented fix fixed validate prevent refactor simplify update support introduce remove improve rules state system player network manager controller changes change with from into through without'.split(' '));
+
+function summaryRecord(entry, position, lifecycle = false) {
+  const classified = classifyCommit(entry);
+  const description = entry.description || entry.subject || '';
+  const files = (entry.files || []).map(file => file.replace(/\\/g, '/')).filter(file => !file.endsWith('.meta'));
+  const referencePath = file => /(?:^|\/)(?:tests?|docs?|documentation)(?:\/|$)|\.(?:md|rst|adoc|txt)$/i.test(file);
+  const referenceOnly = files.length > 0 && files.every(referencePath);
+  const toolingOnly = files.length > 0 && files.every(file => referencePath(file) || /(?:^|\/)(?:tools|editor|\.github|packages|projectsettings)(?:\/|$)/i.test(file));
+  if (referenceOnly || (!lifecycle && (classified.secondary || classified.generic || classified.section === 'Other Changes' || description.length > 240))) return null;
+  const systems = classified.systems.filter(system => !supportingSystems.has(system));
+  const scopedSystem = classified.evidence.find(item => item.source === 'scope' && systems.includes(item.supports));
+  const pathWeight = system => new Set(classified.evidence.filter(item => item.source === 'path' && item.supports === system).map(item => item.value)).size;
+  const byPath = [...systems].sort((first, second) => pathWeight(second) - pathWeight(first));
+  const system = scopedSystem?.supports || byPath[0] || classified.systems[0] || 'Unassigned';
+  const architectural = (classified.section === 'Architecture & Infrastructure'
+      && /\b(?:architecture|boundaries|boundary|ownership|authority|authoritative|composition|dependencies|recovery|migration|snapshots?|replication|persistence|transactions?|concurrency)\b/i.test(description)
+      && !/^(?:configure|prepare)\b/i.test(description))
+    || (classified.section === 'Refactoring'
+      && /^(?:decouple|separate|extract|isolate|replace)\b/i.test(description)
+      && /\b(?:publication|transport|simulation|presentation|composition|dependencies|ownership|persistence|authority|recovery)\b/i.test(description));
+  const routineInfrastructure = classified.section === 'Architecture & Infrastructure' && !architectural;
+  const tier = routineInfrastructure || (toolingOnly && !architectural) ? 1 : systems.length || architectural ? 3 : classified.systems.length ? 1 : 2;
+  const taskLines = [entry.subject, ...(entry.body || '').split('\n').filter(line => /^\s*(?:refs|fixes|closes):?\s/i.test(line))]
+    .filter(line => !/\b(?:no|not|future|deferred|follow-up|exclude)\b/i.test(line || ''));
+  const tasks = new Set(taskLines.flatMap(line => (line || '').toUpperCase().match(/\bTASK-\d+\b/g) || []));
+  const sources = new Set((entry.files || []).map(file => file.replace(/\\/g, '/')).filter(file =>
+    /\.(?:cs|js|mjs|cjs|ts|tsx|jsx|shader|hlsl)$/i.test(file)
+    && !/(?:^|\/)(?:tests?|docs?|documentation|node_modules)(?:\/|$)|\.generated\.|PlayerInputActions\.cs$/i.test(file)));
+  const words = new Set((description.toLowerCase().match(/[a-z][a-z0-9]+/g) || []).filter(word => word.length >= 4 && !routineWords.has(word)));
+  return { entry, position, description, section: classified.section, system, tasks, sources, words,
+    priority: tier * 100 + (architectural ? 12 : changePriority[classified.section] || 0) + (architectural ? 3 : 0) + (entry.breaking ? 3 : 0) };
 }
+
+function relationship(first, second) {
+  const task = [...first.tasks].sort().find(id => second.tasks.has(id));
+  if (task) return task;
+  if (!first.entry.scope || first.entry.scope.toLowerCase() !== second.entry.scope?.toLowerCase()) return null;
+  if (![...first.sources].some(file => second.sources.has(file))) return null;
+  return [...first.words].filter(word => second.words.has(word)).length >= 2 ? 'scope + source + subject' : null;
+}
+
+function selectAdvances(entries, commits) {
+  const groups = [];
+  for (const record of projectHighlightRecords(entries, commits, summaryRecord)) {
+    // Pairwise support prevents a shared helper from chaining unrelated advances.
+    const existing = groups.find(group => group.records.length < 3 && group.records.every(other => !record.operation && !record.restored && !other.operation && !other.restored && relationship(record, other)));
+    if (existing) existing.records.push(record);
+    else groups.push({ records: [record] });
+  }
+  const selected = [];
+  const systems = new Set();
+  const kinds = new Set();
+  const score = group => Math.max(...group.records.map(record => record.priority))
+    + (group.records.some(record => !systems.has(record.system)) ? 8 : 0)
+    + (group.records.some(record => !kinds.has(record.section)) ? 3 : 0)
+    + group.records.length - 1;
+  while (groups.length && selected.length < headlineLimit) {
+    groups.sort((first, second) => score(second) - score(first)
+      || first.records[0].position - second.records[0].position
+      || first.records[0].entry.sha.localeCompare(second.records[0].entry.sha));
+    const group = groups.shift();
+    selected.push(group);
+    for (const record of group.records) { systems.add(record.system); kinds.add(record.section); }
+  }
+  return selected;
+}
+
+function advanceLine(group, settings) {
+  const records = [...group.records].sort((first, second) => (changePriority[second.section] || 0) - (changePriority[first.section] || 0) || first.position - second.position);
+  const systems = [...new Set(records.map(record => record.system))].join(' / ');
+  const summary = synthesizeAdvance(records);
+  const scopes = [...new Set(records.map(record => record.entry.scope).filter(Boolean))];
+  const scope = scopes.length === 1 ? `**${markdown(scopes[0])}:** ` : '';
+  const breaking = records.some(record => record.entry.breaking) ? '**BREAKING** ' : '';
+  const refs = [...new Set(records.flatMap(record => record.trace || record.entry.refs || [record.entry.sha]))];
+  return `- **${systems}** — ${breaking}${scope}${markdown(summary)} (${refs.map(sha => commitLink(sha, settings.repoUrl)).join(', ')}).`;
+}
+function summaryPeriods(periods, versions) {
+  const projected = [];
+  for (const period of periods) {
+    const existing = period.tag && projected.find(item => item.tag === period.tag);
+    if (existing) { existing.entries.push(...period.entries); continue; }
+    projected.push({ ...period, entries: [...period.entries],
+      commits: period.tag ? eligible(versions.find(version => version.tag === period.tag)?.commits || period.commits) : period.commits,
+      title: period.tag ? `${period.tag}${period.date ? ` — ${period.date}` : ''}` : period.month ? `${period.month} — before the first release` : 'Unreleased' });
+  }
+  return projected;
+}
+
 function renderMain(versions, periods, settings, directory) {
   const mainFile = settings.devFile;
   const archive = relativeLink(mainFile, `${directory}/README.md`);
   const latestRelease = versions.filter(version => version.tag).at(-1);
   const pendingPath = latestRelease ? `compare/${encodeURIComponent(latestRelease.tag)}...${encodeURIComponent(settings.developmentBranch)}` : `commits/${encodeURIComponent(settings.developmentBranch)}`;
-  const entries = periods.flatMap(period => period.entries);
   const lines = ['# Developer Changelog', '',
-    'Technical history generated from Git by `tools/changelog`. Do not edit generated files manually.', '',
-    `[Full archive](${archive}) · [Classification report](${relativeLink(mainFile, `${directory}/report.json`)}) · [Unreleased comparison](${settings.repoUrl}/${pendingPath})`, '',
-    '## Systems at a glance', '',
-    `${entries.length} canonical entries. Counts overlap when a commit has evidence for multiple systems; they are not additive.`, '',
-    ...systemTable(entries), '',
-    '## Recent periods', '',
-    `At most ${summaryPeriodLimit} periods and ${headlineLimit} concrete primary headlines per period. Documentation, tests, maintenance, ambiguous messages and all original bodies remain in the archive.`, ''];
-  for (const period of periods.slice(0, summaryPeriodLimit)) {
-    lines.push(`### [${markdown(period.title)}](${relativeLink(mainFile, `${directory}/${period.key}.md`)})`, '',
-      `${categorySummary(period.entries)}. ${period.commits.length} original commits in detail.`, '');
-    const headlines = period.entries.filter(entry => {
-      const classified = classifyCommit(entry);
-      return !classified.secondary && !classified.generic && classified.section !== 'Other Changes';
-    }).slice(0, headlineLimit);
-    lines.push(...headlines.map(entry => headline(entry, settings)));
-    if (headlines.length) lines.push('');
-    if (!period.tag && !period.entries.length) lines.push('_No unreleased changes._', '');
+    'Development advances recorded in Git, organized by period and system. Generated by `tools/changelog`; do not edit manually.', '',
+    `[Full archive](${archive}) · [Classification report](${relativeLink(mainFile, `${directory}/report.json`)}) · [${latestRelease ? 'Unreleased comparison' : 'Development history'}](${settings.repoUrl}/${pendingPath})`, '',
+    `At most ${summaryPeriodLimit} periods and ${headlineLimit} selected advances per period. Selection favors concrete functional changes and architectural boundaries, with system and change-kind diversity. Each highlight is a brief synthesis backed by commit links, reconciled within its period. Original messages, types and evidence remain in the archive; summaries do not establish runtime validation.`, ''];
+  if (!latestRelease) lines.push('## Unreleased', '',
+    'No release baseline exists yet. The monthly history below is initial development, not one pending release; a distinct post-release change range cannot be inferred until the first release.', '',
+    '## Initial development history', '');
+  else lines.push('## Recent progress', '');
+  for (const period of summaryPeriods(periods, versions).slice(0, summaryPeriodLimit)) {
+    const destination = period.tag ? `${settings.repoUrl}/releases/tag/${encodeURIComponent(period.tag)}` : relativeLink(mainFile, `${directory}/${period.key}.md`);
+    lines.push(`### [${markdown(period.title)}](${destination})`, '');
+    const advances = selectAdvances(period.entries, period.commits);
+    lines.push(...advances.map(group => advanceLine(group, settings)), '');
+    if (!advances.length) lines.push(period.entries.length
+      ? '_No eligible concrete advances selected; inspect the original records in the archive._'
+      : '_No changes recorded in this range._', '');
+    const detail = period.tag && period.month ? archive : relativeLink(mainFile, `${directory}/${period.key}.md`);
+    lines.push(`[Full period history](${detail})`, '');
   }
-  lines.push(`Older periods and every release are available in the [full archive index](${archive}).`, '');
+  lines.push(`Older periods, full metrics, secondary work and every original record remain in the [full archive index](${archive}) and classification report.`, '');
   return cleanOutput(lines.join('\n'));
 }
+
 function renderArchiveIndex(periods, settings, directory) {
   const lines = ['# Developer history archive', '',
     `[Technical summary](${relativeLink(`${directory}/README.md`, settings.devFile)}) · [Machine-readable evidence and diagnostics](report.json)`, '',
