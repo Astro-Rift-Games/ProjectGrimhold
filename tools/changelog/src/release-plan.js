@@ -1,21 +1,28 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { git, readCommits } from './git.js';
-import { developerVersions } from './commits.js';
+import { developerVersions, activeCommits, commitIdentities } from './commits.js';
 import { config } from './config.js';
 import { readPublicationVersions } from './versions.js';
 import { playerVersions, validateOverrides } from './players.js';
-import { renderDev } from './render-dev.js';
+import { developerArtifacts } from './render-dev.js';
+import { writeGeneratedFiles } from './artifacts.js';
 import { playersDocument, renderPlayers, validatePlayersDocument } from './render-players.js';
 
-function functional(commit) {
-  return !commit.excluded && (commit.breaking || ['feat', 'fix', 'perf'].includes(commit.type));
+function functional(commit, history, visiting = new Set()) {
+  if (!commit || commit.excluded || visiting.has(commit.sha)) return false;
+  if (commit.breaking || ['feat', 'fix', 'perf'].includes(commit.type)) return true;
+  if (!commit.reverts) return false;
+  visiting.add(commit.sha);
+  return functional(history.get(commit.reverts), history, visiting);
 }
 
 function pendingImpact(versions) {
   const pending = versions.at(-1).commits;
   const pendingShas = new Set(pending.map(commit => commit.sha));
-  const revertedShas = new Set(pending.map(commit => commit.reverts).filter(Boolean));
+  const identities = commitIdentities(versions.flatMap(version => version.commits));
+  const active = activeCommits(pending, identities);
+  const activeShas = new Set(active.map(commit => commit.sha));
   const published = new Map(versions.slice(0, -1)
     .flatMap(version => version.commits).map(commit => [commit.sha, commit]));
   // Reuse the developer's identity and bot exclusions, including cross-release
@@ -24,7 +31,7 @@ function pendingImpact(versions) {
   let rank = 0;
 
   for (const entry of entries) {
-    if (entry.refs.every(sha => revertedShas.has(sha))) {
+    if (entry.refs.every(sha => !activeShas.has(sha))) {
       continue;
     }
     if (entry.reverts && pendingShas.has(entry.reverts)) {
@@ -36,7 +43,7 @@ function pendingImpact(versions) {
     } else if (entry.type === 'feat') {
       rank = Math.max(rank, 2);
     } else if (['fix', 'perf'].includes(entry.type)
-      || (entry.reverts && functional(published.get(entry.reverts) ?? {}))) {
+      || (entry.reverts && functional(published.get(entry.reverts), published))) {
       rank = Math.max(rank, 1);
     }
   }
@@ -65,6 +72,7 @@ export function createReleasePlan(root, ref = 'HEAD') {
     throw Error('Invalid release ref');
   }
   const sourceCommit = git(root, ['rev-parse', '--verify', '--end-of-options', `${ref}^{commit}`]).trim();
+  readCommits(root, sourceCommit); // Prime immutable patch evidence across release boundaries.
   const versions = readPublicationVersions(root, sourceCommit);
   const previous = versions.at(-2);
   const { version, bump } = nextVersion(previous?.version, pendingImpact(versions));
@@ -84,7 +92,7 @@ export function createReleasePlan(root, ref = 'HEAD') {
   };
 }
 
-/** Validate everything before writing the three generated versioned artifacts. */
+/** Validate everything before writing generated public and developer artifacts. */
 export function writePlannedRelease(root, plan) {
   if (!plan?.version) {
     throw Error('No release is planned');
@@ -117,12 +125,10 @@ export function writePlannedRelease(root, plan) {
   }
 
   const files = [
-    [config.devFile, renderDev(developerVersions(versions), config)],
+    ...developerArtifacts(developerVersions(versions), config).map(file => [file.name, file.text]),
     [config.playersFile, renderPlayers(document)],
     [config.jsonFile, `${JSON.stringify(document, null, 2)}\n`],
   ];
-  for (const [name, text] of files) {
-    writeFileSync(resolve(root, name), text, 'utf8');
-  }
+  writeGeneratedFiles(root, files.map(([name, text]) => ({ name, text, type: name === config.devFile || name.startsWith(config.historyDirectory + '/') ? 'dev' : 'players' })), config);
   return files.map(([name]) => name);
 }

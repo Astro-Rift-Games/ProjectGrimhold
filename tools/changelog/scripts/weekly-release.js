@@ -11,7 +11,7 @@ import { createReleasePlan, writePlannedRelease } from '../src/release-plan.js';
 const manifestPath = 'tools/changelog/publication.json';
 const settingsPath = 'Project Grimhold/ProjectSettings/ProjectSettings.asset';
 const cli = fileURLToPath(new URL('../src/cli.js', import.meta.url));
-const generated = ['CHANGELOG_DEV.md', 'CHANGELOG.md', 'changelog-players.json'];
+const generated = ['CHANGELOG_DEV.md', 'CHANGELOG.md', 'changelog-players.json', 'docs/changelog'];
 const shaPattern = /^[a-f0-9]{40}$/;
 const versionPattern = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
 const head = root => git(root, ['rev-parse', 'HEAD']).trim();
@@ -139,7 +139,7 @@ export async function prepareCandidate(root, output, { api } = {}) {
       commit(candidate, `chore(changelog): prepare v${state.plan.version}`, date, [...generated, settingsPath, manifestPath]);
     } else {
       runGenerator(candidate, 'generate', ['--only', 'dev', '--strict']);
-      commit(candidate, 'chore(changelog): update integrated developer history', date, ['CHANGELOG_DEV.md']);
+      commit(candidate, 'chore(changelog): update integrated developer history', date, ['CHANGELOG_DEV.md', 'docs/changelog']);
       if (bundleVersion(candidate) !== state.baselineVersion) throw Error('No-release integration must preserve main bundleVersion');
     }
     state.target = head(candidate);

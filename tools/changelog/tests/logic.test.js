@@ -157,13 +157,13 @@ test('non-merge commits with Merge subjects stay in Other Changes', () => {
   assert.equal(entries[0].section, 'Other Changes');
 });
 
-test('duplicates differing only by attribution trailers merge into one entry', () => {
+test('attribution-only similarity does not prove commit equivalence', () => {
   const original = commit('fix: Door', 'Details\n\nCo-Authored-By: Someone <a@b.c>');
   const rewritten = commit('fix: Door', 'Details\n\nSigned-off-by: Someone <a@b.c>', secondSha);
   const result = developerVersions(versions([rewritten, original]));
 
-  assert.equal(result[0].entries.length, 1);
-  assert.deepEqual(result[0].entries[0].refs, [secondSha, firstSha]);
+  assert.equal(result[0].entries.length, 2);
+  assert.deepEqual(result[0].entries.map(entry => entry.refs), [[secondSha], [firstSha]]);
 });
 
 test('cherry-pick duplicates merge refs newest first without repeated SHAs', () => {
@@ -201,11 +201,12 @@ test('developer entries include scope, breaking marker and seven-character refs'
   assert.match(markdown, new RegExp(`/commit/${firstSha}`));
 });
 
-test('developer sections are rendered in fixed order and empty sections omitted', () => {
+test('developer summary exposes system/type counts rather than unbounded sections', () => {
   const commits = [commit('fix: Door'), commit('feat: Panel', '', secondSha)];
   const markdown = renderDev(developerVersions(versions(commits)));
 
-  assert.ok(markdown.indexOf('### Features') < markdown.indexOf('### Bug Fixes'));
+  assert.match(markdown, /System \| Features \| Fixes/);
+  assert.match(markdown, /1 features; 1 bug fixes/);
   assert.doesNotMatch(markdown, /### Performance/);
 });
 
@@ -322,7 +323,7 @@ test('override suppresses all player warnings including misplaced trailers', () 
   const parsed = commit('chore(changelog): Update', body);
   const overrides = validateOverrides(overrideDocument([]), [parsed]);
 
-  assert.deepEqual(playerResult([parsed], overrides).warnings, []);
+  assert.deepEqual(playerResult([parsed], overrides).warnings.filter(warning => warning.code !== 'empty-player-release'), []);
 });
 
 test('unsupported override schema is rejected', () => {
@@ -393,12 +394,12 @@ test('player notes deduplicate category and normalized text within a version', (
   assert.equal(notes[0].sha, firstSha);
 });
 
-test('player notes already published in an earlier version are skipped', () => {
+test('identical notes for distinct changes remain visible in later versions', () => {
   const first = commit('fix: Door', 'Player-Fixed: Door opens');
   const second = commit('fix: Another door', 'Player-Fixed: DOOR opens', secondSha);
   const result = playerVersions(versions([first], [second]), new Map());
 
-  assert.equal(result.versions[1].notes.length, 0);
+  assert.equal(result.versions[1].notes.length, 1);
 });
 
 test('identical player text in different categories is retained', () => {

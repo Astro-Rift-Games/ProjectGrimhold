@@ -9,7 +9,7 @@ branch="$1"
 message="$2"
 shift 2
 
-outputs=(CHANGELOG_DEV.md CHANGELOG.md changelog-players.json)
+outputs=(CHANGELOG_DEV.md CHANGELOG.md changelog-players.json docs/changelog)
 
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -25,7 +25,7 @@ for attempt in 1 2 3; do
     exit 0
   fi
 
-  # --only dev may run before the player files exist.
+  # Include generated developer archives; --only dev may precede player files.
   for output in "${outputs[@]}"; do
     if [ -e "$output" ]; then
       git add -- "$output"

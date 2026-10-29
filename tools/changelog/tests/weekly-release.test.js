@@ -21,7 +21,7 @@ function fixture() {
   mkdirSync(join(root, 'Project Grimhold/ProjectSettings'), { recursive: true });
   writeFileSync(join(root, 'Project Grimhold/ProjectSettings/ProjectSettings.asset'), 'PlayerSettings:\n  bundleVersion: 0.0.0\n');
   git(root, ['add', '.']);
-  commit(root, 'chore: initialize');
+  commit(root, 'chore: initialize\n\nPlayer-Added: Initial preview.');
   git(root, ['tag', 'v0.0.0']);
   git(root, ['branch', 'New-Testing']);
   git(root, ['init', '--bare', remote]);

@@ -22,7 +22,9 @@ jobs:
         with:
           fetch-depth: 0
           filter: blob:none
-          sparse-checkout: tools/changelog
+          sparse-checkout: |
+            tools/changelog
+            docs/changelog
 
       - uses: actions/setup-node@v4
         with:
@@ -71,7 +73,9 @@ jobs:
           ref: New-Testing
           fetch-depth: 0
           filter: blob:none
-          sparse-checkout: tools/changelog
+          sparse-checkout: |
+            tools/changelog
+            docs/changelog
 
       - uses: actions/setup-node@v4
         with:
@@ -79,7 +83,7 @@ jobs:
 
       # Pushes made with GITHUB_TOKEN do not trigger new workflow runs, and the generator
       # ignores chore(changelog) commits, so this update cannot loop or change its own output.
-      - name: Regenerate and push CHANGELOG_DEV.md
+      - name: Regenerate and push technical summary and archives
         run: >
           bash tools/changelog/scripts/publish.sh New-Testing
           "chore(changelog): update developer changelog [skip ci]" --only dev

@@ -2,6 +2,7 @@ export const config = {
   repoUrl: 'https://github.com/Astro-Rift-Games/ProjectGrimhold',
   developmentBranch: 'New-Testing',
   devFile: 'CHANGELOG_DEV.md',
+  historyDirectory: 'docs/changelog',
   playersFile: 'CHANGELOG.md',
   jsonFile: 'changelog-players.json',
   overridesPath: 'tools/changelog/player-overrides.json',
