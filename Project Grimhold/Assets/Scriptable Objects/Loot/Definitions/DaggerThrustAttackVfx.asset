@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AttackVfxDefinition
   _visual: {fileID: 11400000, guid: e0285fcd4383f7049b74cf53c13f1ea5, type: 2}
   _startSeconds: 0.14
+  _releaseLeadSeconds: 0.16
   _poses:
   - _position: {x: 0.47, y: -0.41, z: 0}
     _rotation: {x: 0, y: 0, z: 104}

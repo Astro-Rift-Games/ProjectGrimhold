@@ -62,7 +62,7 @@ public sealed class AttackVfxDefinition : ScriptableObject
     [SerializeField] private AttackVfxVisualDefinition _visual;
     [SerializeField, Min(0f), Tooltip("Attack clip time, in seconds, at which the visual starts playing.")]
     private float _startSeconds;
-    [SerializeField, Min(0f), Tooltip("Ranged only: visual ignition lead before the confirmed gameplay release. Melee still uses StartSeconds.")]
+    [SerializeField, Min(0f), Tooltip("Visual lead of the VFX before the confirmed gameplay release for any attack with a release timeline, melee or ranged.")]
     private float _releaseLeadSeconds;
     [SerializeField] private DirectionalPose[] _poses;
 

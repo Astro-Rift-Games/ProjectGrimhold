@@ -363,6 +363,9 @@ namespace Tests.PlayMode.Combat
             NetworkObject player = SpawnPlayerWithParticipant();
             var combat = player.GetComponent<PlayerCombatNetworkController>();
             RangedAttack ranged = ConfigureScheduledAttack(player, 0.6f, 0.05f, out RecordingProjectileSpawner spawner);
+            spawner.ReportConfirmedImpact = true;
+            CombatPresentationEvent confirmed = default;
+            combat.CombatFeedbackResolved += feedback => confirmed = feedback;
             yield return SetStrategy(combat, ranged, true);
             _inputDriver.AimWorldPosition = Vector2.right * 10f;
             yield return PressAttackUntil(combat, () => (bool)ReadPending(combat).Pending, "Wind-up was not accepted.");
@@ -404,6 +407,11 @@ namespace Tests.PlayMode.Combat
             for (int i = 0; i < 12; i++) yield return null;
             Assert.That(spawner.Count, Is.EqualTo(1));
             Assert.That((bool)ReadPending(combat).Pending, Is.False);
+            yield return WaitUntil(() => confirmed.Sequence > 0, "Ranged confirmation was not delivered.");
+            Assert.That(confirmed.Kind, Is.EqualTo(CombatFeedbackKind.ConfirmedImpact));
+            Assert.That(confirmed.IsMeleeImpact, Is.False);
+            Assert.That(confirmed.MeleeAttackSequence, Is.Zero);
+            Assert.That(confirmed.MeleeWeaponCatalogIndexPlusOne, Is.Zero);
         }
 
         [UnityTest]
@@ -663,6 +671,8 @@ namespace Tests.PlayMode.Combat
             NetworkObject player = SpawnPlayerWithParticipant();
             var combat = player.GetComponent<PlayerCombatNetworkController>();
             MeleeAttack melee = ConfigureMeleeAttack(player, 0.6f, 1.5f, out RecordingMeleeTargets meleeRecorder);
+            CombatPresentationEvent confirmed = default;
+            combat.CombatFeedbackResolved += feedback => confirmed = feedback;
             AttackPerformedEvent observed = default;
             combat.AttackPerformed += attack => observed = attack;
             yield return SetStrategy(combat, melee, true);
@@ -694,6 +704,51 @@ namespace Tests.PlayMode.Combat
             Assert.That(ReadCancellationTick(combat), Is.EqualTo(-1));
             for (int i = 0; i < 12; i++) yield return null;
             Assert.That(meleeRecorder.ResolveCount, Is.EqualTo(1), "A consumed swing must not replay.");
+            yield return WaitUntil(() => confirmed.IsMeleeImpact, "Melee confirmation lost its release identity.");
+            Assert.That(confirmed.HitDirection, Is.EqualTo(accepted.Direction.normalized));
+            Assert.That(confirmed.MeleeAttackSequence, Is.EqualTo(acceptedSequence));
+            Assert.That(confirmed.MeleeSourceSlot, Is.EqualTo(EquipmentSlot.None));
+            Assert.That(confirmed.MeleeWeaponCatalogIndexPlusOne, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator EquippedMelee_ConfirmationKeepsMainAndOffHandIdentity()
+        {
+            yield return StartGameplayRunner();
+            NetworkObject player = SpawnPlayerWithParticipant();
+            var combat = player.GetComponent<PlayerCombatNetworkController>();
+            var equipment = player.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            var sword = AssetDatabase.LoadAssetAtPath<LootDefinition>("Assets/Scriptable Objects/Loot/Definitions/ArmingSword.asset");
+            var inventoryDriver = _runner.gameObject.AddComponent<PlayerEquipmentSimulationDriver>();
+            _runner.AddGlobal(inventoryDriver);
+            int setup = inventoryDriver.CompletionSequence;
+            inventoryDriver.RequestInitializeLoadout(player.GetComponent<PlayerLootReceiver>(), new[] { new LootEntry(sword.LootId, 2) });
+            yield return WaitUntil(() => inventoryDriver.CompletionSequence != setup, "Inventory setup did not run.");
+            Assert.That(inventoryDriver.LastResult, Is.True, inventoryDriver.LastError);
+            yield return Equip(equipment, sword, EquipmentSlot.WeaponSetAMainHand);
+            yield return Equip(equipment, sword, EquipmentSlot.WeaponSetAOffHand);
+            ConfigureMeleeAttack(player, .3f, 1f, out _);
+            CombatPresentationEvent confirmed = default;
+            AttackPerformedEvent performed = default;
+            combat.CombatFeedbackResolved += feedback => { if (feedback.Kind == CombatFeedbackKind.ConfirmedImpact) confirmed = feedback; };
+            combat.AttackPerformed += attack => performed = attack;
+            _inputDriver.AimWorldPosition = Vector2.right * 10f;
+            foreach (EquipmentSlot slot in new[] { EquipmentSlot.WeaponSetAMainHand, EquipmentSlot.WeaponSetAOffHand })
+            {
+                int previous = confirmed.Sequence;
+                _inputDriver.AttackHeld = slot == EquipmentSlot.WeaponSetAMainHand;
+                _inputDriver.SecondaryHeld = slot == EquipmentSlot.WeaponSetAOffHand;
+                yield return WaitUntil(() => confirmed.Sequence > previous, "Equipped melee confirmation was not delivered.");
+                _inputDriver.AttackHeld = false;
+                _inputDriver.SecondaryHeld = false;
+                Assert.That(confirmed.IsMeleeImpact, Is.True);
+                Assert.That(confirmed.HitDirection, Is.EqualTo(performed.Direction.normalized));
+                Assert.That(confirmed.MeleeSourceSlot, Is.EqualTo(slot));
+                Assert.That(confirmed.MeleeAttackSequence, Is.EqualTo(performed.Sequence));
+                Assert.That(confirmed.MeleeWeaponCatalogIndexPlusOne, Is.EqualTo(equipment.GetWeaponCatalogIndexPlusOne(slot)));
+                yield return WaitUntil(() => !combat.IsExecutingWeaponAttack && !combat.HasPendingAttackRelease,
+                    "Previous hand release did not finish.");
+            }
         }
 
         [UnityTest]
@@ -861,7 +916,10 @@ namespace Tests.PlayMode.Combat
                 LastRequest = request;
                 WasAuthoritativeForward = Combat.HasStateAuthority && Combat.Runner.IsForward;
                 Assert.That((bool)ReadPendingMelee(Combat).Pending, Is.False, "Consume must commit before damage.");
-                return new DamageResult(request.TargetId, true, request.Amount, 1f, false, default);
+                var result = new DamageResult(request.TargetId, true, request.Amount, 1f, false, default);
+                // Mirror DamageResolver's synchronous feedback sink through the real controller/RPC.
+                Combat.RecordResolvedDamage(new DamageResolvedEvent(request, result));
+                return result;
             }
         }
 
@@ -890,6 +948,7 @@ namespace Tests.PlayMode.Combat
             public PlayerCombatNetworkController Combat;
             public Transform AttackOrigin;
             public bool Succeeds = true;
+            public bool ReportConfirmedImpact;
             public int Count;
             public bool WasAuthoritativeForward;
             public Vector2 OriginAtSpawn;
@@ -901,6 +960,13 @@ namespace Tests.PlayMode.Combat
                 WasAuthoritativeForward = Combat.HasStateAuthority && Combat.Runner.IsForward;
                 LastRequest = request;
                 Assert.That((bool)ReadPending(Combat).Pending, Is.False, "Consume must commit before spawn.");
+                if (ReportConfirmedImpact)
+                {
+                    var damage = new DamageRequest(request.OwnerId, new EntityId(9999), request.Damage,
+                        request.DamageType, request.Direction, request.Origin, request.SimulationTick);
+                    var result = new DamageResult(damage.TargetId, true, damage.Amount, 1f, false, default);
+                    Combat.RecordResolvedDamage(new DamageResolvedEvent(damage, result));
+                }
                 return new ProjectileSpawnResult(Succeeds);
             }
         }

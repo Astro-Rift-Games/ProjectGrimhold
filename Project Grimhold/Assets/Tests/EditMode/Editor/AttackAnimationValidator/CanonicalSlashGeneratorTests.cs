@@ -33,8 +33,8 @@ namespace Tests.EditMode.AttackAnimationValidator
             }
         }
 
-        [TestCase("ArmingSword", .6f, .1f, .15f, .45f, .6f)]
-        [TestCase("MagicSword", .85f, .25f, .3f, .55f, .8f)]
+        [TestCase("ArmingSword", .6f, .265f, .15f, .45f, .6f)]
+        [TestCase("MagicSword", .85f, .48f, .3f, .55f, .8f)]
         public void TimingMetadata_PreservesSourcePhasesAndGameplayRelease(string name, float duration,
             float release, float start, float end, float recovery)
         {

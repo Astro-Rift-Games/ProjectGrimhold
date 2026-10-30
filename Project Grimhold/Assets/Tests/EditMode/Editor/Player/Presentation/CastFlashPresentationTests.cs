@@ -198,8 +198,8 @@ public sealed class CastFlashPresentationTests
         }
     }
 
-    // Spellbook is a melee caster: its VFX starts from the attack clip phase (StartSeconds), not from a ranged
-    // release. The hand thrusts forward until 0.65s and holds the strike until 0.75s in every facing, so frame 0
+    // Spellbook is a melee caster: damage resolves at the 0.65s strike-hold arrival, with a 0.025s visual
+    // lead preserving the 0.625s VFX start. The hand holds the strike until 0.75s in every facing, so frame 0
     // ignites 25 ms before the book arrives at the cast point and frames 0-1 play over the hold. The book's top
     // edge is the cast point. Provisional until Art delivers dedicated spellbook VFX: it reuses the shared flash.
     [Test]
@@ -212,7 +212,7 @@ public sealed class CastFlashPresentationTests
         Assert.That(AssetDatabase.GetAssetPath(vfx), Is.EqualTo(SpellbookCastFlashPath));
         Assert.That(AssetDatabase.GetAssetPath(CastFlash(vfx)), Is.EqualTo(CastFlashVisualPath));
         Assert.That(book.TryValidate(out string error), Is.True, error);
-        Assert.That(book.PrimaryAttack, Is.InstanceOf<MeleeAttackConfig>(), "Melee VFX start from the clip phase.");
+        Assert.That(book.PrimaryAttack, Is.InstanceOf<MeleeAttackConfig>(), "Spellbook resolves melee damage at strike-hold arrival.");
         // Spellbook-Front.png is 16x16 px with a centered pivot: the cast point is the middle of its two top pixels.
         Assert.That(book.Presentation.BladeTip, Is.EqualTo(new Vector2(0f, 0.46875f)));
         Assert.That(book.Presentation.BladeReach, Is.EqualTo(0.625f).Within(0.0001f));

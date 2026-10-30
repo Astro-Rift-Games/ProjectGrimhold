@@ -77,6 +77,19 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     }
     private readonly Queue<CombatPresentationEvent> _pendingFeedbackEvents = new();
 
+    // Synchronous Execute scope only: projectile/ability callbacks outside it remain untagged.
+    private EquipmentSlot _meleeFeedbackSlot;
+    private int _meleeFeedbackSequence;
+    private int _meleeFeedbackWeapon;
+    private readonly AttackHitstop[] _hitstop = new AttackHitstop[5]; // Four hands + legacy.
+    private readonly HitstopTargetFreeze _targetFreeze = new();
+    private EntityRegistry _hitstopRegistry;
+    private EntityId _hitstopTargetId;
+    private Transform _hitstopTargetRoot;
+    private int _targetFreezeTimeline = -1;
+    private int _lastHitstopFeedbackSequence;
+    private double _lastHitstopRenderTime;
+
     [Networked]
     private NetworkButtons PreviousButtons { get; set; }
 
@@ -156,6 +169,10 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         _lastObservedSequence = AttackSequence;
         _resumePendingPresentation = PendingRangedRelease.Pending || PendingMeleeRelease.Pending;
         _pendingFeedbackEvents.Clear();
+        ClearHitstop(true);
+        _hitstopRegistry = Runner.GetComponent<EntityRegistry>();
+        _lastHitstopFeedbackSequence = CombatFeedbackSequence;
+        _lastHitstopRenderTime = AttackRenderTime;
         for (int i = 0; i < 4; i++)
         {
             _observedHandSequences[i] = HandAttacks[i].Sequence;
@@ -298,6 +315,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             return;
         }
 
+        AdvanceHitstop();
         RenderHandAttacks();
         // Use the projectile timeframe even on an Input-Authority client (player movement is predicted,
         // projectiles are not). Do not present an acceptance ahead of that render timeline.
@@ -325,6 +343,11 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         {
             // Dequeue first: `?.` skips argument evaluation when nothing is subscribed.
             CombatPresentationEvent feedbackEvent = _pendingFeedbackEvents.Dequeue();
+            if (feedbackEvent.Sequence > _lastHitstopFeedbackSequence)
+            {
+                _lastHitstopFeedbackSequence = feedbackEvent.Sequence;
+                TryScheduleHitstop(feedbackEvent);
+            }
             CombatFeedbackResolved?.Invoke(feedbackEvent);
         }
     }
@@ -332,7 +355,11 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
         _pendingFeedbackEvents.Clear();
+        ClearHitstop(true);
+        _hitstopRegistry = null;
     }
+
+    private void OnDisable() => ClearHitstop();
 
     /// <summary>
     /// Reads the current primary-attack availability and cooldown for presentation.
@@ -377,7 +404,11 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             resolvedDamage.Request.HitPoint,
             resolvedDamage.Result.AppliedDamage,
             resolvedDamage.Request.SimulationTick,
-            AttackFailureReason.None);
+            AttackFailureReason.None,
+            _meleeFeedbackSlot,
+            _meleeFeedbackSequence,
+            _meleeFeedbackWeapon,
+            resolvedDamage.Request.Direction);
     }
 
     /// <summary>
@@ -552,8 +583,15 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                 GetAttackOriginPosition(),
                 direction,
                 (int)Runner.Tick);
-            if (meleeAttack.Execute(in request, GetBasicAttackDamageMultiplier(), GetBasicAttackEmpowerSource()).WasExecuted)
-                LastAttackCancellationTick = -1;
+            _meleeFeedbackSlot = EquipmentSlot.None;
+            _meleeFeedbackSequence = AttackSequence;
+            _meleeFeedbackWeapon = LastAttackWeaponCatalogIndexPlusOne;
+            try
+            {
+                if (meleeAttack.Execute(in request, GetBasicAttackDamageMultiplier(), GetBasicAttackEmpowerSource()).WasExecuted)
+                    LastAttackCancellationTick = -1;
+            }
+            finally { ClearMeleeFeedbackScope(); }
         }
     }
 
@@ -612,18 +650,21 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             int index = HandIndex(attack.SourceSlot);
             WeaponHandAttackState state = HandAttacks[index];
             if (attack.Sequence != _observedHandSequences[index]) return false;
-            seconds = GetAttackElapsedSeconds(attack);
-            return seconds >= 0f && (state.Sequence != attack.Sequence || state.CancellationTick < 0 ||
-                AttackRenderTime < (double)state.CancellationTick * Runner.DeltaTime);
+            float rawSeconds = GetAttackElapsedSeconds(attack);
+            if (rawSeconds < 0f || (state.Sequence == attack.Sequence && state.CancellationTick >= 0 &&
+                AttackRenderTime >= (double)state.CancellationTick * Runner.DeltaTime)) return false;
+            seconds = _hitstop[index].Map(attack.Sequence, rawSeconds);
+            return true;
         }
         if (Runner == null || !Runner.IsRunning || Object == null || !Object.IsValid ||
             attack.Sequence != _lastObservedSequence || !_character.IsAlive || (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)))
             return false;
-        seconds = GetAttackElapsedSeconds(attack);
-        // A newer received snapshot may still be ahead of the remote render clock. It must not
-        // prematurely replace the currently observed attack or apply another sequence's cancellation.
-        return seconds >= 0f && (attack.Sequence != AttackSequence || LastAttackCancellationTick < 0 ||
-            AttackRenderTime < (double)LastAttackCancellationTick * Runner.DeltaTime);
+        float rawElapsed = GetAttackElapsedSeconds(attack);
+        // Cancellation and acceptance always use raw render time, never the paused visual clock.
+        if (rawElapsed < 0f || (attack.Sequence == AttackSequence && LastAttackCancellationTick >= 0 &&
+            AttackRenderTime >= (double)LastAttackCancellationTick * Runner.DeltaTime)) return false;
+        seconds = _hitstop[4].Map(attack.Sequence, rawElapsed);
+        return true;
     }
 
     private AttackFailureReason GetPrimaryAttackFailureReason()
@@ -842,11 +883,18 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                     {
                         AttackRequest request = new(_character.Id, GetAttackOriginPosition(), direction, Runner.Tick);
                         AttackExecutionParameters parameters = release.ExecutionParameters;
-                        if (melee.Execute(request, parameters, GetBasicAttackDamageMultiplier(), GetBasicAttackEmpowerSource()).WasExecuted)
+                        _meleeFeedbackSlot = slot;
+                        _meleeFeedbackSequence = state.Sequence;
+                        _meleeFeedbackWeapon = state.WeaponCatalogIndexPlusOne;
+                        try
                         {
-                            state.CancellationTick = -1;
-                            HandAttacks.Set(index, state);
+                            if (melee.Execute(request, parameters, GetBasicAttackDamageMultiplier(), GetBasicAttackEmpowerSource()).WasExecuted)
+                            {
+                                state.CancellationTick = -1;
+                                HandAttacks.Set(index, state);
+                            }
                         }
+                        finally { ClearMeleeFeedbackScope(); }
                     }
                 }
             }
@@ -901,13 +949,143 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                 _lastObservedSequence = AttackSequence;
     }
 
+    private void ClearMeleeFeedbackScope()
+    {
+        _meleeFeedbackSlot = EquipmentSlot.None;
+        _meleeFeedbackSequence = 0;
+        _meleeFeedbackWeapon = 0;
+    }
+
+    private bool CanPresentHitstop => HasInputAuthority && _character != null && _character.IsAlive &&
+        IsAttackEnabled && !PlayerDownedGate.IsDowned(_character) && !PlayerConsumptionGate.IsConsuming(_character) &&
+        (_matchController == null || _matchController.Phase == NetworkMatchController.MatchPhase.InProgress);
+
+    private bool TryGetHitstopAttack(int index, int sequence, out AttackPerformedEvent attack)
+    {
+        attack = default;
+        if (!CanPresentHitstop) return false;
+        int cancellationTick;
+        if (index < 4)
+        {
+            WeaponHandAttackState state = HandAttacks[index];
+            EquipmentSlot slot = HandSlot(index);
+            if (state.Sequence != sequence || _equipmentController == null ||
+                EquipmentSlotRules.GetWeaponSet(slot) != _equipmentController.ActiveWeaponSetSlot ||
+                _equipmentController.GetWeaponCatalogIndexPlusOne(slot) != state.WeaponCatalogIndexPlusOne) return false;
+            attack = state.ToEvent(_character.Id, slot, Runner.DeltaTime);
+            cancellationTick = state.CancellationTick;
+        }
+        else
+        {
+            if (AttackSequence != sequence ||
+                (_equipmentController != null && _equipmentController.ActiveWeaponSetSlot != WeaponSetSlot.None) ||
+                GetActiveWeaponCatalogIndexPlusOne() != LastAttackWeaponCatalogIndexPlusOne) return false;
+            attack = GetLastAttackEvent();
+            cancellationTick = LastAttackCancellationTick;
+        }
+        return attack.AttackType == AttackType.Melee && attack.HasReleaseTimeline &&
+            (cancellationTick < 0 || AttackRenderTime < (double)cancellationTick * Runner.DeltaTime);
+    }
+
+    private void TryScheduleHitstop(in CombatPresentationEvent feedback)
+    {
+        if (!feedback.IsMeleeImpact || !CanPresentHitstop || _equipmentController == null) return;
+        int index = feedback.MeleeSourceSlot == EquipmentSlot.None ? 4 : HandIndex(feedback.MeleeSourceSlot);
+        if (index < 0 || !TryGetHitstopAttack(index, feedback.MeleeAttackSequence, out AttackPerformedEvent attack) ||
+            attack.WeaponCatalogIndexPlusOne != feedback.MeleeWeaponCatalogIndexPlusOne ||
+            !_equipmentController.TryGetWeaponByCatalogIndexPlusOne(feedback.MeleeWeaponCatalogIndexPlusOne, out LootDefinition loot) ||
+            loot.WeaponDefinition == null || loot.WeaponDefinition.PrimaryAttack is not MeleeAttackConfig) return;
+        float raw = GetAttackElapsedSeconds(attack);
+        bool scheduled = _hitstop[index].TrySchedule(attack.Sequence, attack.ScheduledWindupSeconds, raw,
+            loot.WeaponDefinition.Presentation.HitstopSeconds);
+
+        if (feedback.TargetId == _character.Id || _hitstopRegistry == null ||
+            !_hitstopRegistry.TryGetTransform(feedback.TargetId, out Transform target) ||
+            target == transform || target.IsChildOf(transform) || transform.IsChildOf(target) ||
+            (_hitstopRegistry.TryGetCharacter(feedback.TargetId, out ICharacter character) &&
+                (!character.IsAlive || PlayerDownedGate.IsDowned(character)))) return;
+        float delay = 0f, hold = 0f;
+        // A second target can share an already scheduled hold, but never schedules another freeze.
+        if (scheduled || _hitstop[index].Sequence == attack.Sequence)
+            _hitstop[index].GetRemaining(raw, out delay, out hold);
+        if (scheduled)
+        {
+            _targetFreeze.Freeze(target, delay, hold);
+            _hitstopTargetId = feedback.TargetId;
+            _hitstopTargetRoot = target;
+            _targetFreezeTimeline = index;
+        }
+        if (target.gameObject.activeInHierarchy &&
+            _hitstopRegistry.TryGetCharacter(feedback.TargetId, out ICharacter reactionTarget) &&
+            reactionTarget.IsAlive && !PlayerDownedGate.IsDowned(reactionTarget))
+        {
+            var presenter = target.GetComponentInChildren<DamageFeedbackPresenter>(true);
+            if (presenter != null)
+                presenter.TryPlayMeleeReaction(loot.WeaponDefinition.Presentation.HitReaction,
+                    feedback.HitDirection, delay, hold);
+        }
+    }
+
+    private void AdvanceHitstop()
+    {
+        double now = AttackRenderTime;
+        float delta = (float)Math.Max(0d, now - _lastHitstopRenderTime);
+        _lastHitstopRenderTime = now;
+        if (!CanPresentHitstop)
+        {
+            ClearHitstop();
+            return;
+        }
+        for (int index = 0; index < _hitstop.Length; index++)
+        {
+            if (_hitstop[index].HoldSeconds <= 0f ||
+                TryGetHitstopAttack(index, _hitstop[index].Sequence, out _)) continue;
+            _hitstop[index].Cancel();
+            if (_targetFreezeTimeline == index) RestoreHitstopTarget();
+        }
+        if (_targetFreezeTimeline >= 0)
+        {
+            if (_hitstopRegistry == null || _hitstopTargetRoot == null ||
+                !_hitstopTargetRoot.gameObject.activeInHierarchy ||
+                !_hitstopRegistry.TryGetTransform(_hitstopTargetId, out Transform current) || current != _hitstopTargetRoot ||
+                (_hitstopRegistry.TryGetCharacter(_hitstopTargetId, out ICharacter character) &&
+                    (!character.IsAlive || PlayerDownedGate.IsDowned(character))))
+                RestoreHitstopTarget();
+            else
+            {
+                _targetFreeze.Tick(delta);
+                if (!_targetFreeze.IsActive) RestoreHitstopTarget();
+            }
+        }
+    }
+
+    private void RestoreHitstopTarget()
+    {
+        _targetFreeze.Restore();
+        _targetFreezeTimeline = -1;
+        _hitstopTargetId = default;
+        _hitstopTargetRoot = null;
+    }
+
+    private void ClearHitstop(bool forgetSequences = false)
+    {
+        // Interruptions consume this sequence too: later multi-target feedback cannot restart it.
+        if (forgetSequences) Array.Clear(_hitstop, 0, _hitstop.Length);
+        else for (int i = 0; i < _hitstop.Length; i++) _hitstop[i].Cancel();
+        RestoreHitstopTarget();
+    }
+
     private void RecordCombatFeedback(
         CombatFeedbackKind kind,
         EntityId targetId,
         Vector2 hitPoint,
         float appliedDamage,
         int simulationTick,
-        AttackFailureReason failureReason)
+        AttackFailureReason failureReason,
+        EquipmentSlot meleeSourceSlot = EquipmentSlot.None,
+        int meleeAttackSequence = 0,
+        int meleeWeaponCatalogIndexPlusOne = 0,
+        Vector2 hitDirection = default)
     {
         CombatFeedbackSequence++;
         RPC_ReceiveCombatFeedback(
@@ -917,7 +1095,11 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             hitPoint,
             appliedDamage,
             simulationTick,
-            (int)failureReason);
+            (int)failureReason,
+            (int)meleeSourceSlot,
+            meleeAttackSequence,
+            meleeWeaponCatalogIndexPlusOne,
+            hitDirection);
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]
@@ -928,7 +1110,11 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         Vector2 hitPoint,
         float appliedDamage,
         int simulationTick,
-        int failureReasonValue)
+        int failureReasonValue,
+        int meleeSourceSlotValue,
+        int meleeAttackSequence,
+        int meleeWeaponCatalogIndexPlusOne,
+        Vector2 hitDirection)
     {
         _pendingFeedbackEvents.Enqueue(new CombatPresentationEvent(
             sequence,
@@ -937,7 +1123,11 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             hitPoint,
             appliedDamage,
             simulationTick,
-            (AttackFailureReason)failureReasonValue));
+            (AttackFailureReason)failureReasonValue,
+            (EquipmentSlot)meleeSourceSlotValue,
+            meleeAttackSequence,
+            meleeWeaponCatalogIndexPlusOne,
+            HitReactionMath.NormalizeDirection(hitDirection)));
     }
 
     /// <summary>

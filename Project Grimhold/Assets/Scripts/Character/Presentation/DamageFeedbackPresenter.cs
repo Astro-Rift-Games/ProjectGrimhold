@@ -40,6 +40,18 @@ public sealed class DamageFeedbackPresenter : MonoBehaviour
     [SerializeField, Min(0f)]
     private float _healthEpsilon = 0.001f;
 
+    [SerializeField, Min(0f), Tooltip("Coalesces nearby generic Health feedback with confirmed attacker-local melee feedback.")]
+    private float _meleeMergeWindowSeconds = .15f;
+
+    [SerializeField, Min(0f), Tooltip("Consecutive melee confirmations inside this window keep the current reaction.")]
+    private float _meleeRetriggerGuardSeconds = .05f;
+
+    private HitReactionPlayback _meleePlayback;
+    private bool IsMeleeReactionActive => _meleePlayback != null && _meleePlayback.IsActive;
+    // Evaluated only on a melee hit or while its reaction is active, never on every idle frame.
+    private bool IsDowned => PlayerDownedGate.IsDowned(_characterBase);
+    private float _genericStartedAt;
+
     // Runtime state
     private float _lastObservedHealth;
     private bool _isInitialized;
@@ -71,6 +83,13 @@ public sealed class DamageFeedbackPresenter : MonoBehaviour
             return;
         }
 
+        if (_isInitialized && (_characterBase.Object == null || !_characterBase.Object.IsValid))
+        {
+            CancelAndRestore();
+            _isInitialized = false;
+            return;
+        }
+
         // Defer tracking initialization until the character's network object is spawned and valid
         if (!_isInitialized)
         {
@@ -89,13 +108,21 @@ public sealed class DamageFeedbackPresenter : MonoBehaviour
         // Damage feedback should not run or restart if the character is dead/defeated
         if (!_characterBase.IsAlive)
         {
-            if (_isFeedbackActive)
+            if (_isFeedbackActive || IsMeleeReactionActive)
             {
                 CancelAndRestore();
             }
             _lastObservedHealth = currentHealth;
             return;
         }
+
+        // Downed only ends the melee reaction; the generic Health feedback keeps its previous behavior.
+        if (IsMeleeReactionActive && IsDowned)
+        {
+            _meleePlayback.Restore();
+        }
+
+        _meleePlayback?.Tick(Time.deltaTime);
 
         if (currentHealth < _lastObservedHealth - _healthEpsilon)
         {
@@ -147,6 +174,7 @@ public sealed class DamageFeedbackPresenter : MonoBehaviour
             }
         }
 
+        _meleePlayback = new HitReactionPlayback(_visualTransform, _spriteRenderers, _meleeRetriggerGuardSeconds);
         _hasCapturedBaseState = true;
     }
 
@@ -163,10 +191,30 @@ public sealed class DamageFeedbackPresenter : MonoBehaviour
         }
     }
 
+    /// <summary>Plays only on the peer that receives the attacker's confirmed melee result.</summary>
+    public bool TryPlayMeleeReaction(MeleeHitReactionProfile profile, Vector2 direction, float delaySeconds, float holdSeconds)
+    {
+        if (!isActiveAndEnabled || !_isInitialized || _characterBase == null || !_characterBase.IsAlive ||
+            IsDowned || _meleePlayback == null ||
+            profile == null || !profile.TryValidate(out _) ||
+            float.IsNaN(delaySeconds) || float.IsInfinity(delaySeconds) ||
+            float.IsNaN(holdSeconds) || float.IsInfinity(holdSeconds)) return false;
+
+        // A recent Health pulse is the same contact observed before the RPC. Do not replace an older,
+        // unrelated generic pulse. Other peers never enter this path and keep their existing feedback.
+        if (_isFeedbackActive)
+        {
+            if (Time.time - _genericStartedAt > _meleeMergeWindowSeconds) return false;
+            CancelAndRestore();
+        }
+        return _meleePlayback.Play(profile, direction, delaySeconds, holdSeconds);
+    }
+
     private void TriggerFeedback()
     {
+        if (_meleePlayback != null && _meleePlayback.AbsorbsHealthFeedback(_meleeMergeWindowSeconds)) return;
         CancelAndRestore();
-
+        _genericStartedAt = Time.time;
         _isFeedbackActive = true;
         _elapsedTime = 0f;
 
@@ -214,6 +262,7 @@ public sealed class DamageFeedbackPresenter : MonoBehaviour
     {
         _isFeedbackActive = false;
         _elapsedTime = 0f;
+        _meleePlayback?.Restore();
 
         if (!_hasCapturedBaseState)
         {

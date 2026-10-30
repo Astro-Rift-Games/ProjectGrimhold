@@ -8,8 +8,8 @@ using Assert = NUnit.Framework.Assert;
 namespace Tests.EditMode.Player.Presentation
 {
     /// <summary>
-    /// Player melee damage resolves on the weapon's attack release. The release is calibrated to the moment
-    /// the attack VFX starts (plus its authored lead), so animation, VFX and damage share one clock.
+    /// Player melee damage resolves at each weapon's measured visual contact, not at VFX ignition.
+    /// VFX start = release - lead preserves the authored VFX clip moment on the shared release clock.
     /// </summary>
     public sealed class MeleeReleaseCalibrationTests
     {
@@ -32,6 +32,27 @@ namespace Tests.EditMode.Player.Presentation
         public void MeleeWeapons_AreDiscovered()
         {
             Assert.That(new List<string>(MeleeWeaponPaths()), Is.Not.Empty);
+        }
+
+        [TestCase("Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset", 0.265f)]
+        [TestCase("Assets/Scriptable Objects/Loot/Definitions/MagicSwordWeaponDefinition.asset", 0.48f)]
+        [TestCase("Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset", 0.35f)]
+        [TestCase("Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset", 0.50f)]
+        [TestCase("Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset", 0.55f)]
+        [TestCase("Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset", 0.35f)]
+        [TestCase("Assets/Scriptable Objects/Loot/Definitions/RondelDaggerWeaponDefinition.asset", 0.30f)]
+        [TestCase("Assets/Scriptable Objects/Loot/Definitions/MagicCinquedeaWeaponDefinition.asset", 0.30f)]
+        [TestCase("Assets/Scriptable Objects/Loot/Definitions/SpellbookWeaponDefinition.asset", 0.65f)]
+        public void MeleeWeapon_ReleaseIsItsVisualContact(string path, float contactSeconds)
+        {
+            var weapon = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(path);
+            Assert.That(weapon, Is.Not.Null, path);
+            AttackVfxDefinition vfx = weapon.Presentation.AttackVfx;
+            Assert.That(vfx, Is.Not.Null, path);
+            Assert.That(weapon.AttackReleaseSeconds, Is.EqualTo(contactSeconds).Within(Tolerance),
+                $"{weapon.name} damage must resolve at its own visual contact.");
+            Assert.That(weapon.AttackReleaseSeconds, Is.GreaterThan(vfx.StartSeconds),
+                $"{weapon.name} must not apply damage at VFX ignition during anticipation.");
         }
 
         [TestCaseSource(nameof(MeleeWeaponPaths))]

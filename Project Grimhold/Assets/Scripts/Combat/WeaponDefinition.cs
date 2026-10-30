@@ -334,6 +334,14 @@ public sealed class WeaponDefinition : ScriptableObject
     [System.Serializable]
     public struct PresentationConfig
     {
+        [SerializeField, Range(0f, 0.2f), Tooltip("Local visual hold on confirmed melee damage only. Does not change gameplay timing.")]
+        private float _hitstopSeconds;
+        public float HitstopSeconds => _hitstopSeconds;
+
+        [SerializeField, Tooltip("Optional attacker-local target reaction on confirmed melee damage. Null disables it without changing hitstop.")]
+        private MeleeHitReactionProfile _hitReaction;
+        public MeleeHitReactionProfile HitReaction => _hitReaction;
+
         [SerializeField]
         private Vector2 _stanceOffset;
 
@@ -392,6 +400,13 @@ public sealed class WeaponDefinition : ScriptableObject
 
         public bool TryValidate(out string error)
         {
+            if (!IsFinite(_hitstopSeconds) || _hitstopSeconds < 0f || _hitstopSeconds > .2f)
+            {
+                error = "hitstop seconds must be finite and between 0 and 0.2.";
+                return false;
+            }
+            if (_hitReaction != null && !_hitReaction.TryValidate(out error))
+                return false;
             if (_offHandAttackAnimationSet != null && !_offHandAttackAnimationSet.TryValidate(out error))
                 return false;
             if (!IsFinite(_stanceOffset.x) || !IsFinite(_stanceOffset.y) ||

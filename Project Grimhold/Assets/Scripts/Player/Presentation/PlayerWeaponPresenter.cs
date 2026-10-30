@@ -21,6 +21,8 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
     internal const int FreeAimExecutionOrder = 100;
     private const int SortingOrderFront = 20;
     private const int SortingOrderBack = -10;
+    // Same boundary tolerance as PlayerAttackVfxPresenter, so a release lead's float rounding keeps Off on Main's frames.
+    private const float VfxBoundaryToleranceSeconds = 0.0001f;
     // A weapon-driven weapon is held by the left hand, which draws over it in front facings: over the weapon (20)
     // and its attack VFX (21), under the main hand (30). The hand's glove follows one slot above.
     internal const int WeaponPoseHandSortingOrderFront = 25;
@@ -514,7 +516,8 @@ public sealed class PlayerWeaponPresenter : MonoBehaviour
         if (vfx == null || _attackVfx == null || !_attackVfx.TryGetWeaponTint(loot.WeaponDefinition.DamageType, out Color tint) ||
             !_animatorView.TryGetOffHandAttackElapsed(out float elapsed)) return;
         float vfxSeconds = AttackTiming.ReleaseVfxSeconds(elapsed, attack.ScheduledWindupSeconds, vfx.ReleaseLeadSeconds);
-        if (vfxSeconds < 0f || vfxSeconds >= vfx.Clip.length) return;
+        if (vfxSeconds < -VfxBoundaryToleranceSeconds || vfxSeconds + VfxBoundaryToleranceSeconds >= vfx.Clip.length) return;
+        vfxSeconds = Mathf.Max(0f, vfxSeconds + VfxBoundaryToleranceSeconds);
         if (_offHandAttackVfx == null)
         {
             var visual = new GameObject("OffHandAttackVfx");

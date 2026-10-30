@@ -572,6 +572,86 @@ public sealed class SwordSlashPresentationTests
         }
     }
 
+    [TestCase(SwordPath)]
+    [TestCase(MagicSwordPath)]
+    public void CanonicalSlash_MainHandReleaseMatchesMeasuredBladeContactInEveryFacing(string weaponPath)
+    {
+        var weapon = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(weaponPath);
+        Assert.That(weapon, Is.Not.Null, weaponPath);
+        WeaponDefinition.PresentationConfig presentation = weapon.Presentation;
+        Assert.That(presentation.AttackAnimationSet.CanonicalSlash, Is.True);
+        Vector2 window = presentation.AttackAnimationSet.SlashStrokeWindow;
+        Assert.That(window.y, Is.GreaterThan(window.x));
+        Transform root = _renderer.transform.parent;
+        const float StepSeconds = 0.005f;
+        for (int direction = 0; direction < 6; direction++)
+        {
+            Vector2 facing = PlayerWeaponPresentationMath.CanonicalFacing(direction);
+            Transform visual = PoseHeldWeapon(presentation, facing);
+            AnimationClip attack = presentation.GetAttackClip(direction);
+            Assert.That(attack, Is.Not.Null, $"{weapon.name} direction {direction}");
+            float contact = window.x;
+            float closest = float.MaxValue;
+            for (int step = 0; step <= Mathf.CeilToInt((window.y - window.x) / StepSeconds); step++)
+            {
+                float time = Mathf.Min(window.x + step * StepSeconds, window.y);
+                Vector2 blade = SampleBladeTip(attack, time, root, visual, presentation.BladeTip) -
+                    SampleBladeTip(attack, time, root, visual, presentation.GripPoint);
+                float offset = Vector2.Angle(facing, blade);
+                if (offset < closest)
+                {
+                    closest = offset;
+                    contact = time;
+                }
+            }
+            string context = $"{weapon.name} Main Hand direction {direction}";
+            Assert.That(closest, Is.LessThan(5f), $"{context}: blade reaches the facing during the stroke");
+            Assert.That(contact, Is.EqualTo(weapon.AttackReleaseSeconds).Within(0.01f), context);
+        }
+    }
+
+    [TestCase(SwordLootPath)]
+    [TestCase(MagicSwordLootPath)]
+    public void CanonicalSlash_OffHandReleaseMatchesMeasuredBladeContactInEveryFacing(string lootPath)
+    {
+        var loot = AssetDatabase.LoadAssetAtPath<LootDefinition>(lootPath);
+        Assert.That(loot, Is.Not.Null, lootPath);
+        WeaponDefinition weapon = loot.WeaponDefinition;
+        var set = weapon.Presentation.OffHandAttackAnimationSet;
+        Assert.That(set, Is.Not.Null, weapon.name);
+        Assert.That(set.CanonicalSlash, Is.True);
+        Vector2 window = set.SlashStrokeWindow;
+        Assert.That(window.y, Is.GreaterThan(window.x));
+        // The real presenter applies the derived Off clip and its complete mirrored blade correction.
+        using var rig = new AttackPreviewRig();
+        const float StepSeconds = 0.005f;
+        for (int direction = 0; direction < 6; direction++)
+        {
+            Assert.That(set.GetAttackClip(direction), Is.Not.Null, $"{weapon.name} direction {direction}");
+            rig.Configure(new AttackPreviewCombination(null, loot, AttackPreviewAction.OffAttack, direction));
+            Vector2 facing = PlayerWeaponPresentationMath.CanonicalFacing(direction);
+            float contact = window.x;
+            float closest = float.MaxValue;
+            for (int step = 0; step <= Mathf.CeilToInt((window.y - window.x) / StepSeconds); step++)
+            {
+                float time = Mathf.Min(window.x + step * StepSeconds, window.y);
+                rig.Evaluate(time);
+                Transform visual = rig.WeaponRenderers[1].transform;
+                Vector2 blade = rig.VisualRoot.InverseTransformPoint(visual.TransformPoint(weapon.Presentation.BladeTip)) -
+                    rig.VisualRoot.InverseTransformPoint(visual.TransformPoint(weapon.Presentation.GripPoint));
+                float offset = Vector2.Angle(facing, blade);
+                if (offset < closest)
+                {
+                    closest = offset;
+                    contact = time;
+                }
+            }
+            string context = $"{weapon.name} Off Hand direction {direction}";
+            Assert.That(closest, Is.LessThan(5f), $"{context}: blade reaches the facing during the stroke");
+            Assert.That(contact, Is.EqualTo(weapon.AttackReleaseSeconds).Within(0.01f), context);
+        }
+    }
+
     // The Slash is sized from the main-hand grip to the blade tip only; the second hand follows the
     // baked animation and must not move or resize the effect.
     [TestCase(LongSwordPath)]

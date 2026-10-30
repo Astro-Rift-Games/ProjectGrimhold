@@ -15,7 +15,7 @@ MonoBehaviour:
   _baseDamage: 18
   _attackIntervalSeconds: 0.55
   _executionWindowSeconds: 0.2
-  _attackReleaseSeconds: 0.14
+  _attackReleaseSeconds: 0.3
   _range: 1
   _aimStanceDrawSeconds: 0.45
   _aimedReleaseSeconds: 0.1
@@ -35,6 +35,8 @@ MonoBehaviour:
     _attribute: 3
     _coefficient: 0
   _presentation:
+    _hitReaction: {fileID: 11400000, guid: aafcaec3cdca3d9498ec1fd6e34c0460, type: 2}
+    _hitstopSeconds: 0.04
     _stanceOffset: {x: 0, y: 0}
     _gripPoint: {x: 0, y: -0.375}
     _angleCorrection: -90

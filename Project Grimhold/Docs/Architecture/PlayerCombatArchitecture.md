@@ -446,10 +446,13 @@ in `EquipmentStatisticsModifiers.KnockbackResistance`, without primary-attribute
 configuration but is not consumed yet. Bow, wand and staff templates reuse the shared ranged
 behavior. Long Bow, Compound Bow, Magic Wand and Magic Staff own gameplay release delays of
 0.45, 0.40, 0.35 and 0.90 seconds respectively. Every player melee weapon, including the Spellbook area melee,
-calibrates its release to its attack VFX `StartSeconds + ReleaseLeadSeconds`, so the visible hit moment is the damage
-moment (Arming Sword 0.10, Great Hammer 0.26, Long Sword 0.08, Magic Cinquedea and Rondel Dagger 0.14, Magic Sword
-and Zweihander 0.25, Rapier 0.19, Spellbook 0.625 seconds);
-weapon-specific projectile manifestation remains outside this contract.
+resolves damage at its own measured visual contact, not at a shared animation percentage or VFX ignition:
+for slashes, the blade/grip crosses the facing (Arming Sword 0.265, Magic Sword 0.48, Long Sword 0.35,
+Zweihander 0.50 seconds); for thrusts, the blade reaches full extension (Rapier 0.35, Magic Cinquedea and
+Rondel Dagger 0.30 seconds); Great Hammer's head reaches the facing at 0.55 seconds; Spellbook arrives at
+its strike hold at 0.65 seconds. The VFX keeps its authored clip start because
+`ReleaseLeadSeconds = AttackReleaseSeconds - StartSeconds`.
+Weapon-specific projectile manifestation remains outside this contract.
 
 The canonical future instance contract is `WeaponInstanceModifiers`: optional primary and secondary
 `WeaponScalingModifier` slots using grades E through S. `WeaponScalingGrade.None` is only the default
@@ -519,9 +522,95 @@ incoming amount exactly, and True Damage bypasses mitigation. No calculation mut
 
 `DamageResolver` reports its final `DamageResolvedEvent` to an optional direct `IResolvedDamageFeedbackSink` on the attacker object. `PlayerCombatNetworkController` accepts only applied results belonging to that attacker, advances one networked feedback sequence under State Authority, and sends a reliable result only to Input Authority. The result carries target, confirmed hit point, actual applied damage, simulation tick and sequence.
 
-`CombatFeedbackPresenter` consumes this result during presentation and displays only the damage number from a fixed local TMP pool. Executed attacks without a target, wall impacts and rejected damage never produce a number. Existing target flash/scale pulse remains the hit reaction and is not reimplemented. Sequence baselining and monotonic consumption prevent duplicates during proxy observation, resimulation and session rebinding.
+`CombatFeedbackPresenter` consumes this result during presentation and displays only the damage number from a fixed local TMP pool. Executed attacks without a target, wall impacts and rejected damage never produce a number. The target's Health-driven flash/scale pulse remains the generic reaction on every peer; confirmed melee adds the attacker-local reaction described below. Sequence baselining and monotonic consumption prevent duplicates during proxy observation, resimulation and session rebinding.
 
 A fresh attack press rejected specifically by `CooldownActive` uses the same sequenced local channel to pulse the bottom cooldown icon. For `Hold` configurations the rejection is still emitted only on the physical press edge. Feedback never calls an attack, applies damage or changes the cooldown.
+
+### Melee hitstop
+
+Confirmed melee damage carries its source hand, accepted attack sequence and weapon catalog identity
+through the existing State Authority → Input Authority feedback RPC. Only synchronous melee release
+execution supplies this tag; ranged projectiles, abilities, rejected/zero damage and other feedback
+remain untagged. Hitstop is visible **only on the attacker's client**, not on target clients or proxies.
+It adds no `[Networked]` state and is discarded on spawn/migration instead of restored or replayed.
+
+`AttackHitstop` maps only the presentation seconds returned by `TryGetAttackPresentationSeconds`.
+The four equipped-hand timelines and legacy timeline are independent; Main/Off weapon poses,
+explicitly sampled attack animation and VFX consume the same mapped clock. Acceptance gates and
+cancellation checks still use raw render time. A sequence can schedule once, so multi-target hits
+and duplicate feedback never stack or restart its hold. A new attack replaces that hand's pause.
+The start is `max(contact, current raw elapsed)`; lateness spends the configured hold budget. Less
+than 0.01 seconds remaining drops the pause. Presentation never seeks backward to replay contact,
+and resumes continuously at normal speed with the accepted delay retained through recovery.
+
+`WeaponDefinition.Presentation.HitstopSeconds` is finite, 0–0.2 seconds (0 disables it). Initial visual
+balance values are Rondel Dagger/Magic Cinquedea 0.04, Rapier/Spellbook 0.05, Arming Sword/Magic Sword
+0.06, Long Sword 0.08, Zweihander 0.10 and Great Hammer 0.12 seconds; ranged definitions remain 0.
+No global time scale, Fusion ticks, movement, collision, cooldown, damage or release timing changes.
+
+The controller-owned `HitstopTargetFreeze` pauses the confirmed target's normally-playing Animators
+on that same client, after any remaining contact delay, and restores each original speed on expiry
+or replacement. It never freezes the attacker's Animator: only the matching attack clock is held,
+so locomotion and the other hand retain their owners. A target player’s explicitly sampled attack
+layer is **not** frozen by `Animator.speed`; only its normally-playing layers pause. The first accepted
+target per attack receives the target pause; a later accepted hand/attack replaces it rather than
+accumulating target freezes. Target death/Downed, pooling/unregistration and attacker cancellation,
+death/Downed, consumption, combat/phase interruption, equipment change, disable or despawn restore
+transient visual state, including inactive Animators. Equipment identity is catalog-level, matching
+the existing presentation contract (same-template unit replacement is not distinguishable).
+
+### Melee hit reaction
+
+`DamageFeedbackPresenter.TryPlayMeleeReaction` presents confirmed melee damage on the **attacker's
+client only**, for player and enemy victims. The victim and other peers retain the existing generic
+Health-driven flash/pulse. `DamageRequest.Direction` travels through `RecordResolvedDamage`, the
+existing State Authority → Input Authority RPC and `CombatPresentationEvent.HitDirection` (optional,
+zero for legacy callers). Receipt normalizes finite directions; invalid/near-zero directions become
+zero. No global event or additional networked state is introduced. Rejected/zero damage never enters
+this route; self, dead, Downed, inactive or unavailable targets cannot start it.
+
+`WeaponDefinition.Presentation.HitReaction` optionally references a validated `MeleeHitReactionProfile`;
+null disables only this reaction. Initial art tuning in `Assets/Scriptable Objects/Combat/HitReactions/`:
+
+| Profile | Weapons | Flash strength | Compression | Stretch ratio | Nudge (pixels) | Recovery (seconds) |
+| --- | --- | --- | --- | --- | --- | --- |
+| Light | Rondel Dagger, Magic Cinquedea | .75 | .06 | .5 | 1 | .08 |
+| Medium | Arming Sword, Magic Sword, Rapier, Spellbook | .9 | .10 | .5 | 1 | .12 |
+| Heavy | Long Sword, Zweihander, Great Hammer | 1 | .16 | .75 | 2 | .18 |
+
+All use a warm bright flash `(1, .85, .8, 1)` and 16 PPU. Ranged weapons reference none. These are
+presentation values, not damage, knockback, stun or gameplay timing. Profiles validate normalized
+color/strength, compression 0–.25, stretch 0–1, whole-pixel nudge 0–4, and finite positive PPU/recovery.
+
+`HitReactionPlayback` captures visual local position/scale and renderer colors once. Until the
+remaining contact delay expires it leaves the captured base unchanged; contact applies full flash,
+compression and nudge, holds that peak for the **existing** remaining hitstop hold, then recovers with
+cubic ease-out to exact base values. A confirmed hit still reacts with zero delay/hold when hitstop
+scheduling is too late or disabled; scheduling and target Animator freezing retain their existing
+semantics. Later targets of a multi-target swing can share its remaining contact clock without
+starting another freeze. The playback never writes `Animator.speed` or global time scale and uses
+`Time.deltaTime`. Hitstop durations and gameplay are unchanged.
+
+Deformation applies only to the assigned visual hierarchy (`VisualRoot` on players, `Body` on enemies),
+not the authoritative character root or physics. Direction is converted to the visual parent's space;
+compression follows its dominant X/Y axis, with perpendicular stretch and no rotation/shear. A zero
+or invalid direction compresses Y without a nudge. Nudge components snap to the 1/PPU grid, scale
+factors to 1/16 steps clamped to .75–1.25. Each frame writes captured base plus the current contribution,
+never accumulated offsets. This bounds pixel-art distortion; it does not guarantee pixel-perfect
+rasterization for arbitrarily rotated/scaled parents or non-integer camera scaling.
+
+A recent generic pulse (default .15 s merge window) is restored then replaced by melee; a Health drop
+within .15 s of accepted melee playback is absorbed, even if a light recovery has already ended. An
+older active generic pulse is preserved rather than replaced by an unrelated late confirmation.
+Consecutive melee confirmations within .05 s keep the current reaction without resetting direction
+or extending its timeline; after that guard, a new hit restarts from captured base at contact. These
+windows are serialized on the presenter; they are timing-based coalescing, not a damage-event identity
+ledger, so unrelated damage inside the window may also be coalesced on the attacker's peer.
+
+Death, Downed, invalid/despawned network objects, disable and explicit `CancelAndRestore` stop playback
+and restore position, scale and colors, including inactive renderers. Normal completion restores exactly.
+There are no new sprites, animations, particles or sounds. Host/Client visual approval and real
+multi-process checks remain manual; deterministic EditMode coverage does not prove those visuals.
 
 ## Fatal defeat contribution
 
@@ -819,7 +908,8 @@ art lead, never an independent start timer or simulation authority. The VFX clip
 and finishes after its own clip duration. The renderer is a direct child of `VisualRoot`, not of
 the animated hand or weapon pivot, so the effect never inherits the swing twice. The Sword Slash
 visual plays four 100 ms sprite frames. Arming Sword aligns it from attack phase 0.1s and Magic Sword
-from 0.25s, preserving their original visual timing. Both Main slash poses now use mirrored playback
+from 0.25s, preserving their original visual timing; damage resolves at their respective contacts at
+0.265s and 0.48s. Both Main slash poses now use mirrored playback
 for the canonical +135 to -45 degree stroke; Off reflects it across the facing axis. Their positions,
 rotations and reach offsets are regenerated from the body-centered arc and sprite centroids. The two-handed Long Sword aligns it from 0.08s, so frame 0 anticipates
 its windup apex at 0.2s, frames 1-2 cover its counterclockwise strike to 0.4s and frame 3 the
@@ -860,8 +950,8 @@ the main-hand grip at that peak with the grip to gem axis as rotation and no rea
 Sorting sits just above the held staff (21 in front facings, -9 in north facings). The staff's left hand
 is an independent authored gesture outside the main-hand chain, so it never moves the cast point.
 Spellbook is the third Cast Flash consumer and the first on a melee attack: `SpellbookCastFlashAttackVfx` aligns the same
-`CastFlashVfxVisual` with its own cast. Its `ReleaseLeadSeconds` stays `0`, so its `AttackReleaseSeconds` equals
-`StartSeconds` (0.625). Its clips thrust the main hand forward from 0.5s, arrive at the strike hold
+`CastFlashVfxVisual` with its own cast. Its `AttackReleaseSeconds` is 0.65 at strike-hold arrival;
+`ReleaseLeadSeconds` is 0.025, preserving `StartSeconds` at 0.625. Its clips thrust the main hand forward from 0.5s, arrive at the strike hold
 at 0.65s and hold it until 0.75s in every facing, then recover until the 1.0 s end. Each facing anchors the main-hand
 grip at that hold with the grip to top-edge axis as rotation and no reach offset, so the flash lands on the book's top
 edge. `BladeTip` is `(0, 0.46875)`, the middle of the two top pixels of the 16x16 px `Spellbook-Front.png`; the grip
@@ -988,10 +1078,10 @@ history: intermediate attacks missed entirely between snapshots are not reconstr
 
 ### 1. Damage Feedback Visuals
 When a character takes damage (authoritatively confirmed by `Health` changes on State Authority):
-* Presentation components (`PlayerDamagePresenter`) trigger procedural feedback.
+* `DamageFeedbackPresenter` observes replicated Health in `LateUpdate` and triggers procedural feedback.
 * **Sprite Flash**: Temporarily overrides the character's material colors to a bright flash color to signify a hit.
 * **Scale Pulse**: Briefly scales the character's transform down/up to provide physical impact feedback.
-* These reactions run completely client-side in the presentation loop (`Render` or via network property changed callbacks).
+* These reactions run completely client-side in `LateUpdate`; confirmed attacker-local melee can replace/coalesce this generic feedback as described in **Melee hit reaction**.
 
 
 Players do not go from Active straight to definitive Defeat. The lifecycle is
