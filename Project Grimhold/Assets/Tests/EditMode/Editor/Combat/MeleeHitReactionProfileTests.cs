@@ -46,6 +46,23 @@ namespace Tests.EditMode.Combat
             Assert.That(weapon.Presentation.HitReaction, Is.EqualTo(Load(weight)));
         }
 
+        // SpriteRenderer.color multiplies the art, so a near-white flash is invisible on white-tinted sprites.
+        // The peak tint must pull at least one channel well below white, at least as hard as the lighter profile.
+        [Test]
+        public void Profiles_PeakFlashIsVisiblyTinted_AndNotWeakerForHeavierWeapons()
+        {
+            float previous = float.MaxValue;
+            foreach (string weight in new[] { "Light", "Medium", "Heavy" })
+            {
+                var profile = Load(weight);
+                Color peak = Color.Lerp(Color.white, profile.FlashColor, profile.FlashStrength);
+                float darkest = Mathf.Min(peak.r, Mathf.Min(peak.g, peak.b));
+                Assert.That(darkest, Is.LessThanOrEqualTo(.5f), $"{weight} peak tint {peak} is too close to white to read.");
+                Assert.That(darkest, Is.LessThanOrEqualTo(previous), $"{weight} must flash at least as strongly as the lighter profile.");
+                previous = darkest;
+            }
+        }
+
         [Test]
         public void Profiles_AreValid_AndIntensityIncreasesFromLightToHeavy()
         {

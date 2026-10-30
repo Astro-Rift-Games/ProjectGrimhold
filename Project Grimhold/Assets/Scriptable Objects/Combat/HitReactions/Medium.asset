@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f53c28bdbac6c05489e92cf49ec3283d, type: 3}
   m_Name: Medium
   m_EditorClassIdentifier: Assembly-CSharp::MeleeHitReactionProfile
-  _flashColor: {r: 1, g: 0.85, b: 0.8, a: 1}
+  _flashColor: {r: 1, g: 0.2, b: 0.2, a: 1}
   _flashStrength: 0.9
   _compression: 0.1
   _stretchRatio: 0.5

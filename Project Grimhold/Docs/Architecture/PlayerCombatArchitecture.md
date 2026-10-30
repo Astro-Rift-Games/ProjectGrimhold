@@ -578,7 +578,9 @@ null disables only this reaction. Initial art tuning in `Assets/Scriptable Objec
 | Medium | Arming Sword, Magic Sword, Rapier, Spellbook | .9 | .10 | .5 | 1 | .12 |
 | Heavy | Long Sword, Zweihander, Great Hammer | 1 | .16 | .75 | 2 | .18 |
 
-All use a warm bright flash `(1, .85, .8, 1)` and 16 PPU. Ranged weapons reference none. These are
+All use the damage-red flash `(1, .2, .2, 1)` and 16 PPU. `SpriteRenderer.color` multiplies the art, so a
+near-white flash cannot brighten a white-tinted sprite and reads as no flash; strength alone scales intensity
+(peak tint `(1, .4, .4)`, `(1, .28, .28)`, `(1, .2, .2)`). Ranged weapons reference none. These are
 presentation values, not damage, knockback, stun or gameplay timing. Profiles validate normalized
 color/strength, compression 0–.25, stretch 0–1, whole-pixel nudge 0–4, and finite positive PPU/recovery.
 
