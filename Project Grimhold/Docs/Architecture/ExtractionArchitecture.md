@@ -338,7 +338,7 @@ Constraints and team workflow:
 2. **Dual-Mode Producer Verification**:
    - **Dedicated Server Mode**: Infrastructure holding `WEBHOOK_SECRET` signs the canonical payload using HMAC-SHA256. Verified requests create `AuthoritativeExtractionResult` records.
    - **Bounded Player-Host Authority (MVP)**: In player-hosted Fusion sessions, the host submits extraction results via authenticated JWT without a shared secret. The backend validates:
-     - Recipient character possesses an active `pendingReservation` for the raid (`422 NO_ACTIVE_RESERVATION`).
+     - Recipient character possesses an active `pendingReservation` for the raid (`422 NO_ACTIVE_RESERVATION`). Admission marks that reservation `admittedAt` instead of deleting it; only the extraction commit or a loss clear consumes it ([reservation lifetime](LocalPlayerPersistenceArchitecture.md#backend-reservation-lifetime)).
      - Host is an active participant in that raid (`403 HOST_NOT_IN_RAID`).
      - Item loadout capacity is capped at 30 slots (`422 EXCEEDS_INVENTORY_CAPACITY`) with valid loot identifiers and bounded amounts (`422 INVALID_ITEM_SPECIFICATION`).
      - Experience granted is capped at the maximum raid budget of 5,000 XP (`422 EXCEEDS_EXPERIENCE_BUDGET`).

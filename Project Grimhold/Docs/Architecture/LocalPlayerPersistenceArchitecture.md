@@ -329,9 +329,31 @@ would overwrite their result and a non-empty Loadout would make `TryCommitExtrac
 operations also fail with `InvalidInventory` instead of throwing when the profile is unavailable.
 The same reservation id is idempotent; a different id is rejected while pending. Pre-admission failure restores items and assignments in
 one rollback. After participant, avatar and exact `Inventory + the eight Equipment slots`
-ownership are observed, confirmation consumes the reservation. On restart, login hydration restores
+ownership are observed, confirmation consumes the local reservation. On restart, login hydration restores
 backend reservation data; bootstrap retries pending extraction or rolls back an orphaned reservation
 through the existing paths.
+
+### Backend reservation lifetime
+
+The backend `inventory.pendingReservation` outlives admission: it is the recipient proof that
+Bounded Player-Host extraction publishing requires (see [Extraction](ExtractionArchitecture.md)).
+
+| Moment | Backend reservation | Reserved items |
+| --- | --- | --- |
+| Launch (`POST /character/me/inventory/reservation`) | Created from the backend-persisted Loadout and prepared Equipment | Owned by the reservation |
+| Failure before admission (`DELETE ...?rollback=true`) | Removed | Restored |
+| Admission confirmed (`POST /character/me/inventory/reservation/admit`) | Kept, marked `admittedAt` (idempotent) | Owned by the Raid participation |
+| Extraction commit | Consumed by `ExtractionCommitService` | Replaced by the authoritative result |
+| Any other ending (defeat, abandon, return without extraction, definitive disconnect, Absolute Closure, Host cancel or timeouts, Host Migration failure, crash or relogin) | Consumed by `DELETE ...` without rollback | Lost |
+
+An admitted reservation is never rolled back: rollback returns `409 RESERVATION_ADMITTED`, and a new
+launch never restores its items. A loss clear or a replacement while an unconsumed
+`AuthoritativeExtractionResult` targets the character returns `409 EXTRACTION_RESULT_PENDING`, so
+extracted loot is never discarded. On login, an admitted reservation without a local pending
+extraction commit is discarded locally without restoring items and cleared on the backend as a loss;
+a pending extraction commit keeps its retry path. Previously admission deleted the backend
+reservation, which made every player-hosted extraction publish fail with `NO_ACTIVE_RESERVATION`
+and left the backend Loadout empty for the next Raid.
 
 ### Extraction boundary
 

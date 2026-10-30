@@ -136,7 +136,19 @@ namespace Grimhold.Backend
         }
 
         /// <summary>
-        /// Clears the pending reservation once a raid completes or the player exits voluntarily.
+        /// Marks admission without consuming the reservation needed by extraction publishing.
+        /// Repeating admission for the same reservation is idempotent.
+        /// </summary>
+        public static Task<(bool success, SaveReservationResult data, BackendError error)>
+            MarkPendingReservationAdmittedAsync(BackendConfiguration config, string token, string reservationId)
+        {
+            var url = $"{config.BaseUrl}/character/me/inventory/reservation/admit";
+            var body = new SaveReservationRequest { reservationId = reservationId };
+            return PostJson<SaveReservationRequest, SaveReservationResult>(config, token, url, body);
+        }
+
+        /// <summary>
+        /// Consumes the pending reservation as a loss, without restoring reserved ownership.
         /// </summary>
         public static async Task<(bool success, ClearPendingReservationResult data, BackendError error)>
             ClearPendingReservationAsync(BackendConfiguration config, string token)
