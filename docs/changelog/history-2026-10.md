@@ -4,30 +4,30 @@
 
 Release: Unreleased
 
-392 original commits; 390 canonical entries.
+393 original commits; 391 canonical entries.
 
 ## Canonical classification
 
-204 features; 59 bug fixes; 7 refactoring; 1 architecture & infrastructure; 75 documentation; 23 tests; 5 maintenance; 16 other changes
+205 features; 59 bug fixes; 7 refactoring; 1 architecture & infrastructure; 75 documentation; 23 tests; 5 maintenance; 16 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 58 | 5 | 0 | 0 | 16 | 2 |
-| Art & Animation | 32 | 9 | 1 | 0 | 4 | 7 |
+| Art & Animation | 33 | 9 | 1 | 0 | 4 | 7 |
 | Audio | 8 | 0 | 0 | 0 | 1 | 0 |
-| Build & Tooling | 168 | 34 | 7 | 1 | 17 | 5 |
+| Build & Tooling | 169 | 34 | 7 | 1 | 17 | 5 |
 | Combat | 78 | 10 | 3 | 0 | 42 | 3 |
 | Documentation | 85 | 30 | 2 | 0 | 28 | 4 |
 | Extraction | 17 | 12 | 1 | 0 | 11 | 2 |
 | Input | 6 | 1 | 0 | 0 | 0 | 0 |
 | Inventory & Loot | 78 | 27 | 4 | 0 | 17 | 4 |
 | Movement | 24 | 3 | 0 | 0 | 6 | 0 |
-| Networking & Sessions | 59 | 20 | 0 | 0 | 11 | 5 |
+| Networking & Sessions | 60 | 20 | 0 | 0 | 11 | 5 |
 | Persistence & Backend | 25 | 28 | 0 | 0 | 13 | 1 |
-| Tests | 188 | 53 | 7 | 1 | 27 | 6 |
+| Tests | 189 | 53 | 7 | 1 | 27 | 6 |
 | UI | 69 | 13 | 3 | 0 | 20 | 6 |
 | Unassigned | 0 | 0 | 0 | 0 | 4 | 0 |
-| World & Visibility | 42 | 12 | 1 | 0 | 11 | 5 |
+| World & Visibility | 43 | 12 | 1 | 0 | 11 | 5 |
 
 ## Original commit records
 
@@ -2106,1428 +2106,6 @@ Project Grimhold/Assets/Tests/EditMode/Editor/Combat/KnockbackRulesTests.cs.meta
 
 - No classification ambiguity detected.
 
-### 6425f4da2d3764d643883a89e4666900bf571705
-
-[6425f4da2d3764d643883a89e4666900bf571705](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6425f4da2d3764d643883a89e4666900bf571705)
-
-Date: 2026-10-27T23:41:58-03:00 · Classification: Bug Fixes (explicit) · Systems: World & Visibility, Persistence & Backend
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-fix(lighting): prune missing volume components in ambient presenter
-```
-
-#### Original body
-
-```text
-Remove null volume components from DungeonAmbientVolumeProfile at runtime in DungeonPressureAmbientPresenter to prevent MissingReferenceException or null checks when retrieving the vignette component.
-
-Player-Fixed: Prevent potential log exceptions from missing post-processing volume components in dungeon rooms.
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Scriptable Objects/DungeonAmbientVolumeProfile.asset
-Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs
-```
-
-#### Classification evidence
-
-- type → Bug Fixes: fix
-- path → World &amp; Visibility: Project Grimhold/Assets/Scriptable Objects/DungeonAmbientVolumeProfile.asset
-- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs
-- message-term → World &amp; Visibility: dungeon
-- path → Persistence &amp; Backend: Project Grimhold/Assets/Scriptable Objects/DungeonAmbientVolumeProfile.asset
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### 68e2be370e27d3a728164f054fdbce53c196fc6c
-
-[68e2be370e27d3a728164f054fdbce53c196fc6c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/68e2be370e27d3a728164f054fdbce53c196fc6c)
-
-Date: 2026-10-27T23:41:30-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-feat(consumables): add throwable pickups and refine throwable mechanics
-```
-
-#### Original body
-
-```text
-Add ground pickup prefabs for explosive bombs, smoke bombs, and throwing daggers to support looting and quick-slot equipping in raids. Rebuild ThrowingDaggerProjectile as a standard NetworkProjectile prefab variant with forward orientation alignment matching DartProjectile. Upgrade NetworkSmokeZone to simulate a parabolic throw trajectory before detonating into smoke, and make damage, radius, duration, and throw distances configurable on NetworkPlayer.
-
-Reviewer notes:
-- LootPickup prefabs wired to LootPickupPresenter, rejection bounce, and NetworkObjectPrefabData GUIDs registered for Fusion spawning.
-- Procedural fire and smoke particles stop emission before setting duration to avoid Unity runtime exceptions.
-
-Player-Added: World pickup prefabs for explosive bombs, smoke bombs, and throwing daggers are now available in raids.
-Player-Improved: Throwing daggers now orient towards aim direction, and smoke bombs simulate a parabolic arc before detonating.
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Prefabs/Consumables/SmokeZone.prefab
-Project Grimhold/Assets/Prefabs/Consumables/ThrowingDaggerProjectile.prefab
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_ExplosiveBomb.prefab
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_ExplosiveBomb.prefab.meta
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_SmokeBomb.prefab
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_SmokeBomb.prefab.meta
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_ThrowingDagger.prefab
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_ThrowingDagger.prefab.meta
-Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab
-Project Grimhold/Assets/Scenes/Gameplay.unity
-Project Grimhold/Assets/Scripts/Combat/NetworkProjectile.cs
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/NetworkExplosiveBomb.cs
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/NetworkSmokeZone.cs
-Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs
-Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
-```
-
-#### Classification evidence
-
-- type → Features: feat
-- path → Combat: Project Grimhold/Assets/Prefabs/Consumables/ThrowingDaggerProjectile.prefab
-- path → Combat: Project Grimhold/Assets/Scripts/Combat/NetworkProjectile.cs
-- message-term → Combat: damage
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ExplosiveBomb.prefab
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ExplosiveBomb.prefab.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_SmokeBomb.prefab
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_SmokeBomb.prefab.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ThrowingDagger.prefab
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ThrowingDagger.prefab.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
-- message-term → Inventory &amp; Loot: pickups
-- path → Tests: Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### b26343a5565481c176ec619927d1d8a441400c0a
-
-[b26343a5565481c176ec619927d1d8a441400c0a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b26343a5565481c176ec619927d1d8a441400c0a)
-
-Date: 2026-10-27T20:24:38-03:00 · Classification: Bug Fixes (explicit) · Systems: Abilities, Persistence & Backend, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-fix(backend): provide missing validation middleware for ability routes
-```
-
-#### Original body
-
-```text
-Add backend/src/middleware/validate.js to resolve a MODULE_NOT_FOUND
-fatal error during server startup. The ability purchase validator
-imported ../middleware/validate, which had not been created.
-
-The middleware extracts validation results from express-validator
-and invokes next(err) with the standard 400 VALIDATION_FAILED contract.
-
-Tests:
-- Backend: validate.middleware.test.js passes.
-- Verified all files in backend/src load cleanly with Node.
-
-Refs: #596
-```
-
-#### Changed paths
-
-```text
-backend/src/middleware/validate.js
-backend/tests/validate.middleware.test.js
-```
-
-#### Classification evidence
-
-- type → Bug Fixes: fix
-- message-term → Abilities: ability
-- path → Persistence &amp; Backend: backend/src/middleware/validate.js
-- path → Persistence &amp; Backend: backend/tests/validate.middleware.test.js
-- scope → Persistence &amp; Backend: backend
-- message-term → Persistence &amp; Backend: backend
-- path → Tests: backend/tests/validate.middleware.test.js
-- message-term → Tests: Tests
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### a3d47120d9e72ce9ef9f60bc8f923b8cfc1c5f0c
-
-[a3d47120d9e72ce9ef9f60bc8f923b8cfc1c5f0c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a3d47120d9e72ce9ef9f60bc8f923b8cfc1c5f0c)
-
-Date: 2026-10-27T19:56:51-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, Networking & Sessions, World & Visibility, Build & Tooling, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-feat(pressure): implement authoritative hybrid dungeon collapse progression
-```
-
-#### Original body
-
-```text
-Implement the authoritative hybrid dungeon collapse progression engine
-according to Doc 20 §7-§8. The dungeon deterioration advances either by base
-elapsed time or by instability points gained through PvE enemy defeats and
-first acquisition of treasures.
-
-Enforce design constraints:
-- Discard instability overflow upon phase transition
-- Saturate at threshold cap when phase minimum interval is pending
-- Block early Collapse (E3) entry before the 08:00 mark
-- Guarantee invariance of the 17:00 absolute closure time
-
-Player-Added: Dungeon collapse progression accelerates dynamically based on monster kills and acquired treasures while preserving the 8-minute early collapse barrier and 17-minute final closure.
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Scripts/Character/EnemyCharacter.cs
-Project Grimhold/Assets/Scripts/Combat/DamageResolver.cs
-Project Grimhold/Assets/Scripts/Combat/EntityRegistry.cs
-Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/CreatureTier.cs
-Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/CreatureTier.cs.meta
-Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureClock.cs
-Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureConfig.cs
-Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs
-Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/IDungeonInstabilitySink.cs
-Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/IDungeonInstabilitySink.cs.meta
-Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs
-Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs.meta
-```
-
-#### Classification evidence
-
-- type → Features: feat
-- path → Combat: Project Grimhold/Assets/Scripts/Combat/DamageResolver.cs
-- path → Combat: Project Grimhold/Assets/Scripts/Combat/EntityRegistry.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs
-- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs
-- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs.meta
-- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/CreatureTier.cs
-- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/CreatureTier.cs.meta
-- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureClock.cs
-- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureConfig.cs
-- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs
-- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/IDungeonInstabilitySink.cs
-- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/IDungeonInstabilitySink.cs.meta
-- path → World &amp; Visibility: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs
-- path → World &amp; Visibility: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs.meta
-- message-term → World &amp; Visibility: dungeon
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs.meta
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs.meta
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### 3945782aa49add1afa0de686ee02f8ff0d78d0cd
-
-[3945782aa49add1afa0de686ee02f8ff0d78d0cd](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3945782aa49add1afa0de686ee02f8ff0d78d0cd)
-
-Date: 2026-10-27T19:19:48-03:00 · Classification: Features (explicit) · Systems: Combat, Abilities, Extraction, Inventory & Loot, UI, Persistence & Backend, Build & Tooling, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-feat(utilities): implement rune compass and arcane detector
-```
-
-#### Original body
-
-```text
-Implement reusable expedition utilities for MVP (Document 14 §13):
-- UTL_RUNE_COMPASS: instant activation with 30s cooldown providing 5s
-  visual cardinal orientation towards the nearest POI.
-- UTL_ARCANE_DETECTOR: 2.0s authoritative channel with 0.5x voluntary
-  movement speed multiplier and damage interruption without penalty,
-  revealing arcane elements within 10m for 5.0s on completion (20s CD).
-- Instance cooldown persistence: preserves remaining cooldown tick on
-  NetworkLootPickup when dropped, restoring remaining cooldown on pickup.
-- MaxTransportable enforcement: validates MaxTransportable = 1 on
-  PlayerLootReceiver, rejecting receiving duplicates.
-- Reusable utilities: utilities are not consumed/deducted on activation.
-
-Reviewers must verify:
-- Rune compass shows nearest extraction sanctuary cardinal direction.
-- Arcane detector channels and applies temporary cyan highlight to arcane items.
-- Dropping an item on cooldown and picking it up preserves remaining recovery time.
-
-Tests added:
-- UtilityExpeditionRulesTests (cardinal math, names, arcane filters, transfer rejection)
-- UtilityExpeditionPlayModeTests (compass orientation, detector channel, highlight, max transportable, drop/pickup cooldown persistence)
-
-Player-Added: Rune Compass and Arcane Detector expedition utilities are now usable in raids.
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_ARCANE_DETECTOR.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_RUNE_COMPASS.asset
-Project Grimhold/Assets/Scripts/Combat/EntityRegistry.cs
-Project Grimhold/Assets/Scripts/Core/LootTransferFailureReason.cs
-Project Grimhold/Assets/Scripts/Core/LootTransferResult.cs
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/ConsumableFailureReason.cs
-Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs
-Project Grimhold/Assets/Scripts/Gameplay/PlayerLootReceiver.cs
-Project Grimhold/Assets/Scripts/Gameplay/Utilities.meta
-Project Grimhold/Assets/Scripts/Gameplay/Utilities/ArcaneElementDetectionRules.cs
-Project Grimhold/Assets/Scripts/Gameplay/Utilities/ArcaneElementDetectionRules.cs.meta
-Project Grimhold/Assets/Scripts/Gameplay/Utilities/ArcaneHighlightEffect.cs
-Project Grimhold/Assets/Scripts/Gameplay/Utilities/ArcaneHighlightEffect.cs.meta
-Project Grimhold/Assets/Scripts/Gameplay/Utilities/CardinalDirection.cs
-Project Grimhold/Assets/Scripts/Gameplay/Utilities/CardinalDirection.cs.meta
-Project Grimhold/Assets/Scripts/Gameplay/Utilities/CardinalDirectionHelper.cs
-Project Grimhold/Assets/Scripts/Gameplay/Utilities/CardinalDirectionHelper.cs.meta
-Project Grimhold/Assets/Scripts/Gameplay/Utilities/IUtilityCooldownProvider.cs
-Project Grimhold/Assets/Scripts/Gameplay/Utilities/IUtilityCooldownProvider.cs.meta
-Project Grimhold/Assets/Scripts/Gameplay/Utilities/IUtilityCooldownReceiver.cs
-Project Grimhold/Assets/Scripts/Gameplay/Utilities/IUtilityCooldownReceiver.cs.meta
-Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
-Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootDropNetworkController.cs
-Project Grimhold/Assets/Scripts/Player/Presentation/InteractionHudPresenter.cs
-Project Grimhold/Assets/Scripts/Player/Presentation/LootConsumeContextActionProvider.cs
-Project Grimhold/Assets/Scripts/Player/Presentation/RaidHudPresenter.cs
-Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Utilities.meta
-Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs.meta
-Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs
-Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs.meta
-```
-
-#### Classification evidence
-
-- type → Features: feat
-- path → Combat: Project Grimhold/Assets/Scripts/Combat/EntityRegistry.cs
-- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs
-- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs.meta
-- path → Abilities: Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs
-- path → Abilities: Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs.meta
-- message-term → Extraction: extraction
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_ARCANE\_DETECTOR.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_RUNE\_COMPASS.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Core/LootTransferFailureReason.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Core/LootTransferResult.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/PlayerLootReceiver.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootDropNetworkController.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/InteractionHudPresenter.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/LootConsumeContextActionProvider.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
-- message-term → Inventory &amp; Loot: pickup
-- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/InteractionHudPresenter.cs
-- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidHudPresenter.cs
-- message-term → Persistence &amp; Backend: persistence
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities.meta
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs.meta
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities.meta
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs.meta
-- path → Tests: Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs.meta
-- message-term → Tests: Tests
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### 6018d6d428e56965be6f9cc557cd8ec19cc6f96f
-
-[6018d6d428e56965be6f9cc557cd8ec19cc6f96f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6018d6d428e56965be6f9cc557cd8ec19cc6f96f)
-
-Date: 2026-10-27T18:29:02-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, UI, Persistence & Backend, Documentation, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-feat(quickslots): retain depleted slots and reject duplicate assignment
-```
-
-#### Original body
-
-```text
-Align Quick Slot rules with Document 14 §12:
-- Retain depleted slots with count 0 and inactive state instead of
-  unassigning them, automatically reactivating upon picking up units.
-- Prevent duplicate assignment of the same item definition across
-  multiple slots, returning QuickSlotAssignmentResult.AlreadyAssigned.
-- Allow utilities (LootCategory.Utility) to be QuickSlotCompatible.
-- Enable quick slot compatibility on UTL_RUNE_COMPASS and
-  UTL_ARCANE_DETECTOR.
-
-Reviewers must verify:
-- QuickSlotController does not release bindings when inventory empties.
-- RaidQuickSlotHudSlotView tints icon grayish when unavailable.
-
-Tests updated & added:
-- QuickSlotAssignmentRulesTests (duplicate rejection, retention)
-- QuickSlotControllerTests (zero-count retention, refill reactivation,
-  utility assignment)
-
-Docs updated:
-- LocalPlayerPersistenceArchitecture.md
-
-Player-Improved: Quick slots keep empty items assigned at count 0 so you don't lose bindings when running out of potions.
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_ARCANE_DETECTOR.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_RUNE_COMPASS.asset
-Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs
-Project Grimhold/Assets/Scripts/Loot/QuickSlots/QuickSlotAssignmentResult.cs
-Project Grimhold/Assets/Scripts/Loot/QuickSlots/QuickSlotAssignmentRules.cs
-Project Grimhold/Assets/Scripts/Loot/QuickSlots/QuickSlotController.cs
-Project Grimhold/Assets/Scripts/Player/Presentation/LootQuickSlotContextActionProvider.cs
-Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
-Project Grimhold/Assets/Scripts/Player/Presentation/RaidQuickSlotHudSlotView.cs
-Project Grimhold/Assets/Tests/EditMode/QuickSlots/QuickSlotAssignmentRulesTests.cs
-Project Grimhold/Assets/Tests/EditMode/QuickSlots/QuickSlotControllerTests.cs
-Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
-```
-
-#### Classification evidence
-
-- type → Features: feat
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_ARCANE\_DETECTOR.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_RUNE\_COMPASS.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/QuickSlots/QuickSlotAssignmentResult.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/QuickSlots/QuickSlotAssignmentRules.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/QuickSlots/QuickSlotController.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/LootQuickSlotContextActionProvider.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
-- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidQuickSlotHudSlotView.cs
-- path → Persistence &amp; Backend: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
-- path → Documentation: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/QuickSlots/QuickSlotAssignmentRulesTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/QuickSlots/QuickSlotControllerTests.cs
-- message-term → Tests: Tests
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### 9e7f6c4d170aff8329900fcda012e193e26e67f3
-
-[9e7f6c4d170aff8329900fcda012e193e26e67f3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9e7f6c4d170aff8329900fcda012e193e26e67f3)
-
-Date: 2026-10-27T17:53:17-03:00 · Classification: Features (explicit) · Systems: Combat, Movement, Inventory & Loot, UI, World & Visibility, Input, Build & Tooling, Documentation, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-feat(consumables): add MVP offensive and tactical throwables
-```
-
-#### Original body
-
-```text
-Add networked throwing mechanics and immediate inventory deduction for
-offensive and tactical consumables: CON_EXPLOSIVE_BOMB (delayed AoE
-damage), CON_THROWING_DAGGER (fast linear damage), and CON_SMOKE_BOMB
-(neutral smoke zone occluding line of sight for players and AI).
-
-Reviewers must verify:
-- PlayerConsumableNetworkController throwable prefab references.
-- SmokeZoneRegistry integration in VisionQuery and EnemyMovementAI.
-- CON_SMOKE_BOMB use mode set to AimedQuickSlot in definition asset.
-
-Added tests:
-- ThrowableConsumableRulesTests (6 EditMode tests)
-- ThrowableConsumablesPlayModeTests (5 PlayMode tests)
-
-Docs updated:
-- PlayerInteractionArchitecture.md (TASK-233 section)
-
-Player-Added: Bombs, throwing daggers, and smoke bombs can now be used from quick slots.
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Prefabs/Consumables.meta
-Project Grimhold/Assets/Prefabs/Consumables/ExplosiveBomb.prefab
-Project Grimhold/Assets/Prefabs/Consumables/ExplosiveBomb.prefab.meta
-Project Grimhold/Assets/Prefabs/Consumables/SmokeZone.prefab
-Project Grimhold/Assets/Prefabs/Consumables/SmokeZone.prefab.meta
-Project Grimhold/Assets/Prefabs/Consumables/ThrowingDaggerProjectile.prefab
-Project Grimhold/Assets/Prefabs/Consumables/ThrowingDaggerProjectile.prefab.meta
-Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_SMOKE_BOMB.asset
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/ISmokeZone.cs
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/ISmokeZone.cs.meta
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/NetworkExplosiveBomb.cs
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/NetworkExplosiveBomb.cs.meta
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/NetworkSmokeZone.cs
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/NetworkSmokeZone.cs.meta
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/SmokeZoneRegistry.cs
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/SmokeZoneRegistry.cs.meta
-Project Grimhold/Assets/Scripts/Gameplay/Visibility/VisionQuery.cs
-Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
-Project Grimhold/Assets/Scripts/Player/Movement/EnemyMovementAIController.cs
-Project Grimhold/Assets/Scripts/Player/PlayerInputReader.cs
-Project Grimhold/Assets/Scripts/Player/Presentation/LootConsumeContextActionProvider.cs
-Project Grimhold/Assets/Scripts/Player/Presentation/RaidQuickSlotHudPresenter.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowableConsumableRulesTests.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowableConsumableRulesTests.cs.meta
-Project Grimhold/Assets/Tests/PlayMode/ThrowableConsumablesPlayModeTests.cs
-Project Grimhold/Assets/Tests/PlayMode/ThrowableConsumablesPlayModeTests.cs.meta
-Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md
-```
-
-#### Classification evidence
-
-- type → Features: feat
-- path → Combat: Project Grimhold/Assets/Prefabs/Consumables/ThrowingDaggerProjectile.prefab
-- path → Combat: Project Grimhold/Assets/Prefabs/Consumables/ThrowingDaggerProjectile.prefab.meta
-- message-term → Combat: damage
-- path → Movement: Project Grimhold/Assets/Scripts/Player/Movement/EnemyMovementAIController.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_SMOKE\_BOMB.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/LootConsumeContextActionProvider.cs
-- path → Inventory &amp; Loot: Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md
-- message-term → Inventory &amp; Loot: inventory
-- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidQuickSlotHudPresenter.cs
-- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/Visibility/VisionQuery.cs
-- path → Input: Project Grimhold/Assets/Scripts/Player/PlayerInputReader.cs
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowableConsumableRulesTests.cs
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowableConsumableRulesTests.cs.meta
-- path → Documentation: Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowableConsumableRulesTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowableConsumableRulesTests.cs.meta
-- path → Tests: Project Grimhold/Assets/Tests/PlayMode/ThrowableConsumablesPlayModeTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/PlayMode/ThrowableConsumablesPlayModeTests.cs.meta
-- message-term → Tests: tests
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### 384785d17e7749103d949529409dc6042c5ade53
-
-[384785d17e7749103d949529409dc6042c5ade53](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/384785d17e7749103d949529409dc6042c5ade53)
-
-Date: 2026-10-27T17:06:42-03:00 · Classification: Features (explicit) · Systems: Abilities, Inventory & Loot, Persistence & Backend, Build & Tooling, Documentation, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-feat(abilities): make Ability Vendor purchases authoritative and durable
-```
-
-#### Original body
-
-```text
-Move ability purchasing from local-only client simulation to an authoritative,
-single-document atomic backend transaction. Add Character.unlockedAbilities
-to the persistence schema and expose POST /character/me/abilities/purchase
-with server-side pricing from ABILITY_CATALOG mirroring Unity catalog
-assets. Validate funds, reservation state, revision conflicts, and duplicate
-purchases with an idempotent receipt window.
-
-On the client, introduce IAbilityPurchaseService and
-RemoteAbilityPurchaseService to execute a preliminary local check,
-await server confirmation, and commit local unlock, balance, and remote
-revision. Update ApplicationStashServiceBootstrapper.HydrateSnapshot to
-hydrate unlockedAbilities directly from the backend, discarding stale or
-orphaned local unlocks and revalidating prepared abilities.
-
-Tests:
-- Backend: Parity check against Unity asset catalog (100% match).
-- Backend: Unit tests covering atomic purchase, receipts, idempotency,
-  pending reservation, revision conflict, already unlocked, and insufficient funds.
-- Unity: EditMode tests for RemoteAbilityPurchaseService covering
-  success, local rejection gates, backend errors, transport failures, and hydration.
-
-Docs:
-- Updated CommerceArchitecture.md and LocalPlayerPersistenceArchitecture.md.
-
-Player-Improved: Abilities purchased at the Town Ability Vendor now save reliably to your account and remain unlocked across game sessions.
-Refs: #596
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Scripts/Abilities/Persistence/AbilityPurchaseResult.cs
-Project Grimhold/Assets/Scripts/Abilities/Vendor/IAbilityPurchaseService.cs
-Project Grimhold/Assets/Scripts/Abilities/Vendor/IAbilityPurchaseService.cs.meta
-Project Grimhold/Assets/Scripts/Abilities/Vendor/RemoteAbilityPurchaseService.cs
-Project Grimhold/Assets/Scripts/Abilities/Vendor/RemoteAbilityPurchaseService.cs.meta
-Project Grimhold/Assets/Scripts/Backend/ProgressionClient.cs
-Project Grimhold/Assets/Scripts/Backend/ProgressionDataTransferObjects.cs
-Project Grimhold/Assets/Scripts/Player/Presentation/AbilityVendorFeedback.cs
-Project Grimhold/Assets/Scripts/Player/Presentation/TownAbilityVendorPresenter.cs
-Project Grimhold/Assets/Scripts/Player/Presentation/TownInventoryBinder.cs
-Project Grimhold/Assets/Scripts/Stash/ApplicationStashContext.cs
-Project Grimhold/Assets/Scripts/Stash/ApplicationStashServiceBootstrapper.cs
-Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs.meta
-Project Grimhold/Docs/Architecture/CommerceArchitecture.md
-Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
-backend/src/config/abilityCatalog.js
-backend/src/models/Character.js
-backend/src/routes/character.routes.js
-backend/src/services/AbilityService.js
-backend/src/services/ProgressionService.js
-backend/src/validators/ability.validators.js
-backend/tests/ability.catalog.parity.test.js
-backend/tests/ability.purchase.test.js
-```
-
-#### Classification evidence
-
-- type → Features: feat
-- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Persistence/AbilityPurchaseResult.cs
-- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Vendor/IAbilityPurchaseService.cs
-- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Vendor/IAbilityPurchaseService.cs.meta
-- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Vendor/RemoteAbilityPurchaseService.cs
-- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Vendor/RemoteAbilityPurchaseService.cs.meta
-- path → Abilities: Project Grimhold/Assets/Scripts/Player/Presentation/AbilityVendorFeedback.cs
-- path → Abilities: Project Grimhold/Assets/Scripts/Player/Presentation/TownAbilityVendorPresenter.cs
-- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs
-- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs.meta
-- path → Abilities: backend/src/config/abilityCatalog.js
-- path → Abilities: backend/src/services/AbilityService.js
-- path → Abilities: backend/src/validators/ability.validators.js
-- path → Abilities: backend/tests/ability.catalog.parity.test.js
-- path → Abilities: backend/tests/ability.purchase.test.js
-- scope → Abilities: abilities
-- message-term → Abilities: abilities
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/TownInventoryBinder.cs
-- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Abilities/Persistence/AbilityPurchaseResult.cs
-- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/ProgressionClient.cs
-- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/ProgressionDataTransferObjects.cs
-- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
-- path → Persistence &amp; Backend: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
-- path → Persistence &amp; Backend: backend/src/config/abilityCatalog.js
-- path → Persistence &amp; Backend: backend/src/models/Character.js
-- path → Persistence &amp; Backend: backend/src/routes/character.routes.js
-- path → Persistence &amp; Backend: backend/src/services/AbilityService.js
-- path → Persistence &amp; Backend: backend/src/services/ProgressionService.js
-- path → Persistence &amp; Backend: backend/src/validators/ability.validators.js
-- path → Persistence &amp; Backend: backend/tests/ability.catalog.parity.test.js
-- path → Persistence &amp; Backend: backend/tests/ability.purchase.test.js
-- message-term → Persistence &amp; Backend: backend
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs.meta
-- path → Documentation: Project Grimhold/Docs/Architecture/CommerceArchitecture.md
-- path → Documentation: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs.meta
-- path → Tests: backend/tests/ability.catalog.parity.test.js
-- path → Tests: backend/tests/ability.purchase.test.js
-- message-term → Tests: Tests
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### 63f574df6c4328a34f620f7803a464a6ba9ce836
-
-[63f574df6c4328a34f620f7803a464a6ba9ce836](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/63f574df6c4328a34f620f7803a464a6ba9ce836)
-
-Date: 2026-10-27T16:28:42-03:00 · Classification: Bug Fixes (explicit) · Systems: Extraction, Inventory & Loot, Persistence & Backend, Documentation, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-fix(security): eliminate client webhook secret and bound host extraction trust
-```
-
-#### Original body
-
-```text
-Remove WebhookSecret from BackendConfiguration asset and C# class,
-ensuring client builds do not contain cluster signing secrets.
-Implement Bounded Player-Host Authority in RaidResultService for the
-client-hosted MVP topology: the backend authenticates the host via JWT,
-requires active raid reservations on recipients, bounds loadout items to
-30 slots, caps experience at 5,000 XP per raid, and rejects forged HMAC
-signatures.
-
-Update architecture documentation (ExtractionArchitecture,
-RemoteIdentityAndAuthArchitecture, RaidParticipantArchitecture) and add
-backend unit tests covering exploit rejections and legitimate bounded
-extraction flows.
-
-Refs: #595
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Resources/BackendConfiguration.asset
-Project Grimhold/Assets/Scripts/Backend/BackendConfiguration.cs
-Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
-Project Grimhold/Docs/Architecture/ExtractionArchitecture.md
-Project Grimhold/Docs/Architecture/RaidParticipantArchitecture.md
-Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md
-backend/src/services/RaidResultService.js
-backend/tests/raid.result.test.js
-```
-
-#### Classification evidence
-
-- type → Bug Fixes: fix
-- path → Extraction: Project Grimhold/Docs/Architecture/ExtractionArchitecture.md
-- message-term → Extraction: extraction
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
-- path → Persistence &amp; Backend: Project Grimhold/Assets/Resources/BackendConfiguration.asset
-- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/BackendConfiguration.cs
-- path → Persistence &amp; Backend: Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md
-- path → Persistence &amp; Backend: backend/src/services/RaidResultService.js
-- path → Persistence &amp; Backend: backend/tests/raid.result.test.js
-- message-term → Persistence &amp; Backend: backend
-- path → Documentation: Project Grimhold/Docs/Architecture/ExtractionArchitecture.md
-- path → Documentation: Project Grimhold/Docs/Architecture/RaidParticipantArchitecture.md
-- path → Documentation: Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md
-- message-term → Documentation: documentation
-- path → Tests: backend/tests/raid.result.test.js
-- message-term → Tests: tests
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### 8463a4d4b53d75a667559aca257efafc0e36a1da
-
-[8463a4d4b53d75a667559aca257efafc0e36a1da](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8463a4d4b53d75a667559aca257efafc0e36a1da)
-
-Date: 2026-10-27T00:33:29-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, Build & Tooling, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-feat(loot): add test spawner and pickup prefabs for raid item validation
-```
-
-#### Original body
-
-```text
-Introduce RaidLootTestSpawner and custom Editor inspector to spawn test items in Play Mode with configurable hotkey (F8) and custom item field. Add 9 dedicated Fusion-labeled loot pickup prefabs and place test instances in Gameplay.unity near Sanctuary 1 for in-game verification.
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Editor/Gameplay.meta
-Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs
-Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs.meta
-Project Grimhold/Assets/Prefabs/Loot.meta
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_ChaosCoin.prefab
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_ChaosCoin.prefab.meta
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_FamineIdol.prefab
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_FamineIdol.prefab.meta
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_HealthPotion.prefab
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_HealthPotion.prefab.meta
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_ManaFragment.prefab
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_ManaFragment.prefab.meta
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_ManaPotion.prefab
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_ManaPotion.prefab.meta
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_PilgrimLight.prefab
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_PilgrimLight.prefab.meta
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_SanctuaryHeart.prefab
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_SanctuaryHeart.prefab.meta
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_VoidBell.prefab
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_VoidBell.prefab.meta
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_WandererEye.prefab
-Project Grimhold/Assets/Prefabs/Loot/LootPickup_WandererEye.prefab.meta
-Project Grimhold/Assets/Scenes/Gameplay.unity
-Project Grimhold/Assets/Scripts/Gameplay/Debugging.meta
-Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs
-Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs.meta
-```
-
-#### Classification evidence
-
-- type → Features: feat
-- path → Combat: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_HealthPotion.prefab
-- path → Combat: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_HealthPotion.prefab.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ChaosCoin.prefab
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ChaosCoin.prefab.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_FamineIdol.prefab
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_FamineIdol.prefab.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_HealthPotion.prefab
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_HealthPotion.prefab.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ManaFragment.prefab
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ManaFragment.prefab.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ManaPotion.prefab
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ManaPotion.prefab.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_PilgrimLight.prefab
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_PilgrimLight.prefab.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_SanctuaryHeart.prefab
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_SanctuaryHeart.prefab.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_VoidBell.prefab
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_VoidBell.prefab.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_WandererEye.prefab
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_WandererEye.prefab.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs.meta
-- scope → Inventory &amp; Loot: loot
-- message-term → Inventory &amp; Loot: loot
-- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/Gameplay.meta
-- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs
-- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs.meta
-- path → Tests: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs
-- path → Tests: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs.meta
-- path → Tests: Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs
-- path → Tests: Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs.meta
-- message-term → Tests: test
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### 02e956b00784ff9022b1f9ea453f3244f4580aa4
-
-[02e956b00784ff9022b1f9ea453f3244f4580aa4](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/02e956b00784ff9022b1f9ea453f3244f4580aa4)
-
-Date: 2026-10-27T00:32:58-03:00 · Classification: Bug Fixes (explicit) · Systems: Inventory & Loot, Art & Animation
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-fix(loot): attach passive effects controller and sync drop definition
-```
-
-#### Original body
-
-```text
-Convert PlayerInventoryPassiveEffectsController to a MonoBehaviour that reactively queries the replicated player inventory without consuming Fusion word budget. Attach it to NetworkPlayer.prefab and add fallback dependency resolution in PlayerCharacter.
-
-Synchronize the serialized LootDefinition field in NetworkLootPickup when spawning or dropping items so the Unity Inspector accurately displays the resolved item definition instead of default Bone.
-
-Player-Fixed: Passive effects from treasures in inventory now activate reliably, and dropped items display their correct name and sprite.
-Refs: #618
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab
-Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs
-Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs
-Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs
-```
-
-#### Classification evidence
-
-- type → Bug Fixes: fix
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs
-- scope → Inventory &amp; Loot: loot
-- message-term → Inventory &amp; Loot: loot
-- message-term → Art &amp; Animation: sprite
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### a2fb465360e7dd83f922ae1e91d6d99706ac6ae3
-
-[a2fb465360e7dd83f922ae1e91d6d99706ac6ae3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a2fb465360e7dd83f922ae1e91d6d99706ac6ae3)
-
-Date: 2026-10-27T00:32:34-03:00 · Classification: Bug Fixes (explicit) · Systems: Inventory & Loot, Build & Tooling, Documentation, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-fix(loot): expand catalog index capacity in packed origin buffer
-```
-
-#### Original body
-
-```text
-Expand MaximumCatalogEntries from 64 to 128 in RaidLootOriginPackedBuffer to support the expanded 81-definition catalog without exceeding network bit budget. Adjust KeyBits from 6 to 12 while preserving 43 bits per bucket and 686-word buffer allocation for NetworkPlayer.
-
-Update PlayerLootReceiver unit tests and technical documentation in LootInteractionArchitecture.md to reflect the 128-definition ceiling.
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Scripts/Gameplay/RaidLootOriginPackedBuffer.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Loot/PlayerLootReceiverTests.cs
-Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md
-```
-
-#### Classification evidence
-
-- type → Bug Fixes: fix
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/RaidLootOriginPackedBuffer.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/PlayerLootReceiverTests.cs
-- path → Inventory &amp; Loot: Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md
-- scope → Inventory &amp; Loot: loot
-- message-term → Inventory &amp; Loot: loot
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/PlayerLootReceiverTests.cs
-- path → Documentation: Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md
-- message-term → Documentation: documentation
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/PlayerLootReceiverTests.cs
-- message-term → Tests: tests
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### 7aa4c09b33fecd92bb6b1b90b44a955ccfecf519
-
-[7aa4c09b33fecd92bb6b1b90b44a955ccfecf519](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7aa4c09b33fecd92bb6b1b90b44a955ccfecf519)
-
-Date: 2026-10-26T20:32:44-03:00 · Classification: Features (explicit) · Systems: Movement, Inventory & Loot, UI, Build & Tooling, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-feat(loot): implement inventory passive effects for expedition treasures
-```
-
-#### Original body
-
-```text
-
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs
-Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs.meta
-Project Grimhold/Assets/Scripts/Player/Movement/EnemyMovementAIController.cs
-Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs
-Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs
-Project Grimhold/Assets/Scripts/Player/PlayerStaminaNetworkController.cs
-Project Grimhold/Assets/Scripts/Player/Presentation/RaidMinimapPresenter.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs.meta
-```
-
-#### Classification evidence
-
-- type → Features: feat
-- path → Movement: Project Grimhold/Assets/Scripts/Player/Movement/EnemyMovementAIController.cs
-- path → Movement: Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs.meta
-- scope → Inventory &amp; Loot: loot
-- message-term → Inventory &amp; Loot: loot
-- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidMinimapPresenter.cs
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs.meta
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs.meta
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### 74b0835bddd8277c897c818be46d0297498e4fe2
-
-[74b0835bddd8277c897c818be46d0297498e4fe2](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/74b0835bddd8277c897c818be46d0297498e4fe2)
-
-Date: 2026-10-26T20:17:13-03:00 · Classification: Features (explicit) · Systems: Combat, Movement, Inventory & Loot, UI, Build & Tooling, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-feat(consumables): implement mana restoration and consumption speed gates
-```
-
-#### Original body
-
-```text
-
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Scriptable Objects/HealthConsumableDefinition.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_MANA_FRAGMENT.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_MANA_POTION.asset
-Project Grimhold/Assets/Scriptable Objects/ManaFragmentDefinition.asset
-Project Grimhold/Assets/Scriptable Objects/ManaFragmentDefinition.asset.meta
-Project Grimhold/Assets/Scriptable Objects/ManaFragmentEffect.asset
-Project Grimhold/Assets/Scriptable Objects/ManaFragmentEffect.asset.meta
-Project Grimhold/Assets/Scriptable Objects/ManaPotionDefinition.asset
-Project Grimhold/Assets/Scriptable Objects/ManaPotionDefinition.asset.meta
-Project Grimhold/Assets/Scriptable Objects/ManaPotionEffect.asset
-Project Grimhold/Assets/Scriptable Objects/ManaPotionEffect.asset.meta
-Project Grimhold/Assets/Scripts/Core/IManaReceiver.cs
-Project Grimhold/Assets/Scripts/Core/IManaReceiver.cs.meta
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/ConsumableDefinition.cs
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/ConsumableEffectBase.cs
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/ConsumableFailureReason.cs
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/HealthConsumableEffect.cs
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/IConsumableEffect.cs
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/ManaConsumableEffect.cs
-Project Grimhold/Assets/Scripts/Gameplay/Consumables/ManaConsumableEffect.cs.meta
-Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
-Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs
-Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs
-Project Grimhold/Assets/Scripts/Player/Presentation/RaidHudPresenter.cs
-Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Consumables.meta
-Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ManaConsumableTests.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ManaConsumableTests.cs.meta
-Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
-```
-
-#### Classification evidence
-
-- type → Features: feat
-- path → Combat: Project Grimhold/Assets/Scriptable Objects/HealthConsumableDefinition.asset
-- path → Combat: Project Grimhold/Assets/Scripts/Gameplay/Consumables/HealthConsumableEffect.cs
-- path → Movement: Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_MANA\_FRAGMENT.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_MANA\_POTION.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
-- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidHudPresenter.cs
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables.meta
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ManaConsumableTests.cs
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ManaConsumableTests.cs.meta
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables.meta
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ManaConsumableTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ManaConsumableTests.cs.meta
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### c554a42e3e473aed7c57a3655e75c21a575d3b9a
-
-[c554a42e3e473aed7c57a3655e75c21a575d3b9a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c554a42e3e473aed7c57a3655e75c21a575d3b9a)
-
-Date: 2026-10-26T20:16:43-03:00 · Classification: Bug Fixes (explicit) · Systems: Inventory & Loot
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-fix(loot): resolve ProfileId string comparison in Chaos Coin evaluator
-```
-
-#### Original body
-
-```text
-
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Scripts/Gameplay/ChaosCoinCarrierEvaluator.cs
-```
-
-#### Classification evidence
-
-- type → Bug Fixes: fix
-- scope → Inventory &amp; Loot: loot
-- message-term → Inventory &amp; Loot: loot
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### 01e86d0f58f6d4e22de0b33f91f9233b513ba7f8
-
-[01e86d0f58f6d4e22de0b33f91f9233b513ba7f8](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/01e86d0f58f6d4e22de0b33f91f9233b513ba7f8)
-
-Date: 2026-10-26T19:48:06-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, World & Visibility, Build & Tooling, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-feat(loot): implement cooperative Chaos Coin bonus loot roll
-```
-
-#### Original body
-
-```text
-Implement cooperative 20% bonus loot generation for containers when any active team member (alive or Downed) carries TRE_CHAOS_COIN per Docs 07 and 14. Add ChaosCoinCarrierEvaluator to consult authoritative team presence across Solo and Duo rosters while strictly excluding corpses.
-
-Update LootContainerContentRoller to evaluate an independent deterministic Chaos Coin roll stream (2000 basis points) isolated from Luck, allowing both bonuses to co-occur without mutating the base generation seed. Seal resolved loot sources against subsequent modifier re-evaluation.
-
-Player-Added: Carrying the Chaos Coin now grants your team an independent 20% chance to find bonus loot when opening dungeon chests.
-Refs: #615
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Scripts/Gameplay/ChaosCoinCarrierEvaluator.cs
-Project Grimhold/Assets/Scripts/Gameplay/ChaosCoinCarrierEvaluator.cs.meta
-Project Grimhold/Assets/Scripts/Gameplay/LootContainerContentRoller.cs
-Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs
-Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainerInteractable.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinCarrierEvaluatorTests.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinCarrierEvaluatorTests.cs.meta
-Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs.meta
-```
-
-#### Classification evidence
-
-- type → Features: feat
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/LootContainerContentRoller.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainerInteractable.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinCarrierEvaluatorTests.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinCarrierEvaluatorTests.cs.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs.meta
-- scope → Inventory &amp; Loot: loot
-- message-term → Inventory &amp; Loot: loot
-- message-term → World &amp; Visibility: dungeon
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinCarrierEvaluatorTests.cs
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinCarrierEvaluatorTests.cs.meta
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs.meta
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinCarrierEvaluatorTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinCarrierEvaluatorTests.cs.meta
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs.meta
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### 4bf2cb8be6b618c763748c8086118b0118d81b09
-
-[4bf2cb8be6b618c763748c8086118b0118d81b09](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4bf2cb8be6b618c763748c8086118b0118d81b09)
-
-Date: 2026-10-26T19:37:51-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, Art & Animation, Build & Tooling, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-feat(loot): register 39 MVP items and normalize consumable catalog
-```
-
-#### Original body
-
-```text
-Create ScriptableObjects for all 39 non-equippable MVP items defined in Doc 14 (21 Resources, 8 Treasures, 8 Consumables, 2 Utilities). Normalize CON_HEALTH_POTION to 40 HP restoration over 2.5s channel time. Assign visual archetypes and register all definitions into LootDefinitionCatalog and RaidLootValueCatalog.
-
-Add comprehensive EditMode unit tests verifying catalog integrity, non-null sprite references, exact operational attributes (ObjectValue, StackMax, MaxTransportable, Family, UseMode), and strict non-stackable rule for Treasures.
-
-Player-Added: Complete MVP catalog of 39 non-equippable items, including creature remains, arcane components, cursed and divine treasures, offensive throwing consumables, and expedition utilities.
-Refs: #612
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Scriptable Objects/HealthConsumableDefinition.asset
-Project Grimhold/Assets/Scriptable Objects/HealthConsumableEffect.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_EXPLOSIVE_BOMB.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_EXPLOSIVE_BOMB.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_HEALTH_POTION.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_HEALTH_POTION.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_LOCKPICK.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_LOCKPICK.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_MANA_FRAGMENT.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_MANA_FRAGMENT.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_MANA_POTION.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_MANA_POTION.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_SELF_REVIVE.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_SELF_REVIVE.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_SMOKE_BOMB.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_SMOKE_BOMB.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_THROWING_DAGGER.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_THROWING_DAGGER.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/HealthPotion.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ANCIENT_ARMOR.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ANCIENT_ARMOR.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ANCIENT_ROOT.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ANCIENT_ROOT.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ATTUNEMENT_GEM.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ATTUNEMENT_GEM.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_BAT_FANG.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_BAT_FANG.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_BAT_WING.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_BAT_WING.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_BLACK_IRON.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_BLACK_IRON.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_CORRUPT_MARROW.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_CORRUPT_MARROW.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_CUSTODIAN_SEAL.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_CUSTODIAN_SEAL.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ETHER_DUST.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ETHER_DUST.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_GOBLIN_ARROWHEAD.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_GOBLIN_ARROWHEAD.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_GOBLIN_INSIGNIA.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_GOBLIN_INSIGNIA.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_GOBLIN_SCRAP.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_GOBLIN_SCRAP.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_GOLEM_CORE.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_GOLEM_CORE.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_LOST_GRIMOIRE_PAGE.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_LOST_GRIMOIRE_PAGE.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_RUNE_FRAGMENT.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_RUNE_FRAGMENT.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SLIME_CORE.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SLIME_CORE.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SLIME_GEL.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SLIME_GEL.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SOUL_FRAGMENT.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SOUL_FRAGMENT.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SPECTRAL_ESSENCE.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SPECTRAL_ESSENCE.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_TANNED_LEATHER.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_TANNED_LEATHER.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_WITHERED_BONE.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_WITHERED_BONE.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_CHALICE.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_CHALICE.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_CHAOS_COIN.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_CHAOS_COIN.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_CROWN.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_CROWN.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_FAMINE_IDOL.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_FAMINE_IDOL.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_PILGRIM_LIGHT.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_PILGRIM_LIGHT.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_SANCTUARY_HEART.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_SANCTUARY_HEART.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_VOID_BELL.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_VOID_BELL.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_WANDERER_EYE.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_WANDERER_EYE.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_ARCANE_DETECTOR.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_ARCANE_DETECTOR.asset.meta
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_RUNE_COMPASS.asset
-Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_RUNE_COMPASS.asset.meta
-Project Grimhold/Assets/Scriptable Objects/RaidLootValueCatalog.asset
-Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs.meta
-```
-
-#### Classification evidence
-
-- type → Features: feat
-- path → Combat: Project Grimhold/Assets/Scriptable Objects/HealthConsumableDefinition.asset
-- path → Combat: Project Grimhold/Assets/Scriptable Objects/HealthConsumableEffect.asset
-- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_HEALTH\_POTION.asset
-- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_HEALTH\_POTION.asset.meta
-- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/HealthPotion.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_EXPLOSIVE\_BOMB.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_EXPLOSIVE\_BOMB.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_HEALTH\_POTION.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_HEALTH\_POTION.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_LOCKPICK.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_LOCKPICK.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_MANA\_FRAGMENT.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_MANA\_FRAGMENT.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_MANA\_POTION.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_MANA\_POTION.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_SELF\_REVIVE.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_SELF\_REVIVE.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_SMOKE\_BOMB.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_SMOKE\_BOMB.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_THROWING\_DAGGER.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_THROWING\_DAGGER.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/HealthPotion.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_ANCIENT\_ARMOR.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_ANCIENT\_ARMOR.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_ANCIENT\_ROOT.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_ANCIENT\_ROOT.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_ATTUNEMENT\_GEM.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_ATTUNEMENT\_GEM.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_BAT\_FANG.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_BAT\_FANG.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_BAT\_WING.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_BAT\_WING.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_BLACK\_IRON.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_BLACK\_IRON.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_CORRUPT\_MARROW.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_CORRUPT\_MARROW.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_CUSTODIAN\_SEAL.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_CUSTODIAN\_SEAL.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_ETHER\_DUST.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_ETHER\_DUST.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_GOBLIN\_ARROWHEAD.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_GOBLIN\_ARROWHEAD.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_GOBLIN\_INSIGNIA.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_GOBLIN\_INSIGNIA.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_GOBLIN\_SCRAP.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_GOBLIN\_SCRAP.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_GOLEM\_CORE.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_GOLEM\_CORE.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_LOST\_GRIMOIRE\_PAGE.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_LOST\_GRIMOIRE\_PAGE.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_RUNE\_FRAGMENT.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_RUNE\_FRAGMENT.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SLIME\_CORE.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SLIME\_CORE.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SLIME\_GEL.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SLIME\_GEL.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SOUL\_FRAGMENT.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SOUL\_FRAGMENT.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SPECTRAL\_ESSENCE.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SPECTRAL\_ESSENCE.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_TANNED\_LEATHER.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_TANNED\_LEATHER.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_WITHERED\_BONE.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_WITHERED\_BONE.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_CHALICE.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_CHALICE.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_CHAOS\_COIN.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_CHAOS\_COIN.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_CROWN.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_CROWN.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_FAMINE\_IDOL.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_FAMINE\_IDOL.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_PILGRIM\_LIGHT.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_PILGRIM\_LIGHT.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_SANCTUARY\_HEART.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_SANCTUARY\_HEART.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_VOID\_BELL.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_VOID\_BELL.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_WANDERER\_EYE.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_WANDERER\_EYE.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_ARCANE\_DETECTOR.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_ARCANE\_DETECTOR.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_RUNE\_COMPASS.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_RUNE\_COMPASS.asset.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/RaidLootValueCatalog.asset
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs.meta
-- scope → Inventory &amp; Loot: loot
-- message-term → Inventory &amp; Loot: loot
-- message-term → Art &amp; Animation: sprite
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs.meta
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs.meta
-- message-term → Tests: tests
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### 49de0efd345c37432f5e340a248df1a6679357fe
-
-[49de0efd345c37432f5e340a248df1a6679357fe](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/49de0efd345c37432f5e340a248df1a6679357fe)
-
-Date: 2026-10-26T19:26:43-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, Build & Tooling, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-feat(loot): refactor taxonomy and item contracts with formal naming
-```
-
-#### Original body
-
-```text
-Align LootCategory enum and LootDefinition ScriptableObject contracts with the Doc 14 taxonomy and HacknPlan TASK-225 specifications. Introduce ItemUseMode and formal taxonomy properties (ObjectValue, StackMax, MaxTransportable, Family, Tags, and lifecycle flags) while preserving backward compatibility with existing equippables and serialized valuable assets.
-
-Update LootDefinition ID regex validation to accept formal alphanumeric identifiers (e.g. CON_HEALTH_POTION), and enforce validation constraints for negative values, deprecated Quest category, and unstackable Treasure items. Add comprehensive EditMode unit tests covering all new validation gates and properties.
-
-Refs: #611
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Scripts/Loot/ItemUseMode.cs
-Project Grimhold/Assets/Scripts/Loot/ItemUseMode.cs.meta
-Project Grimhold/Assets/Scripts/Loot/LootCategory.cs
-Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs
-Project Grimhold/Assets/Scripts/Stash/StashDisplayOrder.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
-```
-
-#### Classification evidence
-
-- type → Features: feat
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/ItemUseMode.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/ItemUseMode.cs.meta
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/LootCategory.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs
-- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
-- scope → Inventory &amp; Loot: loot
-- message-term → Inventory &amp; Loot: loot
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
-- message-term → Tests: tests
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
 ### 052dd20a01bd55102a2597b65f9bbe37aa676f1a
 
 [052dd20a01bd55102a2597b65f9bbe37aa676f1a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/052dd20a01bd55102a2597b65f9bbe37aa676f1a)
@@ -5105,347 +3683,6 @@ Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/PlayerKnockbac
 
 - No classification ambiguity detected.
 
-### bf61d366d84f922ca02ffc3269033460dd2e3a21
-
-[bf61d366d84f922ca02ffc3269033460dd2e3a21](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/bf61d366d84f922ca02ffc3269033460dd2e3a21)
-
-Date: 2026-10-26T17:52:17-03:00 · Classification: Documentation (explicit) · Systems: Documentation
-
-Flags: secondary
-
-#### Original subject
-
-```text
-docs(security): document candidate resolutions and render deploy for US-61
-```
-
-#### Original body
-
-```text
-Add Section 4 to reporte_us61_investigacion_contencion_credenciales.md
-with a consolidated candidate matrix, risk acceptance for WEBHOOK_SECRET
-deferred to #400, MongoDB Atlas residual status, and Render deploy guide.
-
-Refs: #529, #639
-```
-
-#### Changed paths
-
-```text
-docs/reporte_us61_investigacion_contencion_credenciales.md
-```
-
-#### Classification evidence
-
-- type → Documentation: docs
-- path → Documentation: docs/reporte\_us61\_investigacion\_contencion\_credenciales.md
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### 987a203c014baf03b6944fa791c27b2988e54c1f
-
-[987a203c014baf03b6944fa791c27b2988e54c1f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/987a203c014baf03b6944fa791c27b2988e54c1f)
-
-Date: 2026-10-26T17:52:03-03:00 · Classification: Features (explicit) · Systems: Persistence & Backend, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-feat(backend): permit dev webhook secret under explicit risk flag
-```
-
-#### Original body
-
-```text
-Add ALLOW_DEV_WEBHOOK_SECRET to env.js so Render can start in production
-under explicit risk acceptance while player-hosted clients sign raid
-results with the shared development secret.
-
-Retain fail-closed rejection when the flag is unset or when arbitrary
-weak secrets are provided, and log an explicit warning on startup.
-
-Refs: #529, #639
-```
-
-#### Changed paths
-
-```text
-backend/.env.example
-backend/src/config/env.js
-backend/tests/env.hardening.test.js
-```
-
-#### Classification evidence
-
-- type → Features: feat
-- path → Persistence &amp; Backend: backend/.env.example
-- path → Persistence &amp; Backend: backend/src/config/env.js
-- path → Persistence &amp; Backend: backend/tests/env.hardening.test.js
-- scope → Persistence &amp; Backend: backend
-- message-term → Persistence &amp; Backend: backend
-- path → Tests: backend/tests/env.hardening.test.js
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### 88999f4fdb9765c95a0b94d3e82154d47ba95e81
-
-[88999f4fdb9765c95a0b94d3e82154d47ba95e81](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/88999f4fdb9765c95a0b94d3e82154d47ba95e81)
-
-Date: 2026-10-26T17:25:08-03:00 · Classification: Documentation (explicit) · Systems: World & Visibility, Audio, Documentation
-
-Flags: secondary
-
-#### Original subject
-
-```text
-docs(dungeon-pressure): update collapse presentation and resolve conflict
-```
-
-#### Original body
-
-```text
-Update DungeonPressureArchitecture.md to document Stage 9 collapse
-presentation contracts (audio crossfade, debris, accessibility, light
-extinction) and resolve merge conflict in Context and Objective.
-
-Refs: #520
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Docs/Architecture/DungeonPressureArchitecture.md
-```
-
-#### Classification evidence
-
-- type → Documentation: docs
-- path → World &amp; Visibility: Project Grimhold/Docs/Architecture/DungeonPressureArchitecture.md
-- scope → World &amp; Visibility: dungeon-pressure
-- message-term → World &amp; Visibility: dungeon
-- message-term → Audio: audio
-- path → Documentation: Project Grimhold/Docs/Architecture/DungeonPressureArchitecture.md
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### eb00230abb5f49ce18f6926bb6f6c1cb2f7c0f0f
-
-[eb00230abb5f49ce18f6926bb6f6c1cb2f7c0f0f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/eb00230abb5f49ce18f6926bb6f6c1cb2f7c0f0f)
-
-Date: 2026-10-26T17:24:55-03:00 · Classification: Features (explicit) · Systems: Networking & Sessions, World & Visibility, Audio, Build & Tooling, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-feat(dungeon-pressure): add collapse music and falling ceiling particles
-```
-
-#### Original body
-
-```text
-Add collapse background music crossfade to DungeonPressureAudioPresenter
-and camera-anchored falling dust and debris particle systems in
-DungeonPressureAmbientPresenter, driven by DungeonAmbientConfig.
-
-Wired collapse music in NetworkMatchController and updated Gameplay
-scene with ambient light and lighting props placement.
-
-Refs: #520
-Player-Added: Dramatic collapse presentation with ceiling dust and collapse music.
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Prefabs/NetworkMatchController.prefab
-Project Grimhold/Assets/Scenes/Gameplay.unity
-Project Grimhold/Assets/Scriptable Objects/DefaultDungeonAmbientConfig.asset
-Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs
-Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonAmbientConfig.cs
-Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonAmbientPhaseSettings.cs
-Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonAmbientConfigTests.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
-```
-
-#### Classification evidence
-
-- type → Features: feat
-- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonAmbientConfigTests.cs
-- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
-- path → World &amp; Visibility: Project Grimhold/Assets/Scriptable Objects/DefaultDungeonAmbientConfig.asset
-- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs
-- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonAmbientConfig.cs
-- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonAmbientPhaseSettings.cs
-- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs
-- path → World &amp; Visibility: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonAmbientConfigTests.cs
-- path → World &amp; Visibility: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
-- scope → World &amp; Visibility: dungeon-pressure
-- message-term → World &amp; Visibility: dungeon
-- path → Audio: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs
-- message-term → Audio: music
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonAmbientConfigTests.cs
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonAmbientConfigTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### a5ccb45149e51dcd843ad7a3aa50df94640d9486
-
-[a5ccb45149e51dcd843ad7a3aa50df94640d9486](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a5ccb45149e51dcd843ad7a3aa50df94640d9486)
-
-Date: 2026-10-26T17:24:25-03:00 · Classification: Features (explicit) · Systems: Networking & Sessions, World & Visibility, Art & Animation, Build & Tooling, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-feat(lighting): add light prop extinction support and prop prefabs
-```
-
-#### Original body
-
-```text
-Support extinguishable props in DungeonLightProp when entering severe
-phases, swapping to unlit sprites and triggering extinguish smoke VFX.
-
-Add lit/unlit props art assets, organize lighting prefabs (Torch,
-Brazier, Candle, Multiple Candles), and update torch configuration.
-
-Refs: #520
-Player-Added: Torch and brazier lighting props that extinguish during collapse.
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Art/Props/Brazier-Lit.png
-Project Grimhold/Assets/Art/Props/Brazier-Lit.png.meta
-Project Grimhold/Assets/Art/Props/Brazier-Unlit.png
-Project Grimhold/Assets/Art/Props/Brazier-Unlit.png.meta
-Project Grimhold/Assets/Art/Props/Candle-Lit.png
-Project Grimhold/Assets/Art/Props/Candle-Lit.png.meta
-Project Grimhold/Assets/Art/Props/Candle-Unlit.png
-Project Grimhold/Assets/Art/Props/Candle-Unlit.png.meta
-Project Grimhold/Assets/Art/Props/Candles-Lit.png
-Project Grimhold/Assets/Art/Props/Candles-Lit.png.meta
-Project Grimhold/Assets/Art/Props/Candles-Unlit.png
-Project Grimhold/Assets/Art/Props/Candles-Unlit.png.meta
-Project Grimhold/Assets/Art/Props/Torch-Lit.png
-Project Grimhold/Assets/Art/Props/Torch-Lit.png.meta
-Project Grimhold/Assets/Art/Props/Torch-Unlit.png
-Project Grimhold/Assets/Art/Props/Torch-Unlit.png.meta
-Project Grimhold/Assets/Prefabs/DungeonLightProp.prefab
-Project Grimhold/Assets/Prefabs/Lighting Props.meta
-Project Grimhold/Assets/Prefabs/Lighting Props/Brazier.prefab
-Project Grimhold/Assets/Prefabs/Lighting Props/Brazier.prefab.meta
-Project Grimhold/Assets/Prefabs/Lighting Props/Candle.prefab
-Project Grimhold/Assets/Prefabs/Lighting Props/Candle.prefab.meta
-Project Grimhold/Assets/Prefabs/Lighting Props/DungeonLightProp.prefab
-Project Grimhold/Assets/Prefabs/Lighting Props/DungeonLightProp.prefab.meta
-Project Grimhold/Assets/Prefabs/Lighting Props/Multiple Candles.prefab
-Project Grimhold/Assets/Prefabs/Lighting Props/Multiple Candles.prefab.meta
-Project Grimhold/Assets/Prefabs/Lighting Props/Torch.prefab
-Project Grimhold/Assets/Prefabs/Lighting Props/Torch.prefab.meta
-Project Grimhold/Assets/Scriptable Objects/DefaultTorchLightPropConfig.asset
-Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonLightProp.cs
-Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonLightPropPhaseSettings.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonLightPropTests.cs
-```
-
-#### Classification evidence
-
-- type → Features: feat
-- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonLightPropTests.cs
-- path → World &amp; Visibility: Project Grimhold/Assets/Prefabs/DungeonLightProp.prefab
-- path → World &amp; Visibility: Project Grimhold/Assets/Prefabs/Lighting Props/DungeonLightProp.prefab
-- path → World &amp; Visibility: Project Grimhold/Assets/Prefabs/Lighting Props/DungeonLightProp.prefab.meta
-- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonLightProp.cs
-- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonLightPropPhaseSettings.cs
-- path → World &amp; Visibility: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonLightPropTests.cs
-- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Brazier-Lit.png
-- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Brazier-Lit.png.meta
-- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Brazier-Unlit.png
-- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Brazier-Unlit.png.meta
-- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Candle-Lit.png
-- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Candle-Lit.png.meta
-- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Candle-Unlit.png
-- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Candle-Unlit.png.meta
-- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Candles-Lit.png
-- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Candles-Lit.png.meta
-- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Candles-Unlit.png
-- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Candles-Unlit.png.meta
-- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Torch-Lit.png
-- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Torch-Lit.png.meta
-- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Torch-Unlit.png
-- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Torch-Unlit.png.meta
-- message-term → Art &amp; Animation: sprites
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonLightPropTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonLightPropTests.cs
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
-### 17ebd026725ca90f64d9efe9bdeb07f9f62b2f79
-
-[17ebd026725ca90f64d9efe9bdeb07f9f62b2f79](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/17ebd026725ca90f64d9efe9bdeb07f9f62b2f79)
-
-Date: 2026-10-26T17:24:08-03:00 · Classification: Features (explicit) · Systems: Combat, Networking & Sessions, World & Visibility, Build & Tooling, Tests
-
-Flags: primary or unclassified
-
-#### Original subject
-
-```text
-feat(camera): add accessibility and aim scaling to camera shake
-```
-
-#### Original body
-
-```text
-Add AccessibilityScale to CameraShakeController to scale both continuous tremors and trauma shakes for player comfort and weapon aim preservation.
-
-Clamp scale values in [0, 1] and ensure continuous shake blends correctly with trauma shakes across Dungeon Pressure phases.
-
-Refs: #520
-Player-Added: Camera shake accessibility scale to reduce motion sickness.
-```
-
-#### Changed paths
-
-```text
-Project Grimhold/Assets/Scripts/Player/Presentation/CameraShakeController.cs
-Project Grimhold/Assets/Tests/EditMode/Editor/Networking/CameraShakeControllerContinuousTests.cs
-```
-
-#### Classification evidence
-
-- type → Features: feat
-- message-term → Combat: weapon
-- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/CameraShakeControllerContinuousTests.cs
-- message-term → World &amp; Visibility: Dungeon
-- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/CameraShakeControllerContinuousTests.cs
-- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/CameraShakeControllerContinuousTests.cs
-
-#### Diagnostics
-
-- No classification ambiguity detected.
-
 ### 739130e19defc23907fe1b3d77755e8e48603277
 
 [739130e19defc23907fe1b3d77755e8e48603277](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/739130e19defc23907fe1b3d77755e8e48603277)
@@ -5963,6 +4200,1830 @@ Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapMotionTest
 - path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapMotionTests.cs
 - path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapMotionTests.cs
 - message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 2442d935cc8a8b14d58fe929f565f3958b9de0cc
+
+[2442d935cc8a8b14d58fe929f565f3958b9de0cc](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2442d935cc8a8b14d58fe929f565f3958b9de0cc)
+
+Date: 2026-10-30T16:29:00-03:00 · Classification: Features (explicit) · Systems: Networking & Sessions, World & Visibility, Art & Animation, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(dungeon-pressure): refine ambient floating dust and retire debris
+```
+
+#### Original body
+
+```text
+Replace the falling ceiling debris system with subtle floating ambient
+dust particles distributed across the dungeon viewport. Configure dust
+particles with procedural circular textures, transparent URP particle
+materials, and wall/obstacle tilemap occlusion culling to confine
+emission strictly to accessible open spaces. Retire debris particles,
+setting emission rates to zero and cleaning up lingering scene objects.
+
+Reviewers should verify DefaultDungeonAmbientConfig dust emission rates
+scaled across pressure phases (3.5 to 24), particle VFX sorting
+layer/order configuration, and procedural circle material setup.
+
+EditMode tests in DungeonPressureAmbientPresenterTests validate dust
+material transparency, procedural circle texture dimensions,
+desaturated brown-grey coloring, and wall occlusion culling.
+
+Player-Improved: Dungeon ambient particles now appear as subtle floating dust motes confined to open rooms instead of falling squares.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scriptable Objects/DefaultDungeonAmbientConfig.asset
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scriptable Objects/DefaultDungeonAmbientConfig.asset
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- scope → World &amp; Visibility: dungeon-pressure
+- message-term → World &amp; Visibility: dungeon
+- message-term → Art &amp; Animation: textures
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 6425f4da2d3764d643883a89e4666900bf571705
+
+[6425f4da2d3764d643883a89e4666900bf571705](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6425f4da2d3764d643883a89e4666900bf571705)
+
+Date: 2026-10-27T23:41:58-03:00 · Classification: Bug Fixes (explicit) · Systems: World & Visibility, Persistence & Backend
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(lighting): prune missing volume components in ambient presenter
+```
+
+#### Original body
+
+```text
+Remove null volume components from DungeonAmbientVolumeProfile at runtime in DungeonPressureAmbientPresenter to prevent MissingReferenceException or null checks when retrieving the vignette component.
+
+Player-Fixed: Prevent potential log exceptions from missing post-processing volume components in dungeon rooms.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scriptable Objects/DungeonAmbientVolumeProfile.asset
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → World &amp; Visibility: Project Grimhold/Assets/Scriptable Objects/DungeonAmbientVolumeProfile.asset
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs
+- message-term → World &amp; Visibility: dungeon
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scriptable Objects/DungeonAmbientVolumeProfile.asset
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 68e2be370e27d3a728164f054fdbce53c196fc6c
+
+[68e2be370e27d3a728164f054fdbce53c196fc6c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/68e2be370e27d3a728164f054fdbce53c196fc6c)
+
+Date: 2026-10-27T23:41:30-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(consumables): add throwable pickups and refine throwable mechanics
+```
+
+#### Original body
+
+```text
+Add ground pickup prefabs for explosive bombs, smoke bombs, and throwing daggers to support looting and quick-slot equipping in raids. Rebuild ThrowingDaggerProjectile as a standard NetworkProjectile prefab variant with forward orientation alignment matching DartProjectile. Upgrade NetworkSmokeZone to simulate a parabolic throw trajectory before detonating into smoke, and make damage, radius, duration, and throw distances configurable on NetworkPlayer.
+
+Reviewer notes:
+- LootPickup prefabs wired to LootPickupPresenter, rejection bounce, and NetworkObjectPrefabData GUIDs registered for Fusion spawning.
+- Procedural fire and smoke particles stop emission before setting duration to avoid Unity runtime exceptions.
+
+Player-Added: World pickup prefabs for explosive bombs, smoke bombs, and throwing daggers are now available in raids.
+Player-Improved: Throwing daggers now orient towards aim direction, and smoke bombs simulate a parabolic arc before detonating.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Prefabs/Consumables/SmokeZone.prefab
+Project Grimhold/Assets/Prefabs/Consumables/ThrowingDaggerProjectile.prefab
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_ExplosiveBomb.prefab
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_ExplosiveBomb.prefab.meta
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_SmokeBomb.prefab
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_SmokeBomb.prefab.meta
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_ThrowingDagger.prefab
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_ThrowingDagger.prefab.meta
+Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab
+Project Grimhold/Assets/Scenes/Gameplay.unity
+Project Grimhold/Assets/Scripts/Combat/NetworkProjectile.cs
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/NetworkExplosiveBomb.cs
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/NetworkSmokeZone.cs
+Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Prefabs/Consumables/ThrowingDaggerProjectile.prefab
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/NetworkProjectile.cs
+- message-term → Combat: damage
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ExplosiveBomb.prefab
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ExplosiveBomb.prefab.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_SmokeBomb.prefab
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_SmokeBomb.prefab.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ThrowingDagger.prefab
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ThrowingDagger.prefab.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
+- message-term → Inventory &amp; Loot: pickups
+- path → Tests: Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### b26343a5565481c176ec619927d1d8a441400c0a
+
+[b26343a5565481c176ec619927d1d8a441400c0a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b26343a5565481c176ec619927d1d8a441400c0a)
+
+Date: 2026-10-27T20:24:38-03:00 · Classification: Bug Fixes (explicit) · Systems: Abilities, Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(backend): provide missing validation middleware for ability routes
+```
+
+#### Original body
+
+```text
+Add backend/src/middleware/validate.js to resolve a MODULE_NOT_FOUND
+fatal error during server startup. The ability purchase validator
+imported ../middleware/validate, which had not been created.
+
+The middleware extracts validation results from express-validator
+and invokes next(err) with the standard 400 VALIDATION_FAILED contract.
+
+Tests:
+- Backend: validate.middleware.test.js passes.
+- Verified all files in backend/src load cleanly with Node.
+
+Refs: #596
+```
+
+#### Changed paths
+
+```text
+backend/src/middleware/validate.js
+backend/tests/validate.middleware.test.js
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- message-term → Abilities: ability
+- path → Persistence &amp; Backend: backend/src/middleware/validate.js
+- path → Persistence &amp; Backend: backend/tests/validate.middleware.test.js
+- scope → Persistence &amp; Backend: backend
+- message-term → Persistence &amp; Backend: backend
+- path → Tests: backend/tests/validate.middleware.test.js
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### a3d47120d9e72ce9ef9f60bc8f923b8cfc1c5f0c
+
+[a3d47120d9e72ce9ef9f60bc8f923b8cfc1c5f0c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a3d47120d9e72ce9ef9f60bc8f923b8cfc1c5f0c)
+
+Date: 2026-10-27T19:56:51-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, Networking & Sessions, World & Visibility, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(pressure): implement authoritative hybrid dungeon collapse progression
+```
+
+#### Original body
+
+```text
+Implement the authoritative hybrid dungeon collapse progression engine
+according to Doc 20 §7-§8. The dungeon deterioration advances either by base
+elapsed time or by instability points gained through PvE enemy defeats and
+first acquisition of treasures.
+
+Enforce design constraints:
+- Discard instability overflow upon phase transition
+- Saturate at threshold cap when phase minimum interval is pending
+- Block early Collapse (E3) entry before the 08:00 mark
+- Guarantee invariance of the 17:00 absolute closure time
+
+Player-Added: Dungeon collapse progression accelerates dynamically based on monster kills and acquired treasures while preserving the 8-minute early collapse barrier and 17-minute final closure.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Character/EnemyCharacter.cs
+Project Grimhold/Assets/Scripts/Combat/DamageResolver.cs
+Project Grimhold/Assets/Scripts/Combat/EntityRegistry.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/CreatureTier.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/CreatureTier.cs.meta
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureClock.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureConfig.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/IDungeonInstabilitySink.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/IDungeonInstabilitySink.cs.meta
+Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs
+Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs.meta
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/DamageResolver.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/EntityRegistry.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs.meta
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/CreatureTier.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/CreatureTier.cs.meta
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureClock.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureConfig.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/IDungeonInstabilitySink.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/IDungeonInstabilitySink.cs.meta
+- path → World &amp; Visibility: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs.meta
+- message-term → World &amp; Visibility: dungeon
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureHybridProgressionTests.cs.meta
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 3945782aa49add1afa0de686ee02f8ff0d78d0cd
+
+[3945782aa49add1afa0de686ee02f8ff0d78d0cd](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3945782aa49add1afa0de686ee02f8ff0d78d0cd)
+
+Date: 2026-10-27T19:19:48-03:00 · Classification: Features (explicit) · Systems: Combat, Abilities, Extraction, Inventory & Loot, UI, Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(utilities): implement rune compass and arcane detector
+```
+
+#### Original body
+
+```text
+Implement reusable expedition utilities for MVP (Document 14 §13):
+- UTL_RUNE_COMPASS: instant activation with 30s cooldown providing 5s
+  visual cardinal orientation towards the nearest POI.
+- UTL_ARCANE_DETECTOR: 2.0s authoritative channel with 0.5x voluntary
+  movement speed multiplier and damage interruption without penalty,
+  revealing arcane elements within 10m for 5.0s on completion (20s CD).
+- Instance cooldown persistence: preserves remaining cooldown tick on
+  NetworkLootPickup when dropped, restoring remaining cooldown on pickup.
+- MaxTransportable enforcement: validates MaxTransportable = 1 on
+  PlayerLootReceiver, rejecting receiving duplicates.
+- Reusable utilities: utilities are not consumed/deducted on activation.
+
+Reviewers must verify:
+- Rune compass shows nearest extraction sanctuary cardinal direction.
+- Arcane detector channels and applies temporary cyan highlight to arcane items.
+- Dropping an item on cooldown and picking it up preserves remaining recovery time.
+
+Tests added:
+- UtilityExpeditionRulesTests (cardinal math, names, arcane filters, transfer rejection)
+- UtilityExpeditionPlayModeTests (compass orientation, detector channel, highlight, max transportable, drop/pickup cooldown persistence)
+
+Player-Added: Rune Compass and Arcane Detector expedition utilities are now usable in raids.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_ARCANE_DETECTOR.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_RUNE_COMPASS.asset
+Project Grimhold/Assets/Scripts/Combat/EntityRegistry.cs
+Project Grimhold/Assets/Scripts/Core/LootTransferFailureReason.cs
+Project Grimhold/Assets/Scripts/Core/LootTransferResult.cs
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/ConsumableFailureReason.cs
+Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs
+Project Grimhold/Assets/Scripts/Gameplay/PlayerLootReceiver.cs
+Project Grimhold/Assets/Scripts/Gameplay/Utilities.meta
+Project Grimhold/Assets/Scripts/Gameplay/Utilities/ArcaneElementDetectionRules.cs
+Project Grimhold/Assets/Scripts/Gameplay/Utilities/ArcaneElementDetectionRules.cs.meta
+Project Grimhold/Assets/Scripts/Gameplay/Utilities/ArcaneHighlightEffect.cs
+Project Grimhold/Assets/Scripts/Gameplay/Utilities/ArcaneHighlightEffect.cs.meta
+Project Grimhold/Assets/Scripts/Gameplay/Utilities/CardinalDirection.cs
+Project Grimhold/Assets/Scripts/Gameplay/Utilities/CardinalDirection.cs.meta
+Project Grimhold/Assets/Scripts/Gameplay/Utilities/CardinalDirectionHelper.cs
+Project Grimhold/Assets/Scripts/Gameplay/Utilities/CardinalDirectionHelper.cs.meta
+Project Grimhold/Assets/Scripts/Gameplay/Utilities/IUtilityCooldownProvider.cs
+Project Grimhold/Assets/Scripts/Gameplay/Utilities/IUtilityCooldownProvider.cs.meta
+Project Grimhold/Assets/Scripts/Gameplay/Utilities/IUtilityCooldownReceiver.cs
+Project Grimhold/Assets/Scripts/Gameplay/Utilities/IUtilityCooldownReceiver.cs.meta
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootDropNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/InteractionHudPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/LootConsumeContextActionProvider.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidHudPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Utilities.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs.meta
+Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs.meta
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/EntityRegistry.cs
+- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs
+- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs.meta
+- path → Abilities: Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs
+- path → Abilities: Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs.meta
+- message-term → Extraction: extraction
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_ARCANE\_DETECTOR.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_RUNE\_COMPASS.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Core/LootTransferFailureReason.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Core/LootTransferResult.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/PlayerLootReceiver.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootDropNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/InteractionHudPresenter.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/LootConsumeContextActionProvider.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
+- message-term → Inventory &amp; Loot: pickup
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/InteractionHudPresenter.cs
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidHudPresenter.cs
+- message-term → Persistence &amp; Backend: persistence
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs.meta
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 6018d6d428e56965be6f9cc557cd8ec19cc6f96f
+
+[6018d6d428e56965be6f9cc557cd8ec19cc6f96f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6018d6d428e56965be6f9cc557cd8ec19cc6f96f)
+
+Date: 2026-10-27T18:29:02-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, UI, Persistence & Backend, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(quickslots): retain depleted slots and reject duplicate assignment
+```
+
+#### Original body
+
+```text
+Align Quick Slot rules with Document 14 §12:
+- Retain depleted slots with count 0 and inactive state instead of
+  unassigning them, automatically reactivating upon picking up units.
+- Prevent duplicate assignment of the same item definition across
+  multiple slots, returning QuickSlotAssignmentResult.AlreadyAssigned.
+- Allow utilities (LootCategory.Utility) to be QuickSlotCompatible.
+- Enable quick slot compatibility on UTL_RUNE_COMPASS and
+  UTL_ARCANE_DETECTOR.
+
+Reviewers must verify:
+- QuickSlotController does not release bindings when inventory empties.
+- RaidQuickSlotHudSlotView tints icon grayish when unavailable.
+
+Tests updated & added:
+- QuickSlotAssignmentRulesTests (duplicate rejection, retention)
+- QuickSlotControllerTests (zero-count retention, refill reactivation,
+  utility assignment)
+
+Docs updated:
+- LocalPlayerPersistenceArchitecture.md
+
+Player-Improved: Quick slots keep empty items assigned at count 0 so you don't lose bindings when running out of potions.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_ARCANE_DETECTOR.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_RUNE_COMPASS.asset
+Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs
+Project Grimhold/Assets/Scripts/Loot/QuickSlots/QuickSlotAssignmentResult.cs
+Project Grimhold/Assets/Scripts/Loot/QuickSlots/QuickSlotAssignmentRules.cs
+Project Grimhold/Assets/Scripts/Loot/QuickSlots/QuickSlotController.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/LootQuickSlotContextActionProvider.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidQuickSlotHudSlotView.cs
+Project Grimhold/Assets/Tests/EditMode/QuickSlots/QuickSlotAssignmentRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/QuickSlots/QuickSlotControllerTests.cs
+Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_ARCANE\_DETECTOR.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_RUNE\_COMPASS.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/QuickSlots/QuickSlotAssignmentResult.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/QuickSlots/QuickSlotAssignmentRules.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/QuickSlots/QuickSlotController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/LootQuickSlotContextActionProvider.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidQuickSlotHudSlotView.cs
+- path → Persistence &amp; Backend: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/QuickSlots/QuickSlotAssignmentRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/QuickSlots/QuickSlotControllerTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 9e7f6c4d170aff8329900fcda012e193e26e67f3
+
+[9e7f6c4d170aff8329900fcda012e193e26e67f3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9e7f6c4d170aff8329900fcda012e193e26e67f3)
+
+Date: 2026-10-27T17:53:17-03:00 · Classification: Features (explicit) · Systems: Combat, Movement, Inventory & Loot, UI, World & Visibility, Input, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(consumables): add MVP offensive and tactical throwables
+```
+
+#### Original body
+
+```text
+Add networked throwing mechanics and immediate inventory deduction for
+offensive and tactical consumables: CON_EXPLOSIVE_BOMB (delayed AoE
+damage), CON_THROWING_DAGGER (fast linear damage), and CON_SMOKE_BOMB
+(neutral smoke zone occluding line of sight for players and AI).
+
+Reviewers must verify:
+- PlayerConsumableNetworkController throwable prefab references.
+- SmokeZoneRegistry integration in VisionQuery and EnemyMovementAI.
+- CON_SMOKE_BOMB use mode set to AimedQuickSlot in definition asset.
+
+Added tests:
+- ThrowableConsumableRulesTests (6 EditMode tests)
+- ThrowableConsumablesPlayModeTests (5 PlayMode tests)
+
+Docs updated:
+- PlayerInteractionArchitecture.md (TASK-233 section)
+
+Player-Added: Bombs, throwing daggers, and smoke bombs can now be used from quick slots.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Prefabs/Consumables.meta
+Project Grimhold/Assets/Prefabs/Consumables/ExplosiveBomb.prefab
+Project Grimhold/Assets/Prefabs/Consumables/ExplosiveBomb.prefab.meta
+Project Grimhold/Assets/Prefabs/Consumables/SmokeZone.prefab
+Project Grimhold/Assets/Prefabs/Consumables/SmokeZone.prefab.meta
+Project Grimhold/Assets/Prefabs/Consumables/ThrowingDaggerProjectile.prefab
+Project Grimhold/Assets/Prefabs/Consumables/ThrowingDaggerProjectile.prefab.meta
+Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_SMOKE_BOMB.asset
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/ISmokeZone.cs
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/ISmokeZone.cs.meta
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/NetworkExplosiveBomb.cs
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/NetworkExplosiveBomb.cs.meta
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/NetworkSmokeZone.cs
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/NetworkSmokeZone.cs.meta
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/SmokeZoneRegistry.cs
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/SmokeZoneRegistry.cs.meta
+Project Grimhold/Assets/Scripts/Gameplay/Visibility/VisionQuery.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Movement/EnemyMovementAIController.cs
+Project Grimhold/Assets/Scripts/Player/PlayerInputReader.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/LootConsumeContextActionProvider.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidQuickSlotHudPresenter.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowableConsumableRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowableConsumableRulesTests.cs.meta
+Project Grimhold/Assets/Tests/PlayMode/ThrowableConsumablesPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/ThrowableConsumablesPlayModeTests.cs.meta
+Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Prefabs/Consumables/ThrowingDaggerProjectile.prefab
+- path → Combat: Project Grimhold/Assets/Prefabs/Consumables/ThrowingDaggerProjectile.prefab.meta
+- message-term → Combat: damage
+- path → Movement: Project Grimhold/Assets/Scripts/Player/Movement/EnemyMovementAIController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_SMOKE\_BOMB.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/LootConsumeContextActionProvider.cs
+- path → Inventory &amp; Loot: Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md
+- message-term → Inventory &amp; Loot: inventory
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidQuickSlotHudPresenter.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/Visibility/VisionQuery.cs
+- path → Input: Project Grimhold/Assets/Scripts/Player/PlayerInputReader.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowableConsumableRulesTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowableConsumableRulesTests.cs.meta
+- path → Documentation: Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowableConsumableRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowableConsumableRulesTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/ThrowableConsumablesPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/ThrowableConsumablesPlayModeTests.cs.meta
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 384785d17e7749103d949529409dc6042c5ade53
+
+[384785d17e7749103d949529409dc6042c5ade53](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/384785d17e7749103d949529409dc6042c5ade53)
+
+Date: 2026-10-27T17:06:42-03:00 · Classification: Features (explicit) · Systems: Abilities, Inventory & Loot, Persistence & Backend, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(abilities): make Ability Vendor purchases authoritative and durable
+```
+
+#### Original body
+
+```text
+Move ability purchasing from local-only client simulation to an authoritative,
+single-document atomic backend transaction. Add Character.unlockedAbilities
+to the persistence schema and expose POST /character/me/abilities/purchase
+with server-side pricing from ABILITY_CATALOG mirroring Unity catalog
+assets. Validate funds, reservation state, revision conflicts, and duplicate
+purchases with an idempotent receipt window.
+
+On the client, introduce IAbilityPurchaseService and
+RemoteAbilityPurchaseService to execute a preliminary local check,
+await server confirmation, and commit local unlock, balance, and remote
+revision. Update ApplicationStashServiceBootstrapper.HydrateSnapshot to
+hydrate unlockedAbilities directly from the backend, discarding stale or
+orphaned local unlocks and revalidating prepared abilities.
+
+Tests:
+- Backend: Parity check against Unity asset catalog (100% match).
+- Backend: Unit tests covering atomic purchase, receipts, idempotency,
+  pending reservation, revision conflict, already unlocked, and insufficient funds.
+- Unity: EditMode tests for RemoteAbilityPurchaseService covering
+  success, local rejection gates, backend errors, transport failures, and hydration.
+
+Docs:
+- Updated CommerceArchitecture.md and LocalPlayerPersistenceArchitecture.md.
+
+Player-Improved: Abilities purchased at the Town Ability Vendor now save reliably to your account and remain unlocked across game sessions.
+Refs: #596
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Abilities/Persistence/AbilityPurchaseResult.cs
+Project Grimhold/Assets/Scripts/Abilities/Vendor/IAbilityPurchaseService.cs
+Project Grimhold/Assets/Scripts/Abilities/Vendor/IAbilityPurchaseService.cs.meta
+Project Grimhold/Assets/Scripts/Abilities/Vendor/RemoteAbilityPurchaseService.cs
+Project Grimhold/Assets/Scripts/Abilities/Vendor/RemoteAbilityPurchaseService.cs.meta
+Project Grimhold/Assets/Scripts/Backend/ProgressionClient.cs
+Project Grimhold/Assets/Scripts/Backend/ProgressionDataTransferObjects.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/AbilityVendorFeedback.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownAbilityVendorPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownInventoryBinder.cs
+Project Grimhold/Assets/Scripts/Stash/ApplicationStashContext.cs
+Project Grimhold/Assets/Scripts/Stash/ApplicationStashServiceBootstrapper.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs.meta
+Project Grimhold/Docs/Architecture/CommerceArchitecture.md
+Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+backend/src/config/abilityCatalog.js
+backend/src/models/Character.js
+backend/src/routes/character.routes.js
+backend/src/services/AbilityService.js
+backend/src/services/ProgressionService.js
+backend/src/validators/ability.validators.js
+backend/tests/ability.catalog.parity.test.js
+backend/tests/ability.purchase.test.js
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Persistence/AbilityPurchaseResult.cs
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Vendor/IAbilityPurchaseService.cs
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Vendor/IAbilityPurchaseService.cs.meta
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Vendor/RemoteAbilityPurchaseService.cs
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Vendor/RemoteAbilityPurchaseService.cs.meta
+- path → Abilities: Project Grimhold/Assets/Scripts/Player/Presentation/AbilityVendorFeedback.cs
+- path → Abilities: Project Grimhold/Assets/Scripts/Player/Presentation/TownAbilityVendorPresenter.cs
+- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs
+- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs.meta
+- path → Abilities: backend/src/config/abilityCatalog.js
+- path → Abilities: backend/src/services/AbilityService.js
+- path → Abilities: backend/src/validators/ability.validators.js
+- path → Abilities: backend/tests/ability.catalog.parity.test.js
+- path → Abilities: backend/tests/ability.purchase.test.js
+- scope → Abilities: abilities
+- message-term → Abilities: abilities
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/TownInventoryBinder.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Abilities/Persistence/AbilityPurchaseResult.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/ProgressionClient.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/ProgressionDataTransferObjects.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+- path → Persistence &amp; Backend: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+- path → Persistence &amp; Backend: backend/src/config/abilityCatalog.js
+- path → Persistence &amp; Backend: backend/src/models/Character.js
+- path → Persistence &amp; Backend: backend/src/routes/character.routes.js
+- path → Persistence &amp; Backend: backend/src/services/AbilityService.js
+- path → Persistence &amp; Backend: backend/src/services/ProgressionService.js
+- path → Persistence &amp; Backend: backend/src/validators/ability.validators.js
+- path → Persistence &amp; Backend: backend/tests/ability.catalog.parity.test.js
+- path → Persistence &amp; Backend: backend/tests/ability.purchase.test.js
+- message-term → Persistence &amp; Backend: backend
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs.meta
+- path → Documentation: Project Grimhold/Docs/Architecture/CommerceArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs.meta
+- path → Tests: backend/tests/ability.catalog.parity.test.js
+- path → Tests: backend/tests/ability.purchase.test.js
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 63f574df6c4328a34f620f7803a464a6ba9ce836
+
+[63f574df6c4328a34f620f7803a464a6ba9ce836](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/63f574df6c4328a34f620f7803a464a6ba9ce836)
+
+Date: 2026-10-27T16:28:42-03:00 · Classification: Bug Fixes (explicit) · Systems: Extraction, Inventory & Loot, Persistence & Backend, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(security): eliminate client webhook secret and bound host extraction trust
+```
+
+#### Original body
+
+```text
+Remove WebhookSecret from BackendConfiguration asset and C# class,
+ensuring client builds do not contain cluster signing secrets.
+Implement Bounded Player-Host Authority in RaidResultService for the
+client-hosted MVP topology: the backend authenticates the host via JWT,
+requires active raid reservations on recipients, bounds loadout items to
+30 slots, caps experience at 5,000 XP per raid, and rejects forged HMAC
+signatures.
+
+Update architecture documentation (ExtractionArchitecture,
+RemoteIdentityAndAuthArchitecture, RaidParticipantArchitecture) and add
+backend unit tests covering exploit rejections and legitimate bounded
+extraction flows.
+
+Refs: #595
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Resources/BackendConfiguration.asset
+Project Grimhold/Assets/Scripts/Backend/BackendConfiguration.cs
+Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+Project Grimhold/Docs/Architecture/ExtractionArchitecture.md
+Project Grimhold/Docs/Architecture/RaidParticipantArchitecture.md
+Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md
+backend/src/services/RaidResultService.js
+backend/tests/raid.result.test.js
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Extraction: Project Grimhold/Docs/Architecture/ExtractionArchitecture.md
+- message-term → Extraction: extraction
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Resources/BackendConfiguration.asset
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/BackendConfiguration.cs
+- path → Persistence &amp; Backend: Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md
+- path → Persistence &amp; Backend: backend/src/services/RaidResultService.js
+- path → Persistence &amp; Backend: backend/tests/raid.result.test.js
+- message-term → Persistence &amp; Backend: backend
+- path → Documentation: Project Grimhold/Docs/Architecture/ExtractionArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidParticipantArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md
+- message-term → Documentation: documentation
+- path → Tests: backend/tests/raid.result.test.js
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 8463a4d4b53d75a667559aca257efafc0e36a1da
+
+[8463a4d4b53d75a667559aca257efafc0e36a1da](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8463a4d4b53d75a667559aca257efafc0e36a1da)
+
+Date: 2026-10-27T00:33:29-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(loot): add test spawner and pickup prefabs for raid item validation
+```
+
+#### Original body
+
+```text
+Introduce RaidLootTestSpawner and custom Editor inspector to spawn test items in Play Mode with configurable hotkey (F8) and custom item field. Add 9 dedicated Fusion-labeled loot pickup prefabs and place test instances in Gameplay.unity near Sanctuary 1 for in-game verification.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Editor/Gameplay.meta
+Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs
+Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs.meta
+Project Grimhold/Assets/Prefabs/Loot.meta
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_ChaosCoin.prefab
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_ChaosCoin.prefab.meta
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_FamineIdol.prefab
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_FamineIdol.prefab.meta
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_HealthPotion.prefab
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_HealthPotion.prefab.meta
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_ManaFragment.prefab
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_ManaFragment.prefab.meta
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_ManaPotion.prefab
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_ManaPotion.prefab.meta
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_PilgrimLight.prefab
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_PilgrimLight.prefab.meta
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_SanctuaryHeart.prefab
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_SanctuaryHeart.prefab.meta
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_VoidBell.prefab
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_VoidBell.prefab.meta
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_WandererEye.prefab
+Project Grimhold/Assets/Prefabs/Loot/LootPickup_WandererEye.prefab.meta
+Project Grimhold/Assets/Scenes/Gameplay.unity
+Project Grimhold/Assets/Scripts/Gameplay/Debugging.meta
+Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs
+Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs.meta
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_HealthPotion.prefab
+- path → Combat: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_HealthPotion.prefab.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ChaosCoin.prefab
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ChaosCoin.prefab.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_FamineIdol.prefab
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_FamineIdol.prefab.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_HealthPotion.prefab
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_HealthPotion.prefab.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ManaFragment.prefab
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ManaFragment.prefab.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ManaPotion.prefab
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_ManaPotion.prefab.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_PilgrimLight.prefab
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_PilgrimLight.prefab.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_SanctuaryHeart.prefab
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_SanctuaryHeart.prefab.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_VoidBell.prefab
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_VoidBell.prefab.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_WandererEye.prefab
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/Loot/LootPickup\_WandererEye.prefab.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs.meta
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/Gameplay.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs.meta
+- path → Tests: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs
+- path → Tests: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs.meta
+- path → Tests: Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs
+- path → Tests: Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs.meta
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 02e956b00784ff9022b1f9ea453f3244f4580aa4
+
+[02e956b00784ff9022b1f9ea453f3244f4580aa4](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/02e956b00784ff9022b1f9ea453f3244f4580aa4)
+
+Date: 2026-10-27T00:32:58-03:00 · Classification: Bug Fixes (explicit) · Systems: Inventory & Loot, Art & Animation
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(loot): attach passive effects controller and sync drop definition
+```
+
+#### Original body
+
+```text
+Convert PlayerInventoryPassiveEffectsController to a MonoBehaviour that reactively queries the replicated player inventory without consuming Fusion word budget. Attach it to NetworkPlayer.prefab and add fallback dependency resolution in PlayerCharacter.
+
+Synchronize the serialized LootDefinition field in NetworkLootPickup when spawning or dropping items so the Unity Inspector accurately displays the resolved item definition instead of default Bone.
+
+Player-Fixed: Passive effects from treasures in inventory now activate reliably, and dropped items display their correct name and sprite.
+Refs: #618
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab
+Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs
+Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- message-term → Art &amp; Animation: sprite
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### a2fb465360e7dd83f922ae1e91d6d99706ac6ae3
+
+[a2fb465360e7dd83f922ae1e91d6d99706ac6ae3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a2fb465360e7dd83f922ae1e91d6d99706ac6ae3)
+
+Date: 2026-10-27T00:32:34-03:00 · Classification: Bug Fixes (explicit) · Systems: Inventory & Loot, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(loot): expand catalog index capacity in packed origin buffer
+```
+
+#### Original body
+
+```text
+Expand MaximumCatalogEntries from 64 to 128 in RaidLootOriginPackedBuffer to support the expanded 81-definition catalog without exceeding network bit budget. Adjust KeyBits from 6 to 12 while preserving 43 bits per bucket and 686-word buffer allocation for NetworkPlayer.
+
+Update PlayerLootReceiver unit tests and technical documentation in LootInteractionArchitecture.md to reflect the 128-definition ceiling.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Gameplay/RaidLootOriginPackedBuffer.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/PlayerLootReceiverTests.cs
+Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/RaidLootOriginPackedBuffer.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/PlayerLootReceiverTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/PlayerLootReceiverTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md
+- message-term → Documentation: documentation
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/PlayerLootReceiverTests.cs
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 7aa4c09b33fecd92bb6b1b90b44a955ccfecf519
+
+[7aa4c09b33fecd92bb6b1b90b44a955ccfecf519](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7aa4c09b33fecd92bb6b1b90b44a955ccfecf519)
+
+Date: 2026-10-26T20:32:44-03:00 · Classification: Features (explicit) · Systems: Movement, Inventory & Loot, UI, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(loot): implement inventory passive effects for expedition treasures
+```
+
+#### Original body
+
+```text
+
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs.meta
+Project Grimhold/Assets/Scripts/Player/Movement/EnemyMovementAIController.cs
+Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs
+Project Grimhold/Assets/Scripts/Player/PlayerStaminaNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidMinimapPresenter.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs.meta
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Movement: Project Grimhold/Assets/Scripts/Player/Movement/EnemyMovementAIController.cs
+- path → Movement: Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs.meta
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidMinimapPresenter.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs.meta
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 74b0835bddd8277c897c818be46d0297498e4fe2
+
+[74b0835bddd8277c897c818be46d0297498e4fe2](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/74b0835bddd8277c897c818be46d0297498e4fe2)
+
+Date: 2026-10-26T20:17:13-03:00 · Classification: Features (explicit) · Systems: Combat, Movement, Inventory & Loot, UI, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(consumables): implement mana restoration and consumption speed gates
+```
+
+#### Original body
+
+```text
+
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scriptable Objects/HealthConsumableDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_MANA_FRAGMENT.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_MANA_POTION.asset
+Project Grimhold/Assets/Scriptable Objects/ManaFragmentDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/ManaFragmentDefinition.asset.meta
+Project Grimhold/Assets/Scriptable Objects/ManaFragmentEffect.asset
+Project Grimhold/Assets/Scriptable Objects/ManaFragmentEffect.asset.meta
+Project Grimhold/Assets/Scriptable Objects/ManaPotionDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/ManaPotionDefinition.asset.meta
+Project Grimhold/Assets/Scriptable Objects/ManaPotionEffect.asset
+Project Grimhold/Assets/Scriptable Objects/ManaPotionEffect.asset.meta
+Project Grimhold/Assets/Scripts/Core/IManaReceiver.cs
+Project Grimhold/Assets/Scripts/Core/IManaReceiver.cs.meta
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/ConsumableDefinition.cs
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/ConsumableEffectBase.cs
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/ConsumableFailureReason.cs
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/HealthConsumableEffect.cs
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/IConsumableEffect.cs
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/ManaConsumableEffect.cs
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/ManaConsumableEffect.cs.meta
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidHudPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Consumables.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ManaConsumableTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ManaConsumableTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/HealthConsumableDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scripts/Gameplay/Consumables/HealthConsumableEffect.cs
+- path → Movement: Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_MANA\_FRAGMENT.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_MANA\_POTION.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidHudPresenter.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ManaConsumableTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ManaConsumableTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ManaConsumableTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ManaConsumableTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### c554a42e3e473aed7c57a3655e75c21a575d3b9a
+
+[c554a42e3e473aed7c57a3655e75c21a575d3b9a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c554a42e3e473aed7c57a3655e75c21a575d3b9a)
+
+Date: 2026-10-26T20:16:43-03:00 · Classification: Bug Fixes (explicit) · Systems: Inventory & Loot
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(loot): resolve ProfileId string comparison in Chaos Coin evaluator
+```
+
+#### Original body
+
+```text
+
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Gameplay/ChaosCoinCarrierEvaluator.cs
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 01e86d0f58f6d4e22de0b33f91f9233b513ba7f8
+
+[01e86d0f58f6d4e22de0b33f91f9233b513ba7f8](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/01e86d0f58f6d4e22de0b33f91f9233b513ba7f8)
+
+Date: 2026-10-26T19:48:06-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, World & Visibility, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(loot): implement cooperative Chaos Coin bonus loot roll
+```
+
+#### Original body
+
+```text
+Implement cooperative 20% bonus loot generation for containers when any active team member (alive or Downed) carries TRE_CHAOS_COIN per Docs 07 and 14. Add ChaosCoinCarrierEvaluator to consult authoritative team presence across Solo and Duo rosters while strictly excluding corpses.
+
+Update LootContainerContentRoller to evaluate an independent deterministic Chaos Coin roll stream (2000 basis points) isolated from Luck, allowing both bonuses to co-occur without mutating the base generation seed. Seal resolved loot sources against subsequent modifier re-evaluation.
+
+Player-Added: Carrying the Chaos Coin now grants your team an independent 20% chance to find bonus loot when opening dungeon chests.
+Refs: #615
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Gameplay/ChaosCoinCarrierEvaluator.cs
+Project Grimhold/Assets/Scripts/Gameplay/ChaosCoinCarrierEvaluator.cs.meta
+Project Grimhold/Assets/Scripts/Gameplay/LootContainerContentRoller.cs
+Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs
+Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainerInteractable.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinCarrierEvaluatorTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinCarrierEvaluatorTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs.meta
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/LootContainerContentRoller.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainerInteractable.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinCarrierEvaluatorTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinCarrierEvaluatorTests.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs.meta
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- message-term → World &amp; Visibility: dungeon
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinCarrierEvaluatorTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinCarrierEvaluatorTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinCarrierEvaluatorTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinCarrierEvaluatorTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs.meta
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 4bf2cb8be6b618c763748c8086118b0118d81b09
+
+[4bf2cb8be6b618c763748c8086118b0118d81b09](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4bf2cb8be6b618c763748c8086118b0118d81b09)
+
+Date: 2026-10-26T19:37:51-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, Art & Animation, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(loot): register 39 MVP items and normalize consumable catalog
+```
+
+#### Original body
+
+```text
+Create ScriptableObjects for all 39 non-equippable MVP items defined in Doc 14 (21 Resources, 8 Treasures, 8 Consumables, 2 Utilities). Normalize CON_HEALTH_POTION to 40 HP restoration over 2.5s channel time. Assign visual archetypes and register all definitions into LootDefinitionCatalog and RaidLootValueCatalog.
+
+Add comprehensive EditMode unit tests verifying catalog integrity, non-null sprite references, exact operational attributes (ObjectValue, StackMax, MaxTransportable, Family, UseMode), and strict non-stackable rule for Treasures.
+
+Player-Added: Complete MVP catalog of 39 non-equippable items, including creature remains, arcane components, cursed and divine treasures, offensive throwing consumables, and expedition utilities.
+Refs: #612
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scriptable Objects/HealthConsumableDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/HealthConsumableEffect.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_EXPLOSIVE_BOMB.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_EXPLOSIVE_BOMB.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_HEALTH_POTION.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_HEALTH_POTION.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_LOCKPICK.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_LOCKPICK.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_MANA_FRAGMENT.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_MANA_FRAGMENT.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_MANA_POTION.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_MANA_POTION.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_SELF_REVIVE.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_SELF_REVIVE.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_SMOKE_BOMB.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_SMOKE_BOMB.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_THROWING_DAGGER.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_THROWING_DAGGER.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/HealthPotion.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ANCIENT_ARMOR.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ANCIENT_ARMOR.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ANCIENT_ROOT.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ANCIENT_ROOT.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ATTUNEMENT_GEM.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ATTUNEMENT_GEM.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_BAT_FANG.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_BAT_FANG.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_BAT_WING.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_BAT_WING.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_BLACK_IRON.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_BLACK_IRON.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_CORRUPT_MARROW.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_CORRUPT_MARROW.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_CUSTODIAN_SEAL.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_CUSTODIAN_SEAL.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ETHER_DUST.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ETHER_DUST.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_GOBLIN_ARROWHEAD.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_GOBLIN_ARROWHEAD.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_GOBLIN_INSIGNIA.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_GOBLIN_INSIGNIA.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_GOBLIN_SCRAP.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_GOBLIN_SCRAP.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_GOLEM_CORE.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_GOLEM_CORE.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_LOST_GRIMOIRE_PAGE.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_LOST_GRIMOIRE_PAGE.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_RUNE_FRAGMENT.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_RUNE_FRAGMENT.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SLIME_CORE.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SLIME_CORE.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SLIME_GEL.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SLIME_GEL.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SOUL_FRAGMENT.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SOUL_FRAGMENT.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SPECTRAL_ESSENCE.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SPECTRAL_ESSENCE.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_TANNED_LEATHER.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_TANNED_LEATHER.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_WITHERED_BONE.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_WITHERED_BONE.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_CHALICE.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_CHALICE.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_CHAOS_COIN.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_CHAOS_COIN.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_CROWN.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_CROWN.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_FAMINE_IDOL.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_FAMINE_IDOL.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_PILGRIM_LIGHT.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_PILGRIM_LIGHT.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_SANCTUARY_HEART.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_SANCTUARY_HEART.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_VOID_BELL.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_VOID_BELL.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_WANDERER_EYE.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE_WANDERER_EYE.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_ARCANE_DETECTOR.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_ARCANE_DETECTOR.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_RUNE_COMPASS.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_RUNE_COMPASS.asset.meta
+Project Grimhold/Assets/Scriptable Objects/RaidLootValueCatalog.asset
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs.meta
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/HealthConsumableDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/HealthConsumableEffect.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_HEALTH\_POTION.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_HEALTH\_POTION.asset.meta
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/HealthPotion.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_EXPLOSIVE\_BOMB.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_EXPLOSIVE\_BOMB.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_HEALTH\_POTION.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_HEALTH\_POTION.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_LOCKPICK.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_LOCKPICK.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_MANA\_FRAGMENT.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_MANA\_FRAGMENT.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_MANA\_POTION.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_MANA\_POTION.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_SELF\_REVIVE.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_SELF\_REVIVE.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_SMOKE\_BOMB.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_SMOKE\_BOMB.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_THROWING\_DAGGER.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_THROWING\_DAGGER.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/HealthPotion.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_ANCIENT\_ARMOR.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_ANCIENT\_ARMOR.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_ANCIENT\_ROOT.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_ANCIENT\_ROOT.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_ATTUNEMENT\_GEM.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_ATTUNEMENT\_GEM.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_BAT\_FANG.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_BAT\_FANG.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_BAT\_WING.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_BAT\_WING.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_BLACK\_IRON.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_BLACK\_IRON.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_CORRUPT\_MARROW.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_CORRUPT\_MARROW.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_CUSTODIAN\_SEAL.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_CUSTODIAN\_SEAL.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_ETHER\_DUST.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_ETHER\_DUST.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_GOBLIN\_ARROWHEAD.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_GOBLIN\_ARROWHEAD.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_GOBLIN\_INSIGNIA.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_GOBLIN\_INSIGNIA.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_GOBLIN\_SCRAP.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_GOBLIN\_SCRAP.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_GOLEM\_CORE.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_GOLEM\_CORE.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_LOST\_GRIMOIRE\_PAGE.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_LOST\_GRIMOIRE\_PAGE.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_RUNE\_FRAGMENT.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_RUNE\_FRAGMENT.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SLIME\_CORE.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SLIME\_CORE.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SLIME\_GEL.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SLIME\_GEL.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SOUL\_FRAGMENT.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SOUL\_FRAGMENT.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SPECTRAL\_ESSENCE.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SPECTRAL\_ESSENCE.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_TANNED\_LEATHER.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_TANNED\_LEATHER.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_WITHERED\_BONE.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_WITHERED\_BONE.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_CHALICE.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_CHALICE.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_CHAOS\_COIN.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_CHAOS\_COIN.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_CROWN.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_CROWN.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_FAMINE\_IDOL.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_FAMINE\_IDOL.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_PILGRIM\_LIGHT.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_PILGRIM\_LIGHT.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_SANCTUARY\_HEART.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_SANCTUARY\_HEART.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_VOID\_BELL.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_VOID\_BELL.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_WANDERER\_EYE.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TRE\_WANDERER\_EYE.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_ARCANE\_DETECTOR.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_ARCANE\_DETECTOR.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_RUNE\_COMPASS.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_RUNE\_COMPASS.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/RaidLootValueCatalog.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs.meta
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- message-term → Art &amp; Animation: sprite
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs.meta
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 49de0efd345c37432f5e340a248df1a6679357fe
+
+[49de0efd345c37432f5e340a248df1a6679357fe](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/49de0efd345c37432f5e340a248df1a6679357fe)
+
+Date: 2026-10-26T19:26:43-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(loot): refactor taxonomy and item contracts with formal naming
+```
+
+#### Original body
+
+```text
+Align LootCategory enum and LootDefinition ScriptableObject contracts with the Doc 14 taxonomy and HacknPlan TASK-225 specifications. Introduce ItemUseMode and formal taxonomy properties (ObjectValue, StackMax, MaxTransportable, Family, Tags, and lifecycle flags) while preserving backward compatibility with existing equippables and serialized valuable assets.
+
+Update LootDefinition ID regex validation to accept formal alphanumeric identifiers (e.g. CON_HEALTH_POTION), and enforce validation constraints for negative values, deprecated Quest category, and unstackable Treasure items. Add comprehensive EditMode unit tests covering all new validation gates and properties.
+
+Refs: #611
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Loot/ItemUseMode.cs
+Project Grimhold/Assets/Scripts/Loot/ItemUseMode.cs.meta
+Project Grimhold/Assets/Scripts/Loot/LootCategory.cs
+Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs
+Project Grimhold/Assets/Scripts/Stash/StashDisplayOrder.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/ItemUseMode.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/ItemUseMode.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/LootCategory.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### bf61d366d84f922ca02ffc3269033460dd2e3a21
+
+[bf61d366d84f922ca02ffc3269033460dd2e3a21](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/bf61d366d84f922ca02ffc3269033460dd2e3a21)
+
+Date: 2026-10-26T17:52:17-03:00 · Classification: Documentation (explicit) · Systems: Documentation
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(security): document candidate resolutions and render deploy for US-61
+```
+
+#### Original body
+
+```text
+Add Section 4 to reporte_us61_investigacion_contencion_credenciales.md
+with a consolidated candidate matrix, risk acceptance for WEBHOOK_SECRET
+deferred to #400, MongoDB Atlas residual status, and Render deploy guide.
+
+Refs: #529, #639
+```
+
+#### Changed paths
+
+```text
+docs/reporte_us61_investigacion_contencion_credenciales.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+- path → Documentation: docs/reporte\_us61\_investigacion\_contencion\_credenciales.md
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 987a203c014baf03b6944fa791c27b2988e54c1f
+
+[987a203c014baf03b6944fa791c27b2988e54c1f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/987a203c014baf03b6944fa791c27b2988e54c1f)
+
+Date: 2026-10-26T17:52:03-03:00 · Classification: Features (explicit) · Systems: Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(backend): permit dev webhook secret under explicit risk flag
+```
+
+#### Original body
+
+```text
+Add ALLOW_DEV_WEBHOOK_SECRET to env.js so Render can start in production
+under explicit risk acceptance while player-hosted clients sign raid
+results with the shared development secret.
+
+Retain fail-closed rejection when the flag is unset or when arbitrary
+weak secrets are provided, and log an explicit warning on startup.
+
+Refs: #529, #639
+```
+
+#### Changed paths
+
+```text
+backend/.env.example
+backend/src/config/env.js
+backend/tests/env.hardening.test.js
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Persistence &amp; Backend: backend/.env.example
+- path → Persistence &amp; Backend: backend/src/config/env.js
+- path → Persistence &amp; Backend: backend/tests/env.hardening.test.js
+- scope → Persistence &amp; Backend: backend
+- message-term → Persistence &amp; Backend: backend
+- path → Tests: backend/tests/env.hardening.test.js
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 88999f4fdb9765c95a0b94d3e82154d47ba95e81
+
+[88999f4fdb9765c95a0b94d3e82154d47ba95e81](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/88999f4fdb9765c95a0b94d3e82154d47ba95e81)
+
+Date: 2026-10-26T17:25:08-03:00 · Classification: Documentation (explicit) · Systems: World & Visibility, Audio, Documentation
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(dungeon-pressure): update collapse presentation and resolve conflict
+```
+
+#### Original body
+
+```text
+Update DungeonPressureArchitecture.md to document Stage 9 collapse
+presentation contracts (audio crossfade, debris, accessibility, light
+extinction) and resolve merge conflict in Context and Objective.
+
+Refs: #520
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Docs/Architecture/DungeonPressureArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+- path → World &amp; Visibility: Project Grimhold/Docs/Architecture/DungeonPressureArchitecture.md
+- scope → World &amp; Visibility: dungeon-pressure
+- message-term → World &amp; Visibility: dungeon
+- message-term → Audio: audio
+- path → Documentation: Project Grimhold/Docs/Architecture/DungeonPressureArchitecture.md
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### eb00230abb5f49ce18f6926bb6f6c1cb2f7c0f0f
+
+[eb00230abb5f49ce18f6926bb6f6c1cb2f7c0f0f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/eb00230abb5f49ce18f6926bb6f6c1cb2f7c0f0f)
+
+Date: 2026-10-26T17:24:55-03:00 · Classification: Features (explicit) · Systems: Networking & Sessions, World & Visibility, Audio, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(dungeon-pressure): add collapse music and falling ceiling particles
+```
+
+#### Original body
+
+```text
+Add collapse background music crossfade to DungeonPressureAudioPresenter
+and camera-anchored falling dust and debris particle systems in
+DungeonPressureAmbientPresenter, driven by DungeonAmbientConfig.
+
+Wired collapse music in NetworkMatchController and updated Gameplay
+scene with ambient light and lighting props placement.
+
+Refs: #520
+Player-Added: Dramatic collapse presentation with ceiling dust and collapse music.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Prefabs/NetworkMatchController.prefab
+Project Grimhold/Assets/Scenes/Gameplay.unity
+Project Grimhold/Assets/Scriptable Objects/DefaultDungeonAmbientConfig.asset
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonAmbientConfig.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonAmbientPhaseSettings.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonAmbientConfigTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonAmbientConfigTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scriptable Objects/DefaultDungeonAmbientConfig.asset
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonAmbientConfig.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonAmbientPhaseSettings.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonAmbientConfigTests.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- scope → World &amp; Visibility: dungeon-pressure
+- message-term → World &amp; Visibility: dungeon
+- path → Audio: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs
+- message-term → Audio: music
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonAmbientConfigTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonAmbientConfigTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### a5ccb45149e51dcd843ad7a3aa50df94640d9486
+
+[a5ccb45149e51dcd843ad7a3aa50df94640d9486](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a5ccb45149e51dcd843ad7a3aa50df94640d9486)
+
+Date: 2026-10-26T17:24:25-03:00 · Classification: Features (explicit) · Systems: Networking & Sessions, World & Visibility, Art & Animation, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(lighting): add light prop extinction support and prop prefabs
+```
+
+#### Original body
+
+```text
+Support extinguishable props in DungeonLightProp when entering severe
+phases, swapping to unlit sprites and triggering extinguish smoke VFX.
+
+Add lit/unlit props art assets, organize lighting prefabs (Torch,
+Brazier, Candle, Multiple Candles), and update torch configuration.
+
+Refs: #520
+Player-Added: Torch and brazier lighting props that extinguish during collapse.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Art/Props/Brazier-Lit.png
+Project Grimhold/Assets/Art/Props/Brazier-Lit.png.meta
+Project Grimhold/Assets/Art/Props/Brazier-Unlit.png
+Project Grimhold/Assets/Art/Props/Brazier-Unlit.png.meta
+Project Grimhold/Assets/Art/Props/Candle-Lit.png
+Project Grimhold/Assets/Art/Props/Candle-Lit.png.meta
+Project Grimhold/Assets/Art/Props/Candle-Unlit.png
+Project Grimhold/Assets/Art/Props/Candle-Unlit.png.meta
+Project Grimhold/Assets/Art/Props/Candles-Lit.png
+Project Grimhold/Assets/Art/Props/Candles-Lit.png.meta
+Project Grimhold/Assets/Art/Props/Candles-Unlit.png
+Project Grimhold/Assets/Art/Props/Candles-Unlit.png.meta
+Project Grimhold/Assets/Art/Props/Torch-Lit.png
+Project Grimhold/Assets/Art/Props/Torch-Lit.png.meta
+Project Grimhold/Assets/Art/Props/Torch-Unlit.png
+Project Grimhold/Assets/Art/Props/Torch-Unlit.png.meta
+Project Grimhold/Assets/Prefabs/DungeonLightProp.prefab
+Project Grimhold/Assets/Prefabs/Lighting Props.meta
+Project Grimhold/Assets/Prefabs/Lighting Props/Brazier.prefab
+Project Grimhold/Assets/Prefabs/Lighting Props/Brazier.prefab.meta
+Project Grimhold/Assets/Prefabs/Lighting Props/Candle.prefab
+Project Grimhold/Assets/Prefabs/Lighting Props/Candle.prefab.meta
+Project Grimhold/Assets/Prefabs/Lighting Props/DungeonLightProp.prefab
+Project Grimhold/Assets/Prefabs/Lighting Props/DungeonLightProp.prefab.meta
+Project Grimhold/Assets/Prefabs/Lighting Props/Multiple Candles.prefab
+Project Grimhold/Assets/Prefabs/Lighting Props/Multiple Candles.prefab.meta
+Project Grimhold/Assets/Prefabs/Lighting Props/Torch.prefab
+Project Grimhold/Assets/Prefabs/Lighting Props/Torch.prefab.meta
+Project Grimhold/Assets/Scriptable Objects/DefaultTorchLightPropConfig.asset
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonLightProp.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonLightPropPhaseSettings.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonLightPropTests.cs
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonLightPropTests.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Prefabs/DungeonLightProp.prefab
+- path → World &amp; Visibility: Project Grimhold/Assets/Prefabs/Lighting Props/DungeonLightProp.prefab
+- path → World &amp; Visibility: Project Grimhold/Assets/Prefabs/Lighting Props/DungeonLightProp.prefab.meta
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonLightProp.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonLightPropPhaseSettings.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonLightPropTests.cs
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Brazier-Lit.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Brazier-Lit.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Brazier-Unlit.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Brazier-Unlit.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Candle-Lit.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Candle-Lit.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Candle-Unlit.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Candle-Unlit.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Candles-Lit.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Candles-Lit.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Candles-Unlit.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Candles-Unlit.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Torch-Lit.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Torch-Lit.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Torch-Unlit.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Torch-Unlit.png.meta
+- message-term → Art &amp; Animation: sprites
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonLightPropTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonLightPropTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 17ebd026725ca90f64d9efe9bdeb07f9f62b2f79
+
+[17ebd026725ca90f64d9efe9bdeb07f9f62b2f79](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/17ebd026725ca90f64d9efe9bdeb07f9f62b2f79)
+
+Date: 2026-10-26T17:24:08-03:00 · Classification: Features (explicit) · Systems: Combat, Networking & Sessions, World & Visibility, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(camera): add accessibility and aim scaling to camera shake
+```
+
+#### Original body
+
+```text
+Add AccessibilityScale to CameraShakeController to scale both continuous tremors and trauma shakes for player comfort and weapon aim preservation.
+
+Clamp scale values in [0, 1] and ensure continuous shake blends correctly with trauma shakes across Dungeon Pressure phases.
+
+Refs: #520
+Player-Added: Camera shake accessibility scale to reduce motion sickness.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Player/Presentation/CameraShakeController.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/CameraShakeControllerContinuousTests.cs
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- message-term → Combat: weapon
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/CameraShakeControllerContinuousTests.cs
+- message-term → World &amp; Visibility: Dungeon
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/CameraShakeControllerContinuousTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/CameraShakeControllerContinuousTests.cs
 
 #### Diagnostics
 
