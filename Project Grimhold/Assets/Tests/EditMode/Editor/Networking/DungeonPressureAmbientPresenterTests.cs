@@ -150,8 +150,6 @@ public sealed class DungeonPressureAmbientPresenterTests
     {
         var dustGo = new GameObject("Dust");
         var dustPs = dustGo.AddComponent<ParticleSystem>();
-        var debrisGo = new GameObject("Debris");
-        var debrisPs = debrisGo.AddComponent<ParticleSystem>();
 
         var customConfig = ScriptableObject.CreateInstance<DungeonAmbientConfig>();
         var normal = new DungeonAmbientPhaseSettings(
@@ -161,23 +159,133 @@ public sealed class DungeonPressureAmbientPresenterTests
         var collapse = new DungeonAmbientPhaseSettings(
             Color.red, 0.5f, 1f, 0f, 0f, 0f, 0f, 0f, 0f,
             Color.red, 1.0f, 0.6f, false, 0f,
-            default, 25f, 12f);
+            default, 25f, 0f);
 
         customConfig.Initialize(normal, normal, normal, collapse);
 
-        _presenter.Configure(null, customConfig, _globalLight, _volume, dustPs, debrisPs);
+        _presenter.Configure(null, customConfig, _globalLight, _volume, dustPs);
 
         // Normal phase
         _presenter.ApplyInitialPhase(DungeonPressurePhase.Normal);
         Assert.That(dustPs.emission.rateOverTime.constant, Is.EqualTo(0f));
-        Assert.That(debrisPs.emission.rateOverTime.constant, Is.EqualTo(0f));
 
         // Collapse phase
         _presenter.ApplyInitialPhase(DungeonPressurePhase.Collapse);
         Assert.That(dustPs.emission.rateOverTime.constant, Is.EqualTo(25f).Within(0.001f));
-        Assert.That(debrisPs.emission.rateOverTime.constant, Is.EqualTo(12f).Within(0.001f));
 
         Object.DestroyImmediate(dustGo);
-        Object.DestroyImmediate(debrisGo);
+    }
+
+    [Test]
+    public void Particles_ConfiguredAsFloatingAmbientDust_WithZeroGravityAndViewportCoverage()
+    {
+        var dustGo = new GameObject("Dust");
+        var dustPs = dustGo.AddComponent<ParticleSystem>();
+
+        _presenter.Configure(null, _config, _globalLight, _volume, dustPs);
+
+        // Zero gravity so particles float instead of falling
+        Assert.That(dustPs.main.gravityModifier.constant, Is.EqualTo(0f));
+
+        // Simulation space in World so particles stay suspended in dungeon space
+        Assert.That(dustPs.main.simulationSpace, Is.EqualTo(ParticleSystemSimulationSpace.World));
+
+        // Broad box coverage instead of narrow ceiling strip
+        Assert.That(dustPs.shape.shapeType, Is.EqualTo(ParticleSystemShapeType.Box));
+        Assert.That(dustPs.shape.scale.x, Is.GreaterThanOrEqualTo(20f));
+        Assert.That(dustPs.shape.scale.y, Is.GreaterThanOrEqualTo(15f));
+
+        // Camera positioning centers on viewport without vertical ceiling offset
+        _presenter.EvaluatePresentation(0.1f);
+        Vector3 camPos = Camera.main.transform.position;
+        Assert.That(dustPs.transform.position.y, Is.EqualTo(camPos.y).Within(0.001f));
+
+        Object.DestroyImmediate(dustGo);
+    }
+
+    [Test]
+    public void Particles_ConfiguredWithCircleTextureAndDesaturatedBrownColors()
+    {
+        var dustGo = new GameObject("Dust");
+        var dustPs = dustGo.AddComponent<ParticleSystem>();
+
+        _presenter.Configure(null, _config, _globalLight, _volume, dustPs);
+
+        // Circular particle material and texture
+        Texture2D circleTex = DungeonPressureAmbientPresenter.GetOrCreateCircleTexture();
+        Assert.That(circleTex, Is.Not.Null);
+        Assert.That(circleTex.width, Is.EqualTo(64));
+        Assert.That(circleTex.height, Is.EqualTo(64));
+
+        Material circleMat = DungeonPressureAmbientPresenter.GetOrCreateCircleMaterial();
+        Assert.That(circleMat, Is.Not.Null);
+        Assert.That(circleMat.mainTexture, Is.EqualTo(circleTex));
+        Assert.That(circleMat.renderQueue, Is.GreaterThanOrEqualTo((int)RenderQueue.Transparent));
+
+        // Sorting configuration: VFX layer, order 10 (visible in atmosphere above floor)
+        var dustRenderer = dustPs.GetComponent<ParticleSystemRenderer>();
+        Assert.That(dustRenderer.sortingLayerName, Is.EqualTo("VFX"));
+        Assert.That(dustRenderer.sortingOrder, Is.EqualTo(10));
+
+        // Desaturated brown, almost grey start color
+        Color dustColor = dustPs.main.startColor.color;
+        Assert.That(dustColor.r, Is.GreaterThan(dustColor.g), "Dust color should have warm/brown undertone (R > G)");
+        Assert.That(dustColor.g, Is.GreaterThan(dustColor.b), "Dust color should have warm/brown undertone (G > B)");
+        Assert.That(dustColor.r - dustColor.b, Is.LessThan(0.12f), "Dust color should be highly desaturated (R - B < 0.12)");
+
+        Object.DestroyImmediate(dustGo);
+    }
+
+    [Test]
+    public void Particles_OccludedByWallColliders_AreCulledFromInaccessibleSpace()
+    {
+        var dustGo = new GameObject("Dust");
+        var dustPs = dustGo.AddComponent<ParticleSystem>();
+
+        _presenter.Configure(null, _config, _globalLight, _volume, dustPs, null);
+
+        // Setup a custom wall collider at (10, 10)
+        var wallGo = new GameObject("WallCollider");
+        var boxCol = wallGo.AddComponent<BoxCollider2D>();
+        boxCol.size = new Vector2(4f, 4f);
+        wallGo.transform.position = new Vector3(10f, 10f, 0f);
+
+        _presenter.SetCustomOcclusionColliders(new Collider2D[] { boxCol });
+
+        // Verification of IsPointInOpenSpace / IsPointOccluded
+        Assert.That(_presenter.IsPointInOpenSpace(new Vector2(0f, 0f)), Is.True, "Open space (0, 0) must be in open space");
+        Assert.That(_presenter.IsPointOccluded(new Vector2(0f, 0f)), Is.False, "Open space (0, 0) must not be occluded");
+
+        Assert.That(_presenter.IsPointInOpenSpace(new Vector2(10f, 10f)), Is.False, "Wall space (10, 10) must not be in open space");
+        Assert.That(_presenter.IsPointOccluded(new Vector2(10f, 10f)), Is.True, "Wall space (10, 10) must be occluded");
+
+        // Emit 2 particles: 1 in open space (0,0), 1 inside wall (10,10)
+        var openParticle = new ParticleSystem.EmitParams
+        {
+            position = new Vector3(0f, 0f, 0f),
+            startLifetime = 5f
+        };
+        dustPs.Emit(openParticle, 1);
+
+        var wallParticle = new ParticleSystem.EmitParams
+        {
+            position = new Vector3(10f, 10f, 0f),
+            startLifetime = 5f
+        };
+        dustPs.Emit(wallParticle, 1);
+
+        // Cull occluded particles
+        _presenter.CullOccludedParticles(dustPs);
+
+        ParticleSystem.Particle[] particles = new ParticleSystem.Particle[10];
+        int count = dustPs.GetParticles(particles);
+
+        // Only the open space particle should have survived
+        Assert.That(count, Is.EqualTo(1));
+        Assert.That(particles[0].position.x, Is.EqualTo(0f).Within(0.1f));
+        Assert.That(particles[0].position.y, Is.EqualTo(0f).Within(0.1f));
+
+        Object.DestroyImmediate(wallGo);
+        Object.DestroyImmediate(dustGo);
     }
 }

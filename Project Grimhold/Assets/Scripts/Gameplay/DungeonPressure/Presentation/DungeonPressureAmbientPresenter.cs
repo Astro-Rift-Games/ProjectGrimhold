@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.Tilemaps;
 
 /// <summary>
 /// Controls global ambient lighting, camera-shake, post-process vignette, and ceiling debris particles for dungeon pressure phases.
@@ -22,15 +23,25 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
     [Tooltip("The URP Volume holding the post-process Vignette. If null, automatically located in the scene.")]
     [SerializeField] private Volume _volume;
 
-    [Header("Falling Debris & Dust Particles")]
-    [Tooltip("ParticleSystem emitting falling ceiling dust over the camera viewport.")]
+    [Header("Ambient Dust Particles")]
+    [Tooltip("ParticleSystem emitting ambient floating dust motes over the camera viewport.")]
     [SerializeField] private ParticleSystem _dustParticles;
-
-    [Tooltip("ParticleSystem emitting falling rock debris/pebbles over the camera viewport.")]
-    [SerializeField] private ParticleSystem _debrisParticles;
 
     [Tooltip("Whether to follow the active camera position so particles cover the viewport everywhere in the dungeon.")]
     [SerializeField] private bool _followCamera = true;
+
+    [Tooltip("Area size (width x height) around the camera where ambient dust particles are distributed.")]
+    [SerializeField] private Vector2 _particleAreaSize = new Vector2(26f, 16f);
+
+    [Header("Particle Occlusion & Open Space Filtering")]
+    [Tooltip("If true, particles overlapping walls, obstacles, or exterior void defined by tilemaps are culled so they only exist in open spaces.")]
+    [SerializeField] private bool _cullOccludedParticles = true;
+
+    [Tooltip("Sorting layer name for ambient dust particles. Defaults to 'VFX' so dust floats in the room above the floor.")]
+    [SerializeField] private string _particleSortingLayerName = "VFX";
+
+    [Tooltip("Sorting order for ambient dust particles.")]
+    [SerializeField] private int _particleSortingOrder = 10;
 
     [Header("Configuration")]
     [Tooltip("Configuration asset defining global ambient lighting, screen shake, vignette, and debris per phase.")]
@@ -65,12 +76,20 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
     private float _vignetteTransitionDuration;
     private float _vignetteTransitionProgress = 1f;
 
+    private Tilemap[] _wallTilemaps;
+    private Tilemap[] _floorTilemaps;
+    private Collider2D[] _customOcclusionColliders;
+    private ParticleSystem.Particle[] _particlesBuffer;
+    private static Texture2D _circleParticleTexture;
+    private static Material _circleParticleMaterial;
+
     public DungeonPressurePhase CurrentPhase => _lastPhase;
     public Light2D GlobalLight => _globalLight;
     public Volume AmbientVolume => _volume;
     public Vignette VignetteComponent => _vignette;
     public ParticleSystem DustParticles => _dustParticles;
-    public ParticleSystem DebrisParticles => _debrisParticles;
+    [System.Obsolete("Debris particle system removed; only dust particles are used.")]
+    public ParticleSystem DebrisParticles => null;
     public DungeonAmbientConfig Config => _config;
     public DungeonPressureController PressureController => _pressureController;
 
@@ -87,9 +106,19 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
     private void OnEnable()
     {
         InitializeComponents();
-        if (_pressureController != null && !_hasResolvedInitialPhase)
+        if (!_hasResolvedInitialPhase)
         {
-            ApplyInitialPhase(_pressureController.Phase);
+            DungeonPressurePhase initialPhase = _pressureController != null ? _pressureController.Phase : _lastPhase;
+            ApplyInitialPhase(initialPhase);
+        }
+    }
+
+    private void Start()
+    {
+        if (!_hasResolvedInitialPhase)
+        {
+            DungeonPressurePhase initialPhase = _pressureController != null ? _pressureController.Phase : _lastPhase;
+            ApplyInitialPhase(initialPhase);
         }
     }
 
@@ -127,7 +156,7 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         }
         if (debrisParticles != null)
         {
-            _debrisParticles = debrisParticles;
+            debrisParticles.gameObject.SetActive(false);
         }
 
         InitializeComponents();
@@ -161,35 +190,277 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         }
 
         EnsureParticleSystems();
+        RefreshTilemaps();
     }
 
     private void EnsureParticleSystems()
     {
         if (_dustParticles == null)
         {
-            Transform existing = transform.Find("CeilingDustParticles");
+            Transform existing = transform.Find("AmbientDustParticles") ?? transform.Find("CeilingDustParticles");
             if (existing != null)
             {
                 _dustParticles = existing.GetComponent<ParticleSystem>();
             }
             else
             {
-                _dustParticles = CreateDefaultDustParticleSystem("CeilingDustParticles");
+                _dustParticles = CreateDefaultDustParticleSystem("AmbientDustParticles");
             }
         }
 
-        if (_debrisParticles == null)
+        Transform existingDebris = transform.Find("AmbientDebrisParticles") ?? transform.Find("CeilingDebrisParticles");
+        if (existingDebris != null)
         {
-            Transform existing = transform.Find("CeilingDebrisParticles");
-            if (existing != null)
+            if (Application.isPlaying)
             {
-                _debrisParticles = existing.GetComponent<ParticleSystem>();
+                Destroy(existingDebris.gameObject);
             }
             else
             {
-                _debrisParticles = CreateDefaultDebrisParticleSystem("CeilingDebrisParticles");
+                DestroyImmediate(existingDebris.gameObject);
             }
         }
+
+        if (_dustParticles != null)
+        {
+            ConfigureDustParticleSystem(_dustParticles, _particleAreaSize, _particleSortingLayerName, _particleSortingOrder);
+        }
+    }
+
+    public static void ConfigureDustParticleSystem(ParticleSystem ps, Vector2 areaSize)
+    {
+        ConfigureDustParticleSystem(ps, areaSize, "VFX", 10);
+    }
+
+    public static void ConfigureDustParticleSystem(ParticleSystem ps, Vector2 areaSize, string sortingLayer, int sortingOrder)
+    {
+        if (ps == null) return;
+
+        var main = ps.main;
+        main.loop = true;
+        main.playOnAwake = false;
+        main.prewarm = true;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(4.5f, 7.5f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(0.04f, 0.15f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.10f, 0.22f);
+        // Desaturated brown, almost grey (warm earth/dust tone: R > G > B, muted)
+        main.startColor = new Color(0.54f, 0.49f, 0.45f, 1f);
+        main.gravityModifier = new ParticleSystem.MinMaxCurve(0f);
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+        main.maxParticles = 200;
+
+        var shape = ps.shape;
+        shape.enabled = true;
+        shape.shapeType = ParticleSystemShapeType.Box;
+        shape.scale = new Vector3(Mathf.Max(4f, areaSize.x), Mathf.Max(4f, areaSize.y), 1f);
+
+        var vel = ps.velocityOverLifetime;
+        vel.enabled = true;
+        vel.space = ParticleSystemSimulationSpace.World;
+        vel.x = new ParticleSystem.MinMaxCurve(-0.10f, 0.10f);
+        vel.y = new ParticleSystem.MinMaxCurve(-0.06f, 0.08f);
+        vel.z = new ParticleSystem.MinMaxCurve(0f, 0f);
+
+        var noise = ps.noise;
+        noise.enabled = true;
+        noise.strength = new ParticleSystem.MinMaxCurve(0.18f);
+        noise.frequency = 0.25f;
+        noise.scrollSpeed = new ParticleSystem.MinMaxCurve(0.08f);
+        noise.damping = true;
+
+        var colorOverLife = ps.colorOverLifetime;
+        colorOverLife.enabled = true;
+        Gradient grad = new Gradient();
+        grad.SetKeys(
+            new[]
+            {
+                new GradientColorKey(Color.white, 0f),
+                new GradientColorKey(Color.white, 1f)
+            },
+            new[]
+            {
+                new GradientAlphaKey(0f, 0f),
+                new GradientAlphaKey(0.85f, 0.2f),
+                new GradientAlphaKey(0.85f, 0.8f),
+                new GradientAlphaKey(0f, 1f)
+            }
+        );
+        colorOverLife.color = grad;
+
+        var sizeOverLife = ps.sizeOverLifetime;
+        sizeOverLife.enabled = true;
+        AnimationCurve sizeCurve = new AnimationCurve();
+        sizeCurve.AddKey(0f, 0.4f);
+        sizeCurve.AddKey(0.25f, 1f);
+        sizeCurve.AddKey(0.75f, 1f);
+        sizeCurve.AddKey(1f, 0.4f);
+        sizeOverLife.size = new ParticleSystem.MinMaxCurve(1f, sizeCurve);
+
+        var collision = ps.collision;
+        collision.enabled = false;
+
+        var renderer = ps.GetComponent<ParticleSystemRenderer>();
+        if (renderer != null)
+        {
+            renderer.enabled = true;
+            renderer.renderMode = ParticleSystemRenderMode.Billboard;
+            renderer.sortingLayerName = !string.IsNullOrEmpty(sortingLayer) ? sortingLayer : "VFX";
+            renderer.sortingOrder = sortingOrder;
+
+            Material circleMat = GetOrCreateCircleMaterial();
+            if (circleMat != null)
+            {
+                renderer.sharedMaterial = circleMat;
+            }
+            else if (renderer.sharedMaterial != null)
+            {
+                renderer.sharedMaterial.mainTexture = GetOrCreateCircleTexture();
+                if (renderer.sharedMaterial.HasProperty("_BaseMap"))
+                {
+                    renderer.sharedMaterial.SetTexture("_BaseMap", GetOrCreateCircleTexture());
+                }
+            }
+        }
+    }
+
+    public static Texture2D GetOrCreateCircleTexture()
+    {
+        if (_circleParticleTexture != null)
+        {
+            return _circleParticleTexture;
+        }
+
+        const int size = 64;
+        _circleParticleTexture = new Texture2D(size, size, TextureFormat.RGBA32, mipChain: false)
+        {
+            name = "Procedural_DustCircle",
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.DontSave
+        };
+
+        float center = (size - 1) * 0.5f;
+        float radius = center - 1f;
+        Color[] pixels = new Color[size * size];
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dx = x - center;
+                float dy = y - center;
+                float dist = Mathf.Sqrt(dx * dx + dy * dy) / radius;
+
+                // Smooth anti-aliased circular core with zero alpha outside the circle radius
+                float alpha = Mathf.Clamp01(1f - Mathf.SmoothStep(0.60f, 0.95f, dist));
+                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+
+        _circleParticleTexture.SetPixels(pixels);
+        _circleParticleTexture.Apply(updateMipmaps: false, makeNoLongerReadable: false);
+        return _circleParticleTexture;
+    }
+
+    public static Material GetOrCreateCircleMaterial()
+    {
+        if (_circleParticleMaterial != null &&
+            _circleParticleMaterial.shader != null &&
+            _circleParticleMaterial.shader.name == "Universal Render Pipeline/Particles/Unlit" &&
+            _circleParticleMaterial.HasProperty("_Surface") &&
+            _circleParticleMaterial.GetFloat("_Surface") == 1.0f)
+        {
+            return _circleParticleMaterial;
+        }
+
+        Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit")
+            ?? Shader.Find("Universal Render Pipeline/Unlit")
+            ?? Shader.Find("Particles/Standard Unlit");
+
+        if (shader == null)
+        {
+            Debug.LogWarning("[DungeonPressureAmbientPresenter] Universal Render Pipeline/Particles/Unlit shader not found.");
+            return null;
+        }
+
+        _circleParticleMaterial = new Material(shader)
+        {
+            name = "Procedural_DustCircleMaterial",
+            hideFlags = HideFlags.DontSave
+        };
+
+        Texture2D circleTex = GetOrCreateCircleTexture();
+        _circleParticleMaterial.mainTexture = circleTex;
+        if (_circleParticleMaterial.HasProperty("_BaseMap"))
+        {
+            _circleParticleMaterial.SetTexture("_BaseMap", circleTex);
+        }
+        if (_circleParticleMaterial.HasProperty("_MainTex"))
+        {
+            _circleParticleMaterial.SetTexture("_MainTex", circleTex);
+        }
+        if (_circleParticleMaterial.HasProperty("_BaseColor"))
+        {
+            _circleParticleMaterial.SetColor("_BaseColor", Color.white);
+        }
+        if (_circleParticleMaterial.HasProperty("_Color"))
+        {
+            _circleParticleMaterial.SetColor("_Color", Color.white);
+        }
+
+        // Configure URP Particles/Unlit for transparent alpha blending:
+        if (_circleParticleMaterial.HasProperty("_Surface"))
+        {
+            _circleParticleMaterial.SetFloat("_Surface", 1.0f); // 1 = Transparent
+        }
+        if (_circleParticleMaterial.HasProperty("_Blend"))
+        {
+            _circleParticleMaterial.SetFloat("_Blend", 0.0f); // 0 = Alpha blend
+        }
+        if (_circleParticleMaterial.HasProperty("_AlphaClip"))
+        {
+            _circleParticleMaterial.SetFloat("_AlphaClip", 0.0f);
+        }
+        if (_circleParticleMaterial.HasProperty("_SrcBlend"))
+        {
+            _circleParticleMaterial.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+        }
+        if (_circleParticleMaterial.HasProperty("_DstBlend"))
+        {
+            _circleParticleMaterial.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+        }
+        if (_circleParticleMaterial.HasProperty("_SrcBlendAlpha"))
+        {
+            _circleParticleMaterial.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
+        }
+        if (_circleParticleMaterial.HasProperty("_DstBlendAlpha"))
+        {
+            _circleParticleMaterial.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
+        }
+        if (_circleParticleMaterial.HasProperty("_ZWrite"))
+        {
+            _circleParticleMaterial.SetFloat("_ZWrite", 0.0f);
+        }
+        if (_circleParticleMaterial.HasProperty("_Cull"))
+        {
+            _circleParticleMaterial.SetFloat("_Cull", 0.0f); // 0 = Off
+        }
+        if (_circleParticleMaterial.HasProperty("_ColorMode"))
+        {
+            _circleParticleMaterial.SetFloat("_ColorMode", 0.0f); // 0 = Multiply
+        }
+
+        _circleParticleMaterial.renderQueue = (int)RenderQueue.Transparent;
+        _circleParticleMaterial.SetOverrideTag("RenderType", "Transparent");
+        _circleParticleMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        _circleParticleMaterial.DisableKeyword("_SURFACE_TYPE_OPAQUE");
+        _circleParticleMaterial.DisableKeyword("_ALPHATEST_ON");
+        _circleParticleMaterial.DisableKeyword("_COLOROVERLAY_ON");
+        _circleParticleMaterial.DisableKeyword("_COLORCOLOR_ON");
+        _circleParticleMaterial.DisableKeyword("_COLORADDSUBDIFF_ON");
+
+        return _circleParticleMaterial;
     }
 
     private ParticleSystem CreateDefaultDustParticleSystem(string name)
@@ -197,88 +468,168 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         var go = new GameObject(name);
         go.transform.SetParent(transform);
         go.transform.localPosition = Vector3.zero;
+        go.SetActive(false);
 
         var ps = go.AddComponent<ParticleSystem>();
-        var main = ps.main;
-        main.loop = true;
-        main.playOnAwake = false;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(2.5f, 4.0f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 1.5f);
-        main.startSize = new ParticleSystem.MinMaxCurve(0.12f, 0.28f);
-        main.startColor = new Color(0.82f, 0.78f, 0.72f, 0.22f);
-        main.gravityModifier = new ParticleSystem.MinMaxCurve(0.08f);
-        main.simulationSpace = ParticleSystemSimulationSpace.World;
-        main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        ConfigureDustParticleSystem(ps, _particleAreaSize, _particleSortingLayerName, _particleSortingOrder);
 
         var emission = ps.emission;
         emission.rateOverTime = 0f;
 
-        var shape = ps.shape;
-        shape.shapeType = ParticleSystemShapeType.Box;
-        shape.scale = new Vector3(26f, 2f, 1f);
-
-        var vel = ps.velocityOverLifetime;
-        vel.enabled = true;
-        vel.space = ParticleSystemSimulationSpace.World;
-        vel.y = new ParticleSystem.MinMaxCurve(-0.8f, -1.5f);
-
-        var colorOverLife = ps.colorOverLifetime;
-        colorOverLife.enabled = true;
-        Gradient grad = new Gradient();
-        grad.SetKeys(
-            new[] { new GradientColorKey(new Color(0.85f, 0.82f, 0.75f), 0f), new GradientColorKey(new Color(0.85f, 0.82f, 0.75f), 1f) },
-            new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.25f, 0.2f), new GradientAlphaKey(0.2f, 0.8f), new GradientAlphaKey(0f, 1f) }
-        );
-        colorOverLife.color = grad;
-
-        var renderer = go.GetComponent<ParticleSystemRenderer>();
-        if (renderer != null)
-        {
-            renderer.sortingLayerName = "VFX";
-            renderer.sortingOrder = 10;
-        }
-
+        go.SetActive(true);
         return ps;
     }
 
-    private ParticleSystem CreateDefaultDebrisParticleSystem(string name)
+    public void RefreshTilemaps()
     {
-        var go = new GameObject(name);
-        go.transform.SetParent(transform);
-        go.transform.localPosition = Vector3.zero;
+        Tilemap[] allTilemaps = FindObjectsOfType<Tilemap>();
+        var wallList = new System.Collections.Generic.List<Tilemap>();
+        var floorList = new System.Collections.Generic.List<Tilemap>();
 
-        var ps = go.AddComponent<ParticleSystem>();
-        var main = ps.main;
-        main.loop = true;
-        main.playOnAwake = false;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(1.5f, 2.8f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(2.0f, 4.5f);
-        main.startSize = new ParticleSystem.MinMaxCurve(0.06f, 0.16f);
-        main.startColor = new Color(0.35f, 0.32f, 0.28f, 0.85f);
-        main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
-        main.gravityModifier = new ParticleSystem.MinMaxCurve(0.65f);
-        main.simulationSpace = ParticleSystemSimulationSpace.World;
-        main.scalingMode = ParticleSystemScalingMode.Hierarchy;
-
-        var emission = ps.emission;
-        emission.rateOverTime = 0f;
-
-        var shape = ps.shape;
-        shape.shapeType = ParticleSystemShapeType.Box;
-        shape.scale = new Vector3(24f, 1.5f, 1f);
-
-        var rotOverLife = ps.rotationOverLifetime;
-        rotOverLife.enabled = true;
-        rotOverLife.z = new ParticleSystem.MinMaxCurve(-3f, 3f);
-
-        var renderer = go.GetComponent<ParticleSystemRenderer>();
-        if (renderer != null)
+        for (int i = 0; i < allTilemaps.Length; i++)
         {
-            renderer.sortingLayerName = "VFX";
-            renderer.sortingOrder = 11;
+            Tilemap tm = allTilemaps[i];
+            if (tm == null) continue;
+
+            string lower = tm.name.ToLowerInvariant();
+            bool hasCollider = tm.GetComponent<Collider2D>() != null;
+
+            if (hasCollider || lower.Contains("wall") || lower.Contains("obstacle") || lower.Contains("collision"))
+            {
+                wallList.Add(tm);
+            }
+            else if (lower.Contains("floor") || lower.Contains("ground"))
+            {
+                floorList.Add(tm);
+            }
         }
 
-        return ps;
+        _wallTilemaps = wallList.ToArray();
+        _floorTilemaps = floorList.ToArray();
+    }
+
+    public void SetTilemaps(Tilemap[] wallTilemaps, Tilemap[] floorTilemaps)
+    {
+        _wallTilemaps = wallTilemaps;
+        _floorTilemaps = floorTilemaps;
+    }
+
+    public void SetCustomOcclusionColliders(Collider2D[] colliders)
+    {
+        _customOcclusionColliders = colliders;
+    }
+
+    public bool IsPointInOpenSpace(Vector2 worldPos)
+    {
+        // 1. If it touches any wall or obstacle tile, it is NOT in open space
+        if (_wallTilemaps != null)
+        {
+            for (int i = 0; i < _wallTilemaps.Length; i++)
+            {
+                Tilemap wallTm = _wallTilemaps[i];
+                if (wallTm != null && wallTm.isActiveAndEnabled)
+                {
+                    Vector3Int cell = wallTm.WorldToCell(worldPos);
+                    if (wallTm.HasTile(cell))
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // 2. If floor tilemaps exist in the scene, ensure the point is over an active floor tile (not outside the dungeon)
+        if (_floorTilemaps != null && _floorTilemaps.Length > 0)
+        {
+            bool hasFloor = false;
+            for (int i = 0; i < _floorTilemaps.Length; i++)
+            {
+                Tilemap floorTm = _floorTilemaps[i];
+                if (floorTm != null && floorTm.isActiveAndEnabled)
+                {
+                    Vector3Int cell = floorTm.WorldToCell(worldPos);
+                    if (floorTm.HasTile(cell))
+                    {
+                        hasFloor = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!hasFloor)
+            {
+                return false;
+            }
+        }
+
+        // 3. Custom colliders check (e.g. for unit tests)
+        if (_customOcclusionColliders != null)
+        {
+            for (int i = 0; i < _customOcclusionColliders.Length; i++)
+            {
+                var col = _customOcclusionColliders[i];
+                if (col != null && col.isActiveAndEnabled && col.OverlapPoint(worldPos))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    public bool IsPointOccluded(Vector2 worldPos)
+    {
+        return !IsPointInOpenSpace(worldPos);
+    }
+
+    public void CullOccludedParticles(ParticleSystem ps)
+    {
+        if (!_cullOccludedParticles || ps == null || ps.particleCount == 0)
+        {
+            return;
+        }
+
+        if (_wallTilemaps == null && _floorTilemaps == null)
+        {
+            RefreshTilemaps();
+        }
+
+        if ((_wallTilemaps == null || _wallTilemaps.Length == 0) &&
+            (_floorTilemaps == null || _floorTilemaps.Length == 0) &&
+            (_customOcclusionColliders == null || _customOcclusionColliders.Length == 0))
+        {
+            return;
+        }
+
+        int maxParticles = ps.main.maxParticles;
+        if (_particlesBuffer == null || _particlesBuffer.Length < maxParticles)
+        {
+            _particlesBuffer = new ParticleSystem.Particle[maxParticles];
+        }
+
+        int count = ps.GetParticles(_particlesBuffer);
+        bool modified = false;
+
+        for (int i = 0; i < count; i++)
+        {
+            Vector3 pos = _particlesBuffer[i].position;
+            Vector2 worldPos = ps.main.simulationSpace == ParticleSystemSimulationSpace.World
+                ? (Vector2)pos
+                : (Vector2)ps.transform.TransformPoint(pos);
+
+            if (!IsPointInOpenSpace(worldPos))
+            {
+                _particlesBuffer[i].remainingLifetime = -1f;
+                modified = true;
+            }
+        }
+
+        if (modified)
+        {
+            ps.SetParticles(_particlesBuffer, count);
+        }
     }
 
     private void LocateGlobalLight()
@@ -409,6 +760,17 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         EvaluatePresentation(Time.deltaTime);
     }
 
+    private void LateUpdate()
+    {
+        if (!Application.isPlaying)
+        {
+            return;
+        }
+
+        UpdateCameraParticlePosition();
+        CullOccludedParticles(_dustParticles);
+    }
+
     public void EvaluatePresentation(float deltaTime)
     {
         if (_pressureController != null)
@@ -426,6 +788,7 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         UpdateGlobalLightInterpolation(deltaTime);
         UpdateVignetteInterpolation(deltaTime);
         UpdateCameraParticlePosition();
+        CullOccludedParticles(_dustParticles);
     }
 
     private void OnPhaseChanged(DungeonPressurePhase newPhase)
@@ -501,11 +864,6 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         // Update particle systems
         ApplyParticleEmission(settings);
 
-        if (newPhase > _lastPhase && settings.DebrisEmissionRate > 0f && _debrisParticles != null)
-        {
-            _debrisParticles.Emit(Mathf.RoundToInt(settings.EntryShakeIntensity * 15f) + 4);
-        }
-
         // Notify all registered light props in the dungeon
         DungeonLightPropRegistry.NotifyPhaseChanged(newPhase, immediate: false);
     }
@@ -533,10 +891,6 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
                 Vector3 playPos = Camera.main != null ? Camera.main.transform.position : transform.position;
                 AudioManager.Instance.PlaySfx(settings.PeriodicShakeSfx, playPos);
             }
-            if (_debrisParticles != null && settings.DebrisEmissionRate > 0f)
-            {
-                _debrisParticles.Emit(Mathf.RoundToInt(settings.PeriodicShakeIntensity * 12f) + 3);
-            }
         }
     }
 
@@ -548,15 +902,11 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         if (cam == null) return;
 
         Vector3 camPos = cam.transform.position;
-        Vector3 targetPos = new Vector3(camPos.x, camPos.y + 4f, 0f);
+        Vector3 targetPos = new Vector3(camPos.x, camPos.y, 0f);
 
         if (_dustParticles != null)
         {
             _dustParticles.transform.position = targetPos;
-        }
-        if (_debrisParticles != null)
-        {
-            _debrisParticles.transform.position = targetPos;
         }
     }
 
@@ -573,20 +923,6 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
             else if (settings.DustEmissionRate <= 0.01f && _dustParticles.isPlaying)
             {
                 _dustParticles.Stop(withChildren: true, ParticleSystemStopBehavior.StopEmitting);
-            }
-        }
-
-        if (_debrisParticles != null)
-        {
-            var emission = _debrisParticles.emission;
-            emission.rateOverTime = settings.DebrisEmissionRate;
-            if (settings.DebrisEmissionRate > 0.01f && !_debrisParticles.isPlaying)
-            {
-                _debrisParticles.Play();
-            }
-            else if (settings.DebrisEmissionRate <= 0.01f && _debrisParticles.isPlaying)
-            {
-                _debrisParticles.Stop(withChildren: true, ParticleSystemStopBehavior.StopEmitting);
             }
         }
     }
@@ -666,10 +1002,6 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         if (_dustParticles != null)
         {
             _dustParticles.Stop(withChildren: true, ParticleSystemStopBehavior.StopEmittingAndClear);
-        }
-        if (_debrisParticles != null)
-        {
-            _debrisParticles.Stop(withChildren: true, ParticleSystemStopBehavior.StopEmittingAndClear);
         }
 
         DungeonLightPropRegistry.Clear();

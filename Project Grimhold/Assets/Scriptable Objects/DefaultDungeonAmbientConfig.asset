@@ -28,7 +28,7 @@ MonoBehaviour:
       _pitch: 1
       _spatialBlend: 0
       _loop: 0
-    _dustEmissionRate: 0
+    _dustEmissionRate: 3.5
     _debrisEmissionRate: 0
     _vignetteColor: {r: 0, g: 0, b: 0, a: 1}
     _vignetteIntensity: 0
@@ -51,7 +51,7 @@ MonoBehaviour:
       _pitch: 1
       _spatialBlend: 0
       _loop: 0
-    _dustEmissionRate: 3
+    _dustEmissionRate: 7
     _debrisEmissionRate: 0
     _vignetteColor: {r: 0, g: 0, b: 0, a: 1}
     _vignetteIntensity: 0.25
@@ -74,8 +74,8 @@ MonoBehaviour:
       _pitch: 1
       _spatialBlend: 0
       _loop: 0
-    _dustEmissionRate: 6
-    _debrisEmissionRate: 3
+    _dustEmissionRate: 14
+    _debrisEmissionRate: 0
     _vignetteColor: {r: 0, g: 0, b: 0, a: 1}
     _vignetteIntensity: 0.525
     _vignetteSmoothness: 0.45
@@ -98,8 +98,8 @@ MonoBehaviour:
       _pitch: 1
       _spatialBlend: 0
       _loop: 0
-    _dustEmissionRate: 12
-    _debrisEmissionRate: 7
+    _dustEmissionRate: 24
+    _debrisEmissionRate: 0
     _vignetteColor: {r: 0, g: 0, b: 0, a: 1}
     _vignetteIntensity: 0.65
     _vignetteSmoothness: 0.55
