@@ -43,7 +43,7 @@ authoritative extraction result requires it (`RaidResultService.js`, `Extraction
 | T1 Backend reservation lifecycle (admit endpoint, admitted guards, loss clear, tests) | S1, S3, S4, S5 | worker (backend) | `43eefd27` |
 | T2 Unity outcome wiring (admit on confirm, loss on non-extraction exit, bootstrap) + tests | S1, S3, S6 | worker (Unity) | this commit |
 | T3 Architecture docs (Extraction, LocalPlayerPersistence, RemoteIdentityAndAuth) | S1–S6 | inline | this commit |
-| T4 Verification: backend suite, Unity EditMode/PlayMode, manual Raid S2/S7 | S2, S7 | inline | — |
+| T4 Verification: backend suite, Unity EditMode/PlayMode, manual Raid S2/S7 | S2, S7 | inline | partial (S7 verified; S2 pending backend deploy) |
 
 ## Log
 
@@ -69,3 +69,14 @@ authoritative extraction result requires it (`RaidResultService.js`, `Extraction
   (UI layout, loot catalogs, prefab budgets, Off Hand assets; `RaidDefeatLifecycleSourceTests` reads untouched
   `NetworkRaidParticipant.cs`). Targeted RaidReservationLifecycle/StashReservationInvariant/HydrateSnapshot/
   LocalProfilePersistence: 18/18.
+- **L10** (user, manual T4): "funciona, pero me tiro el error que adjunte. Pero entre equipado desde town y funciona bien
+  al entrar a la raid, despues mori y sali sin nada, excepto en los quick slots que tenia una pocion y al morir no la
+  perdi". Error: `[RemoteIdempotentRetryPolicy] Max retries reached for error NETWORK_ERROR` from
+  `MarkPendingReservationAdmittedAsync`.
+- **L11** (evidence): the client `BaseUrl` is `https://projectgrimhold.onrender.com`; the deployed backend predates T1, so
+  the admit route returns Express' HTML 404, which `InventoryClient.ParseError` cannot parse and
+  `ClassifyConnectionError` reports as `NETWORK_ERROR` (pre-existing classification). S7 holds against the old backend
+  because the client no longer clears at admission and the old DELETE consumes on death. S2 (extraction) and the
+  S4/S5 guards need the T1 backend deployed.
+- **L12** (user): after death the Quick Slot shows the potion at count 0, unavailable — the binding retained by design
+  (TASK-230, Doc 14 §12.2); the unit was lost. Not a defect.
