@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 869,
-  "canonicalEntries": 866,
+  "rawCommits": 870,
+  "canonicalEntries": 867,
   "before": {
-    "Features": 316,
+    "Features": 317,
     "Documentation": 75,
     "Bug Fixes": 77,
     "Refactoring": 13,
@@ -12,7 +12,7 @@
     "Tests": 24
   },
   "after": {
-    "Features": 453,
+    "Features": 454,
     "Documentation": 90,
     "Bug Fixes": 93,
     "Refactoring": 26,
@@ -23,26 +23,26 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Combat": 310,
+    "Abilities": 104,
+    "Movement": 88,
+    "Inventory & Loot": 313,
+    "Persistence & Backend": 183,
+    "Art & Animation": 205,
+    "Build & Tooling": 434,
+    "Documentation": 336,
+    "Tests": 514,
     "UI": 264,
-    "Build & Tooling": 433,
-    "Tests": 513,
     "Unassigned": 18,
     "Extraction": 119,
-    "Inventory & Loot": 312,
     "Networking & Sessions": 254,
-    "Persistence & Backend": 182,
-    "Documentation": 335,
-    "Combat": 309,
-    "Abilities": 103,
-    "Movement": 87,
     "World & Visibility": 109,
-    "Art & Animation": 204,
     "Input": 27,
     "Audio": 28
   },
   "canonical": {
     "sections": {
-      "Features": 452,
+      "Features": 453,
       "Documentation": 90,
       "Bug Fixes": 92,
       "Refactoring": 26,
@@ -52,20 +52,20 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
+      "Combat": 308,
+      "Abilities": 102,
+      "Movement": 88,
+      "Inventory & Loot": 313,
+      "Persistence & Backend": 183,
+      "Art & Animation": 202,
+      "Build & Tooling": 432,
+      "Documentation": 334,
+      "Tests": 512,
       "UI": 263,
-      "Build & Tooling": 431,
-      "Tests": 511,
       "Unassigned": 18,
       "Extraction": 119,
-      "Inventory & Loot": 312,
       "Networking & Sessions": 254,
-      "Persistence & Backend": 182,
-      "Documentation": 333,
-      "Combat": 307,
-      "Abilities": 101,
-      "Movement": 87,
       "World & Visibility": 107,
-      "Art & Animation": 201,
       "Input": 27,
       "Audio": 28
     }
@@ -34029,8 +34029,8 @@
       "title": "2026-10 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 393,
-      "canonicalEntries": 391
+      "originalCommits": 394,
+      "canonicalEntries": 392
     },
     {
       "key": "history-2026-09",
@@ -34058,6 +34058,642 @@
     }
   ],
   "commits": [
+    {
+      "sha": "8ee2e8bb66d26b1068fa22c813fdde618b370669",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8ee2e8bb66d26b1068fa22c813fdde618b370669",
+      "subject": "feat(combat): sync melee impacts with contact, add hitstop and hit reaction",
+      "body": "Melee damage resolved during the wind-up, before the weapon visually\nreached the target. Each melee weapon now releases at its own measured\ncontact, and confirmed melee hits get an attacker-local hitstop and a\ndirectional target reaction. Presentation only: no new networked state,\ngameplay timing, damage, knockback or movement changes beyond the\nrelease calibration.\n\nRelease calibration (AttackReleaseSeconds; VFX StartSeconds unchanged,\nReleaseLeadSeconds = release - start keeps each VFX clip moment):\n- Arming Sword 0.10 -> 0.265, Magic Sword 0.25 -> 0.48\n- Long Sword 0.08 -> 0.35, Zweihander 0.25 -> 0.50\n- Great Hammer 0.26 -> 0.55, Rapier 0.19 -> 0.35\n- Rondel Dagger / Magic Cinquedea 0.14 -> 0.30, Spellbook 0.625 -> 0.65\n- Off Hand VFX uses the Main presenter boundary tolerance so a non-zero\n  lead cannot start it one frame late.\n\nHitstop:\n- Melee confirmations are tagged with hand slot, attack sequence and\n  weapon inside the synchronous melee Execute scope and carried by the\n  existing State Authority -> Input Authority feedback RPC; ranged,\n  abilities and zero/rejected damage stay untagged.\n- AttackHitstop maps only the presentation seconds of each hand/legacy\n  timeline (Main, Off and VFX freeze together); acceptance and\n  cancellation keep raw render time. One pause per attack sequence, late\n  confirmations spend the budget and never rewind.\n- HitstopTargetFreeze pauses the target's Animators locally and restores\n  them on expiry, death, Downed, equipment change or despawn.\n- WeaponDefinition.Presentation.HitstopSeconds: daggers 0.04, Rapier and\n  Spellbook 0.05, one-handed swords 0.06, Long Sword 0.08, Zweihander\n  0.10, Great Hammer 0.12; ranged 0.\n\nHit reaction:\n- Feedback RPC also carries the hit direction.\n- MeleeHitReactionProfile assets (Light/Medium/Heavy) referenced by\n  WeaponDefinition.Presentation.HitReaction.\n- HitReactionPlayback applies flash, axis-aligned squash snapped to\n  1/16 and a 16 PPU pixel-snapped nudge; the peak holds for the hitstop\n  pause, then recovers and restores captured base values exactly.\n- DamageFeedbackPresenter.TryPlayMeleeReaction coalesces the matching\n  Health-drop pulse, guards rapid retriggers and keeps the generic\n  feedback for every other damage source and peer.\n\nTests: MeleeReleaseCalibrationTests (contact table),\nSwordSlashPresentationTests (measured Main/Off contact),\nCanonicalSlashGeneratorTests, AttackHitstopTests, WeaponHitstopTests,\nHitstopTargetFreezeTests, MeleeHitReactionProfileTests,\nHitReactionPlaybackTests, DamageFeedbackPresenterTests,\nPlayerCombatNetworkControllerPlayModeTests (melee tags and direction).\n\nDocs: PlayerCombatArchitecture.md release contract, Melee hitstop and\nMelee hit reaction sections.\n\nPlayer-Improved: Melee weapons now deal damage when the blade visibly connects, with a short impact pause and a hit reaction that feels heavier for bigger weapons.\n",
+      "date": "2026-10-30T17:46:10-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scriptable Objects/Combat.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Heavy.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Heavy.asset.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Light.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Light.asset.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Medium.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Medium.asset.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordSlashAttackVfx.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/DaggerThrustAttackVfx.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerSlashAttackVfx.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordSlashAttackVfx.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicCinquedeaWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordSlashAttackVfx.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierThrustAttackVfx.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RondelDaggerWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookCastFlashAttackVfx.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderSlashAttackVfx.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scripts/Character/Presentation/DamageFeedbackPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Character/Presentation/HitReactionMath.cs",
+        "Project Grimhold/Assets/Scripts/Character/Presentation/HitReactionMath.cs.meta",
+        "Project Grimhold/Assets/Scripts/Character/Presentation/HitReactionPlayback.cs",
+        "Project Grimhold/Assets/Scripts/Character/Presentation/HitReactionPlayback.cs.meta",
+        "Project Grimhold/Assets/Scripts/Combat/AttackHitstop.cs",
+        "Project Grimhold/Assets/Scripts/Combat/AttackHitstop.cs.meta",
+        "Project Grimhold/Assets/Scripts/Combat/AttackVfxDefinition.cs",
+        "Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs",
+        "Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs.meta",
+        "Project Grimhold/Assets/Scripts/Combat/WeaponDefinition.cs",
+        "Project Grimhold/Assets/Scripts/Core/CombatPresentationEvent.cs",
+        "Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/HitstopTargetFreeze.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/HitstopTargetFreeze.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/PlayerWeaponPresenter.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/AttackAnimationValidator/CanonicalSlashGeneratorTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/AttackHitstopTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/AttackHitstopTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponHitstopTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponHitstopTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/CastFlashPresentationTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/HitstopTargetFreezeTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/HitstopTargetFreezeTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeReleaseCalibrationTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/SwordSlashPresentationTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/PlayerCombatNetworkControllerPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "combat",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Abilities",
+        "Movement",
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Art & Animation",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Heavy.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Heavy.asset.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Light.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Light.asset.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Medium.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Medium.asset.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordSlashAttackVfx.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/DaggerThrustAttackVfx.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerSlashAttackVfx.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordSlashAttackVfx.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicCinquedeaWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordSlashAttackVfx.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierThrustAttackVfx.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RondelDaggerWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookCastFlashAttackVfx.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderSlashAttackVfx.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Character/Presentation/DamageFeedbackPresenter.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/AttackHitstop.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/AttackHitstop.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/AttackVfxDefinition.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/WeaponDefinition.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Core/CombatPresentationEvent.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/PlayerWeaponPresenter.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/AttackAnimationValidator/CanonicalSlashGeneratorTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/AttackHitstopTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/AttackHitstopTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponHitstopTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponHitstopTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerCombatNetworkControllerPlayModeTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Combat"
+        },
+        {
+          "source": "scope",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "abilities",
+          "supports": "Abilities"
+        },
+        {
+          "source": "message-term",
+          "value": "movement",
+          "supports": "Movement"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordSlashAttackVfx.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/DaggerThrustAttackVfx.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerSlashAttackVfx.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordSlashAttackVfx.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicCinquedeaWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordSlashAttackVfx.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierThrustAttackVfx.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RondelDaggerWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookCastFlashAttackVfx.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderSlashAttackVfx.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/AttackAnimationValidator/CanonicalSlashGeneratorTests.cs",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/AttackAnimationValidator/CanonicalSlashGeneratorTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/AttackHitstopTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/AttackHitstopTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponHitstopTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponHitstopTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/CastFlashPresentationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/HitstopTargetFreezeTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/HitstopTargetFreezeTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeReleaseCalibrationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/SwordSlashPresentationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/AttackAnimationValidator/CanonicalSlashGeneratorTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/AttackHitstopTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/AttackHitstopTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponHitstopTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponHitstopTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/CastFlashPresentationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/HitstopTargetFreezeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/HitstopTargetFreezeTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeReleaseCalibrationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/SwordSlashPresentationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerCombatNetworkControllerPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "95ba617593731ac54f27652f9750bf50b58b418b",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/95ba617593731ac54f27652f9750bf50b58b418b",

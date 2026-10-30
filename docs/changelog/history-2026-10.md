@@ -4,32 +4,284 @@
 
 Release: Unreleased
 
-393 original commits; 391 canonical entries.
+394 original commits; 392 canonical entries.
 
 ## Canonical classification
 
-205 features; 59 bug fixes; 7 refactoring; 1 architecture & infrastructure; 75 documentation; 23 tests; 5 maintenance; 16 other changes
+206 features; 59 bug fixes; 7 refactoring; 1 architecture & infrastructure; 75 documentation; 23 tests; 5 maintenance; 16 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Abilities | 58 | 5 | 0 | 0 | 16 | 2 |
-| Art & Animation | 33 | 9 | 1 | 0 | 4 | 7 |
+| Abilities | 59 | 5 | 0 | 0 | 16 | 2 |
+| Art & Animation | 34 | 9 | 1 | 0 | 4 | 7 |
 | Audio | 8 | 0 | 0 | 0 | 1 | 0 |
-| Build & Tooling | 169 | 34 | 7 | 1 | 17 | 5 |
-| Combat | 78 | 10 | 3 | 0 | 42 | 3 |
-| Documentation | 85 | 30 | 2 | 0 | 28 | 4 |
+| Build & Tooling | 170 | 34 | 7 | 1 | 17 | 5 |
+| Combat | 79 | 10 | 3 | 0 | 42 | 3 |
+| Documentation | 86 | 30 | 2 | 0 | 28 | 4 |
 | Extraction | 17 | 12 | 1 | 0 | 11 | 2 |
 | Input | 6 | 1 | 0 | 0 | 0 | 0 |
-| Inventory & Loot | 78 | 27 | 4 | 0 | 17 | 4 |
-| Movement | 24 | 3 | 0 | 0 | 6 | 0 |
+| Inventory & Loot | 79 | 27 | 4 | 0 | 17 | 4 |
+| Movement | 25 | 3 | 0 | 0 | 6 | 0 |
 | Networking & Sessions | 60 | 20 | 0 | 0 | 11 | 5 |
-| Persistence & Backend | 25 | 28 | 0 | 0 | 13 | 1 |
-| Tests | 189 | 53 | 7 | 1 | 27 | 6 |
+| Persistence & Backend | 26 | 28 | 0 | 0 | 13 | 1 |
+| Tests | 190 | 53 | 7 | 1 | 27 | 6 |
 | UI | 69 | 13 | 3 | 0 | 20 | 6 |
 | Unassigned | 0 | 0 | 0 | 0 | 4 | 0 |
 | World & Visibility | 43 | 12 | 1 | 0 | 11 | 5 |
 
 ## Original commit records
+
+### 8ee2e8bb66d26b1068fa22c813fdde618b370669
+
+[8ee2e8bb66d26b1068fa22c813fdde618b370669](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8ee2e8bb66d26b1068fa22c813fdde618b370669)
+
+Date: 2026-10-30T17:46:10-03:00 · Classification: Features (explicit) · Systems: Combat, Abilities, Movement, Inventory & Loot, Persistence & Backend, Art & Animation, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(combat): sync melee impacts with contact, add hitstop and hit reaction
+```
+
+#### Original body
+
+```text
+Melee damage resolved during the wind-up, before the weapon visually
+reached the target. Each melee weapon now releases at its own measured
+contact, and confirmed melee hits get an attacker-local hitstop and a
+directional target reaction. Presentation only: no new networked state,
+gameplay timing, damage, knockback or movement changes beyond the
+release calibration.
+
+Release calibration (AttackReleaseSeconds; VFX StartSeconds unchanged,
+ReleaseLeadSeconds = release - start keeps each VFX clip moment):
+- Arming Sword 0.10 -> 0.265, Magic Sword 0.25 -> 0.48
+- Long Sword 0.08 -> 0.35, Zweihander 0.25 -> 0.50
+- Great Hammer 0.26 -> 0.55, Rapier 0.19 -> 0.35
+- Rondel Dagger / Magic Cinquedea 0.14 -> 0.30, Spellbook 0.625 -> 0.65
+- Off Hand VFX uses the Main presenter boundary tolerance so a non-zero
+  lead cannot start it one frame late.
+
+Hitstop:
+- Melee confirmations are tagged with hand slot, attack sequence and
+  weapon inside the synchronous melee Execute scope and carried by the
+  existing State Authority -> Input Authority feedback RPC; ranged,
+  abilities and zero/rejected damage stay untagged.
+- AttackHitstop maps only the presentation seconds of each hand/legacy
+  timeline (Main, Off and VFX freeze together); acceptance and
+  cancellation keep raw render time. One pause per attack sequence, late
+  confirmations spend the budget and never rewind.
+- HitstopTargetFreeze pauses the target's Animators locally and restores
+  them on expiry, death, Downed, equipment change or despawn.
+- WeaponDefinition.Presentation.HitstopSeconds: daggers 0.04, Rapier and
+  Spellbook 0.05, one-handed swords 0.06, Long Sword 0.08, Zweihander
+  0.10, Great Hammer 0.12; ranged 0.
+
+Hit reaction:
+- Feedback RPC also carries the hit direction.
+- MeleeHitReactionProfile assets (Light/Medium/Heavy) referenced by
+  WeaponDefinition.Presentation.HitReaction.
+- HitReactionPlayback applies flash, axis-aligned squash snapped to
+  1/16 and a 16 PPU pixel-snapped nudge; the peak holds for the hitstop
+  pause, then recovers and restores captured base values exactly.
+- DamageFeedbackPresenter.TryPlayMeleeReaction coalesces the matching
+  Health-drop pulse, guards rapid retriggers and keeps the generic
+  feedback for every other damage source and peer.
+
+Tests: MeleeReleaseCalibrationTests (contact table),
+SwordSlashPresentationTests (measured Main/Off contact),
+CanonicalSlashGeneratorTests, AttackHitstopTests, WeaponHitstopTests,
+HitstopTargetFreezeTests, MeleeHitReactionProfileTests,
+HitReactionPlaybackTests, DamageFeedbackPresenterTests,
+PlayerCombatNetworkControllerPlayModeTests (melee tags and direction).
+
+Docs: PlayerCombatArchitecture.md release contract, Melee hitstop and
+Melee hit reaction sections.
+
+Player-Improved: Melee weapons now deal damage when the blade visibly connects, with a short impact pause and a hit reaction that feels heavier for bigger weapons.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scriptable Objects/Combat.meta
+Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions.meta
+Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Heavy.asset
+Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Heavy.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Light.asset
+Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Light.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Medium.asset
+Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Medium.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordSlashAttackVfx.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/DaggerThrustAttackVfx.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerSlashAttackVfx.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordSlashAttackVfx.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicCinquedeaWeaponDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordSlashAttackVfx.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordWeaponDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierThrustAttackVfx.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RondelDaggerWeaponDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookCastFlashAttackVfx.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookWeaponDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderSlashAttackVfx.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset
+Project Grimhold/Assets/Scripts/Character/Presentation/DamageFeedbackPresenter.cs
+Project Grimhold/Assets/Scripts/Character/Presentation/HitReactionMath.cs
+Project Grimhold/Assets/Scripts/Character/Presentation/HitReactionMath.cs.meta
+Project Grimhold/Assets/Scripts/Character/Presentation/HitReactionPlayback.cs
+Project Grimhold/Assets/Scripts/Character/Presentation/HitReactionPlayback.cs.meta
+Project Grimhold/Assets/Scripts/Combat/AttackHitstop.cs
+Project Grimhold/Assets/Scripts/Combat/AttackHitstop.cs.meta
+Project Grimhold/Assets/Scripts/Combat/AttackVfxDefinition.cs
+Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs
+Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs.meta
+Project Grimhold/Assets/Scripts/Combat/WeaponDefinition.cs
+Project Grimhold/Assets/Scripts/Core/CombatPresentationEvent.cs
+Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/HitstopTargetFreeze.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/HitstopTargetFreeze.cs.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/PlayerWeaponPresenter.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/AttackAnimationValidator/CanonicalSlashGeneratorTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/AttackHitstopTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/AttackHitstopTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponHitstopTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponHitstopTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/CastFlashPresentationTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/HitstopTargetFreezeTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/HitstopTargetFreezeTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeReleaseCalibrationTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/SwordSlashPresentationTests.cs
+Project Grimhold/Assets/Tests/PlayMode/PlayerCombatNetworkControllerPlayModeTests.cs
+Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat.meta
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions.meta
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Heavy.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Heavy.asset.meta
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Light.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Light.asset.meta
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Medium.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Medium.asset.meta
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordSlashAttackVfx.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/DaggerThrustAttackVfx.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerSlashAttackVfx.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordSlashAttackVfx.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicCinquedeaWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordSlashAttackVfx.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierThrustAttackVfx.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RondelDaggerWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookCastFlashAttackVfx.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderSlashAttackVfx.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scripts/Character/Presentation/DamageFeedbackPresenter.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/AttackHitstop.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/AttackHitstop.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/AttackVfxDefinition.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/WeaponDefinition.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Core/CombatPresentationEvent.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/PlayerWeaponPresenter.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/AttackAnimationValidator/CanonicalSlashGeneratorTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/AttackHitstopTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/AttackHitstopTests.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponHitstopTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponHitstopTests.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/PlayMode/PlayerCombatNetworkControllerPlayModeTests.cs
+- path → Combat: Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+- scope → Combat: combat
+- message-term → Combat: combat
+- message-term → Abilities: abilities
+- message-term → Movement: movement
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordSlashAttackVfx.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/DaggerThrustAttackVfx.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerSlashAttackVfx.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordSlashAttackVfx.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicCinquedeaWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordSlashAttackVfx.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierThrustAttackVfx.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RondelDaggerWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookCastFlashAttackVfx.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderSlashAttackVfx.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset
+- message-term → Inventory &amp; Loot: equipment
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Tests/EditMode/Editor/AttackAnimationValidator/CanonicalSlashGeneratorTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/AttackAnimationValidator/CanonicalSlashGeneratorTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/AttackHitstopTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/AttackHitstopTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponHitstopTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponHitstopTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/CastFlashPresentationTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/HitstopTargetFreezeTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/HitstopTargetFreezeTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeReleaseCalibrationTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/SwordSlashPresentationTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/AttackAnimationValidator/CanonicalSlashGeneratorTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/AttackHitstopTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/AttackHitstopTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponHitstopTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponHitstopTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/CastFlashPresentationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/HitstopTargetFreezeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/HitstopTargetFreezeTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeReleaseCalibrationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/SwordSlashPresentationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayerCombatNetworkControllerPlayModeTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 95ba617593731ac54f27652f9750bf50b58b418b
 
