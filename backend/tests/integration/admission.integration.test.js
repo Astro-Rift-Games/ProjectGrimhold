@@ -164,4 +164,45 @@ test('E2E Town Identity and Raid Admission Integration (US-59 / SEC-59.1)', asyn
     assert.strictEqual(invRes.status, 200);
     assert.strictEqual(invRes.body.preparedEquipment.weaponSlot1, 'arming_sword');
   });
+
+  await t.test('9. Admission is idempotent and authoritative extraction consumes the retained reservation', async () => {
+    const reservationId = 'admitted-extraction-reservation';
+    const reserve = await request(app).post('/character/me/inventory/reservation')
+      .set('Authorization', `Bearer ${token}`).send({ reservationId });
+    assert.strictEqual(reserve.status, 201);
+    assert.strictEqual(reserve.body.pendingReservation.admittedAt, null);
+
+    const path = '/character/me/inventory/reservation/admit';
+    const admit = await request(app).post(path)
+      .set('Authorization', `Bearer ${token}`).send({ reservationId });
+    assert.strictEqual(admit.status, 200);
+    assert.ok(admit.body.pendingReservation.admittedAt);
+    const retry = await request(app).post(path)
+      .set('Authorization', `Bearer ${token}`).send({ reservationId });
+    assert.strictEqual(retry.status, 200);
+    assert.deepStrictEqual(retry.body, admit.body);
+
+    const raidId = 'admitted-extraction-raid';
+    const publish = await request(app).post('/character/raid/extraction-result')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ raidId, resultSequence: 1, targetCharacterId: characterId,
+        items: [{ lootId: 'health_potion', amount: 1 }],
+        preparedEquipment: { weaponSlot1: 'arming_sword' }, experienceGranted: 50 });
+    assert.strictEqual(publish.status, 200);
+
+    const blocked = await request(app).delete('/character/me/inventory/reservation')
+      .set('Authorization', `Bearer ${token}`);
+    assert.strictEqual(blocked.status, 409);
+    assert.strictEqual(blocked.body.error, 'EXTRACTION_RESULT_PENDING');
+
+    const commit = await request(app).post('/character/me/extraction/commit')
+      .set('Authorization', `Bearer ${token}`).send({ raidId, resultSequence: 1 });
+    assert.strictEqual(commit.status, 201);
+    assert.deepStrictEqual(commit.body.loadout, [{ lootId: 'health_potion', amount: 1 }]);
+    const inventory = await request(app).get('/character/me/inventory')
+      .set('Authorization', `Bearer ${token}`);
+    assert.strictEqual(inventory.status, 200);
+    assert.strictEqual(inventory.body.pendingReservation, null);
+    assert.strictEqual(inventory.body.revision, admit.body.revision + 1);
+  });
 });

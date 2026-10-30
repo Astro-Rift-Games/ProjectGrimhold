@@ -1,5 +1,6 @@
 // src/services/InventoryService.js
 const Character = require('../models/Character');
+const AuthoritativeExtractionResult = require('../models/AuthoritativeExtractionResult');
 const { randomUUID } = require('crypto');
 const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
 const {
@@ -46,9 +47,17 @@ function serializePendingReservation(res) {
   if (!res || !res.reservationId) return null;
   return {
     reservationId:    res.reservationId,
+    admittedAt:       res.admittedAt ? res.admittedAt.toISOString() : null,
     items:            serializeItems(res.items),
     preparedEquipment: serializePreparedEquipment(res.preparedEquipment)
   };
+}
+
+// Authoritative results target the owning account, not a reservation/raid identifier.
+async function assertNoPendingExtractionResult(accountId) {
+  if (await AuthoritativeExtractionResult.exists({ accountId, consumed: { $ne: true } })) {
+    throw { statusCode: 409, errorCode: 'EXTRACTION_RESULT_PENDING', message: 'An authoritative extraction result is pending for this character.' };
+  }
 }
 
 // soldAt and the internal epoch are deliberately not exposed to clients.
@@ -386,13 +395,19 @@ class InventoryService {
   /**
    * Persists a raid reservation snapshot.
    * Called when the player commits a loadout for a raid.
-   * The reservation captures the loadout state so it can be restored after a disconnection.
+   * Only a non-admitted reservation can recover ownership after an aborted launch.
+   * An admitted reservation is replaced as a loss unless extraction is pending.
    * @throws 404 if no character found.
    */
   static async savePendingReservation(accountId, reservationId, preparedAbilities = null) {
     const character = await Character.findOne({ accountId });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
+    }
+
+    const existingReservation = character.inventory.pendingReservation;
+    if (existingReservation?.admittedAt && existingReservation.reservationId !== reservationId) {
+      await assertNoPendingExtractionResult(character.accountId);
     }
 
     normalizeCharacterInventory(character);
@@ -422,6 +437,7 @@ class InventoryService {
     const hasActiveEquipment = EQUIPMENT_SLOTS.some(slot => Boolean(currentEq[slot]));
     if (
       character.inventory.pendingReservation &&
+      !character.inventory.pendingReservation.admittedAt &&
       (!character.inventory.loadout || character.inventory.loadout.length === 0) &&
       !hasActiveEquipment
     ) {
@@ -470,6 +486,7 @@ class InventoryService {
 
     const pendingReservation = {
       reservationId,
+      admittedAt: null,
       items,
       preparedEquipment,
       preparedAbilities: resolvedAbilities
@@ -499,15 +516,50 @@ class InventoryService {
     };
   }
 
+  /** Marks admission without consuming reserved ownership; same-id retries do not write. */
+  static async admitPendingReservation(accountId, reservationId) {
+    const character = await Character.findOne({ accountId });
+    if (!character) {
+      throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
+    }
+
+    const reservation = character.inventory.pendingReservation;
+    if (!reservation || reservation.reservationId !== reservationId) {
+      throw { statusCode: 422, errorCode: 'NO_ACTIVE_RESERVATION', message: 'No active reservation matches this reservation id.' };
+    }
+    if (reservation.admittedAt) {
+      return { pendingReservation: serializePendingReservation(reservation), revision: character.revision };
+    }
+
+    const updated = await Character.findOneAndUpdate(
+      { accountId, revision: character.revision,
+        'inventory.pendingReservation.reservationId': reservationId,
+        'inventory.pendingReservation.admittedAt': null },
+      { $set: { 'inventory.pendingReservation.admittedAt': new Date() }, $inc: { revision: 1 } },
+      { new: true }
+    );
+    if (!updated) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during reservation admission.' };
+    }
+    return { pendingReservation: serializePendingReservation(updated.inventory.pendingReservation), revision: updated.revision };
+  }
+
   /**
-   * Clears the pending reservation after a raid completes (success or voluntary exit),
-   * or restores reserved items and equipment back to active loadout/preparedEquipment when rolled back.
+   * Consumes a reservation as a loss, or rolls back pre-admission ownership.
+   * Admitted reservations can never roll back, and pending extraction blocks loss.
    * @throws 404 if no character found.
    */
   static async clearPendingReservation(accountId, { rollback = false } = {}) {
     const character = await Character.findOne({ accountId });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
+    }
+
+    if (character.inventory.pendingReservation?.admittedAt) {
+      if (rollback) {
+        throw { statusCode: 409, errorCode: 'RESERVATION_ADMITTED', message: 'An admitted reservation cannot be rolled back.' };
+      }
+      await assertNoPendingExtractionResult(character.accountId);
     }
 
     normalizeCharacterInventory(character);

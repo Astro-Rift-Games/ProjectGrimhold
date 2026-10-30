@@ -261,6 +261,36 @@ test('ExtractionCommitService.commit', async (t) => {
     assert.equal(mockChar.inventory.preparedEquipment.weaponSlot2, 'shield');
   });
 
+  await t.test('admitted reservation is consumed by authoritative extraction, not restored as extra loot', async () => {
+    const mockChar = makeCharacter();
+    mockChar.inventory.pendingReservation = {
+      reservationId: 'admitted-reservation', admittedAt: new Date('2026-10-29T12:00:00.000Z'),
+      items: [{ lootId: 'health_potion', amount: 4 }],
+      preparedEquipment: { weaponSlot1: 'long_sword' }
+    };
+    Character.findOne = async () => mockChar;
+    const authResult = {
+      items: [{ lootId: 'gem', amount: 1 }], experienceGranted: 50,
+      preparedEquipment: { weaponSlot1: 'arming_sword' }, consumed: false
+    };
+    AuthoritativeExtractionResult.findOne = async () => authResult;
+    AuthoritativeExtractionResult.findOneAndUpdate = async (query, update) => {
+      assert.deepEqual(query, { raidId: 'admitted-raid', accountId: 'acc123', consumed: { $ne: true } });
+      Object.assign(authResult, update.$set);
+      return authResult;
+    };
+
+    const result = await ExtractionCommitService.commit('acc123', { raidId: 'admitted-raid', resultSequence: 1 });
+    assert.equal(result.alreadySecured, false);
+    assert.deepEqual(result.loadout, [{ lootId: 'gem', amount: 1 }]);
+    assert.equal(result.experience, 50);
+    assert.equal(mockChar.inventory.pendingReservation, null);
+    assert.equal(mockChar.inventory.preparedEquipment.weaponSlot1, 'arming_sword');
+    assert.equal(mockChar.inventory.appliedExtractionReceipts.length, 1);
+    assert.equal(authResult.consumed, true);
+    assert.ok(authResult.consumedAt instanceof Date);
+  });
+
   await t.test('clears pendingReservation and restores preparedEquipment from pendingReservation if authResult is missing it', async () => {
     const mockChar = makeCharacter();
     mockChar.inventory.pendingReservation = {
