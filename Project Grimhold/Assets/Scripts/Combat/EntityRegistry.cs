@@ -603,7 +603,9 @@ public sealed class EntityRegistry : MonoBehaviour
 
     public bool TryUnregisterCombatContributionTracker(EntityId id, ICombatContributionTracker expectedTracker)
     {
-        return TryUnregisterIndependentCapability(id, expectedTracker, _combatContributionTrackers);
+        // The tracker registers no colliders, so it must not clear the co-located entity's collider
+        // mappings when it happens to unregister last (player avatars despawn with it, TASK-246).
+        return TryUnregisterIsolatedCapability(id, expectedTracker, _combatContributionTrackers);
     }
 
     public bool TryGetCombatContributionTracker(EntityId id, out ICombatContributionTracker tracker)

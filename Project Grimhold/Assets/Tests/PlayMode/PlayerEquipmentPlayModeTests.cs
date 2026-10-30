@@ -80,6 +80,155 @@ namespace Tests.PlayMode.Equipment
         }
 
         [UnityTest]
+        public IEnumerator SprintHeld_AttackUsesOnlyWeaponCostOnAcceptingTick_ThenSprintResumes()
+        {
+            yield return StartRaidPlayer();
+            EquipmentTestContent.SetField(_stamina, "_regenerationPerSecond", 0f);
+            yield return EquipThroughAuthority(_rangedWeapon, EquipmentSlot.WeaponSetAMainHand, EquipmentOperationResult.Succeeded);
+            var movement = _character.GetComponent<PlayerMovementNetworkController>();
+            var input = _runner.gameObject.AddComponent<SecondaryActionInputDriver>();
+            _runner.AddCallbacks(input);
+            var observer = _runner.gameObject.AddComponent<CombatTickObservationDriver>();
+            _runner.AddGlobal(observer);
+            bool accepted = false, sprintedDuringExecution = false, sawPendingAfterWindow = false;
+            bool sprintOnAcceptance = true;
+            float previousStamina = _stamina.CurrentStamina, acceptingCost = 0f, acceptingDistance = 0f;
+            int rejectionSequence = movement.SprintRejectedSequence;
+            observer.OnTick = () =>
+            {
+                if (!accepted && _combat.IsExecutingWeaponAttack)
+                {
+                    accepted = true;
+                    sprintOnAcceptance = movement.IsSprinting;
+                    acceptingCost = previousStamina - _stamina.CurrentStamina;
+                    acceptingDistance = movement.LastAppliedDisplacement.magnitude;
+                }
+                if (_combat.HasPendingAttackRelease && !_combat.IsExecutingWeaponAttack)
+                    sawPendingAfterWindow = true;
+                if (_combat.IsExecutingWeaponAttack || _combat.HasPendingAttackRelease)
+                    sprintedDuringExecution |= movement.IsSprinting;
+                previousStamina = _stamina.CurrentStamina;
+            };
+            input.MoveDirection = Vector2.right;
+            input.SprintHeld = true;
+            yield return WaitUntil(() => movement.IsSprinting, "The fixture never started Sprint.");
+            input.PrimaryHeld = true;
+            yield return WaitUntil(() => accepted, "The attack was not accepted while Sprint was held.");
+            input.PrimaryHeld = false;
+            Assert.That(sprintOnAcceptance, Is.False);
+            Assert.That(acceptingCost, Is.EqualTo(_rangedWeapon.WeaponDefinition.StaminaCost).Within(0.0001f),
+                "The accepting tick must debit the full weapon cost, with no Sprint drain.");
+            float walkSpeed = (float)typeof(PlayerMovementNetworkController)
+                .GetField("_moveSpeed", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(movement);
+            Assert.That(acceptingDistance, Is.EqualTo(walkSpeed * _runner.DeltaTime).Within(0.001f),
+                "The accepting tick must retain normal locomotion, not Sprint speed.");
+            yield return WaitUntil(() => !_combat.IsExecutingWeaponAttack && !_combat.HasPendingAttackRelease && movement.IsSprinting,
+                "Held Sprint did not resume after execution without a new press.");
+            Assert.That(sawPendingAfterWindow, Is.True, "The ranged release must outlast its execution window in this fixture.");
+            Assert.That(sprintedDuringExecution, Is.False, "Pending release still counts as execution for Sprint.");
+            Assert.That(movement.SprintRejectedSequence, Is.EqualTo(rejectionSequence),
+                "Action incompatibility must not emit insufficient-Stamina feedback.");
+        }
+
+        [UnityTest]
+        public IEnumerator ReloadWeapon_IsUnavailableAfterShotUntilReloadCompletesWithoutExtraStaminaCost()
+        {
+            yield return StartReloadWeapon();
+            var input = _runner.gameObject.AddComponent<SecondaryActionInputDriver>();
+            _runner.AddCallbacks(input);
+            float staminaBefore = _stamina.CurrentStamina;
+            AttackPerformedEvent shot = default;
+            bool observed = false;
+            _combat.AttackPerformed += attack => { shot = attack; observed = true; };
+            input.PrimaryHeld = true;
+            yield return WaitUntil(() => _combat.HasPendingAttackRelease, "The shot was not accepted.");
+            input.PrimaryHeld = false;
+            Assert.That(IsReloadHandAvailable(), Is.False);
+            yield return WaitUntil(() => observed && !_combat.HasPendingAttackRelease, "Shot never released.");
+            yield return WaitTicks(Mathf.CeilToInt(0.3f / _runner.DeltaTime));
+            Assert.That(IsReloadHandAvailable(), Is.False, "Shot Interval is zero; Reload must independently block the hand.");
+            yield return WaitForReload("Reload never completed.");
+            Assert.That((int)_runner.Tick, Is.GreaterThanOrEqualTo(
+                shot.ReleaseTick + Mathf.CeilToInt(1.2f / _runner.DeltaTime)));
+            Assert.That(_stamina.CurrentStamina, Is.EqualTo(staminaBefore - _rangedWeapon.WeaponDefinition.StaminaCost).Within(0.0001f),
+                "Reload has no Stamina cost.");
+        }
+
+        [UnityTest]
+        public IEnumerator ReloadWeapon_SprintDiscardsPartialReload_AndRestartNeedsFullDuration()
+        {
+            yield return StartReloadWeapon();
+            var movement = _character.GetComponent<PlayerMovementNetworkController>();
+            var input = _runner.gameObject.AddComponent<SecondaryActionInputDriver>();
+            _runner.AddCallbacks(input);
+            input.PrimaryHeld = true;
+            yield return WaitUntil(() => _combat.HasPendingAttackRelease, "The shot was not accepted.");
+            input.PrimaryHeld = false;
+            yield return WaitUntil(() => !_combat.HasPendingAttackRelease && !_combat.IsExecutingWeaponAttack,
+                "Execution never ended.");
+            yield return WaitTicks(Mathf.CeilToInt(0.3f / _runner.DeltaTime));
+            input.MoveDirection = Vector2.right;
+            input.SprintHeld = true;
+            yield return WaitUntil(() => movement.IsSprinting, "Sprint did not start during Reload.");
+            yield return WaitTicks(Mathf.CeilToInt(1.3f / _runner.DeltaTime));
+            Assert.That(IsReloadHandAvailable(), Is.False, "Reload progressed while Sprint was held.");
+            int restartTick = -1;
+            var observer = _runner.gameObject.AddComponent<CombatTickObservationDriver>();
+            _runner.AddGlobal(observer);
+            observer.OnTick = () =>
+            {
+                if (restartTick < 0 && !movement.IsSprinting) restartTick = _runner.Tick;
+            };
+            input.SprintHeld = false;
+            yield return WaitUntil(() => restartTick >= 0, "Sprint did not stop.");
+            yield return WaitTicks(Mathf.CeilToInt(0.95f / _runner.DeltaTime));
+            Assert.That(IsReloadHandAvailable(), Is.False, "Partial Reload was preserved instead of discarded.");
+            yield return WaitForReload("Reload did not restart after Sprint.");
+            Assert.That((int)_runner.Tick - restartTick, Is.GreaterThanOrEqualTo(Mathf.CeilToInt(1.2f / _runner.DeltaTime)));
+        }
+
+        [UnityTest]
+        public IEnumerator ReloadWeapon_SetSwitchDiscardsPartialReload_ButStowedLoadedWeaponStaysLoaded()
+        {
+            yield return StartReloadWeapon();
+            yield return EquipThroughAuthority(_meleeWeapon, EquipmentSlot.WeaponSetBMainHand, EquipmentOperationResult.Succeeded);
+            var input = _runner.gameObject.AddComponent<SecondaryActionInputDriver>();
+            _runner.AddCallbacks(input);
+            input.PrimaryHeld = true;
+            yield return WaitUntil(() => _combat.HasPendingAttackRelease, "The shot was not accepted.");
+            input.PrimaryHeld = false;
+            yield return WaitUntil(() => !_combat.HasPendingAttackRelease && !_combat.IsExecutingWeaponAttack,
+                "Execution never ended.");
+            yield return WaitTicks(Mathf.CeilToInt(0.3f / _runner.DeltaTime));
+            input.SetBHeld = true;
+            yield return WaitUntil(() => _equipment.ActiveWeaponSetSlot == WeaponSetSlot.SetB,
+                "Reload incorrectly blocked a set switch after the window.");
+            input.SetBHeld = false;
+            yield return WaitTicks(Mathf.CeilToInt(1.3f / _runner.DeltaTime));
+            int restartTick = -1;
+            var observer = _runner.gameObject.AddComponent<CombatTickObservationDriver>();
+            _runner.AddGlobal(observer);
+            observer.OnTick = () =>
+            {
+                if (restartTick < 0 && _equipment.ActiveWeaponSetSlot == WeaponSetSlot.SetA) restartTick = _runner.Tick;
+            };
+            input.SetAHeld = true;
+            yield return WaitUntil(() => restartTick >= 0, "Could not return to Set A.");
+            input.SetAHeld = false;
+            yield return WaitTicks(Mathf.CeilToInt(0.95f / _runner.DeltaTime));
+            Assert.That(IsReloadHandAvailable(), Is.False, "Stowed or partial Reload progress was preserved.");
+            yield return WaitForReload("Reload did not restart after returning to the set.");
+            Assert.That((int)_runner.Tick - restartTick, Is.GreaterThanOrEqualTo(Mathf.CeilToInt(1.2f / _runner.DeltaTime)));
+            input.SetBHeld = true;
+            yield return WaitUntil(() => _equipment.ActiveWeaponSetSlot == WeaponSetSlot.SetB, "Could not stow the Loaded weapon.");
+            input.SetBHeld = false;
+            yield return WaitTicks(Mathf.CeilToInt(0.3f / _runner.DeltaTime));
+            input.SetAHeld = true;
+            yield return WaitUntil(() => _equipment.ActiveWeaponSetSlot == WeaponSetSlot.SetA, "Could not retrieve the Loaded weapon.");
+            Assert.That(IsReloadHandAvailable(), Is.True, "A Loaded stowed weapon must remain Loaded.");
+        }
+
+        [UnityTest]
         public IEnumerator Consuming_RejectsBothHandInputsWithoutSpendingOrStartingIntervals()
         {
             yield return StartRaidPlayer();
@@ -1108,6 +1257,54 @@ namespace Tests.PlayMode.Equipment
             });
         }
 
+        private IEnumerator StartReloadWeapon()
+        {
+            yield return StartRaidPlayer();
+            EquipmentTestContent.SetField(_stamina, "_regenerationPerSecond", 0f);
+            LootDefinition loot = Object.Instantiate(_rangedWeapon);
+            WeaponDefinition weapon = Object.Instantiate(_rangedWeapon.WeaponDefinition);
+            _ownedDefinitions.Add(loot);
+            _ownedDefinitions.Add(weapon);
+            EquipmentTestContent.SetField(weapon, "_usesReload", true);
+            EquipmentTestContent.SetField(weapon, "_reloadSeconds", 1.2f);
+            EquipmentTestContent.SetField(weapon, "_attackIntervalSeconds", 0f);
+            EquipmentTestContent.SetField(weapon, "_attackReleaseSeconds", 0.15f);
+            EquipmentTestContent.SetField(weapon, "_executionWindowSeconds", 0.1f);
+            EquipmentTestContent.SetField(loot, "_weaponDefinition", weapon);
+            _rangedWeapon = loot;
+            _catalog = EquipmentTestContent.CreateCatalog(_meleeWeapon, _rangedWeapon, _greatsword,
+                _helmet, _armor, _gloves, _boots, _trinket, _shield);
+            EquipmentTestContent.SetField(_equipment, "_lootCatalog", _catalog);
+            EquipmentTestContent.SetField(_receiver, "_lootCatalog", _catalog);
+            yield return EquipThroughAuthority(_rangedWeapon, EquipmentSlot.WeaponSetAMainHand, EquipmentOperationResult.Succeeded);
+            Assert.That(IsReloadHandAvailable(), Is.True);
+        }
+
+        private bool IsReloadHandAvailable() =>
+            _combat.TryGetAttackStatus(EquipmentSlot.WeaponSetAMainHand, out PrimaryAttackStatus status) && status.IsAvailable;
+
+        // Reload spans exceed WaitUntil's frame budget when the Editor renders many frames per tick.
+        private IEnumerator WaitTicks(int ticks)
+        {
+            int until = _runner.Tick + ticks;
+            yield return WaitUntilRealtime(() => _runner.Tick >= until, "Fusion did not advance the requested ticks.",
+                ticks * _runner.DeltaTime + 5f);
+        }
+
+        private IEnumerator WaitForReload(string failureMessage) =>
+            WaitUntilRealtime(IsReloadHandAvailable, failureMessage, 5f);
+
+        private static IEnumerator WaitUntilRealtime(Func<bool> predicate, string failureMessage, float timeoutSeconds)
+        {
+            float deadline = Time.realtimeSinceStartup + timeoutSeconds;
+            while (!predicate() && Time.realtimeSinceStartup < deadline)
+            {
+                yield return null;
+            }
+
+            Assert.That(predicate(), Is.True, failureMessage);
+        }
+
         private void BuildTestContent()
         {
             _meleeWeapon = AssetDatabase.LoadAssetAtPath<LootDefinition>(MeleeWeaponPath);
@@ -1494,16 +1691,32 @@ namespace Tests.PlayMode.Equipment
             Assert.That(predicate(), Is.True, failureMessage);
         }
 
+        // Sample after Movement (-10) and Combat (-7), so the assertion observes the actual accepting tick,
+        // not a Render event that might arrive after another Sprint payment.
+        [DefaultExecutionOrder(10)]
+        private sealed class CombatTickObservationDriver : SimulationBehaviour
+        {
+            public Action OnTick { get; set; }
+            public override void FixedUpdateNetwork()
+            {
+                if (Runner.IsForward) OnTick?.Invoke();
+            }
+        }
+
         private sealed class SecondaryActionInputDriver : NetworkRunnerCallbacksAdapter
         {
             public bool SecondaryHeld { get; set; }
             public bool PrimaryHeld { get; set; }
             public bool SetBHeld { get; set; }
             public bool SetAHeld { get; set; }
+            public bool SprintHeld { get; set; }
+            public Vector2 MoveDirection { get; set; }
 
             public override void OnInput(NetworkRunner runner, NetworkInput input)
             {
                 PlayerNetworkInput playerInput = default;
+                playerInput.MoveDirection = MoveDirection;
+                playerInput.Buttons.Set(PlayerInputButton.Sprint, SprintHeld);
                 playerInput.Buttons.Set(PlayerInputButton.SecondaryAction, SecondaryHeld);
                 playerInput.Buttons.Set(PlayerInputButton.PrimaryAttack, PrimaryHeld);
                 playerInput.Buttons.Set(PlayerInputButton.WeaponSetB, SetBHeld);

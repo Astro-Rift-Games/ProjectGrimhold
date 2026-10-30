@@ -193,7 +193,9 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
 
         // Downed is networked state, so reading it here stays resimulation-safe.
         bool isDowned = _downedState != null && _downedState.IsDowned;
-        bool isActionExecuting = (_combatController != null && _combatController.IsExecutingWeaponAttack) ||
+        bool isActionExecuting = (_combatController != null &&
+            (_combatController.IsExecutingWeaponAttack || _combatController.HasPendingAttackRelease ||
+                (hasInput && _combatController.IsOffensiveStartRequested(input.Buttons)))) ||
             (_abilityRuntime != null && _abilityRuntime.HasActiveExecution) ||
             isConsuming;
         bool shouldSprint = ShouldSprint(in input, hasInput, moveDirection, canMove, isDowned, isActionExecuting);

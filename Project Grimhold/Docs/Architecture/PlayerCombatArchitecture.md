@@ -61,6 +61,32 @@ slot sequence independently, dispatches coalesced snapshots in acceptance-sequen
 pending timelines without start audio, and does not let
 Off-hand events replace Main-hand Animator/VFX timelines.
 
+## Combat action cycle (TASK-248)
+
+Game Design 17 §4-§7 and §9 own the cross-action rules; this section maps them onto the
+equipped-hand path.
+
+- **Attack during Sprint.** `IsOffensiveStartRequested(buttons)` reports a weapon start the active
+  set can accept this tick (Press/Hold input mode, hand availability, defense priority). Movement
+  ends Sprint on that same tick, before combat accepts the attack; locomotion continues at normal
+  speed. Sprint stays suppressed during the Execution Window and any pending release, and resumes
+  automatically if still held. See `PlayerMovementArchitecture.md` §20.1.
+- **Weapon Set switching.** It is rejected during `WeaponExecutionEndTick` and ability execution and
+  allowed right after, even while Attack Intervals continue.
+- **Load state (Crossbow).** `WeaponDefinition.UsesReload` and `ReloadSeconds` (Reload Time) are
+  separate from `AttackIntervalSeconds` (Shot Interval). Each hand's `WeaponHandAttackState.Reload`
+  (`WeaponReloadState`) becomes Unloaded on a committed shot. The authority advances it on forward
+  ticks once the hand's release has resolved, while its set is active, the avatar is not sprinting,
+  alive and not Downed, and combat is enabled. Any tick that does not meet those conditions
+  discards partial progress, so Sprint, a set switch or Downed interrupt the reload, and it restarts
+  from zero. Movement, damage and consumption do not interrupt it. An Unloaded hand is unavailable.
+  A stowed Loaded weapon stays Loaded. Reload costs no Stamina. Light Crossbow uses a provisional
+  1.3-second reload: 0.3 s release plus 1.3 s reload keeps the uninterrupted 1.6-second baseline cycle.
+- **Mutual exclusion.** Weapon attacks, abilities and consumable activations reject each other while
+  executing. A rejected request never cancels or queues the running one and spends no resource.
+- **Stamina.** A hand start checks the weapon's full cost before acceptance and debits it once at
+  valid acceptance (TASK-222).
+
 Off-hand weapons reuse the existing grip/renderer, but never the right-hand sprite or its absolute
 pose. `OffHandAnimationGenerator` derives six left-hand clips from the weapon's assigned Main Hand
 set and the real directional idle hand/grip anchors. The source set explicitly authors `OffHandStroke`:
@@ -329,8 +355,11 @@ Represents a networked projectile whose gameplay simulation is executed exclusiv
 * **Continuous collision detection**: Casts the projectile's collider across the requested tick displacement so targets cannot be skipped between ticks.
 * **Physical initialization**: Aligns the Rigidbody2D, Transform, and networked spawn position before the first authoritative simulation step.
 * **Physics synchronization**: When required by manually updated transforms, synchronizes the Unity 2D physics state before performing the collider cast.
-* **Impact selection and owner filtering**: Chooses the nearest cast hit. Registered owner colliders and registered non-damage colliders are ignored; an unregistered collider in the impact mask is treated as blocking world geometry.
-* **Single-impact guarantee**: Consumes an accepted impact before applying damage or requesting despawn, preventing duplicated damage across subsequent ticks or multiple overlapping cast results.
+* **Impact selection and owner filtering**: Registered owner colliders and registered non-damage colliders are ignored; an unregistered collider in the impact mask is treated as blocking world geometry. Each accepted cast hit becomes a classified `ProjectileContact` (`Interceptor` orb slot, `Target`, `Blocker`).
+* **Contact resolution (TASK-249, Doc 18 §5)**: the pure `ProjectileContactResolver` sorts contacts by authoritative distance with a deterministic tie-break (distance, Interceptor → Target → Blocker, EntityId, slot, buffer index), keeps one contact per target/orb slot per tick event and resolves them in order. A consumed orb or a blocker terminates; a target is impacted through the projectile's re-impact policy and terminates when the impact count is reached. Contacts after termination are discarded. An orb that is no longer active is passed through and never hides a contact behind it. Damage mitigated to zero does not terminate the projectile.
+* **Impact contract**: serialized per prefab on `NetworkProjectile`: `ProjectileReimpactPolicy` (`OncePerTarget`, `OncePerContact` — new impact after leaving and re-entering — or `PeriodicPulse`), maximum impact count (1..255; default 1) and pulse interval. `ProjectileImpactSettings` validates it in `Spawned`; an invalid contract logs an error and the projectile despawns without impacts. The defaults (`OncePerTarget`, 1 impact) reproduce the previous first-contact behavior for every existing prefab. Continuous-contact policies also query overlaps the projectile is already inside.
+* **Re-impact state**: `AppliedImpactCount`, `NextPulseTick` and an 8-entry `[Networked]` ledger (target EntityId, last contact tick) are flight state copied with the snapshot. A full ledger fails closed (no new impact). Ledger EntityIds are not remapped by the Host Migration restorer; this only matters for multi-impact prefabs, none of which exist yet.
+* **Termination guarantee**: `ImpactConsumed` is committed on the terminating contact before despawn, so no later tick or cast result can reapply it. Functional disappearance is immediate; impact VFX observe `Despawned` independently.
 * **Range and lifetime**: Tracks the exact traveled distance and a network `TickTimer`. The final movement step is clamped so the projectile never exceeds its configured maximum range.
 * **Obstacle behavior**: A collider without a registered damageable entity still blocks and despawns the projectile but does not produce a damage request. A wall blocks/despawns the projectile without damage.
 * **Collision volume**: The projectile prefab defines a gameplay collider whose effective world-space size is independent from unintended visual scaling. The current implementation validates or adjusts the CircleCollider2D radius during initialization to prevent prefab scale from producing an oversized world-space collision volume.
@@ -1300,7 +1329,7 @@ for in-flight replication; local persistence stores `LootId` strings.
 
 ## Known Limitations and Technical Debt
 
-* **Ability/basic-attack exclusion is one-way**: basic attacks are blocked during ability execution. Blocking ability start during a basic attack remains a TASK-223 follow-up to the bidirectional incompatibility in Game Design 17 §7.3.
+* **Load state identity is template-based**: a hand's Unloaded state belongs to the weapon catalog identity that fired. Replacing that slot's weapon resets the state to Loaded, because unique weapon instances are not transported yet. Reload has no dedicated presentation; HUD availability reflects it through `TryGetAttackStatus`.
 
 * **Layer Configuration Dependency**: The system requires strict layer separation. If targets or obstacles are not on the correct layers specified in `MeleeAttackConfig` and `RangedAttackConfig`, collision queries will fail to report hits.
 * **Component Casting**: Configured strategies rely on a serialized `MonoBehaviour` cast to `IAttack`. An empty source is a valid neutral state; a non-empty source must implement the contract.

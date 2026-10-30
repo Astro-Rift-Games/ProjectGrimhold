@@ -144,6 +144,40 @@ namespace Tests.EditMode.Combat
         }
 
         [Test]
+        public void Execute_EmpoweredBasicAttack_ForwardsSourceAlongsideScaledDamage()
+        {
+            var config = CreateConfig();
+            Initialize(config);
+            _fakeQuery.TargetsToReturn.Add(new AttackTarget(new EntityId(2), Vector2.right));
+            RaidParticipantId.TryCreate(3, out var supporter);
+            var request = new AttackRequest(new EntityId(1), Vector2.zero, Vector2.right, 42);
+
+            Assert.That(_meleeAttack.Execute(request, 1.3f, supporter).WasExecuted, Is.True);
+
+            Assert.That(_fakeResolver.ResolvedRequests, Has.Count.EqualTo(1));
+            Assert.That(_fakeResolver.ResolvedRequests[0].Amount, Is.EqualTo(13f).Within(0.00001f));
+            Assert.That(_fakeResolver.ResolvedRequests[0].EmpowerSourceId, Is.EqualTo(supporter));
+            Assert.That(_fakeResolver.ResolvedRequests[0].SimulationTick, Is.EqualTo(42));
+            Object.DestroyImmediate(config);
+        }
+
+        [Test]
+        public void Execute_LegacyAttack_HasNoEmpowerSourceAndKeepsDamage()
+        {
+            var config = CreateConfig();
+            Initialize(config);
+            _fakeQuery.TargetsToReturn.Add(new AttackTarget(new EntityId(2), Vector2.right));
+            var request = new AttackRequest(new EntityId(1), Vector2.zero, Vector2.right, 42);
+
+            Assert.That(_meleeAttack.Execute(request).WasExecuted, Is.True);
+
+            Assert.That(_fakeResolver.ResolvedRequests, Has.Count.EqualTo(1));
+            Assert.That(_fakeResolver.ResolvedRequests[0].Amount, Is.EqualTo(10f));
+            Assert.That(_fakeResolver.ResolvedRequests[0].EmpowerSourceId.IsValid, Is.False);
+            Object.DestroyImmediate(config);
+        }
+
+        [Test]
         public void TryConfigure_UpdatesAllRuntimeParametersWithoutMutatingConfig()
         {
             var config = CreateConfig(radius: 0.5f);

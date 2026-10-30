@@ -206,11 +206,12 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
     /// weapon attack passes a multiplier; the single-argument overload (enemies, tests) always deals the
     /// configured damage.
     /// </summary>
-    public AttackResult Execute(in AttackRequest request, float damageMultiplier) =>
-        Execute(request, _runtimeParameters, damageMultiplier);
+    public AttackResult Execute(in AttackRequest request, float damageMultiplier, RaidParticipantId empowerSourceId = default) =>
+        Execute(request, _runtimeParameters, damageMultiplier, empowerSourceId);
 
     /// <summary>Resolves a committed swing using its accepted statistics, not the shared executor's latest hand.</summary>
-    public AttackResult Execute(in AttackRequest request, in AttackExecutionParameters parameters, float damageMultiplier)
+    public AttackResult Execute(in AttackRequest request, in AttackExecutionParameters parameters, float damageMultiplier,
+        RaidParticipantId empowerSourceId = default)
     {
         if (!AttackTiming.IsFinite(damageMultiplier) || damageMultiplier < 0f)
         {
@@ -297,7 +298,8 @@ public sealed class MeleeAttack : MonoBehaviour, IAttack
                     request.Direction,
                     target.HitPoint,
                     request.SimulationTick,
-                    parameters.KnockbackForce
+                    parameters.KnockbackForce,
+                    empowerSourceId: empowerSourceId
                 );
 
                 // We do not depend on the Resolve result to decide if the attack was executed

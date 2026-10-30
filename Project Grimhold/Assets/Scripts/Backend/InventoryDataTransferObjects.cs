@@ -60,6 +60,7 @@ namespace Grimhold.Backend
     public struct PendingReservationData
     {
         public string                reservationId;
+        public string                admittedAt;
         public InventoryItemData[]   items;
         public PreparedEquipmentData preparedEquipment;
     }

@@ -392,7 +392,8 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
         if (_abilityRuntime != null && _abilityRuntime.HasActiveExecution) return ConsumableFailureReason.AbilityInProgress;
         if (IsConsuming) return ConsumableFailureReason.ConsumptionInProgress;
         if (_extraction != null && _extraction.State == ExtractionState.Extracted) return ConsumableFailureReason.TargetUnavailable;
-        if (_combat != null && _combat.HasPendingAttackRelease) return ConsumableFailureReason.TargetUnavailable;
+        if (_combat != null && (_combat.IsExecutingWeaponAttack || _combat.HasPendingAttackRelease))
+            return ConsumableFailureReason.TargetUnavailable;
         if (_lootCatalog == null || !_lootCatalog.TryGetByIndex(catalogIndex, out definition))
             return ConsumableFailureReason.InvalidLoot;
         if (_lootReceiver.GetLootAmount(definition.LootId) <= 0)

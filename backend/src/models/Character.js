@@ -26,9 +26,11 @@ const preparedAbilitiesSchema = new mongoose.Schema({
 
 // Embedded schema for the pending raid reservation snapshot.
 // Captures the loadout items and equipment committed at the moment the player
-// queued for a raid. Used to restore state after a disconnection.
+// queued for a raid. Rollback restores ownership only before admission;
+// admitted reservations remain until extraction or a loss consumes them.
 const pendingReservationSchema = new mongoose.Schema({
   reservationId:     { type: String, required: true },
+  admittedAt:        { type: Date, default: null },
   items:             { type: [itemSchema], default: [] },
   preparedEquipment: { type: preparedEquipmentSchema, default: () => ({}) },
   preparedAbilities: { type: preparedAbilitiesSchema, default: () => ({}) }

@@ -80,7 +80,10 @@ public sealed class FusionProjectileSpawner : NetworkBehaviour, IProjectileSpawn
     /// Attempts to spawn a projectile on the network authoritatively.
     /// Validates network authority, configuration, and dependencies before spawning.
     /// </summary>
-    public ProjectileSpawnResult Spawn(in ProjectileSpawnRequest request)
+    public ProjectileSpawnResult Spawn(in ProjectileSpawnRequest request) => Spawn(request, default);
+
+    /// <summary>Basic attacks may carry their committed Empower source; ability callers use the default path.</summary>
+    public ProjectileSpawnResult Spawn(in ProjectileSpawnRequest request, RaidParticipantId empowerSourceId)
     {
         // 1. Validate network authority
         if (!HasStateAuthority || Runner == null || !Runner.IsForward)
@@ -136,7 +139,7 @@ public sealed class FusionProjectileSpawner : NetworkBehaviour, IProjectileSpawn
             {
                 if (networkObject.TryGetComponent(out NetworkProjectile projectile))
                 {
-                    projectile.InitializeNetworkState(in localRequest, impactMask);
+                    projectile.InitializeNetworkState(in localRequest, impactMask, empowerSourceId);
                     projectile.SetRuntimeDependencies(localRequest.IsUnbounded
                         ? networkObject.GetComponent<DamageResolver>() : _damageResolver);
                     projectileInitialized = true;

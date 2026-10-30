@@ -96,7 +96,7 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
         var resolvedRequest = new DamageRequest(request.AttackerId, request.TargetId,
             FriendlyFireRules.ScaleDamage(request.Amount, isAlly, _allyDamageMultiplier),
             request.DamageType, request.Direction, request.HitPoint, request.SimulationTick,
-            request.KnockbackForce, isAlly);
+            request.KnockbackForce, isAlly, request.EmpowerSourceId);
 
         // 3. Verify target can receive damage
         if (!target.CanReceiveDamage)
@@ -114,6 +114,8 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
         // Doc 18 §4.3: capture eligibility before this hit can transition Active to Downed.
         bool knockbackEligibleAtImpact = target is IKnockbackReceiver receiver && receiver.IsKnockbackEligible;
 
+        // Reserve depletion clears IsDowned before ApplyDamage returns, so capture both sides.
+        bool wasDowned = target is PlayerCharacter { IsDowned: true };
         // 4. Delegate damage application and handle authority validation within IDamageable
         DamageResult result = target.ApplyDamage(resolvedRequest);
 
@@ -143,7 +145,9 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
             aggroReceiver.ReceiveAggroAlert(request.AttackerId, attackerTransform);
         }
 
-        if (result.IsApplied && result.AppliedDamage > 0f && !isAlly && HasStateAuthority && request.AttackerId.Value != 0 && request.TargetId.Value != 0 && _registry != null)
+        if (result.IsApplied && result.AppliedDamage > 0f && !isAlly && !wasDowned &&
+            target is not PlayerCharacter { IsDowned: true } && HasStateAuthority &&
+            request.AttackerId.Value != 0 && request.TargetId.Value != 0 && _registry != null)
         {
             if (_registry.TryGetCombatContributionTracker(request.TargetId, out ICombatContributionTracker tracker))
             {
@@ -154,10 +158,16 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
                     if (participantLink != null &&
                         participantLink.TryResolveParticipant(out NetworkRaidParticipant participant) &&
                         participant.RaidParticipantId.IsValid &&
-                        participant.TryResolveCurrentAvatar(out NetworkObject currentAvatar) &&
-                        currentAvatar == player.Object)
+                        (target is PlayerCharacter ||
+                         (participant.TryResolveCurrentAvatar(out NetworkObject currentAvatar) && currentAvatar == player.Object)))
                     {
                         tracker.TryRecordContribution(participant.RaidParticipantId, request.SimulationTick);
+                        // Effective empowered basic attacks contribute only to the PvP register, never PvE.
+                        if (target is PlayerCharacter && request.EmpowerSourceId.IsValid &&
+                            request.EmpowerSourceId != participant.RaidParticipantId)
+                        {
+                            tracker.TryRecordContribution(request.EmpowerSourceId, request.SimulationTick, CombatContributionKind.Empower);
+                        }
                     }
                 }
             }

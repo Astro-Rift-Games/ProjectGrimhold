@@ -18,6 +18,7 @@ public sealed class EmpowerNetworkEffect : NetworkBehaviour
 
     [Networked] private TickTimer ExpiryTimer { get; set; }
     [Networked] private float BonusFraction { get; set; }
+    [Networked] private int SourceParticipantValue { get; set; }
 
     /// <summary>Static ownership only; never reads or changes network state.</summary>
     public bool IsOwnerConfigured => _character != null && _character.gameObject == gameObject;
@@ -41,7 +42,7 @@ public sealed class EmpowerNetworkEffect : NetworkBehaviour
     /// Starts or refreshes the bonus. Returns false without any change when this peer has no State Authority, the
     /// values are invalid or the owner is not alive.
     /// </summary>
-    public bool TryApply(float bonusFraction, float durationSeconds)
+    public bool TryApply(float bonusFraction, float durationSeconds, RaidParticipantId sourceParticipantId = default)
     {
         if (!IsReadyToApply) return false;
 
@@ -53,6 +54,7 @@ public sealed class EmpowerNetworkEffect : NetworkBehaviour
 
         BonusFraction = EmpowerRules.ResolveRefreshedBonus(BonusFraction, bonusFraction);
         ExpiryTimer = TickTimer.CreateFromSeconds(Runner, durationSeconds);
+        SourceParticipantValue = sourceParticipantId.IsValid ? sourceParticipantId.Value : 0;
         return true;
     }
 
@@ -61,6 +63,13 @@ public sealed class EmpowerNetworkEffect : NetworkBehaviour
     /// A read-only query, valid on any peer.
     /// </summary>
     public float GetBasicAttackDamageMultiplier() => EmpowerRules.ResolveDamageMultiplier(IsActive, BonusFraction);
+
+    /// <summary>Original supporter of an active basic-attack buff, independent of their later lifecycle.</summary>
+    public bool TryGetBasicAttackEmpowerSource(out RaidParticipantId sourceParticipantId)
+    {
+        sourceParticipantId = default;
+        return IsActive && RaidParticipantId.TryCreate(SourceParticipantValue, out sourceParticipantId);
+    }
 
     private bool CanReadState() => IsOwnerConfigured && Object != null && Object.IsValid && Runner != null;
 }
