@@ -41,6 +41,15 @@ public sealed class RaidMinimapView : MonoBehaviour
     [SerializeField]
     private Image _border;
 
+    [SerializeField, Min(0.01f)]
+    [Tooltip("Placeholder: seconds to fade the map to black while it is blocked, and back.")]
+    private float _blockedFadeSeconds = 0.5f;
+
+    // Map graphic plus its continuation batches, cached when the map is configured.
+    private readonly System.Collections.Generic.List<Graphic> _mapGraphics =
+        new System.Collections.Generic.List<Graphic>();
+    private float _mapBrightness = 1f;
+
     private RectTransform _canvasMapRect;
     private Canvas _mapCanvas;
     private bool _mapCanvasResolved;
@@ -104,8 +113,56 @@ public sealed class RaidMinimapView : MonoBehaviour
 
         _mapRect.sizeDelta = uiSize;
         _mapRect.localRotation = Quaternion.identity;
+        _mapGraphics.Clear();
+        _mapRect.GetComponentsInChildren(true, _mapGraphics);
+        ApplyMapBrightness();
         error = null;
         return true;
+    }
+
+    public float BlockedFadeSeconds => _blockedFadeSeconds;
+
+    /// <summary>
+    /// Placeholder for a blocked map query: the frame stays visible, markers are hidden and the map
+    /// keeps its last position while it fades to black, so the panel does not seem to vanish.
+    /// </summary>
+    public void PresentBlockedMap(float deltaTime)
+    {
+        HideSanctuary();
+        if (_localMarker != null)
+        {
+            _localMarker.enabled = false;
+        }
+
+        ShowMinimap();
+        UpdateMapDarkening(true, deltaTime);
+    }
+
+    /// <summary>Moves the map brightness toward black while blocked, or back to its normal color.</summary>
+    public void UpdateMapDarkening(bool blocked, float deltaTime)
+    {
+        float target = blocked ? 0f : 1f;
+        if (_mapBrightness == target)
+        {
+            return;
+        }
+
+        float step = _blockedFadeSeconds > 0f ? Mathf.Max(0f, deltaTime) / _blockedFadeSeconds : 1f;
+        _mapBrightness = Mathf.MoveTowards(_mapBrightness, target, step);
+        ApplyMapBrightness();
+    }
+
+    private void ApplyMapBrightness()
+    {
+        // CanvasRenderer color multiplies the generated vertex colors without rebuilding meshes.
+        var color = new Color(_mapBrightness, _mapBrightness, _mapBrightness, 1f);
+        for (int i = 0; i < _mapGraphics.Count; i++)
+        {
+            if (_mapGraphics[i] != null)
+            {
+                _mapGraphics[i].canvasRenderer.SetColor(color);
+            }
+        }
     }
 
     /// <summary>Gets the authored world position aligned with the generated layout center.</summary>

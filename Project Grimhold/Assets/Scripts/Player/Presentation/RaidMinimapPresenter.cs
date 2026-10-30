@@ -181,10 +181,11 @@ public sealed class RaidMinimapPresenter : MonoBehaviour
             player.PassiveEffectsController.IsMinimapBlocked)
         {
             ClearSanctuaryCache();
-            ClearPresentation();
-            _view.HideMinimap();
+            _view.PresentBlockedMap(Time.unscaledDeltaTime);
             return;
         }
+
+        _view.UpdateMapDarkening(false, Time.unscaledDeltaTime);
 
         Vector2 mapPivotWorldPosition = _view.MapPivotWorldPosition;
         if (!MinimapProjection.TryProjectMapOffset(
