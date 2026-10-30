@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 870,
-  "canonicalEntries": 867,
+  "rawCommits": 871,
+  "canonicalEntries": 868,
   "before": {
+    "Bug Fixes": 78,
     "Features": 317,
     "Documentation": 75,
-    "Bug Fixes": 77,
     "Refactoring": 13,
     "Architecture & Infrastructure": 12,
     "Other Changes": 352,
     "Tests": 24
   },
   "after": {
+    "Bug Fixes": 94,
     "Features": 454,
     "Documentation": 90,
-    "Bug Fixes": 93,
     "Refactoring": 26,
     "Maintenance": 11,
     "Other Changes": 162,
@@ -23,15 +23,15 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Combat": 310,
+    "Combat": 311,
+    "Persistence & Backend": 184,
+    "Art & Animation": 206,
+    "Build & Tooling": 435,
+    "Documentation": 337,
+    "Tests": 515,
     "Abilities": 104,
     "Movement": 88,
     "Inventory & Loot": 313,
-    "Persistence & Backend": 183,
-    "Art & Animation": 205,
-    "Build & Tooling": 434,
-    "Documentation": 336,
-    "Tests": 514,
     "UI": 264,
     "Unassigned": 18,
     "Extraction": 119,
@@ -42,9 +42,9 @@
   },
   "canonical": {
     "sections": {
+      "Bug Fixes": 93,
       "Features": 453,
       "Documentation": 90,
-      "Bug Fixes": 92,
       "Refactoring": 26,
       "Maintenance": 11,
       "Other Changes": 161,
@@ -52,15 +52,15 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "Combat": 308,
+      "Combat": 309,
+      "Persistence & Backend": 184,
+      "Art & Animation": 203,
+      "Build & Tooling": 433,
+      "Documentation": 335,
+      "Tests": 513,
       "Abilities": 102,
       "Movement": 88,
       "Inventory & Loot": 313,
-      "Persistence & Backend": 183,
-      "Art & Animation": 202,
-      "Build & Tooling": 432,
-      "Documentation": 334,
-      "Tests": 512,
       "UI": 263,
       "Unassigned": 18,
       "Extraction": 119,
@@ -34029,8 +34029,8 @@
       "title": "2026-10 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 394,
-      "canonicalEntries": 392
+      "originalCommits": 395,
+      "canonicalEntries": 393
     },
     {
       "key": "history-2026-09",
@@ -34058,6 +34058,110 @@
     }
   ],
   "commits": [
+    {
+      "sha": "916002017acaf4b5b9486093aca484c5c0c12ead",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/916002017acaf4b5b9486093aca484c5c0c12ead",
+      "subject": "fix(combat): make the melee hit flash visible",
+      "body": "The melee hit reaction profiles flashed toward (1, .85, .8). Sprite\nrenderer color multiplies the art, so that near-white tint barely\nchanged white-tinted sprites, and the reaction also absorbs the generic\nred Health flash of the same hit, leaving melee impacts with almost no\nflash.\n\nAll three profiles now use the damage red (1, .2, .2); FlashStrength\nstill scales the peak tint per weight: Light (1, .4, .4), Medium\n(1, .28, .28), Heavy (1, .2, .2).\n\nTests: MeleeHitReactionProfileTests checks that each peak tint reads\nclearly away from white and never weakens for heavier weapons.\n\nDocs: PlayerCombatArchitecture.md melee hit reaction flash values.\n\nPlayer-Fixed: Enemies and players now visibly flash red when struck by a melee weapon.\n",
+      "date": "2026-10-30T17:55:00-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Heavy.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Light.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Medium.asset",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs",
+        "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "combat",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Persistence & Backend",
+        "Art & Animation",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Heavy.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Light.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Medium.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Combat"
+        },
+        {
+          "source": "scope",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "Sprite",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "8ee2e8bb66d26b1068fa22c813fdde618b370669",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8ee2e8bb66d26b1068fa22c813fdde618b370669",

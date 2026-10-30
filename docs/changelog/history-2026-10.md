@@ -4,32 +4,98 @@
 
 Release: Unreleased
 
-394 original commits; 392 canonical entries.
+395 original commits; 393 canonical entries.
 
 ## Canonical classification
 
-206 features; 59 bug fixes; 7 refactoring; 1 architecture & infrastructure; 75 documentation; 23 tests; 5 maintenance; 16 other changes
+206 features; 60 bug fixes; 7 refactoring; 1 architecture & infrastructure; 75 documentation; 23 tests; 5 maintenance; 16 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 59 | 5 | 0 | 0 | 16 | 2 |
-| Art & Animation | 34 | 9 | 1 | 0 | 4 | 7 |
+| Art & Animation | 34 | 10 | 1 | 0 | 4 | 7 |
 | Audio | 8 | 0 | 0 | 0 | 1 | 0 |
-| Build & Tooling | 170 | 34 | 7 | 1 | 17 | 5 |
-| Combat | 79 | 10 | 3 | 0 | 42 | 3 |
-| Documentation | 86 | 30 | 2 | 0 | 28 | 4 |
+| Build & Tooling | 170 | 35 | 7 | 1 | 17 | 5 |
+| Combat | 79 | 11 | 3 | 0 | 42 | 3 |
+| Documentation | 86 | 31 | 2 | 0 | 28 | 4 |
 | Extraction | 17 | 12 | 1 | 0 | 11 | 2 |
 | Input | 6 | 1 | 0 | 0 | 0 | 0 |
 | Inventory & Loot | 79 | 27 | 4 | 0 | 17 | 4 |
 | Movement | 25 | 3 | 0 | 0 | 6 | 0 |
 | Networking & Sessions | 60 | 20 | 0 | 0 | 11 | 5 |
-| Persistence & Backend | 26 | 28 | 0 | 0 | 13 | 1 |
-| Tests | 190 | 53 | 7 | 1 | 27 | 6 |
+| Persistence & Backend | 26 | 29 | 0 | 0 | 13 | 1 |
+| Tests | 190 | 54 | 7 | 1 | 27 | 6 |
 | UI | 69 | 13 | 3 | 0 | 20 | 6 |
 | Unassigned | 0 | 0 | 0 | 0 | 4 | 0 |
 | World & Visibility | 43 | 12 | 1 | 0 | 11 | 5 |
 
 ## Original commit records
+
+### 916002017acaf4b5b9486093aca484c5c0c12ead
+
+[916002017acaf4b5b9486093aca484c5c0c12ead](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/916002017acaf4b5b9486093aca484c5c0c12ead)
+
+Date: 2026-10-30T17:55:00-03:00 · Classification: Bug Fixes (explicit) · Systems: Combat, Persistence & Backend, Art & Animation, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(combat): make the melee hit flash visible
+```
+
+#### Original body
+
+```text
+The melee hit reaction profiles flashed toward (1, .85, .8). Sprite
+renderer color multiplies the art, so that near-white tint barely
+changed white-tinted sprites, and the reaction also absorbs the generic
+red Health flash of the same hit, leaving melee impacts with almost no
+flash.
+
+All three profiles now use the damage red (1, .2, .2); FlashStrength
+still scales the peak tint per weight: Light (1, .4, .4), Medium
+(1, .28, .28), Heavy (1, .2, .2).
+
+Tests: MeleeHitReactionProfileTests checks that each peak tint reads
+clearly away from white and never weakens for heavier weapons.
+
+Docs: PlayerCombatArchitecture.md melee hit reaction flash values.
+
+Player-Fixed: Enemies and players now visibly flash red when struck by a melee weapon.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Heavy.asset
+Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Light.asset
+Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Medium.asset
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs
+Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Heavy.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Light.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Medium.asset
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs
+- path → Combat: Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+- scope → Combat: combat
+- message-term → Combat: combat
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs
+- message-term → Art &amp; Animation: Sprite
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 8ee2e8bb66d26b1068fa22c813fdde618b370669
 
