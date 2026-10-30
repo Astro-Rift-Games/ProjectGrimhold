@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 867,
-  "canonicalEntries": 864,
+  "rawCommits": 868,
+  "canonicalEntries": 865,
   "before": {
+    "Features": 315,
     "Documentation": 75,
     "Bug Fixes": 77,
-    "Features": 314,
     "Refactoring": 13,
     "Architecture & Infrastructure": 12,
     "Other Changes": 352,
     "Tests": 24
   },
   "after": {
+    "Features": 452,
     "Documentation": 90,
     "Bug Fixes": 93,
-    "Features": 451,
     "Refactoring": 26,
     "Maintenance": 11,
     "Other Changes": 162,
@@ -23,18 +23,18 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "UI": 264,
+    "Build & Tooling": 432,
+    "Tests": 512,
     "Unassigned": 18,
     "Extraction": 119,
     "Inventory & Loot": 312,
     "Networking & Sessions": 253,
     "Persistence & Backend": 182,
-    "Build & Tooling": 431,
     "Documentation": 335,
-    "Tests": 511,
     "Combat": 309,
     "Abilities": 103,
     "Movement": 87,
-    "UI": 263,
     "World & Visibility": 108,
     "Input": 27,
     "Art & Animation": 203,
@@ -42,9 +42,9 @@
   },
   "canonical": {
     "sections": {
+      "Features": 451,
       "Documentation": 90,
       "Bug Fixes": 92,
-      "Features": 450,
       "Refactoring": 26,
       "Maintenance": 11,
       "Other Changes": 161,
@@ -52,18 +52,18 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
+      "UI": 263,
+      "Build & Tooling": 430,
+      "Tests": 510,
       "Unassigned": 18,
       "Extraction": 119,
       "Inventory & Loot": 312,
       "Networking & Sessions": 253,
       "Persistence & Backend": 182,
-      "Build & Tooling": 429,
       "Documentation": 333,
-      "Tests": 509,
       "Combat": 307,
       "Abilities": 101,
       "Movement": 87,
-      "UI": 262,
       "World & Visibility": 106,
       "Input": 27,
       "Art & Animation": 200,
@@ -34029,8 +34029,8 @@
       "title": "2026-10 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 391,
-      "canonicalEntries": 389
+      "originalCommits": 392,
+      "canonicalEntries": 390
     },
     {
       "key": "history-2026-09",
@@ -34058,6 +34058,96 @@
     }
   ],
   "commits": [
+    {
+      "sha": "95ba617593731ac54f27652f9750bf50b58b418b",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/95ba617593731ac54f27652f9750bf50b58b418b",
+      "subject": "feat(minimap): darken the blocked minimap instead of hiding it",
+      "body": "While the Wanderer's Eye blocks the map query (Doc 14), the minimap\nused to vanish entirely, which read as a missing HUD. As a placeholder,\nthe frame now stays visible, the markers are hidden and the map fades\nto black at its last position; it fades back when the block ends.\n\nThe fade moves a brightness value with unscaled delta time and applies\nit through CanvasRenderer color to the map and its continuation\nbatches, cached when the map is configured. Alpha is never changed.\nDuration is serialized on RaidMinimapView (_blockedFadeSeconds, 0.5 s).\n\nTests:\n- RaidMinimapBlockedFadeTests: frame stays visible, half-way and full\n  fade to black across every map graphic, fade back, no darkening\n  without a block.\n\nPlayer-Improved: Carrying the Wanderer's Eye now darkens the minimap instead of making it disappear.\n",
+      "date": "2026-10-30T01:28:34-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMinimapPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMinimapView.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapBlockedFadeTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapBlockedFadeTests.cs.meta"
+      ],
+      "originalType": "feat",
+      "originalScope": "minimap",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "UI",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMinimapPresenter.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMinimapView.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapBlockedFadeTests.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapBlockedFadeTests.cs.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "scope",
+          "value": "minimap",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "minimap",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapBlockedFadeTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapBlockedFadeTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapBlockedFadeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapBlockedFadeTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "03e9c696f761789357e50932c8a3548257a82a96",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/03e9c696f761789357e50932c8a3548257a82a96",

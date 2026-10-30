@@ -4,18 +4,18 @@
 
 Release: Unreleased
 
-391 original commits; 389 canonical entries.
+392 original commits; 390 canonical entries.
 
 ## Canonical classification
 
-203 features; 59 bug fixes; 7 refactoring; 1 architecture & infrastructure; 75 documentation; 23 tests; 5 maintenance; 16 other changes
+204 features; 59 bug fixes; 7 refactoring; 1 architecture & infrastructure; 75 documentation; 23 tests; 5 maintenance; 16 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 58 | 5 | 0 | 0 | 16 | 2 |
 | Art & Animation | 32 | 9 | 1 | 0 | 4 | 7 |
 | Audio | 8 | 0 | 0 | 0 | 1 | 0 |
-| Build & Tooling | 167 | 34 | 7 | 1 | 17 | 5 |
+| Build & Tooling | 168 | 34 | 7 | 1 | 17 | 5 |
 | Combat | 78 | 10 | 3 | 0 | 42 | 3 |
 | Documentation | 85 | 30 | 2 | 0 | 28 | 4 |
 | Extraction | 17 | 12 | 1 | 0 | 11 | 2 |
@@ -24,12 +24,75 @@ Release: Unreleased
 | Movement | 24 | 3 | 0 | 0 | 6 | 0 |
 | Networking & Sessions | 59 | 20 | 0 | 0 | 11 | 5 |
 | Persistence & Backend | 25 | 28 | 0 | 0 | 13 | 1 |
-| Tests | 187 | 53 | 7 | 1 | 27 | 6 |
-| UI | 68 | 13 | 3 | 0 | 20 | 6 |
+| Tests | 188 | 53 | 7 | 1 | 27 | 6 |
+| UI | 69 | 13 | 3 | 0 | 20 | 6 |
 | Unassigned | 0 | 0 | 0 | 0 | 4 | 0 |
 | World & Visibility | 42 | 12 | 1 | 0 | 11 | 5 |
 
 ## Original commit records
+
+### 95ba617593731ac54f27652f9750bf50b58b418b
+
+[95ba617593731ac54f27652f9750bf50b58b418b](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/95ba617593731ac54f27652f9750bf50b58b418b)
+
+Date: 2026-10-30T01:28:34-03:00 · Classification: Features (explicit) · Systems: UI, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(minimap): darken the blocked minimap instead of hiding it
+```
+
+#### Original body
+
+```text
+While the Wanderer's Eye blocks the map query (Doc 14), the minimap
+used to vanish entirely, which read as a missing HUD. As a placeholder,
+the frame now stays visible, the markers are hidden and the map fades
+to black at its last position; it fades back when the block ends.
+
+The fade moves a brightness value with unscaled delta time and applies
+it through CanvasRenderer color to the map and its continuation
+batches, cached when the map is configured. Alpha is never changed.
+Duration is serialized on RaidMinimapView (_blockedFadeSeconds, 0.5 s).
+
+Tests:
+- RaidMinimapBlockedFadeTests: frame stays visible, half-way and full
+  fade to black across every map graphic, fade back, no darkening
+  without a block.
+
+Player-Improved: Carrying the Wanderer's Eye now darkens the minimap instead of making it disappear.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidMinimapPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidMinimapView.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapBlockedFadeTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapBlockedFadeTests.cs.meta
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidMinimapPresenter.cs
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidMinimapView.cs
+- path → UI: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapBlockedFadeTests.cs
+- path → UI: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapBlockedFadeTests.cs.meta
+- scope → UI: minimap
+- message-term → UI: minimap
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapBlockedFadeTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapBlockedFadeTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapBlockedFadeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMinimapBlockedFadeTests.cs.meta
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 03e9c696f761789357e50932c8a3548257a82a96
 
