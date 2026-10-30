@@ -4,32 +4,666 @@
 
 Release: Unreleased
 
-385 original commits; 383 canonical entries.
+391 original commits; 389 canonical entries.
 
 ## Canonical classification
 
-200 features; 57 bug fixes; 7 refactoring; 1 architecture & infrastructure; 74 documentation; 23 tests; 5 maintenance; 16 other changes
+203 features; 59 bug fixes; 7 refactoring; 1 architecture & infrastructure; 75 documentation; 23 tests; 5 maintenance; 16 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Abilities | 55 | 5 | 0 | 0 | 16 | 2 |
+| Abilities | 58 | 5 | 0 | 0 | 16 | 2 |
 | Art & Animation | 32 | 9 | 1 | 0 | 4 | 7 |
 | Audio | 8 | 0 | 0 | 0 | 1 | 0 |
-| Build & Tooling | 164 | 33 | 7 | 1 | 17 | 5 |
-| Combat | 75 | 10 | 3 | 0 | 42 | 3 |
-| Documentation | 82 | 29 | 2 | 0 | 28 | 4 |
-| Extraction | 17 | 10 | 1 | 0 | 11 | 2 |
+| Build & Tooling | 167 | 34 | 7 | 1 | 17 | 5 |
+| Combat | 78 | 10 | 3 | 0 | 42 | 3 |
+| Documentation | 85 | 30 | 2 | 0 | 28 | 4 |
+| Extraction | 17 | 12 | 1 | 0 | 11 | 2 |
 | Input | 6 | 1 | 0 | 0 | 0 | 0 |
-| Inventory & Loot | 77 | 25 | 4 | 0 | 17 | 4 |
-| Movement | 23 | 3 | 0 | 0 | 6 | 0 |
-| Networking & Sessions | 57 | 19 | 0 | 0 | 11 | 5 |
-| Persistence & Backend | 25 | 26 | 0 | 0 | 13 | 1 |
-| Tests | 184 | 51 | 7 | 1 | 27 | 6 |
-| UI | 67 | 13 | 3 | 0 | 20 | 6 |
-| Unassigned | 0 | 0 | 0 | 0 | 3 | 0 |
+| Inventory & Loot | 78 | 27 | 4 | 0 | 17 | 4 |
+| Movement | 24 | 3 | 0 | 0 | 6 | 0 |
+| Networking & Sessions | 59 | 20 | 0 | 0 | 11 | 5 |
+| Persistence & Backend | 25 | 28 | 0 | 0 | 13 | 1 |
+| Tests | 187 | 53 | 7 | 1 | 27 | 6 |
+| UI | 68 | 13 | 3 | 0 | 20 | 6 |
+| Unassigned | 0 | 0 | 0 | 0 | 4 | 0 |
 | World & Visibility | 42 | 12 | 1 | 0 | 11 | 5 |
 
 ## Original commit records
+
+### 03e9c696f761789357e50932c8a3548257a82a96
+
+[03e9c696f761789357e50932c8a3548257a82a96](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/03e9c696f761789357e50932c8a3548257a82a96)
+
+Date: 2026-10-30T00:54:37-03:00 · Classification: Documentation (explicit) · Systems: Unassigned
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(odd): record manual raid reservation verification
+```
+
+#### Original body
+
+```text
+
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/odd/tasks/raid-reservation-lifecycle.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+
+#### Diagnostics
+
+- **unassigned-system:** No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system.
+
+### 768c6a7abd5077e18ba08f69fa621b36a5d7a16f
+
+[768c6a7abd5077e18ba08f69fa621b36a5d7a16f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/768c6a7abd5077e18ba08f69fa621b36a5d7a16f)
+
+Date: 2026-10-30T00:46:33-03:00 · Classification: Bug Fixes (explicit) · Systems: Extraction, Inventory & Loot, Networking & Sessions, Persistence & Backend, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(networking): consume raid reservations by participation outcome
+```
+
+#### Original body
+
+```text
+Raid admission now marks the backend reservation as admitted instead of
+deleting it, so the host can publish the extraction result and the
+next raid starts from the real Town Inventory and Equipment.
+
+Outcome wiring:
+- Admission confirmation calls the admit endpoint.
+- Leaving a raid without a local extraction receipt for that raid
+  (return, defeat, abandon, closure, definitive disconnect, failed Host
+  Migration, discarded reconnect ticket) clears the reservation once as
+  a loss. Reconnectable Client disconnects keep it.
+- Recovery after admission never rolls the reservation back.
+- Login: an admitted orphan with no pending extraction commit is
+  discarded locally without restoring items and cleared as a loss; a
+  non-admitted orphan keeps the rollback; a pending extraction commit
+  keeps its retry. A local recovery failure is logged and login
+  continues, as before.
+- 409 EXTRACTION_RESULT_PENDING is only logged.
+
+Tests:
+- RaidReservationLifecycleTests: admitted orphan loss, non-admitted
+  rollback, pending extraction preserved, rejections leave state
+  unchanged.
+
+Docs: LocalPlayerPersistence (backend reservation lifetime),
+Extraction and RemoteIdentityAndAuth reservation requirement.
+
+Refs: odd/tasks/raid-reservation-lifecycle.md T2, T3
+Player-Fixed: Gear equipped in Town now comes with you into the raid, and extracting keeps your loot.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs
+Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+Project Grimhold/Assets/Scripts/Stash/ApplicationStashServiceBootstrapper.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs.meta
+Project Grimhold/Docs/Architecture/ExtractionArchitecture.md
+Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md
+Project Grimhold/odd/tasks/raid-reservation-lifecycle.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Extraction: Project Grimhold/Docs/Architecture/ExtractionArchitecture.md
+- message-term → Extraction: extraction
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+- message-term → Inventory &amp; Loot: Inventory
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+- scope → Networking &amp; Sessions: networking
+- message-term → Networking &amp; Sessions: networking
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+- path → Persistence &amp; Backend: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+- path → Persistence &amp; Backend: Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md
+- message-term → Persistence &amp; Backend: backend
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs.meta
+- path → Documentation: Project Grimhold/Docs/Architecture/ExtractionArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs.meta
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 43eefd2730da2e7e98ddc76a440a7463f92decfe
+
+[43eefd2730da2e7e98ddc76a440a7463f92decfe](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/43eefd2730da2e7e98ddc76a440a7463f92decfe)
+
+Date: 2026-10-30T00:18:35-03:00 · Classification: Bug Fixes (explicit) · Systems: Extraction, Inventory & Loot, Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(backend): keep raid reservations alive until the raid outcome
+```
+
+#### Original body
+
+```text
+Admission now marks the pending reservation as admitted instead of
+deleting it, so a player-hosted extraction publish finds the active
+reservation that bounded host trust requires (63f574df6). Before, the
+client cleared the reservation at admission, every extraction publish
+failed with NO_ACTIVE_RESERVATION, the commit failed with
+NO_AUTHORITATIVE_RESULT and the backend Loadout stayed empty for the
+next raid.
+
+Contract:
+- POST /character/me/inventory/reservation/admit { reservationId }
+  sets admittedAt once; same id is idempotent; missing or different
+  reservation returns 422 NO_ACTIVE_RESERVATION.
+- Reservations serialize admittedAt (ISO string or null).
+- Rollback of an admitted reservation returns 409 RESERVATION_ADMITTED.
+- A loss clear (DELETE without rollback) or a replacement of an
+  admitted reservation returns 409 EXTRACTION_RESULT_PENDING while an
+  unconsumed authoritative result targets the account; otherwise the
+  reserved items are consumed without being returned.
+- A new launch never restores the items of an admitted reservation.
+
+Tests:
+- inventory.lifecycle.test.js: admission, validation, revision guards,
+  loss, rollback rejection, unchanged state on rejection.
+- raid.result / extraction.commit: publish and commit with an admitted
+  reservation.
+- admission.integration: reserve, admit, publish, guarded clear,
+  commit round trip on MongoDB.
+
+Refs: odd/tasks/raid-reservation-lifecycle.md T1
+```
+
+#### Changed paths
+
+```text
+backend/src/models/Character.js
+backend/src/routes/inventory.routes.js
+backend/src/services/InventoryService.js
+backend/src/validators/inventory.validators.js
+backend/tests/extraction.commit.test.js
+backend/tests/integration/admission.integration.test.js
+backend/tests/inventory.lifecycle.test.js
+backend/tests/raid.result.test.js
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Extraction: backend/tests/extraction.commit.test.js
+- message-term → Extraction: extraction
+- path → Inventory &amp; Loot: backend/src/routes/inventory.routes.js
+- path → Inventory &amp; Loot: backend/src/services/InventoryService.js
+- path → Inventory &amp; Loot: backend/src/validators/inventory.validators.js
+- path → Inventory &amp; Loot: backend/tests/inventory.lifecycle.test.js
+- message-term → Inventory &amp; Loot: inventory
+- path → Persistence &amp; Backend: backend/src/models/Character.js
+- path → Persistence &amp; Backend: backend/src/routes/inventory.routes.js
+- path → Persistence &amp; Backend: backend/src/services/InventoryService.js
+- path → Persistence &amp; Backend: backend/src/validators/inventory.validators.js
+- path → Persistence &amp; Backend: backend/tests/extraction.commit.test.js
+- path → Persistence &amp; Backend: backend/tests/integration/admission.integration.test.js
+- path → Persistence &amp; Backend: backend/tests/inventory.lifecycle.test.js
+- path → Persistence &amp; Backend: backend/tests/raid.result.test.js
+- scope → Persistence &amp; Backend: backend
+- message-term → Persistence &amp; Backend: backend
+- path → Tests: backend/tests/extraction.commit.test.js
+- path → Tests: backend/tests/integration/admission.integration.test.js
+- path → Tests: backend/tests/inventory.lifecycle.test.js
+- path → Tests: backend/tests/raid.result.test.js
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### b8f57dcf0fd3013ab4bb3b66b3439af1d000b74c
+
+[b8f57dcf0fd3013ab4bb3b66b3439af1d000b74c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b8f57dcf0fd3013ab4bb3b66b3439af1d000b74c)
+
+Date: 2026-10-29T23:19:33-03:00 · Classification: Features (explicit) · Systems: Combat, Abilities, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(combat): resolve projectile contacts by declared impact contract
+```
+
+#### Original body
+
+```text
+NetworkProjectile now resolves every contact of its tick sweep in
+authoritative spatial order instead of keeping only the nearest hit
+(Doc 18 section 5, TASK-249). Contacts are classified as orb
+interceptor, target or blocker, ordered by distance with a
+deterministic tie-break, deduplicated per subject per event and
+discarded after the terminating contact.
+
+Each projectile prefab declares a re-impact policy (once per target,
+once per continuous contact, periodic pulses), a maximum impact count
+and a pulse interval. Defaults (once per target, 1 impact) keep the
+previous first-contact behavior for every existing prefab. Re-impact
+progress (impact count, next pulse tick, 8-entry ledger) is networked
+flight state. An invalid contract logs an error and the projectile
+despawns without impacts.
+
+An already-consumed orb is now passed through and no longer lets the
+projectile skip a wall or target behind it in the same tick.
+
+Tests:
+- ProjectileContactResolverTests: Doc 18 T15, T16, T17, each policy,
+  impact-count termination, blockers, tie-break, settings validation.
+
+Docs: PlayerCombatArchitecture section 6, AbilitySystemArchitecture
+Arcane flight.
+
+Player-Fixed: Enemy shots can no longer slip through a wall right behind an already-used protective orb.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Combat/IProjectileContactSink.cs
+Project Grimhold/Assets/Scripts/Combat/IProjectileContactSink.cs.meta
+Project Grimhold/Assets/Scripts/Combat/NetworkProjectile.cs
+Project Grimhold/Assets/Scripts/Combat/ProjectileContact.cs
+Project Grimhold/Assets/Scripts/Combat/ProjectileContact.cs.meta
+Project Grimhold/Assets/Scripts/Combat/ProjectileContactKind.cs
+Project Grimhold/Assets/Scripts/Combat/ProjectileContactKind.cs.meta
+Project Grimhold/Assets/Scripts/Combat/ProjectileContactResolution.cs
+Project Grimhold/Assets/Scripts/Combat/ProjectileContactResolution.cs.meta
+Project Grimhold/Assets/Scripts/Combat/ProjectileContactResolver.cs
+Project Grimhold/Assets/Scripts/Combat/ProjectileContactResolver.cs.meta
+Project Grimhold/Assets/Scripts/Combat/ProjectileImpactLedger.cs
+Project Grimhold/Assets/Scripts/Combat/ProjectileImpactLedger.cs.meta
+Project Grimhold/Assets/Scripts/Combat/ProjectileImpactSettings.cs
+Project Grimhold/Assets/Scripts/Combat/ProjectileImpactSettings.cs.meta
+Project Grimhold/Assets/Scripts/Combat/ProjectileReimpactPolicy.cs
+Project Grimhold/Assets/Scripts/Combat/ProjectileReimpactPolicy.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/ProjectileContactResolverTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/ProjectileContactResolverTests.cs.meta
+Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md
+Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/IProjectileContactSink.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/IProjectileContactSink.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/NetworkProjectile.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/ProjectileContact.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/ProjectileContact.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/ProjectileContactKind.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/ProjectileContactKind.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/ProjectileContactResolution.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/ProjectileContactResolution.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/ProjectileContactResolver.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/ProjectileContactResolver.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/ProjectileImpactLedger.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/ProjectileImpactLedger.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/ProjectileImpactSettings.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/ProjectileImpactSettings.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/ProjectileReimpactPolicy.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/ProjectileReimpactPolicy.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/ProjectileContactResolverTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/ProjectileContactResolverTests.cs.meta
+- path → Combat: Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+- scope → Combat: combat
+- message-term → Combat: combat
+- path → Abilities: Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/ProjectileContactResolverTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/ProjectileContactResolverTests.cs.meta
+- path → Documentation: Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/ProjectileContactResolverTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/ProjectileContactResolverTests.cs.meta
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 0a3e1da8ff89e5cc757a0443133fcd980d13aa7e
+
+[0a3e1da8ff89e5cc757a0443133fcd980d13aa7e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0a3e1da8ff89e5cc757a0443133fcd980d13aa7e)
+
+Date: 2026-10-29T19:44:41-03:00 · Classification: Features (explicit) · Systems: Combat, Abilities, Movement, Inventory & Loot, Networking & Sessions, UI, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(combat): align the combat action cycle with Game Design 17
+```
+
+#### Original body
+
+```text
+Sprint, Weapon Set switching, Crossbow reload and action exclusivity
+now follow Game Design 17 sections 4-7 and 9 (TASK-248).
+
+Sprint and attacks:
+- PlayerCombatNetworkController.IsOffensiveStartRequested reports a
+  weapon start the active set can accept this tick, from replicated
+  state only. Movement (-10) ends Sprint on that tick, before combat
+  accepts the attack, so it moves at walking speed and spends no
+  sprint Stamina.
+- Sprint stays suppressed during the Execution Window and any pending
+  release, and resumes automatically if still held.
+
+Crossbow load state (GD 09 section 13):
+- WeaponDefinition gains UsesReload and ReloadSeconds (Reload Time),
+  separate from AttackIntervalSeconds (Shot Interval).
+- WeaponHandAttackState carries a tick-only WeaponReloadState. A
+  committed shot unloads the hand; the authority reloads it once the
+  release resolves, while its set is active, not sprinting, alive,
+  not Downed and combat is enabled. Any other tick discards partial
+  progress, so Sprint, a set switch and Downed restart it from zero.
+  An Unloaded hand is unavailable; a stowed Loaded weapon stays
+  Loaded; reload costs no Stamina.
+- Light Crossbow: provisional 1.3 s reload, so 0.3 s release plus
+  reload keeps the 1.6 s baseline cycle. Pending Balance confirmation.
+- Load identity is template-based until weapon instances exist.
+
+Mutual exclusion (GD 17 section 7.3):
+- Ability starts reject with the new AbilityActivationFailure
+  .AttackInProgress (byte 11, appended) during a weapon Execution
+  Window or pending release, before cooldown, payment or planning.
+  HUD shows "Ataque en curso"; the sandbox describes it.
+- Consumables also reject during the Execution Window.
+- Weapon Set switching remains blocked only during the window, and
+  full Stamina cost is still debited once at acceptance (TASK-222).
+
+Tests:
+- WeaponReloadStateTests (EditMode): deadline, interruption, stowed,
+  zero and invalid timing, definition validation
+- PlayerMovementRulesTests: held Sprint resumes after execution
+- RaidAbilityHudModelTests: AttackInProgress mapping and notification
+- PlayerEquipmentPlayModeTests: Sprint-to-attack tick, reload
+  availability, Sprint and set-switch reload interruption
+- PlayerAbilityRuntimeNetworkControllerPlayModeTests: ability and
+  consumable rejection during a weapon attack
+
+Docs: PlayerCombatArchitecture (combat action cycle),
+PlayerMovementArchitecture section 20.1, AbilitySystemArchitecture.
+
+Validation: affected EditMode suites 101/101; Equipment, Ability,
+Combat and Downed PlayMode fixtures 103/106, with the 3 failures
+reproducing identically without this change. Real Host/Client and
+Host Migration remain unverified.
+
+Refs: TASK-248
+Player-Added: The crossbow now has to reload after each shot; sprinting or switching weapon sets interrupts the reload and it starts over.
+Player-Improved: Attacking while sprinting now stops the sprint and attacks instantly, and sprint picks up again on its own if you keep holding it.
+Player-Improved: Abilities can no longer be cast in the middle of a weapon attack; the HUD tells you an attack is in progress.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LightCrossbowWeaponDefinition.asset
+Project Grimhold/Assets/Scripts/Abilities/Runtime/AbilityActivationFailure.cs
+Project Grimhold/Assets/Scripts/Abilities/Runtime/PlayerAbilityRuntimeNetworkController.cs
+Project Grimhold/Assets/Scripts/Combat/WeaponDefinition.cs
+Project Grimhold/Assets/Scripts/Combat/WeaponHandAttackState.cs
+Project Grimhold/Assets/Scripts/Combat/WeaponReloadState.cs
+Project Grimhold/Assets/Scripts/Combat/WeaponReloadState.cs.meta
+Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidAbilityHudModel.cs
+Project Grimhold/Assets/Scripts/Sandbox/SandboxRuleBypass.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponReloadStateTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponReloadStateTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/Movement/PlayerMovementRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidAbilityHudModelTests.cs
+Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/PlayerEquipmentPlayModeTests.cs
+Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md
+Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+Project Grimhold/Docs/Architecture/PlayerMovementArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LightCrossbowWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/WeaponDefinition.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/WeaponHandAttackState.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/WeaponReloadState.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/WeaponReloadState.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponReloadStateTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponReloadStateTests.cs.meta
+- path → Combat: Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+- scope → Combat: combat
+- message-term → Combat: combat
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Runtime/AbilityActivationFailure.cs
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Runtime/PlayerAbilityRuntimeNetworkController.cs
+- path → Abilities: Project Grimhold/Assets/Scripts/Player/Presentation/RaidAbilityHudModel.cs
+- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidAbilityHudModelTests.cs
+- path → Abilities: Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs
+- path → Abilities: Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md
+- message-term → Abilities: Ability
+- path → Movement: Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs
+- path → Movement: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Movement/PlayerMovementRulesTests.cs
+- path → Movement: Project Grimhold/Docs/Architecture/PlayerMovementArchitecture.md
+- message-term → Movement: Movement
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LightCrossbowWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/PlayerEquipmentPlayModeTests.cs
+- message-term → Inventory &amp; Loot: Equipment
+- message-term → Networking &amp; Sessions: Host Migration
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidAbilityHudModel.cs
+- path → UI: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidAbilityHudModelTests.cs
+- message-term → UI: HUD
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponReloadStateTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponReloadStateTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Movement/PlayerMovementRulesTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidAbilityHudModelTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/PlayerMovementArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponReloadStateTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponReloadStateTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Movement/PlayerMovementRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidAbilityHudModelTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayerEquipmentPlayModeTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 984c7706c15487624934adfc971208fbddbfa869
+
+[984c7706c15487624934adfc971208fbddbfa869](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/984c7706c15487624934adfc971208fbddbfa869)
+
+Date: 2026-10-29T19:00:52-03:00 · Classification: Features (explicit) · Systems: Combat, Abilities, Networking & Sessions, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(combat): award PvP Last Hit and Assist credit per Downed cycle
+```
+
+#### Original body
+
+```text
+Enemy players now produce PvP Experience through the Downed cycle
+(GD 19 sections 4-6, 14; TASK-246). The victim's new
+PlayerPvpCombatCreditNetworkController freezes one provisional Last Hit
+and its Assists on Active -> Downed, confirms them once when that same
+cycle ends in definitive Defeat (drain, reserve damage, absence or
+collapse) and cancels them on revive. PlayerDownedStateNetworkController
+notifies it synchronously through the new IDownedCycleObserver.
+
+Attribution rules:
+- Last Hit goes to the resolvable player source of the downing hit, only
+  against an initial enemy; unresolved affiliation fails closed.
+  Creatures and environment produce no credit.
+- Hits on a Downed target, including the downing hit, never record
+  contributions, so finishers cannot steal or open credit.
+- Contributions stay window-based across cycles; only credits reset.
+- Assist candidates are initial teammates of the Last Hit with effective
+  in-window damage, effective Restoration support on the Last Hit or a
+  damage contributor, or an empowered basic attack (credited to the
+  Empower caster, PvP targets only; PvE assists unchanged).
+- _maxAssistsPerTarget defaults to 1 (GD 05 section 19 table); 0 keeps
+  every eligible teammate (GD 19 section 6.2). Pending design decision.
+  With a limit, the latest contribution wins; ties go to the lowest
+  RaidParticipantId.
+
+Rewards: base PvP Experience 25 on NetworkPlayer.prefab, PvpKill at
+base and PvpAssist at floor(base / 2) = 12, ledger-before-consumption
+with a 1 s retry; non-Raiding recipients get no new XP.
+
+Contracts to review:
+- DamageRequest gains an optional EmpowerSourceId; melee and ranged
+  basic attacks (RangedAttackRelease, FusionProjectileSpawner,
+  NetworkProjectile) carry it; abilities never do.
+- EmpowerNetworkEffect replicates its source participant.
+- CombatContributionTracker stores the latest contribution kind per
+  participant packed in one word, and now unregisters as an isolated
+  capability so it never clears co-located collider mappings (fixes
+  projectiles hitting their despawning caster).
+- NetworkPlayer.prefab composes CombatContributionTracker and the
+  credit controller; all new state is [Networked] with restore guards.
+
+Tests:
+- PvpCombatCreditPlayModeTests (34): T02-01..07, T03-01, 03-07, limit
+  and tie-break, Empower, terminal sources, retry and state copy
+- MeleeAttackTests, RangedAttackReleaseTests: Empower source forwarding
+- KillExperiencePrefabTests: player composes the PvP producer
+
+Docs: DownedAndReviveArchitecture section 11, ProgressionArchitecture.
+
+Validation: full EditMode and PlayMode suites show no new failures
+against a baseline without this change (23 EditMode and 38 PlayMode
+failures reproduce identically). Real Host/Client and Host Migration
+remain unverified.
+
+Player-Added: Downing an enemy player now earns experience once they are finally defeated, and a teammate who helped earns assist experience; reviving the enemy cancels both.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab
+Project Grimhold/Assets/Scripts/Abilities/Behaviours/EmpowerAbilityBehaviour.cs
+Project Grimhold/Assets/Scripts/Abilities/Behaviours/RestorationAbilityBehaviour.cs
+Project Grimhold/Assets/Scripts/Abilities/Effects/EmpowerNetworkEffect.cs
+Project Grimhold/Assets/Scripts/Combat/CombatContributionKind.cs
+Project Grimhold/Assets/Scripts/Combat/CombatContributionKind.cs.meta
+Project Grimhold/Assets/Scripts/Combat/CombatContributionTracker.cs
+Project Grimhold/Assets/Scripts/Combat/DamageResolver.cs
+Project Grimhold/Assets/Scripts/Combat/EntityRegistry.cs
+Project Grimhold/Assets/Scripts/Combat/FusionProjectileSpawner.cs
+Project Grimhold/Assets/Scripts/Combat/MeleeAttack.cs
+Project Grimhold/Assets/Scripts/Combat/NetworkProjectile.cs
+Project Grimhold/Assets/Scripts/Combat/RangedAttackRelease.cs
+Project Grimhold/Assets/Scripts/Core/DamageRequest.cs
+Project Grimhold/Assets/Scripts/Core/ICombatContributionTracker.cs
+Project Grimhold/Assets/Scripts/Core/IDownedCycleObserver.cs
+Project Grimhold/Assets/Scripts/Core/IDownedCycleObserver.cs.meta
+Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs
+Project Grimhold/Assets/Scripts/Player/PlayerDownedStateNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/PlayerPvpCombatCreditNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/PlayerPvpCombatCreditNetworkController.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeAttackTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/RangedAttackReleaseTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Progression/KillExperiencePrefabTests.cs
+Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs.meta
+Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md
+Project Grimhold/Docs/Architecture/ProgressionArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/CombatContributionKind.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/CombatContributionKind.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/CombatContributionTracker.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/DamageResolver.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/EntityRegistry.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/FusionProjectileSpawner.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/MeleeAttack.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/NetworkProjectile.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/RangedAttackRelease.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Core/DamageRequest.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/PlayerPvpCombatCreditNetworkController.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/PlayerPvpCombatCreditNetworkController.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeAttackTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/RangedAttackReleaseTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs.meta
+- scope → Combat: combat
+- message-term → Combat: combat
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Behaviours/EmpowerAbilityBehaviour.cs
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Behaviours/RestorationAbilityBehaviour.cs
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Effects/EmpowerNetworkEffect.cs
+- message-term → Abilities: abilities
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Combat/FusionProjectileSpawner.cs
+- message-term → Networking &amp; Sessions: Host Migration
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeAttackTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/RangedAttackReleaseTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/KillExperiencePrefabTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/ProgressionArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeAttackTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/RangedAttackReleaseTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/KillExperiencePrefabTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs.meta
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 64e1de20a00c55c6ff42c323b9335b90ca387bea
 

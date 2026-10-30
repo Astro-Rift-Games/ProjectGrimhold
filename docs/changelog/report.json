@@ -1,73 +1,73 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 861,
-  "canonicalEntries": 858,
+  "rawCommits": 867,
+  "canonicalEntries": 864,
   "before": {
-    "Features": 311,
+    "Documentation": 75,
+    "Bug Fixes": 77,
+    "Features": 314,
     "Refactoring": 13,
-    "Bug Fixes": 75,
     "Architecture & Infrastructure": 12,
     "Other Changes": 352,
-    "Documentation": 74,
     "Tests": 24
   },
   "after": {
-    "Features": 448,
+    "Documentation": 90,
+    "Bug Fixes": 93,
+    "Features": 451,
     "Refactoring": 26,
-    "Bug Fixes": 91,
     "Maintenance": 11,
     "Other Changes": 162,
-    "Documentation": 89,
     "Tests": 29,
     "Architecture & Infrastructure": 5
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Build & Tooling": 427,
-    "Tests": 506,
-    "Documentation": 331,
-    "Combat": 306,
-    "Inventory & Loot": 309,
-    "Networking & Sessions": 250,
+    "Unassigned": 18,
+    "Extraction": 119,
+    "Inventory & Loot": 312,
+    "Networking & Sessions": 253,
+    "Persistence & Backend": 182,
+    "Build & Tooling": 431,
+    "Documentation": 335,
+    "Tests": 511,
+    "Combat": 309,
+    "Abilities": 103,
+    "Movement": 87,
+    "UI": 263,
     "World & Visibility": 108,
-    "UI": 262,
-    "Persistence & Backend": 180,
-    "Abilities": 100,
-    "Movement": 86,
-    "Extraction": 117,
     "Input": 27,
     "Art & Animation": 203,
-    "Audio": 28,
-    "Unassigned": 17
+    "Audio": 28
   },
   "canonical": {
     "sections": {
-      "Features": 447,
+      "Documentation": 90,
+      "Bug Fixes": 92,
+      "Features": 450,
       "Refactoring": 26,
-      "Bug Fixes": 90,
       "Maintenance": 11,
       "Other Changes": 161,
-      "Documentation": 89,
       "Tests": 29,
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "Build & Tooling": 425,
-      "Tests": 504,
-      "Documentation": 329,
-      "Combat": 304,
-      "Inventory & Loot": 309,
-      "Networking & Sessions": 250,
+      "Unassigned": 18,
+      "Extraction": 119,
+      "Inventory & Loot": 312,
+      "Networking & Sessions": 253,
+      "Persistence & Backend": 182,
+      "Build & Tooling": 429,
+      "Documentation": 333,
+      "Tests": 509,
+      "Combat": 307,
+      "Abilities": 101,
+      "Movement": 87,
+      "UI": 262,
       "World & Visibility": 106,
-      "UI": 261,
-      "Persistence & Backend": 180,
-      "Abilities": 98,
-      "Movement": 86,
-      "Extraction": 117,
       "Input": 27,
       "Art & Animation": 200,
-      "Audio": 28,
-      "Unassigned": 17
+      "Audio": 28
     }
   },
   "unknownEntries": [
@@ -34029,8 +34029,8 @@
       "title": "2026-10 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 385,
-      "canonicalEntries": 383
+      "originalCommits": 391,
+      "canonicalEntries": 389
     },
     {
       "key": "history-2026-09",
@@ -34058,6 +34058,1076 @@
     }
   ],
   "commits": [
+    {
+      "sha": "03e9c696f761789357e50932c8a3548257a82a96",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/03e9c696f761789357e50932c8a3548257a82a96",
+      "subject": "docs(odd): record manual raid reservation verification",
+      "body": "",
+      "date": "2026-10-30T00:54:37-03:00",
+      "files": [
+        "Project Grimhold/odd/tasks/raid-reservation-lifecycle.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "odd",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "unassigned-system",
+          "message": "No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system."
+        }
+      ],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "768c6a7abd5077e18ba08f69fa621b36a5d7a16f",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/768c6a7abd5077e18ba08f69fa621b36a5d7a16f",
+      "subject": "fix(networking): consume raid reservations by participation outcome",
+      "body": "Raid admission now marks the backend reservation as admitted instead of\ndeleting it, so the host can publish the extraction result and the\nnext raid starts from the real Town Inventory and Equipment.\n\nOutcome wiring:\n- Admission confirmation calls the admit endpoint.\n- Leaving a raid without a local extraction receipt for that raid\n  (return, defeat, abandon, closure, definitive disconnect, failed Host\n  Migration, discarded reconnect ticket) clears the reservation once as\n  a loss. Reconnectable Client disconnects keep it.\n- Recovery after admission never rolls the reservation back.\n- Login: an admitted orphan with no pending extraction commit is\n  discarded locally without restoring items and cleared as a loss; a\n  non-admitted orphan keeps the rollback; a pending extraction commit\n  keeps its retry. A local recovery failure is logged and login\n  continues, as before.\n- 409 EXTRACTION_RESULT_PENDING is only logged.\n\nTests:\n- RaidReservationLifecycleTests: admitted orphan loss, non-admitted\n  rollback, pending extraction preserved, rejections leave state\n  unchanged.\n\nDocs: LocalPlayerPersistence (backend reservation lifetime),\nExtraction and RemoteIdentityAndAuth reservation requirement.\n\nRefs: odd/tasks/raid-reservation-lifecycle.md T2, T3\nPlayer-Fixed: Gear equipped in Town now comes with you into the raid, and extracting keeps your loot.\n",
+      "date": "2026-10-30T00:46:33-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+        "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+        "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+        "Project Grimhold/Assets/Scripts/Stash/ApplicationStashServiceBootstrapper.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+        "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs.meta",
+        "Project Grimhold/Docs/Architecture/ExtractionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md",
+        "Project Grimhold/odd/tasks/raid-reservation-lifecycle.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "networking",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ExtractionArchitecture.md",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "Inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "scope",
+          "value": "networking",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "networking",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ExtractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "43eefd2730da2e7e98ddc76a440a7463f92decfe",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/43eefd2730da2e7e98ddc76a440a7463f92decfe",
+      "subject": "fix(backend): keep raid reservations alive until the raid outcome",
+      "body": "Admission now marks the pending reservation as admitted instead of\ndeleting it, so a player-hosted extraction publish finds the active\nreservation that bounded host trust requires (63f574df6). Before, the\nclient cleared the reservation at admission, every extraction publish\nfailed with NO_ACTIVE_RESERVATION, the commit failed with\nNO_AUTHORITATIVE_RESULT and the backend Loadout stayed empty for the\nnext raid.\n\nContract:\n- POST /character/me/inventory/reservation/admit { reservationId }\n  sets admittedAt once; same id is idempotent; missing or different\n  reservation returns 422 NO_ACTIVE_RESERVATION.\n- Reservations serialize admittedAt (ISO string or null).\n- Rollback of an admitted reservation returns 409 RESERVATION_ADMITTED.\n- A loss clear (DELETE without rollback) or a replacement of an\n  admitted reservation returns 409 EXTRACTION_RESULT_PENDING while an\n  unconsumed authoritative result targets the account; otherwise the\n  reserved items are consumed without being returned.\n- A new launch never restores the items of an admitted reservation.\n\nTests:\n- inventory.lifecycle.test.js: admission, validation, revision guards,\n  loss, rollback rejection, unchanged state on rejection.\n- raid.result / extraction.commit: publish and commit with an admitted\n  reservation.\n- admission.integration: reserve, admit, publish, guarded clear,\n  commit round trip on MongoDB.\n\nRefs: odd/tasks/raid-reservation-lifecycle.md T1\n",
+      "date": "2026-10-30T00:18:35-03:00",
+      "files": [
+        "backend/src/models/Character.js",
+        "backend/src/routes/inventory.routes.js",
+        "backend/src/services/InventoryService.js",
+        "backend/src/validators/inventory.validators.js",
+        "backend/tests/extraction.commit.test.js",
+        "backend/tests/integration/admission.integration.test.js",
+        "backend/tests/inventory.lifecycle.test.js",
+        "backend/tests/raid.result.test.js"
+      ],
+      "originalType": "fix",
+      "originalScope": "backend",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/extraction.commit.test.js",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/inventory.routes.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/validators/inventory.validators.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.lifecycle.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/models/Character.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/inventory.routes.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/validators/inventory.validators.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/extraction.commit.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/admission.integration.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.lifecycle.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/raid.result.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "scope",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/extraction.commit.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/admission.integration.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.lifecycle.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/raid.result.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "b8f57dcf0fd3013ab4bb3b66b3439af1d000b74c",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b8f57dcf0fd3013ab4bb3b66b3439af1d000b74c",
+      "subject": "feat(combat): resolve projectile contacts by declared impact contract",
+      "body": "NetworkProjectile now resolves every contact of its tick sweep in\nauthoritative spatial order instead of keeping only the nearest hit\n(Doc 18 section 5, TASK-249). Contacts are classified as orb\ninterceptor, target or blocker, ordered by distance with a\ndeterministic tie-break, deduplicated per subject per event and\ndiscarded after the terminating contact.\n\nEach projectile prefab declares a re-impact policy (once per target,\nonce per continuous contact, periodic pulses), a maximum impact count\nand a pulse interval. Defaults (once per target, 1 impact) keep the\nprevious first-contact behavior for every existing prefab. Re-impact\nprogress (impact count, next pulse tick, 8-entry ledger) is networked\nflight state. An invalid contract logs an error and the projectile\ndespawns without impacts.\n\nAn already-consumed orb is now passed through and no longer lets the\nprojectile skip a wall or target behind it in the same tick.\n\nTests:\n- ProjectileContactResolverTests: Doc 18 T15, T16, T17, each policy,\n  impact-count termination, blockers, tie-break, settings validation.\n\nDocs: PlayerCombatArchitecture section 6, AbilitySystemArchitecture\nArcane flight.\n\nPlayer-Fixed: Enemy shots can no longer slip through a wall right behind an already-used protective orb.\n",
+      "date": "2026-10-29T23:19:33-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Combat/IProjectileContactSink.cs",
+        "Project Grimhold/Assets/Scripts/Combat/IProjectileContactSink.cs.meta",
+        "Project Grimhold/Assets/Scripts/Combat/NetworkProjectile.cs",
+        "Project Grimhold/Assets/Scripts/Combat/ProjectileContact.cs",
+        "Project Grimhold/Assets/Scripts/Combat/ProjectileContact.cs.meta",
+        "Project Grimhold/Assets/Scripts/Combat/ProjectileContactKind.cs",
+        "Project Grimhold/Assets/Scripts/Combat/ProjectileContactKind.cs.meta",
+        "Project Grimhold/Assets/Scripts/Combat/ProjectileContactResolution.cs",
+        "Project Grimhold/Assets/Scripts/Combat/ProjectileContactResolution.cs.meta",
+        "Project Grimhold/Assets/Scripts/Combat/ProjectileContactResolver.cs",
+        "Project Grimhold/Assets/Scripts/Combat/ProjectileContactResolver.cs.meta",
+        "Project Grimhold/Assets/Scripts/Combat/ProjectileImpactLedger.cs",
+        "Project Grimhold/Assets/Scripts/Combat/ProjectileImpactLedger.cs.meta",
+        "Project Grimhold/Assets/Scripts/Combat/ProjectileImpactSettings.cs",
+        "Project Grimhold/Assets/Scripts/Combat/ProjectileImpactSettings.cs.meta",
+        "Project Grimhold/Assets/Scripts/Combat/ProjectileReimpactPolicy.cs",
+        "Project Grimhold/Assets/Scripts/Combat/ProjectileReimpactPolicy.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/ProjectileContactResolverTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/ProjectileContactResolverTests.cs.meta",
+        "Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md",
+        "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "combat",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Abilities",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/IProjectileContactSink.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/IProjectileContactSink.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/NetworkProjectile.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/ProjectileContact.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/ProjectileContact.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/ProjectileContactKind.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/ProjectileContactKind.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/ProjectileContactResolution.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/ProjectileContactResolution.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/ProjectileContactResolver.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/ProjectileContactResolver.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/ProjectileImpactLedger.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/ProjectileImpactLedger.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/ProjectileImpactSettings.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/ProjectileImpactSettings.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/ProjectileReimpactPolicy.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/ProjectileReimpactPolicy.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/ProjectileContactResolverTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/ProjectileContactResolverTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Combat"
+        },
+        {
+          "source": "scope",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/ProjectileContactResolverTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/ProjectileContactResolverTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/ProjectileContactResolverTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/ProjectileContactResolverTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "0a3e1da8ff89e5cc757a0443133fcd980d13aa7e",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0a3e1da8ff89e5cc757a0443133fcd980d13aa7e",
+      "subject": "feat(combat): align the combat action cycle with Game Design 17",
+      "body": "Sprint, Weapon Set switching, Crossbow reload and action exclusivity\nnow follow Game Design 17 sections 4-7 and 9 (TASK-248).\n\nSprint and attacks:\n- PlayerCombatNetworkController.IsOffensiveStartRequested reports a\n  weapon start the active set can accept this tick, from replicated\n  state only. Movement (-10) ends Sprint on that tick, before combat\n  accepts the attack, so it moves at walking speed and spends no\n  sprint Stamina.\n- Sprint stays suppressed during the Execution Window and any pending\n  release, and resumes automatically if still held.\n\nCrossbow load state (GD 09 section 13):\n- WeaponDefinition gains UsesReload and ReloadSeconds (Reload Time),\n  separate from AttackIntervalSeconds (Shot Interval).\n- WeaponHandAttackState carries a tick-only WeaponReloadState. A\n  committed shot unloads the hand; the authority reloads it once the\n  release resolves, while its set is active, not sprinting, alive,\n  not Downed and combat is enabled. Any other tick discards partial\n  progress, so Sprint, a set switch and Downed restart it from zero.\n  An Unloaded hand is unavailable; a stowed Loaded weapon stays\n  Loaded; reload costs no Stamina.\n- Light Crossbow: provisional 1.3 s reload, so 0.3 s release plus\n  reload keeps the 1.6 s baseline cycle. Pending Balance confirmation.\n- Load identity is template-based until weapon instances exist.\n\nMutual exclusion (GD 17 section 7.3):\n- Ability starts reject with the new AbilityActivationFailure\n  .AttackInProgress (byte 11, appended) during a weapon Execution\n  Window or pending release, before cooldown, payment or planning.\n  HUD shows \"Ataque en curso\"; the sandbox describes it.\n- Consumables also reject during the Execution Window.\n- Weapon Set switching remains blocked only during the window, and\n  full Stamina cost is still debited once at acceptance (TASK-222).\n\nTests:\n- WeaponReloadStateTests (EditMode): deadline, interruption, stowed,\n  zero and invalid timing, definition validation\n- PlayerMovementRulesTests: held Sprint resumes after execution\n- RaidAbilityHudModelTests: AttackInProgress mapping and notification\n- PlayerEquipmentPlayModeTests: Sprint-to-attack tick, reload\n  availability, Sprint and set-switch reload interruption\n- PlayerAbilityRuntimeNetworkControllerPlayModeTests: ability and\n  consumable rejection during a weapon attack\n\nDocs: PlayerCombatArchitecture (combat action cycle),\nPlayerMovementArchitecture section 20.1, AbilitySystemArchitecture.\n\nValidation: affected EditMode suites 101/101; Equipment, Ability,\nCombat and Downed PlayMode fixtures 103/106, with the 3 failures\nreproducing identically without this change. Real Host/Client and\nHost Migration remain unverified.\n\nRefs: TASK-248\nPlayer-Added: The crossbow now has to reload after each shot; sprinting or switching weapon sets interrupts the reload and it starts over.\nPlayer-Improved: Attacking while sprinting now stops the sprint and attacks instantly, and sprint picks up again on its own if you keep holding it.\nPlayer-Improved: Abilities can no longer be cast in the middle of a weapon attack; the HUD tells you an attack is in progress.\n",
+      "date": "2026-10-29T19:44:41-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LightCrossbowWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scripts/Abilities/Runtime/AbilityActivationFailure.cs",
+        "Project Grimhold/Assets/Scripts/Abilities/Runtime/PlayerAbilityRuntimeNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Combat/WeaponDefinition.cs",
+        "Project Grimhold/Assets/Scripts/Combat/WeaponHandAttackState.cs",
+        "Project Grimhold/Assets/Scripts/Combat/WeaponReloadState.cs",
+        "Project Grimhold/Assets/Scripts/Combat/WeaponReloadState.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidAbilityHudModel.cs",
+        "Project Grimhold/Assets/Scripts/Sandbox/SandboxRuleBypass.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponReloadStateTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponReloadStateTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Movement/PlayerMovementRulesTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidAbilityHudModelTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/PlayerEquipmentPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md",
+        "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+        "Project Grimhold/Docs/Architecture/PlayerMovementArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "combat",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Abilities",
+        "Movement",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LightCrossbowWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/WeaponDefinition.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/WeaponHandAttackState.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/WeaponReloadState.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/WeaponReloadState.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponReloadStateTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponReloadStateTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Combat"
+        },
+        {
+          "source": "scope",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Runtime/AbilityActivationFailure.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Runtime/PlayerAbilityRuntimeNetworkController.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidAbilityHudModel.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidAbilityHudModelTests.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "message-term",
+          "value": "Ability",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs",
+          "supports": "Movement"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Movement/PlayerMovementRulesTests.cs",
+          "supports": "Movement"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerMovementArchitecture.md",
+          "supports": "Movement"
+        },
+        {
+          "source": "message-term",
+          "value": "Movement",
+          "supports": "Movement"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LightCrossbowWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerEquipmentPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "Equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "Host Migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidAbilityHudModel.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidAbilityHudModelTests.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "HUD",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponReloadStateTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponReloadStateTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Movement/PlayerMovementRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidAbilityHudModelTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerMovementArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponReloadStateTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponReloadStateTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Movement/PlayerMovementRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidAbilityHudModelTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerEquipmentPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "984c7706c15487624934adfc971208fbddbfa869",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/984c7706c15487624934adfc971208fbddbfa869",
+      "subject": "feat(combat): award PvP Last Hit and Assist credit per Downed cycle",
+      "body": "Enemy players now produce PvP Experience through the Downed cycle\n(GD 19 sections 4-6, 14; TASK-246). The victim's new\nPlayerPvpCombatCreditNetworkController freezes one provisional Last Hit\nand its Assists on Active -> Downed, confirms them once when that same\ncycle ends in definitive Defeat (drain, reserve damage, absence or\ncollapse) and cancels them on revive. PlayerDownedStateNetworkController\nnotifies it synchronously through the new IDownedCycleObserver.\n\nAttribution rules:\n- Last Hit goes to the resolvable player source of the downing hit, only\n  against an initial enemy; unresolved affiliation fails closed.\n  Creatures and environment produce no credit.\n- Hits on a Downed target, including the downing hit, never record\n  contributions, so finishers cannot steal or open credit.\n- Contributions stay window-based across cycles; only credits reset.\n- Assist candidates are initial teammates of the Last Hit with effective\n  in-window damage, effective Restoration support on the Last Hit or a\n  damage contributor, or an empowered basic attack (credited to the\n  Empower caster, PvP targets only; PvE assists unchanged).\n- _maxAssistsPerTarget defaults to 1 (GD 05 section 19 table); 0 keeps\n  every eligible teammate (GD 19 section 6.2). Pending design decision.\n  With a limit, the latest contribution wins; ties go to the lowest\n  RaidParticipantId.\n\nRewards: base PvP Experience 25 on NetworkPlayer.prefab, PvpKill at\nbase and PvpAssist at floor(base / 2) = 12, ledger-before-consumption\nwith a 1 s retry; non-Raiding recipients get no new XP.\n\nContracts to review:\n- DamageRequest gains an optional EmpowerSourceId; melee and ranged\n  basic attacks (RangedAttackRelease, FusionProjectileSpawner,\n  NetworkProjectile) carry it; abilities never do.\n- EmpowerNetworkEffect replicates its source participant.\n- CombatContributionTracker stores the latest contribution kind per\n  participant packed in one word, and now unregisters as an isolated\n  capability so it never clears co-located collider mappings (fixes\n  projectiles hitting their despawning caster).\n- NetworkPlayer.prefab composes CombatContributionTracker and the\n  credit controller; all new state is [Networked] with restore guards.\n\nTests:\n- PvpCombatCreditPlayModeTests (34): T02-01..07, T03-01, 03-07, limit\n  and tie-break, Empower, terminal sources, retry and state copy\n- MeleeAttackTests, RangedAttackReleaseTests: Empower source forwarding\n- KillExperiencePrefabTests: player composes the PvP producer\n\nDocs: DownedAndReviveArchitecture section 11, ProgressionArchitecture.\n\nValidation: full EditMode and PlayMode suites show no new failures\nagainst a baseline without this change (23 EditMode and 38 PlayMode\nfailures reproduce identically). Real Host/Client and Host Migration\nremain unverified.\n\nPlayer-Added: Downing an enemy player now earns experience once they are finally defeated, and a teammate who helped earns assist experience; reviving the enemy cancels both.\n",
+      "date": "2026-10-29T19:00:52-03:00",
+      "files": [
+        "Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab",
+        "Project Grimhold/Assets/Scripts/Abilities/Behaviours/EmpowerAbilityBehaviour.cs",
+        "Project Grimhold/Assets/Scripts/Abilities/Behaviours/RestorationAbilityBehaviour.cs",
+        "Project Grimhold/Assets/Scripts/Abilities/Effects/EmpowerNetworkEffect.cs",
+        "Project Grimhold/Assets/Scripts/Combat/CombatContributionKind.cs",
+        "Project Grimhold/Assets/Scripts/Combat/CombatContributionKind.cs.meta",
+        "Project Grimhold/Assets/Scripts/Combat/CombatContributionTracker.cs",
+        "Project Grimhold/Assets/Scripts/Combat/DamageResolver.cs",
+        "Project Grimhold/Assets/Scripts/Combat/EntityRegistry.cs",
+        "Project Grimhold/Assets/Scripts/Combat/FusionProjectileSpawner.cs",
+        "Project Grimhold/Assets/Scripts/Combat/MeleeAttack.cs",
+        "Project Grimhold/Assets/Scripts/Combat/NetworkProjectile.cs",
+        "Project Grimhold/Assets/Scripts/Combat/RangedAttackRelease.cs",
+        "Project Grimhold/Assets/Scripts/Core/DamageRequest.cs",
+        "Project Grimhold/Assets/Scripts/Core/ICombatContributionTracker.cs",
+        "Project Grimhold/Assets/Scripts/Core/IDownedCycleObserver.cs",
+        "Project Grimhold/Assets/Scripts/Core/IDownedCycleObserver.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerDownedStateNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerPvpCombatCreditNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerPvpCombatCreditNetworkController.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeAttackTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/RangedAttackReleaseTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/KillExperiencePrefabTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs.meta",
+        "Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md",
+        "Project Grimhold/Docs/Architecture/ProgressionArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "combat",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Abilities",
+        "Networking & Sessions",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/CombatContributionKind.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/CombatContributionKind.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/CombatContributionTracker.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/DamageResolver.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/EntityRegistry.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/FusionProjectileSpawner.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/MeleeAttack.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/NetworkProjectile.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/RangedAttackRelease.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Core/DamageRequest.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/PlayerPvpCombatCreditNetworkController.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/PlayerPvpCombatCreditNetworkController.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeAttackTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/RangedAttackReleaseTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "scope",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Behaviours/EmpowerAbilityBehaviour.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Behaviours/RestorationAbilityBehaviour.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Effects/EmpowerNetworkEffect.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "message-term",
+          "value": "abilities",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/FusionProjectileSpawner.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "Host Migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeAttackTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/RangedAttackReleaseTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/KillExperiencePrefabTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ProgressionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeAttackTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/RangedAttackReleaseTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/KillExperiencePrefabTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "64e1de20a00c55c6ff42c323b9335b90ca387bea",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/64e1de20a00c55c6ff42c323b9335b90ca387bea",
