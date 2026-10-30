@@ -15,7 +15,12 @@ public sealed class CombatContributionTracker : NetworkBehaviour, ICombatContrib
     [Networked, Capacity(RaidSessionRules.MaxParticipants)]
     private NetworkArray<int> _contributionTicks { get; }
 
+    // Two bits per participant (16 x 2 = 32): one word instead of a word per participant.
+    [Networked]
+    private int ContributionKindBits { get; set; }
+
     private int _assistWindowTicks;
+    public int AssistWindowTicks => _assistWindowTicks;
     private EntityRegistry _registry;
     private EntityId _registeredId;
     private bool _isRegistered;
@@ -34,6 +39,8 @@ public sealed class CombatContributionTracker : NetworkBehaviour, ICombatContrib
             {
                 _contributionTicks.Set(i, 0);
             }
+
+            ContributionKindBits = 0;
         }
 
         _registry = Runner != null ? Runner.GetComponent<EntityRegistry>() : null;
@@ -58,15 +65,18 @@ public sealed class CombatContributionTracker : NetworkBehaviour, ICombatContrib
         UnregisterTracker();
     }
 
-    public void TryRecordContribution(RaidParticipantId contributor, int simulationTick)
+    public void TryRecordContribution(RaidParticipantId contributor, int simulationTick,
+        CombatContributionKind kind = CombatContributionKind.Damage)
     {
-        if (!HasStateAuthority || !contributor.IsValid)
+        if (!HasStateAuthority || !contributor.IsValid ||
+            (kind != CombatContributionKind.Damage && kind != CombatContributionKind.Healing && kind != CombatContributionKind.Empower))
         {
             return;
         }
 
         int index = contributor.Value - 1;
         _contributionTicks.Set(index, simulationTick);
+        ContributionKindBits = WriteKind(ContributionKindBits, index, kind);
     }
 
     public void GetValidContributors(int currentTick, HashSet<RaidParticipantId> contributors)
@@ -89,6 +99,25 @@ public sealed class CombatContributionTracker : NetworkBehaviour, ICombatContrib
             }
         }
     }
+
+    public bool TryGetLatestContribution(RaidParticipantId contributor, out int simulationTick, out CombatContributionKind kind)
+    {
+        simulationTick = 0;
+        kind = CombatContributionKind.None;
+        if (Object == null || !Object.IsValid || !contributor.IsValid) return false;
+        simulationTick = _contributionTicks.Get(contributor.Value - 1);
+        kind = ReadKind(ContributionKindBits, contributor.Value - 1);
+        return simulationTick > 0 && kind != CombatContributionKind.None;
+    }
+
+    internal static int WriteKind(int bits, int index, CombatContributionKind kind)
+    {
+        int shift = index * 2;
+        return (bits & ~(0b11 << shift)) | (((int)kind & 0b11) << shift);
+    }
+
+    internal static CombatContributionKind ReadKind(int bits, int index) =>
+        (CombatContributionKind)((bits >> (index * 2)) & 0b11);
 
     private void UnregisterTracker()
     {

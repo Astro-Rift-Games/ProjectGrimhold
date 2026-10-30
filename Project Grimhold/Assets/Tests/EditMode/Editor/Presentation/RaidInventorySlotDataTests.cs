@@ -80,6 +80,99 @@ namespace Tests.EditMode.Presentation
             Assert.That(RaidInventorySlotData.Empty.IsOccupied, Is.False);
         }
 
+        [Test]
+        public void InventorySlot_CopiesSelectedQuantityOriginAddressAndRevisionThroughRename()
+        {
+            Assert.That(RaidParticipantId.TryCreate(2, out RaidParticipantId participant), Is.True);
+            Assert.That(RaidLootOrigin.TryCreatePlayer(participant, out RaidLootOrigin origin), Is.True);
+            RaidInventorySlotData data = RaidInventorySlotData.CreateInventorySlot(
+                new LootEntry(new LootId("coin"), 3), _definition, _sprite, 7, 19, origin);
+            RaidInventorySlotData renamed = data.WithDisplayName("Selected stack");
+
+            foreach (RaidInventorySlotData candidate in new[] { data, renamed })
+            {
+                Assert.That(candidate.IsOccupied, Is.True);
+                Assert.That(candidate.LootId, Is.EqualTo(new LootId("coin")));
+                Assert.That(candidate.Amount, Is.EqualTo(3));
+                Assert.That(candidate.SourceInventorySlotIndex, Is.EqualTo(7));
+                Assert.That(candidate.ExpectedInventoryRevision, Is.EqualTo(19));
+                Assert.That(candidate.Origin, Is.EqualTo(origin));
+                Assert.That(candidate.Icon, Is.SameAs(_sprite));
+            }
+            Assert.That(renamed.DisplayName, Is.EqualTo("Selected stack"));
+            Assert.That(data.DisplayName, Is.EqualTo("Coin"));
+        }
+
+        [TestCase(0)]
+        [TestCase(19)]
+        [TestCase(int.MinValue)]
+        public void InventoryHole_RetainsItsPhysicalAddressAndRevisionWithoutInventingAnOrigin(int revision)
+        {
+            RaidInventorySlotData hole = RaidInventorySlotData.EmptyInventorySlot(29, revision);
+            Assert.That(hole.IsOccupied, Is.False);
+            Assert.That(hole.LootId.IsValid, Is.False);
+            Assert.That(hole.Amount, Is.Zero);
+            Assert.That(hole.SourceInventorySlotIndex, Is.EqualTo(29));
+            Assert.That(hole.ExpectedInventoryRevision, Is.EqualTo(revision));
+            Assert.That(hole.Origin, Is.Null);
+        }
+
+        [TestCase(-1, 19)]
+        [TestCase(30, 19)]
+        [TestCase(0, -1)]
+        public void InventorySlot_InvalidAddressMetadataCannotBecomeAnActionableLegacySlot(int index, int revision)
+        {
+            RaidInventorySlotData data = RaidInventorySlotData.CreateInventorySlot(
+                new LootEntry(new LootId("coin"), 3), _definition, _sprite, index, revision, RaidLootOrigin.Dungeon);
+            Assert.That(data.IsOccupied, Is.False);
+        }
+
+        [Test]
+        public void LegacyAndDefaultData_ContextAndDragRemainExplicitlyUnaddressed()
+        {
+            var entry = new LootEntry(new LootId("coin"), 3);
+            RaidInventorySlotData legacy = RaidInventorySlotData.Create(entry, _definition, _sprite);
+            foreach (RaidInventorySlotData data in new[] { legacy, legacy.WithDisplayName("Town"),
+                RaidInventorySlotData.Empty, default(RaidInventorySlotData) })
+            {
+                Assert.That(data.SourceInventorySlotIndex, Is.EqualTo(-1));
+                Assert.That(data.ExpectedInventoryRevision, Is.EqualTo(-1));
+                Assert.That(data.Origin, Is.Null);
+            }
+            foreach (LootContextActionContext context in new[] { new LootContextActionContext(entry, _definition),
+                default(LootContextActionContext) })
+            {
+                Assert.That(context.SourceInventorySlotIndex, Is.EqualTo(-1));
+                Assert.That(context.ExpectedInventoryRevision, Is.EqualTo(-1));
+            }
+            foreach (DragPayload payload in new[] { DragPayload.Create(legacy, DragSlotLocation.Inventory, EquipmentSlot.None),
+                new DragPayload(entry.LootId, DragSlotLocation.Container, EquipmentSlot.None, _sprite, 3,
+                    LootCategory.Material, WeaponHandedness.OneHanded), DragPayload.Empty, default(DragPayload) })
+            {
+                Assert.That(payload.SourceInventorySlotIndex, Is.EqualTo(-1));
+                Assert.That(payload.ExpectedInventoryRevision, Is.EqualTo(-1));
+            }
+        }
+
+        [Test]
+        public void AddressedContextAndDrag_PreserveCapturedMetadataInsteadOfAggregateIdentityOnly()
+        {
+            var entry = new LootEntry(new LootId("coin"), 3);
+            var context = new LootContextActionContext(entry, _definition, 7, 19);
+            RaidInventorySlotData data = RaidInventorySlotData.CreateInventorySlot(
+                entry, _definition, _sprite, 7, 19, RaidLootOrigin.Dungeon);
+            DragPayload payload = DragPayload.Create(data, DragSlotLocation.Inventory, EquipmentSlot.None);
+            Assert.That(context.IsValid, Is.True);
+            Assert.That(context.Entry, Is.EqualTo(entry));
+            Assert.That(context.SourceInventorySlotIndex, Is.EqualTo(7));
+            Assert.That(context.ExpectedInventoryRevision, Is.EqualTo(19));
+            Assert.That(payload.IsValid, Is.True);
+            Assert.That(payload.SourceInventorySlotIndex, Is.EqualTo(7));
+            Assert.That(payload.ExpectedInventoryRevision, Is.EqualTo(19));
+            Assert.That(payload.Amount, Is.EqualTo(3));
+            Assert.That(payload.LootId, Is.EqualTo(entry.LootId));
+        }
+
         private void SetField(string fieldName, object value)
         {
             FieldInfo field = typeof(LootDefinition).GetField(

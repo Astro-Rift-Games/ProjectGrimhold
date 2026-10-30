@@ -68,8 +68,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     [SerializeField] private LayerMask _playerLayer;
 
     [Header("Knockback")]
-    [Tooltip("Friction applied to decay knockback velocity over time.")]
-    [SerializeField, Min(0f)] private float _knockbackFriction = 10f;
+    [SerializeField] private KnockbackCurveConfig _knockbackCurveConfig;
 
     [Header("Aggro")]
     [Tooltip("Duration in seconds the enemy pursues a player attacker without requiring LOS. Set to 0 to disable aggro bypass.")]
@@ -167,11 +166,16 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     /// </summary>
     [Networked] private TickTimer AggroAlertTimer { get; set; }
 
-    /// <summary>
-    /// Current knockback velocity. Applied as displacement during ticks and decays via friction.
-    /// Only written by State Authority.
-    /// </summary>
-    [Networked] private Vector2 KnockbackVelocity { get; set; }
+    // Written by State Authority; restored with the snapshot in Fusion's resumed tick domain.
+    [Networked] private NetworkBool KnockbackActive { get; set; }
+    [Networked] private Vector2 KnockbackDirection { get; set; }
+    [Networked] private float KnockbackEffectivePower { get; set; }
+    [Networked] private float KnockbackDistance { get; set; }
+    [Networked] private int KnockbackStartTick { get; set; }
+    [Networked] private int KnockbackDurationTicks { get; set; }
+
+    internal bool IsKnockbackActive => KnockbackActive;
+    internal float ActiveKnockbackEffectivePower => KnockbackActive ? KnockbackEffectivePower : 0f;
 
     /// <summary>
     /// Timer for waiting at a patrol waypoint before moving to the next one.
@@ -234,7 +238,8 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
                 IsAttacking = false;
                 _pursuitLostTickCount = 0;
                 PatrolWaypointIndex = 0;
-                KnockbackVelocity = Vector2.zero;
+                // Fresh spawn only: restore spawns retain the copied knockback and start tick.
+                ClearKnockback();
                 AggroAlertTimer = default;
                 PatrolWaitTimer = default;
             }
@@ -338,15 +343,27 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
             ? moveDirection * speed * Runner.DeltaTime
             : Vector2.zero;
 
-        // Apply decaying knockback velocity.
-        if (KnockbackVelocity.sqrMagnitude > 0.01f)
+        if (KnockbackActive)
         {
-            displacement += KnockbackVelocity * Runner.DeltaTime;
-            KnockbackVelocity = Vector2.Lerp(KnockbackVelocity, Vector2.zero, _knockbackFriction * Runner.DeltaTime);
-        }
-        else
-        {
-            KnockbackVelocity = Vector2.zero;
+            if (!KnockbackRules.ShouldContinue(isAlive))
+            {
+                ClearKnockback();
+            }
+            else
+            {
+                // First step follows the acceptance tick, identically to player travel.
+                int elapsed = (int)Runner.Tick - KnockbackStartTick;
+                if (elapsed > 0)
+                {
+                    displacement += KnockbackRules.ComputeStep(KnockbackDirection, KnockbackDistance,
+                        _knockbackCurveConfig.EvaluateProgress((elapsed - 1f) / KnockbackDurationTicks),
+                        _knockbackCurveConfig.EvaluateProgress((float)elapsed / KnockbackDurationTicks));
+                    if (KnockbackRules.IsComplete(elapsed, KnockbackDurationTicks))
+                    {
+                        ClearKnockback();
+                    }
+                }
+            }
         }
 
         Vector2 appliedDisplacement = _movementMotor.Move(displacement);
@@ -392,21 +409,47 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     }
 
     /// <summary>
-    /// Accumulates a knockback impulse to be applied in the current simulation tick.
-    /// Requires State Authority.
-    ///
-    /// The displacement is applied in <see cref="FixedUpdateNetwork"/> as
-    /// <c>-impactDirection * force * DeltaTime</c> and resolved against world colliders.
+    /// Starts or strictly replaces effective-PE travel along positive direction. Without authority,
+    /// KeptActive means no mutation (not absorption); only Started/Replaced confirms application.
     /// </summary>
-    public void ApplyKnockbackImpulse(Vector2 impactDirection, float force)
+    public KnockbackDecision TryApplyKnockback(Vector2 direction, float effectivePower, bool wasEligibleAtImpact)
     {
-        if (!HasStateAuthority || force <= 0f)
+        if (!HasStateAuthority)
         {
-            return;
+            return KnockbackDecision.KeptActive;
         }
+        if (!PlayerAimMath.TryNormalizeDirection(direction, out Vector2 normalizedDirection))
+        {
+            return KnockbackDecision.Absorbed;
+        }
+        KnockbackDecision decision = KnockbackRules.Resolve(
+            wasEligibleAtImpact, effectivePower, KnockbackActive, KnockbackEffectivePower);
+        if (decision != KnockbackDecision.Started && decision != KnockbackDecision.Replaced)
+        {
+            return decision;
+        }
+        if (!_dependenciesValid || _knockbackCurveConfig == null ||
+            !_knockbackCurveConfig.TryResolveProfile(effectivePower, Runner.DeltaTime, out float distance, out int durationTicks))
+        {
+            return KnockbackDecision.KeptActive;
+        }
+        KnockbackDirection = normalizedDirection;
+        KnockbackEffectivePower = effectivePower;
+        KnockbackDistance = distance;
+        KnockbackStartTick = (int)Runner.Tick;
+        KnockbackDurationTicks = durationTicks;
+        KnockbackActive = true;
+        return decision;
+    }
 
-        // Add to velocity so it decays over time.
-        KnockbackVelocity += impactDirection.normalized * force;
+    private void ClearKnockback()
+    {
+        KnockbackActive = false;
+        KnockbackDirection = Vector2.zero;
+        KnockbackEffectivePower = 0f;
+        KnockbackDistance = 0f;
+        KnockbackStartTick = 0;
+        KnockbackDurationTicks = 0;
     }
 
     /// <summary>
@@ -911,6 +954,17 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
 
     private bool ValidateDependencies()
     {
+        if (_knockbackCurveConfig == null)
+        {
+            Debug.LogError($"{nameof(EnemyMovementAIController)} requires a {nameof(KnockbackCurveConfig)}.", this);
+            return false;
+        }
+        if (!_knockbackCurveConfig.TryValidate(out string error))
+        {
+            Debug.LogError($"{nameof(EnemyMovementAIController)} has invalid knockback configuration: {error}", this);
+            return false;
+        }
+
         if (_movementMotor == null)
         {
             Debug.LogError(

@@ -231,8 +231,8 @@ namespace Tests.PlayMode.Presentation
                 Assert.That(view.HealthFill.fillAmount, Is.Zero);
                 Assert.That(view.StaminaFill.fillAmount, Is.Zero);
                 Assert.That(view.CooldownFill.fillAmount, Is.Zero);
-                Assert.That(view.HealthFill.rectTransform.localScale.x, Is.Zero);
-                Assert.That(view.StaminaFill.rectTransform.localScale.x, Is.Zero);
+                Assert.That(view.HealthFill.rectTransform.localScale, Is.EqualTo(Vector3.one));
+                Assert.That(view.StaminaFill.rectTransform.localScale, Is.EqualTo(Vector3.one));
                 Assert.That(view.CooldownRoot.gameObject.activeSelf, Is.False);
                 Assert.That(view.DefeatedRoot.activeSelf, Is.False);
 
@@ -243,10 +243,10 @@ namespace Tests.PlayMode.Presentation
 
                 Assert.That(view.HealthText.text, Is.EqualTo("25 / 100"));
                 Assert.That(view.HealthFill.fillAmount, Is.EqualTo(0.25f).Within(0.0001f));
-                Assert.That(view.HealthFill.rectTransform.localScale.x, Is.EqualTo(0.25f).Within(0.0001f));
+                Assert.That(view.HealthFill.rectTransform.localScale, Is.EqualTo(Vector3.one));
                 Assert.That(view.StaminaText.text, Is.EqualTo("25 / 100 (Agotado)"));
                 Assert.That(view.StaminaFill.fillAmount, Is.EqualTo(25.4f / 100.4f).Within(0.0001f));
-                Assert.That(view.StaminaFill.rectTransform.localScale.x, Is.EqualTo(25.4f / 100.4f).Within(0.0001f));
+                Assert.That(view.StaminaFill.rectTransform.localScale, Is.EqualTo(Vector3.one));
                 Assert.That(view.AttackText.text, Is.Empty);
                 Assert.That(view.CooldownSecondsText.text, Is.EqualTo("1.2"));
                 Assert.That(view.CooldownFill.fillAmount, Is.EqualTo(0.6f).Within(0.0001f));

@@ -10,6 +10,9 @@ public readonly struct LootTransferRequestIdentity : IEquatable<LootTransferRequ
     public EntityId DestinationId { get; }
     public int CatalogIndex { get; }
     public LootTransferQuantityMode QuantityMode { get; }
+    public int SourceInventorySlotIndex { get; }
+    public int ExpectedInventoryRevision { get; }
+    public bool HasInventorySlotAddress => SourceInventorySlotIndex != -1 || ExpectedInventoryRevision != -1;
 
     public LootTransferRequestIdentity(
         uint requestSequence,
@@ -17,7 +20,21 @@ public readonly struct LootTransferRequestIdentity : IEquatable<LootTransferRequ
         EntityId destinationId,
         int catalogIndex,
         LootTransferQuantityMode quantityMode)
+        : this(requestSequence, sourceId, destinationId, catalogIndex, quantityMode, -1, -1)
     {
+    }
+
+    public LootTransferRequestIdentity(
+        uint requestSequence,
+        EntityId sourceId,
+        EntityId destinationId,
+        int catalogIndex,
+        LootTransferQuantityMode quantityMode,
+        int sourceInventorySlotIndex,
+        int expectedInventoryRevision)
+    {
+        SourceInventorySlotIndex = sourceInventorySlotIndex;
+        ExpectedInventoryRevision = expectedInventoryRevision;
         RequestSequence = requestSequence;
         SourceId = sourceId;
         DestinationId = destinationId;
@@ -30,7 +47,9 @@ public readonly struct LootTransferRequestIdentity : IEquatable<LootTransferRequ
         SourceId == other.SourceId &&
         DestinationId == other.DestinationId &&
         CatalogIndex == other.CatalogIndex &&
-        QuantityMode == other.QuantityMode;
+        QuantityMode == other.QuantityMode &&
+        SourceInventorySlotIndex == other.SourceInventorySlotIndex &&
+        ExpectedInventoryRevision == other.ExpectedInventoryRevision;
 
     public override bool Equals(object obj) => obj is LootTransferRequestIdentity other && Equals(other);
 
@@ -42,7 +61,9 @@ public readonly struct LootTransferRequestIdentity : IEquatable<LootTransferRequ
             hashCode = (hashCode * 397) ^ SourceId.GetHashCode();
             hashCode = (hashCode * 397) ^ DestinationId.GetHashCode();
             hashCode = (hashCode * 397) ^ CatalogIndex;
-            return (hashCode * 397) ^ (int)QuantityMode;
+            hashCode = (hashCode * 397) ^ (int)QuantityMode;
+            hashCode = (hashCode * 397) ^ SourceInventorySlotIndex;
+            return (hashCode * 397) ^ ExpectedInventoryRevision;
         }
     }
 

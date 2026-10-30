@@ -63,6 +63,16 @@ const pendingReservationValidator = [
   handleValidationErrors
 ];
 
+// Admission accepts the same reservation identity, without changing save validation.
+const admitReservationValidator = [
+  body('reservationId')
+    .isString().withMessage('must be a string')
+    .bail()
+    .trim()
+    .notEmpty().withMessage('must not be empty'),
+  handleValidationErrors
+];
+
 // Validates the body for an extraction loot commit.
 // `items` may be empty (the player extracted but carried no loot).
 const commitExtractionValidator = [
@@ -133,4 +143,4 @@ const shopBuybackValidator = [
   handleValidationErrors
 ];
 
-module.exports = { shopBuybackValidator, inventoryOrderValidator, moveItemValidator, preparedEquipmentValidator, pendingReservationValidator, commitExtractionValidator, shopSellValidator, shopBuyValidator };
+module.exports = { shopBuybackValidator, inventoryOrderValidator, moveItemValidator, preparedEquipmentValidator, pendingReservationValidator, admitReservationValidator, commitExtractionValidator, shopSellValidator, shopBuyValidator };

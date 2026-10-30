@@ -37,6 +37,7 @@ Related documents: `PlayerCombatArchitecture.md` (damage pipeline, corpse),
 
 | Component | Owns | Does not own |
 |---|---|---|
+| `PlayerPvpCombatCreditNetworkController` (Implemented, TASK-246) | Provisional Last Hit/Assist per Downed cycle; confirmation, cancellation and ledger retries | Health, reserve, participant lifecycle |
 | `PlayerDownedStateNetworkController` (Implemented) | `[Networked] IsDowned`, `DownedHealth`, `DownedCycle`; drain; entry/exit/depletion of Downed; Downed attribution data (section 11) | Health, corpse, Loot, participant state, recovery sessions |
 | `DownedHealthRules` (Implemented) | Pure reserve math (create, drain, damage, depletion) | Any state |
 | `PlayerCharacter` (Implemented, extended) | Health; the fatal-damage redirection; Defeat resolution (`HandleDeath`); Health restoration on exit | The reserve, the recovery session |
@@ -79,14 +80,20 @@ Rule: no code may read `DownedHealth` as Health or write `Health` as part of a D
 transition except the dedicated restore path in section 6. Pure math stays in `DownedHealthRules`.
 Status: **Implemented**.
 
+Friendly Fire (TASK-245): resolver-authorized ally damage is clamped after mitigation to leave
+at least 1 normal HP, so it cannot cause Downed. On an already Downed target, ally hits do not
+reduce the reserve or call `NotifyDownedDamaged`, and therefore do not interrupt assisted revive
+through damage. Zero effective damage to the reviver causes no Health loss for interruption polling;
+allowed knockback remains subject to the movement/range rules in section 7.
+
 ## 5. Transitions and owners
 
 | # | Transition | Trigger | Owning component | Authority | Side effects | Status |
 |---|---|---|---|---|---|---|
-| T1 | Active -> Downed | Mitigated damage takes `Health` to 0 | `PlayerCharacter.TryInterceptFatalDamage` -> `PlayerDownedStateNetworkController.TryEnterDowned` | State Authority | `IsDowned`, full reserve, `DownedCycle++`; excess of the entry hit discarded; result is non-fatal (`IsFatal = false`); records Downed causer (section 11); Mana-drain execution stopped through the ability runtime (see section 9) | Implemented (causer: Planned TASK 453) |
+| T1 | Active -> Downed | Mitigated damage takes `Health` to 0 | `PlayerCharacter.TryInterceptFatalDamage` -> `PlayerDownedStateNetworkController.TryEnterDowned` | State Authority | `IsDowned`, full reserve, `DownedCycle++`; excess of the entry hit discarded; result is non-fatal (`IsFatal = false`); records Downed causer (section 11); Mana-drain execution stopped through the ability runtime (see section 9) | Implemented (causer: TASK 453; PvP credit: TASK-246) |
 | T2 | Downed -> Downed (damage) | Damage while Downed | `PlayerCharacter.TryApplyAlternateDamage` -> `TryApplyDownedDamage` | State Authority | Reserve reduced; `Health` untouched; notifies the recovery session (section 7) | Implemented (notify: `5ff5208b`, TASK 452) |
 | T3 | Downed -> definitive Defeat (drain) | Reserve reaches 0 in `FixedUpdateNetwork` | `PlayerDownedStateNetworkController` clears `IsDowned`, then `PlayerCharacter.ResolveDefinitiveDefeatFromDowned` | State Authority | `HandleDeath` runs exactly once (section 12) | Implemented |
-| T4 | Downed -> definitive Defeat (damage) | Damage depletes the reserve | `TryApplyDownedDamage` clears `IsDowned`; `PlayerCharacter.TryApplyAlternateDamage` calls `HandleDeath` | State Authority | Result is fatal (`IsFatal = true`); records Defeat causer | Implemented (causer: Planned TASK 453) |
+| T4 | Downed -> definitive Defeat (damage) | Damage depletes the reserve | `TryApplyDownedDamage` clears `IsDowned`; `PlayerCharacter.TryApplyAlternateDamage` calls `HandleDeath` | State Authority | Result is fatal (`IsFatal = true`); records Defeat causer | Implemented (causer: TASK 453; PvP credit: TASK-246) |
 | T5 | Downed -> Active | A recovery session completes | `PlayerDownedRecoveryNetworkController` -> `PlayerCharacter.TryRestoreFromDowned` -> `TryExitDownedToActive` | State Authority | Section 6 | Implemented (Assisted: `93ac7eeb`, `5ff5208b`, `d88d5c01`, TASK 452; Self-revive: no task) |
 | T6 | Downed -> definitive Defeat (forced) | Dungeon absolute close or equivalent rule | `PlayerCharacter.ForceDefinitiveDefeat` | State Authority | Section 14 | Planned (no task) |
 | T7 | Downed -> Aborted participant | Raid closure with the avatar Downed | `NetworkSpawnManager.AbortRaidingParticipantsForClosure` -> `TryAbortForClosure` | Host | No Defeat, no corpse (existing behavior; see section 14) | Implemented |
@@ -264,7 +271,7 @@ ritual (see section 13).
 | Rule | Mechanism | Status |
 |---|---|---|
 | Limited movement, no Sprint | `PlayerMovementNetworkController` multiplies voluntary speed by `DownedMovementSpeedMultiplier` (0.35 provisional) and disables Sprint without Stamina cost | Implemented |
-| Knockback allowed | Knockback motor unchanged | Implemented |
+| Knockback eligibility (Doc 18 §6.4 / Doc 13 §5) | No new or replacement knockback while already Downed; eligibility is captured before damage. Previously authorized travel continues through Downed; definitive Defeat cancels it on the next movement tick | Implemented |
 | No attack, shield, abilities | `PlayerCombatNetworkController`, `PlayerShieldDefenseNetworkController` check `PlayerDownedGate` | Implemented |
 | No equipment / Weapon Set changes | `PlayerWeaponEquipmentNetworkController` gate | Implemented |
 | No normal consumables | `PlayerConsumableNetworkController` gate | Implemented |
@@ -307,7 +314,7 @@ definitive Defeat arrives after a configurable time (about 5 s). The bar is not 
   saw a short timer, and a route can only reappear through reconnect or a handoff, both deferred.
   Needs a Game Design decision (section 17).
 
-## 11. Attribution of Downed and Defeat causers (Fields and damage hooks implemented; credit awards pending)
+## 11. Attribution of Downed and Defeat causers (Implemented, TASK-246)
 
 GD 13 §13 and GD 05 require recording separately who caused Downed and who caused definitive
 Defeat. The damage path now threads `DamageRequest.AttackerId` through the fatal-hit and Downed
@@ -329,18 +336,51 @@ Rules:
 * The Downed causer is written once per cycle at entry and is provisional (GD 05).
 * Hits on a Downed target never write `DownedCauserEntityId` and never create a new credit.
 * The Defeat causer is written only by a hit that depletes the reserve; pure drain writes `0`.
-* **Consolidation:** a provisional credit created for cycle `X` is consolidated only if
-  `DefeatedCycle == X`. A revive never sets it, so it cancels the credit with no extra state;
-  a later Downed entry increments `DownedCycle` and cannot reuse the old one.
+* **Consolidation:** the optional `IDownedCycleObserver` is called synchronously on State
+  Authority after entry, after definitive clearing (`DefeatedCycle == X`), and on recovery.
+  `PlayerPvpCombatCreditNetworkController` freezes Last Hit and the selected eligible Assists at entry,
+  confirms once on definitive Defeat of that same cycle, and cancels all provisional credit on revive.
+  Drain, reserve damage, absence and collapse use the same definitive-clear notification.
 * Resolving `EntityId` to a participant uses the existing `RaidAvatarParticipantLink` /
   `NetworkRaidParticipant` path, as `DamageResolver` already does for contributions.
-* Amounts belong to GD 05; attribution rules belong to Combat Design (US-50, TASK 442, not yet
-  written). This document defines only where the data lives. `DamageResolver` and
-  `ICombatContributionTracker` are not extended here.
-* Reward attribution remains pending: `DamageResolver` currently awards fatal-attacker rewards
-  at definitive Defeat, which does not match GD 13 §7's rule that the provisional Last Hit is
-  frozen at Downed entry and later hits on a Downed target cannot replace it. PvP reward and
-  assist tracking are outside this fields-and-hooks slice.
+* **Authority:** GD 19 §§4–6, 14 owns PvP attribution; other Game Design documents complement it.
+  Last Hit requires a resolvable original player source and target participant plus resolved initial
+  enemy affiliation (fail closed). Downed/Defeated source state does not erase attribution.
+  Creature/environment/unknown sources create no Last Hit or Assist.
+* `CombatContributionTracker` records effective Active-target damage and Empower support with the
+  latest kind and resolution tick per participant. The target is implicit in the owning avatar;
+  recording implies effectiveness. Neither the downing hit nor any hit on a Downed target is recorded,
+  including a hit that clears Downed. Existing PvE source/current-avatar behavior is preserved.
+* Effective Restoration on another ally records `Healing` kind and tick on that ally's credit
+  controller. Full-health and self heals grant no support. At entry, candidates include recent
+  damage/Empower contributors and recent healers of the Last Hitter or a damage contributor.
+  Every candidate must be an initial teammate of Last Hit, excluding Last Hit and the victim.
+* **Assist limit:** serialized `_maxAssistsPerTarget`, default `1` per Downed cycle (GD 05 §19 table);
+  `0` keeps every eligible teammate (GD 19 §6.2 / T03-05, which still reads unlimited — open design
+  discrepancy). When the limit applies, the most recent in-window contribution or support before
+  Downed wins; a same-tick tie goes to the lowest `RaidParticipantId`.
+  CC/debuff and Protective Orb interception are not MVP producers.
+* Each cycle resets **credits**, not contribution history. An effective Active contribution still
+  within the configurable window can qualify again after revive in a new cycle (GD 19 §6.1).
+  A contributor becoming Downed does not cancel Assist. A terminal participant may retain the
+  relationship but receives no new XP.
+* Definitive confirmation grants `PvpKill` (serialized base, default 25) and each `PvpAssist`
+  (integer-floor base / 2, default 12) through the participant's existing Experience ledger.
+  Replicated pending bits are consumed only after ledger acceptance, or dropped for terminal
+  recipients/non-positive amounts. Missing participants or rejected ledgers retry every second.
+* Credit cycle, Last Hit participant value, Assist/pending masks, confirmation, retry timer,
+  contribution/support ticks and kinds are `[Networked]`. `CopyStateFrom` preserves them and
+  `Spawned()` skips fresh initialization on Host Migration restore; stable participant values need
+  no reference remap. State-copy tests do not prove real migration.
+* The player avatar now composes `CombatContributionTracker`. Its registry unregistration is
+  isolated (it owns no colliders), so it never clears the avatar's collider mappings when it is the
+  last capability to unregister; projectiles keep recognising their despawning owner's collider.
+* **Known limits:** a despawned original avatar or participant can no longer be resolved from
+  `DamageRequest.AttackerId` (an avatar `EntityId`, not durable source identity). Still-spawned
+  defeated support recipients are resolved through a runner-scoped fallback when their current-avatar
+  binding has been cleared; no lifecycle state alone invalidates their contribution.
+  Despawning the victim avatar during pending retries loses that producer; an absent participant
+  can leave a pending bit until the producer despawns. No durable reward journal is added.
 
 ## 12. NetworkRaidParticipant, corpse, Loot, spectator and Results
 
@@ -470,9 +510,9 @@ Design intent, not a guaranteed MVP requirement (GD). Contract for everything th
 | Q4 | Revive range, hold duration, Accelerated Resolution seconds | Game Design / balance | Revive resolved: 4 s and 1.5 u, serialized on `PlayerDownedRecoveryNetworkController`. Acceleration (~5 s) still open |
 | Q5 | Can a Downed player start the Sanctuary ritual, or only continue one in progress? | Game Design (GD 06 / 13) | Resolved by GD 06 §11 (only an Active member starts the ritual; becoming Downed does not cancel it) and GD 06 §13/§16 (the countdown starts by presence, so a connected Downed player in the area counts and can complete). The interaction gate already matches the start rule. Presence-based countdown acceptance of a Downed player is not yet verified by tests |
 | Q6 | Does Dungeon absolute close force Defeat or Abort for Downed players? | Game Design (GD 10) | Resolved by GD 10 §5.1 and GD 13 §13: absolute close gives definitive Defeat to everyone still inside, ignoring reserve and recovery. **Implementation gap:** closure currently aborts `Raiding` participants, Active ones included (pre-existing). Owner: TASK 453 or a Dungeon Session task; section 14 describes `ForceDefinitiveDefeat` |
-| Q7 | Do "both immobile" and "interrupted by movement" mean any movement, including the Downed's limited movement and knockback? | Game Design | Resolved: voluntary movement (`IsMoving`) of either avatar interrupts; knockback interrupts only when it breaks the range (GD: a displacement that breaks the condition) |
+| Q7 | Do "both immobile" and "interrupted by movement" mean any movement, including the Downed's limited movement and knockback? | Game Design | Resolved: voluntary movement (`IsMoving`) of either avatar interrupts; knockback interrupts only when it breaks the range (checked by `PlayerDownedRecoveryNetworkController`, not a knockback signal). Doc 18 §6.4 / Doc 13 §5 reject new/replacement knockback on an already Downed avatar; previously authorized travel completes unless definitive Defeat cancels it on the next movement tick |
 | Q8 | Reviver damage detection: any `Health` loss, or any hit including fully mitigated ones? | Combat Design | Resolved as a detectability decision: `Health` loss (polling); fully mitigated hits do not interrupt |
-| Q9 | PvP Last Hit attribution rules and amounts | Combat Design (US-50 / TASK 442), GD 05 | Data only (section 11) |
+| Q9 | PvP Last Hit attribution rules and amounts | GD 19 §§4–6, 14; balance decision | Resolved for TASK-246: section 11, base 25, floor-half Assist, Assist limit 1 (0 = unlimited) |
 
 ## 18. Implementation status
 
@@ -491,7 +531,8 @@ Design intent, not a guaranteed MVP requirement (GD). Contract for everything th
 | Revive progress UI and feedback (GD 13 §14) | Implemented (TASK-215), pending Host/Client validation | `RaidDownedHudPresenter`, outcome record in section 7 |
 | Revive pose | Planned | no task |
 | Attribution fields and damage hook signatures | Implemented (initial TASK 453 slice; section 11) | This change |
-| PvP credit consolidation/freeze at Downed and extraction re-evaluation on Defeat | Pending | TASK 453 |
+| PvP credit consolidation/freeze at Downed | Implemented; single-runner PlayMode verified, Host/Client pending | TASK-246, section 11 |
+| Extraction re-evaluation on Defeat | Pending | TASK 453 |
 | Forced definitive Defeat on absolute close (Q6 gap) | Planned | TASK 453 or a Dungeon Session task |
 | Self-revive item, consumption, handoff, Self session | Planned | no task |
 | Accelerated Resolution coordinator | Planned | no task, needs a task |
@@ -560,7 +601,7 @@ evidence and closure checks without creating another tracker or changing approve
 
 | Debt | Current evidence and impact | Closure check |
 |---|---|---|
-| Frozen PvP Last Hit / Assist | Section 11: attribution fields distinguish Downed and Defeat causers, but `DamageResolver` still awards fatal-attacker rewards at definitive Defeat. Later hits must not replace the credit frozen at Downed entry. | Integrate the existing contribution/reward owner: freeze eligible credit at entry, consolidate once for that cycle on Defeat, invalidate on revive, and prove later hits cannot replace or duplicate it. |
+| Frozen PvP Last Hit / Assist | Implemented by TASK-246 (section 11): entry freezes credit, definitive Defeat confirms it once, revive cancels it. Contribution history remains window-based across cycles. | `PvpCombatCreditPlayModeTests` (31 tests, passing) covers ordered hits, finishers, revive/new cycles, support, terminal recipients, retry and state copy. Real Host/Client sessions and Host Migration remain unverified. |
 | Required-team extraction composition | Section 13: extraction is currently per player; no owning composition path has been identified for required-team re-evaluation. A member's definitive Defeat must update eligibility without treating Downed as terminal. | Identify the existing extraction owner before changing it; verify connected Downed presence/countdown, Defeat interruption and required-team re-evaluation. Do not invent a second coordinator. |
 | Disconnected Downed retention after migration | Section 16: `_retainedDownedParticipants` is Host runtime-only bookkeeping, absent from the snapshot. A disconnected Downed avatar is not guaranteed to remain retained or reach Defeat after migration. | Resolve recovery ownership through the existing migration/departure path; verify retention, drain, damage and exactly-once terminal resolution after a real Host Migration. |
 | Absolute close: Abort versus definitive Defeat | Sections 14 and 17/Q6: closure currently aborts `Raiding` participants; the documented GD rule requires definitive Defeat for everyone still inside. Ownership between TASK 453 and a Dungeon Session task remains unresolved. | Confirm the owning task/system, then verify authoritative, idempotent forced Defeat for Active and Downed avatars, ignoring reserve/recovery and using existing corpse/Loot/Results owners. |

@@ -1,11 +1,12 @@
-import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
 import { config, categories } from './config.js';
 import { repositoryRoot, readCommits, rangeShas } from './git.js';
 import { readVersions } from './versions.js';
 import { developerVersions } from './commits.js';
 import { validateOverrides, playerVersions } from './players.js';
-import { renderDev } from './render-dev.js';
+import { developerArtifacts } from './render-dev.js';
+import { obsoleteDeveloperFiles } from './artifacts.js';
 import {
   playersDocument,
   renderPlayers,
@@ -99,7 +100,7 @@ function warningScope(command, options, root, players, overrides) {
 
     return {
       pending,
-      warnings: players.warnings.filter(warning => releaseShas.has(warning.sha)),
+      warnings: players.warnings.filter(warning => releaseShas.has(warning.sha) || warning.tag === options.tag),
     };
   }
 
@@ -147,11 +148,7 @@ function requireValidDocument(document) {
 
 function outputFiles(versions, document, settings) {
   return [
-    {
-      name: settings.devFile,
-      text: renderDev(developerVersions(versions), settings),
-      type: 'dev',
-    },
+    ...developerArtifacts(developerVersions(versions), settings),
     {
       name: settings.playersFile,
       text: renderPlayers(document),
@@ -166,7 +163,10 @@ function outputFiles(versions, document, settings) {
 }
 
 function synchronizeOutputs(command, options, root, files, settings) {
-  let changedCount = 0;
+  const includeDev = command === 'check' || options.only !== 'players';
+  const obsolete = includeDev ? obsoleteDeveloperFiles(root, files, settings) : [];
+  let changedCount = obsolete.length;
+  for (const name of obsolete) console.log(`${command === 'check' ? 'Obsolete:' : 'Removing obsolete:'} ${name}`);
 
   for (const file of files) {
     const excluded = options.only && options.only !== 'all' && options.only !== file.type;
@@ -187,9 +187,14 @@ function synchronizeOutputs(command, options, root, files, settings) {
       console.log(`${label} ${file.name}`);
 
       if (command === 'generate') {
+        mkdirSync(dirname(path), { recursive: true });
         writeFileSync(path, file.text, 'utf8');
       }
     }
+  }
+
+  if (command === 'generate') {
+    for (const name of obsolete) unlinkSync(resolve(root, name));
   }
 
   if (changedCount === 0) {
@@ -217,14 +222,19 @@ function runCommand(command, options) {
     ...config,
     repoUrl: (options['repo-url'] || config.repoUrl).replace(/\/$/, ''),
   };
-  const versions = readVersions(root, ref);
   const history = readCommits(root, ref);
+  const versions = readVersions(root, ref);
   const overrides = readOverrides(root, settings, history);
   const players = playerVersions(versions, overrides);
   const { pending, warnings } = warningScope(command, options, root, players, overrides);
 
   for (const warning of warnings) {
     console.error(`${warning.sha}: ${warning.message}`);
+  }
+
+  if (options.strict && warnings.length > 0) {
+    process.exitCode = 1;
+    return;
   }
 
   if (command === 'preview') {

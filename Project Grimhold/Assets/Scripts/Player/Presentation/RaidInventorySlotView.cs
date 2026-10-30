@@ -14,6 +14,8 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
     [SerializeField]
     private Image _icon;
 
+    [SerializeField] private EquipmentSlotIconPresentation _emptyCategory = new();
+
     [SerializeField]
     private TMP_Text _nameText;
 
@@ -25,6 +27,14 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     [SerializeField]
     private Image _background;
+
+    // Optional authored skin. Unconfigured views retain their original color-only behavior.
+    [SerializeField] private Sprite _emptySprite;
+    [SerializeField] private Sprite _occupiedSprite;
+    [SerializeField] private Sprite _hoveredSprite;
+    [SerializeField] private Sprite _selectedSprite;
+    [SerializeField] private Sprite _invalidSprite;
+    [SerializeField] private Sprite _reservedSprite;
 
     [SerializeField]
     private Color _normalColor = new(0.12f, 0.12f, 0.14f, 0.95f);
@@ -48,6 +58,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
     private EquipmentSlot _assignedEquipmentSlot;
     private bool _isDragging;
     private bool _isSelected;
+    private bool _isHovered;
     private DropHighlightState _dropHighlight;
     private float _transferPulseRemaining;
     private const float TransferPulseDuration = 0.2f;
@@ -56,6 +67,8 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     public event Action<LootId, LootTransferQuantityMode> SelectionRequested;
     public event Action<LootId, RectTransform> ContextRequested;
+    public event Action<RaidInventorySlotData, LootTransferQuantityMode> InventorySelectionRequested;
+    public event Action<RaidInventorySlotData, RectTransform> InventoryContextRequested;
     public event Action<EquipmentTooltipPresentation, RectTransform> TooltipRequested;
     public event Action<RectTransform> TooltipDismissRequested;
     
@@ -66,6 +79,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     public LootId LootId => _lootId;
     public bool IsOccupied => _isOccupied;
+    public int SourceInventorySlotIndex => _slotData.SourceInventorySlotIndex;
 
     private void Awake()
     {
@@ -82,11 +96,17 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         if (!data.IsOccupied)
         {
             Clear();
+            _slotData = data; // Empty physical cells still retain their address and snapshot token.
             return;
         }
 
-        if (_isOccupied && _lootId != data.LootId)
+        bool snapshotChanged = (_slotData.HasInventorySlotAddress || data.HasInventorySlotAddress) &&
+            (_slotData.SourceInventorySlotIndex != data.SourceInventorySlotIndex ||
+             _slotData.ExpectedInventoryRevision != data.ExpectedInventoryRevision ||
+             !Nullable.Equals(_slotData.Origin, data.Origin) || _slotData.Amount != data.Amount);
+        if (_isOccupied && (_lootId != data.LootId || snapshotChanged))
         {
+            _isDragging = false;
             ClearTransferFeedback();
             TooltipDismissRequested?.Invoke(transform as RectTransform);
         }
@@ -96,7 +116,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         _tooltip = data.Tooltip;
         _slotData = data;
 
-        if (_icon != null)
+        if (_icon != null && _emptyCategory?.TryPresent(_icon, data.Icon, false) != true)
         {
             _icon.color = new Color(_icon.color.r, _icon.color.g, _icon.color.b, 1f);
             _icon.sprite = data.Icon;
@@ -134,7 +154,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         {
             Clear();
             _isReserved = true;
-            if (_icon != null)
+            if (_icon != null && _emptyCategory?.TryPresent(_icon, data.Icon, false, ReservedIconAlpha) != true)
             {
                 _icon.sprite = data.Icon;
                 _icon.enabled = data.Icon != null;
@@ -147,6 +167,8 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         if (!data.IsOccupied)
         {
             Clear();
+            if (EquipmentSlotRules.IsEquipmentSlot(slot))
+                _emptyCategory?.TryPresent(_icon, null, true);
             if (_nameText != null) _nameText.text = $"{slotLabel}\nVacío";
             SetWeaponSetVisual(isActive, isInactiveSet);
             return;
@@ -220,6 +242,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
     {
         _isReserved = false;
         _isInactiveSet = false;
+        _isDragging = false;
         _transferPulseRemaining = 0f;
         _dropHighlight = DropHighlightState.None;
         if (_isOccupied)
@@ -230,7 +253,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         _isOccupied = false;
         _tooltip = default;
         _slotData = default;
-        if (_icon != null)
+        if (_icon != null && _emptyCategory?.TryPresent(_icon, null, false) != true)
         {
             _icon.color = new Color(_icon.color.r, _icon.color.g, _icon.color.b, 1f);
             _icon.sprite = null;
@@ -272,7 +295,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     /// <summary>
     /// Converts a right click on an interactive occupied slot into a full-stack intention.
-    /// Left clicks continue through <see cref="Button.onClick"/> so keyboard submit behavior is preserved.
+    /// Left clicks do not transfer; dragging and context actions own Inventory gestures.
     /// </summary>
     public void OnPointerClick(PointerEventData eventData)
     {
@@ -286,18 +309,26 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
             _interactionMode == RaidLootSlotInteractionMode.TransferWithContextMenu)
         {
             TooltipDismissRequested?.Invoke(transform as RectTransform);
-            ContextRequested?.Invoke(_lootId, transform as RectTransform);
+            if (_slotData.HasInventorySlotAddress)
+                InventoryContextRequested?.Invoke(_slotData, transform as RectTransform);
+            else
+                ContextRequested?.Invoke(_lootId, transform as RectTransform);
             return;
         }
 
         if (_interactionMode == RaidLootSlotInteractionMode.Transfer)
         {
-            SelectionRequested?.Invoke(_lootId, LootTransferQuantityMode.FullStack);
+            if (_slotData.HasInventorySlotAddress)
+                InventorySelectionRequested?.Invoke(_slotData, LootTransferQuantityMode.FullStack);
+            else
+                SelectionRequested?.Invoke(_lootId, LootTransferQuantityMode.FullStack);
         }
     }
 
     public void OnPointerEnter(PointerEventData eventData)
     {
+        _isHovered = true;
+        RefreshBackground();
         if (_isOccupied && _tooltip.CanShow)
         {
             TooltipRequested?.Invoke(_tooltip, transform as RectTransform);
@@ -306,6 +337,8 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     public void OnPointerExit(PointerEventData eventData)
     {
+        _isHovered = false;
+        RefreshBackground();
         TooltipDismissRequested?.Invoke(transform as RectTransform);
     }
 
@@ -334,7 +367,11 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         RefreshBackground();
     }
 
-    private void OnDisable() => ClearTransferFeedback();
+    private void OnDisable()
+    {
+        _isHovered = false;
+        ClearTransferFeedback();
+    }
 
     private void Update()
     {
@@ -346,6 +383,22 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
     private void RefreshBackground()
     {
         if (_background == null) return;
+        if (_emptySprite != null)
+        {
+            Sprite sprite = _dropHighlight == DropHighlightState.Invalid ? _invalidSprite
+                : _dropHighlight == DropHighlightState.Valid ? _hoveredSprite
+                : _isReserved ? _reservedSprite
+                : _isSelected ? _selectedSprite
+                : _isHovered && _button != null && _button.interactable ? _hoveredSprite
+                : _isOccupied ? _occupiedSprite : _emptySprite;
+            _background.overrideSprite = null;
+            _background.sprite = sprite != null ? sprite : _emptySprite;
+            Color color = Color.white;
+            if (_isInactiveSet && _dropHighlight == DropHighlightState.None) color.a *= InactiveSetAlpha;
+            _background.color = Color.Lerp(color, new Color(0.25f, 0.8f, 0.4f, 1f),
+                _transferPulseRemaining / TransferPulseDuration);
+            return;
+        }
         Color restingColor = _dropHighlight switch
         {
             DropHighlightState.Valid => new Color(0.2f, 0.6f, 0.2f, 0.8f),

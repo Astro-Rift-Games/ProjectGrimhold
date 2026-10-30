@@ -129,6 +129,19 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
     /// <summary>A Downed player is still alive until the reserve is depleted.</summary>
     public override bool IsAlive => base.IsAlive || IsDowned;
 
+    /// <summary>Only Active players may authorize a new knockback impact.</summary>
+    public override bool IsKnockbackEligible => IsAlive && !IsDowned;
+
+    /// <summary>
+    /// Resolves equipment RE without primary-attribute scaling. Temporary effects granting RE
+    /// will be summed here when their design is defined.
+    /// </summary>
+    protected override float ResolveKnockbackResistance()
+    {
+        return TryGetEquipmentStatistics(out EquipmentStatisticsModifiers statistics, out _)
+            ? statistics.KnockbackResistance : 0f;
+    }
+
     /// <summary>Conventional healing does not restore Health while Downed.</summary>
     protected override bool CanReceiveHealing => !IsDowned && base.CanReceiveHealing;
 
@@ -330,6 +343,13 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
         out DamageResult result)
     {
         result = default;
+        if (IsDowned && request.IsAllyDirectDamage)
+        {
+            // No reserve mutation or NotifyDownedDamaged: revive must continue uninterrupted.
+            result = new DamageResult(Id, true, 0f, Health, false, DamageFailureReason.None);
+            return true;
+        }
+
         if (!IsDowned ||
             !_downedStateController.TryApplyDownedDamage(
                 mitigatedDamage,
@@ -368,7 +388,8 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
     /// <summary>
     /// Forces definitive defeat of this character due to teammate absence confirmation.
     /// Authoritatively clears Downed state without consuming reserves, sets Health to 0,
-    /// and triggers death/corpse conversion without applying synthetic damage or awarding Kill XP.
+    /// and triggers death/corpse conversion without synthetic damage. An existing Downed cycle
+    /// confirms its frozen PvP credit through the Downed-cycle observer.
     /// </summary>
     internal void ForceDefinitiveDefeatFromAbsence()
     {

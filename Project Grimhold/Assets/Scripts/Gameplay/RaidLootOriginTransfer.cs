@@ -53,6 +53,43 @@ public sealed class RaidLootOriginTransfer
         return _buckets.Length > 0;
     }
 
+    /// <summary>
+    /// Splits a canonical transfer into its first <paramref name="amount"/> units, taken in
+    /// canonical (Dungeon-first) order, and the exact remainder. A full split yields an empty remainder.
+    /// </summary>
+    public bool TrySplit(int amount, out RaidLootOriginTransfer taken, out RaidLootOriginTransfer remainder)
+    {
+        taken = null;
+        remainder = null;
+        if (!TryGetTotal(out int total) || amount <= 0 || amount > total)
+        {
+            return false;
+        }
+
+        var takenBuckets = new List<RaidLootOriginBucket>(_buckets.Length);
+        var remainderBuckets = new List<RaidLootOriginBucket>(_buckets.Length);
+        int pending = amount;
+        for (int index = 0; index < _buckets.Length; index++)
+        {
+            RaidLootOriginBucket bucket = _buckets[index];
+            int takenAmount = Math.Min(pending, bucket.Amount);
+            pending -= takenAmount;
+            if (takenAmount > 0)
+            {
+                takenBuckets.Add(new RaidLootOriginBucket(bucket.Origin, takenAmount));
+            }
+
+            if (takenAmount < bucket.Amount)
+            {
+                remainderBuckets.Add(new RaidLootOriginBucket(bucket.Origin, bucket.Amount - takenAmount));
+            }
+        }
+
+        taken = new RaidLootOriginTransfer(takenBuckets);
+        remainder = remainderBuckets.Count == 0 ? EmptyTransfer : new RaidLootOriginTransfer(remainderBuckets);
+        return true;
+    }
+
     public static RaidLootOriginTransfer Dungeon(int amount) =>
         new(new[] { new RaidLootOriginBucket(RaidLootOrigin.Dungeon, amount) });
 

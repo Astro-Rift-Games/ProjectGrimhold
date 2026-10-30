@@ -36,6 +36,7 @@ function readVersion(root, tag, previousTag) {
 }
 
 export function readVersions(root, ref) {
+  readCommits(root, ref); // Discover patch-equivalence candidates across all release ranges.
   git(root, ['rev-parse', '--verify', `${ref}^{commit}`]);
 
   const tags = git(root, ['tag', '--merged', ref])
@@ -57,6 +58,7 @@ export function readVersions(root, ref) {
 // Publication planning is stricter than the historical developer CLI. A tag on a
 // merged feature branch must never silently become a public release boundary.
 export function readPublicationVersions(root, ref) {
+  readCommits(root, ref);
   const stableTag = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
   const firstParent = git(root, ['rev-list', '--first-parent', '--reverse', ref])
     .trim().split('\n');

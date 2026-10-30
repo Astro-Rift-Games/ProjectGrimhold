@@ -13,6 +13,7 @@ public readonly struct TownRaidPreparationSnapshot
     public RaidCode RaidCode { get; }
     public ProfileId HostProfileId { get; }
     public TownRaidPreparationState State { get; }
+    public bool FriendlyFireEnabled { get; }
 
     /// <summary>Changes whenever any observable preparation field changes.</summary>
     public int SnapshotRevision { get; }
@@ -32,11 +33,13 @@ public readonly struct TownRaidPreparationSnapshot
         IReadOnlyList<TownRaidPreparationMember> members,
         int snapshotRevision,
         int launchRevision = 0,
-        int frozenMemberCount = 0)
+        int frozenMemberCount = 0,
+        bool friendlyFireEnabled = false)
     {
         RaidCode = raidCode;
         HostProfileId = hostProfileId;
         State = state;
+        FriendlyFireEnabled = friendlyFireEnabled;
         SnapshotRevision = snapshotRevision;
         LaunchRevision = launchRevision;
         FrozenMemberCount = frozenMemberCount;

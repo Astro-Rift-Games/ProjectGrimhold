@@ -22,6 +22,8 @@ public sealed class PlayerCorpseGenerationSimulationDriver : SimulationBehaviour
     /// When false (default) a fatal hit resolves the legacy immediate defeat; Downed tests set it true.
     /// </summary>
     public bool AllowDowned { get; set; }
+    public IDamageResolver RequestedResolver { get; set; }
+    public bool RequestedAllyDirectDamage { get; set; }
     public float RequestedDamageAmount { get; set; } = 1000f;
     public EntityId RequestedAttackerId { get; set; } = new EntityId(int.MaxValue);
     public float RequestedHealingAmount { get; set; }
@@ -85,8 +87,9 @@ public sealed class PlayerCorpseGenerationSimulationDriver : SimulationBehaviour
             DamageType.TrueDamage,
             Vector2.down,
             Target.transform.position,
-            Runner.Tick);
-        FirstResult = Target.ApplyDamage(damage);
+            Runner.Tick,
+            isAllyDirectDamage: RequestedAllyDirectDamage);
+        FirstResult = RequestedResolver != null ? RequestedResolver.Resolve(damage) : Target.ApplyDamage(damage);
         if (RepeatFatalDamage)
         {
             SecondResult = Target.ApplyDamage(damage);

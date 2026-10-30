@@ -216,6 +216,9 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                 AdvancePendingRelease();
                 AdvanceHandReleases(false);
             }
+            // Consumption cancels releases above, but is not a Reload interruption rule.
+            AdvanceHandReloads(gameplayPhaseActive && IsAttackEnabled && _character.IsAlive &&
+                !PlayerDownedGate.IsDowned(_character));
         }
 
         // Input absence must not stall an already accepted release.
@@ -320,7 +323,9 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
 
         while (_pendingFeedbackEvents.Count > 0)
         {
-            CombatFeedbackResolved?.Invoke(_pendingFeedbackEvents.Dequeue());
+            // Dequeue first: `?.` skips argument evaluation when nothing is subscribed.
+            CombatPresentationEvent feedbackEvent = _pendingFeedbackEvents.Dequeue();
+            CombatFeedbackResolved?.Invoke(feedbackEvent);
         }
     }
 
@@ -422,6 +427,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                     GetBasicAttackDamageMultiplier());
             if (!accepted) return;
             // Capture all projectile data before the shared executor can be reconfigured.
+            release.EmpowerSourceParticipantValue = GetBasicAttackEmpowerSource().Value;
             PendingRangedRelease = release;
             releaseTick = release.ReleaseTick;
         }
@@ -494,6 +500,20 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         ? _empowerEffect.GetBasicAttackDamageMultiplier()
         : 1f;
 
+    private RaidParticipantId GetBasicAttackEmpowerSource()
+    {
+        return _empowerEffect != null && _empowerEffect.TryGetBasicAttackEmpowerSource(out RaidParticipantId id)
+            ? id : default;
+    }
+
+    private bool TrySpawnBasicAttackProjectile(in ProjectileSpawnRequest request, int sourceValue)
+    {
+        RaidParticipantId.TryCreate(sourceValue, out RaidParticipantId sourceId);
+        return _releaseSpawner is FusionProjectileSpawner spawner
+            ? spawner.Spawn(request, sourceId).WasSpawned
+            : _releaseSpawner != null && _releaseSpawner.Spawn(request).WasSpawned;
+    }
+
     private int GetActiveWeaponCatalogIndexPlusOne() => _equipmentController != null
         ? _equipmentController.GetActiveWeaponCatalogIndexPlusOne()
         : 0;
@@ -532,7 +552,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                 GetAttackOriginPosition(),
                 direction,
                 (int)Runner.Tick);
-            if (meleeAttack.Execute(in request, GetBasicAttackDamageMultiplier()).WasExecuted)
+            if (meleeAttack.Execute(in request, GetBasicAttackDamageMultiplier(), GetBasicAttackEmpowerSource()).WasExecuted)
                 LastAttackCancellationTick = -1;
         }
     }
@@ -545,7 +565,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         PendingRangedRelease = release; // Commit consumption BEFORE the irreversible spawn, even on failure.
         // A throwing adapter must also leave a consumed/cancelled shot; do not hide its exception.
         LastAttackCancellationTick = Runner.Tick;
-        if (valid && _releaseSpawner != null && _releaseSpawner.Spawn(request).WasSpawned)
+        if (valid && TrySpawnBasicAttackProjectile(request, release.EmpowerSourceParticipantValue))
             LastAttackCancellationTick = -1;
     }
 
@@ -647,20 +667,48 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         status = default;
         int index = HandIndex(slot);
         if (index < 0 || Runner == null || !Runner.IsRunning || Object == null || !Object.IsValid ||
-            !_dependenciesValid || _equipmentController == null ||
-            _equipmentController.GetWeaponCatalogIndexPlusOne(slot) == 0) return false;
+            !_dependenciesValid || _equipmentController == null) return false;
+        int identity = _equipmentController.GetWeaponCatalogIndexPlusOne(slot);
+        if (identity == 0 || !_equipmentController.TryGetSlotDefinition(slot, out LootDefinition loot) ||
+            loot.WeaponDefinition == null || loot.WeaponDefinition.PrimaryAttack == null) return false;
+        WeaponDefinition weapon = loot.WeaponDefinition;
         WeaponHandAttackState state = HandAttacks[index];
         bool available = IsAttackEnabled && _character.IsAlive && !PlayerDownedGate.IsDowned(_character) &&
             !PlayerConsumptionGate.IsConsuming(_character) &&
             (_abilityRuntime == null || !_abilityRuntime.HasActiveExecution) &&
             EquipmentSlotRules.GetWeaponSet(slot) == _equipmentController.ActiveWeaponSetSlot &&
-            !IsExecutingWeaponAttack && state.Timing.IsReady(Runner.Tick) && !state.HasPendingRelease;
-        if (available && _equipmentController.TryGetSlotDefinition(slot, out LootDefinition loot) &&
-            loot.WeaponDefinition.StaminaCost > 0f)
-            available = _stamina != null && _stamina.CanSpend(loot.WeaponDefinition.StaminaCost);
+            !IsExecutingWeaponAttack && state.Timing.IsReady(Runner.Tick) && !state.HasPendingRelease &&
+            (!weapon.UsesReload || state.WeaponCatalogIndexPlusOne != identity || !state.Reload.Unloaded);
+        if (available && weapon.StaminaCost > 0f)
+            available = _stamina != null && _stamina.CanSpend(weapon.StaminaCost);
         status = new PrimaryAttackStatus(available, state.Timing.IntervalSeconds,
             Mathf.Max(0f, (state.Timing.IntervalEndTick - Runner.Tick) * Runner.DeltaTime));
         return true;
+    }
+
+    /// <summary>
+    /// Read-only equipped-hand intent preflight for Movement, which runs before Combat updates PreviousButtons.
+    /// Input Authority can evaluate it without configuring or executing an authority-only attack strategy.
+    /// </summary>
+    public bool IsOffensiveStartRequested(NetworkButtons buttons)
+    {
+        if (_equipmentController == null || _equipmentController.ActiveWeaponSetSlot == WeaponSetSlot.None ||
+            (_matchController != null && _matchController.Phase != NetworkMatchController.MatchPhase.InProgress) ||
+            (_shieldDefenseController != null && _shieldDefenseController.CanDefend(buttons))) return false;
+        return IsHandStartRequested(_equipmentController.GetActiveHandSlot(false), PlayerInputButton.PrimaryAttack, buttons) ||
+            IsHandStartRequested(_equipmentController.GetActiveHandSlot(true), PlayerInputButton.SecondaryAction, buttons);
+    }
+
+    private bool IsHandStartRequested(EquipmentSlot slot, PlayerInputButton button, NetworkButtons buttons)
+    {
+        if (!buttons.IsSet(button) ||
+            (EquipmentSlotRules.IsOffHandSlot(slot) && _equipmentController.IsOffHandBlocked(_equipmentController.ActiveWeaponSetSlot)) ||
+            !_equipmentController.TryGetSlotDefinition(slot, out LootDefinition loot) ||
+            loot.WeaponDefinition == null || loot.WeaponDefinition.PrimaryAttack == null ||
+            !TryGetAttackStatus(slot, out PrimaryAttackStatus status) || !status.IsAvailable) return false;
+        AttackInputMode mode = loot.WeaponDefinition.PrimaryAttack.InputMode;
+        return mode == AttackInputMode.Hold ||
+            (mode == AttackInputMode.Press && buttons.WasPressed(PreviousButtons, button));
     }
 
     private void ProcessHandInput(NetworkButtons buttons, NetworkButtons previous)
@@ -709,12 +757,14 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                 TryResolveAimedReleaseSeconds(Runner.Tick, out float seconds) ? seconds : null;
             if (_releaseSpawner == null || !ranged.TryAcceptRelease(request, Runner.DeltaTime,
                 out state.Ranged, aimed, GetBasicAttackDamageMultiplier())) return false;
+            state.Ranged.EmpowerSourceParticipantValue = GetBasicAttackEmpowerSource().Value;
             state.ReleaseTick = state.Ranged.ReleaseTick;
             state.Aimed = aimed.HasValue;
         }
         else return false;
         // Acceptance above has no external effects. Commit payment once before publishing any release.
         if (weapon.StaminaCost > 0f && !_stamina.TrySpend(weapon.StaminaCost)) return false;
+        if (weapon.UsesReload) state.Reload.MarkShot();
         PlayerReviveGate.InterruptIfReviving(_character);
         WeaponExecutionEndTick = windowEnd;
         state.Sequence = ++AttackSequence;
@@ -733,6 +783,27 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         }
         AdvanceHandReleases(false);
         return true;
+    }
+
+    private void AdvanceHandReloads(bool allowed)
+    {
+        if (_equipmentController == null) return;
+        for (int index = 0; index < 4; index++)
+        {
+            EquipmentSlot slot = HandSlot(index);
+            WeaponHandAttackState state = HandAttacks[index];
+            WeaponDefinition weapon = _equipmentController.TryGetSlotDefinition(slot, out LootDefinition loot)
+                ? loot.WeaponDefinition : null;
+            // Catalog/template identity only: replacing a unit with another of the same template is not detectable.
+            if (weapon == null || !weapon.UsesReload ||
+                _equipmentController.GetWeaponCatalogIndexPlusOne(slot) != state.WeaponCatalogIndexPlusOne)
+                state.Reload = default;
+            else
+                state.Reload.Advance(Runner.Tick, Runner.DeltaTime, weapon.ReloadSeconds,
+                    allowed && EquipmentSlotRules.GetWeaponSet(slot) == _equipmentController.ActiveWeaponSetSlot &&
+                    !_movementController.IsSprinting && !state.HasPendingRelease);
+            HandAttacks.Set(index, state);
+        }
     }
 
     private void AdvanceHandReleases(bool cancel)
@@ -771,7 +842,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                     {
                         AttackRequest request = new(_character.Id, GetAttackOriginPosition(), direction, Runner.Tick);
                         AttackExecutionParameters parameters = release.ExecutionParameters;
-                        if (melee.Execute(request, parameters, GetBasicAttackDamageMultiplier()).WasExecuted)
+                        if (melee.Execute(request, parameters, GetBasicAttackDamageMultiplier(), GetBasicAttackEmpowerSource()).WasExecuted)
                         {
                             state.CancellationTick = -1;
                             HandAttacks.Set(index, state);
@@ -784,7 +855,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
                 bool valid = state.Ranged.TryConsume(Runner.Tick, _character.Id, GetAttackOriginPosition(), out ProjectileSpawnRequest request);
                 state.CancellationTick = Runner.Tick;
                 HandAttacks.Set(index, state);
-                if (valid && _releaseSpawner != null && _releaseSpawner.Spawn(request).WasSpawned)
+                if (valid && TrySpawnBasicAttackProjectile(request, state.Ranged.EmpowerSourceParticipantValue))
                 {
                     state.CancellationTick = -1;
                     HandAttacks.Set(index, state);

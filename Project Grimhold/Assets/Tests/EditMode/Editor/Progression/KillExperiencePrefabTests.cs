@@ -36,14 +36,20 @@ namespace Tests.EditMode.Progression
         }
 
         [Test]
-        public void PlayerPrefab_HasNoKillExperienceSource()
+        public void PlayerPrefab_UsesPvpCreditProducerInsteadOfKillExperienceSource()
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/Prefabs/NetworkPlayer.prefab");
 
             Assert.That(prefab, Is.Not.Null);
             Assert.That(prefab.GetComponent<KillExperienceSource>(), Is.Null);
-            Assert.That(prefab.GetComponent<CombatContributionTracker>(), Is.Null);
+            Assert.That(prefab.GetComponent<CombatContributionTracker>(), Is.Not.Null);
+
+            var credit = prefab.GetComponent<PlayerPvpCombatCreditNetworkController>();
+            Assert.That(credit, Is.Not.Null);
+            var serialized = new SerializedObject(credit);
+            Assert.That(serialized.FindProperty("_pvpBaseExperience").longValue, Is.EqualTo(25));
+            Assert.That(serialized.FindProperty("_maxAssistsPerTarget").intValue, Is.EqualTo(1));
         }
     }
 }

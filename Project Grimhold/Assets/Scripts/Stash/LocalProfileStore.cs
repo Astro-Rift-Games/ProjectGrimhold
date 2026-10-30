@@ -58,6 +58,21 @@ public sealed class LocalProfileStore
         _repository.Snapshot?.PendingReservation;
     public PendingExtractionCommit PendingExtractionCommit => 
         _repository.Snapshot?.PendingExtractionCommit;
+    /// <summary>
+    /// Remains true after the pending backend commit is acknowledged and cleared.
+    /// Departure cleanup must match this participation, not a previous Raid's receipt.
+    /// </summary>
+    public bool HasCommittedExtraction(string raidId)
+    {
+        if (string.IsNullOrEmpty(raidId) || _repository.Snapshot == null) return false;
+        foreach (ExtractionReceipt receipt in _repository.Snapshot.AppliedExtractionReceipts)
+        {
+            if (receipt.ProfileId == _profileId && string.Equals(receipt.RaidId, raidId, StringComparison.Ordinal))
+                return true;
+        }
+        return false;
+    }
+
     public long GetCurrency() =>
         _repository.Snapshot != null ? _repository.Snapshot.Currency : LocalProfileSnapshot.InitialCurrency;
     public int GetLevel() =>

@@ -24,6 +24,7 @@ public sealed class SeismicStrikeAbilityBehaviour : AbilityExecutionBehaviour
     [Tooltip("Zero is allowed: enemies are still pushed, without damage.")]
     [SerializeField, Min(0f)] private float _damage = 5f;
     [SerializeField] private DamageType _damageType = DamageType.Physical;
+    [Tooltip("Knockback power (PE original, Doc 18), converted to displacement by KnockbackCurveConfig after RE mitigation.")]
     [SerializeField, Min(0f)] private float _knockbackForce = 8f;
 
     // Reused for both the start validation and the resolution: the finder copies into it on every call.

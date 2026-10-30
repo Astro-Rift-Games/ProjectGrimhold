@@ -90,7 +90,7 @@ namespace Tests.PlayMode.Abilities
             yield return Press(PlayerInputButton.AbilitySlot2);
             Assert.That(_avatar.HasActiveExecution, Is.True, "The preparation is running.");
             float afterPayment = Stamina();
-            yield return InSimulation(() => _movement.ApplyKnockbackImpulse(Vector2.right, 4f));
+            yield return InSimulation(() => _movement.TryApplyKnockback(Vector2.right, 4f, true));
             yield return WaitSeconds(1.2f);
 
             Assert.That(_avatar.HasActiveExecution, Is.False);

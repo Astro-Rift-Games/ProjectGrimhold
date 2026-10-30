@@ -11,6 +11,7 @@ const {
   moveItemValidator,
   preparedEquipmentValidator,
   pendingReservationValidator,
+  admitReservationValidator,
   commitExtractionValidator,
   shopSellValidator,
   shopBuyValidator,
@@ -141,8 +142,24 @@ router.post('/me/inventory/reservation', pendingReservationValidator, async (req
   }
 });
 
+// POST /character/me/inventory/reservation/admit
+// Body: { reservationId: string }. Retains reserved ownership until the Raid outcome.
+// Returns { pendingReservation, revision }; repeated admission of the same id is unchanged.
+// Missing/mismatched reservation: 422 NO_ACTIVE_RESERVATION.
+router.post('/me/inventory/reservation/admit', admitReservationValidator, async (req, res, next) => {
+  try {
+    const result = await InventoryService.admitPendingReservation(req.accountId, req.body.reservationId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // DELETE /character/me/inventory/reservation
-// Clears the pending reservation once a raid completes or restores items/equipment when rolled back (?rollback=true).
+// Consumes a reservation as a loss without restoring ownership. ?rollback=true restores
+// only pre-admission reservations (409 RESERVATION_ADMITTED otherwise). Loss clear or
+// replacement of an admitted reservation rejects with 409 EXTRACTION_RESULT_PENDING
+// while an unconsumed authoritative result targets this character.
 router.delete('/me/inventory/reservation', async (req, res, next) => {
   try {
     const rollback = req.query.rollback === 'true' || req.body?.rollback === true;

@@ -397,6 +397,26 @@ test('RaidResultService Bounded Player-Host Authority (TASK-223 / SEC-223)', asy
     assert.equal(createArgs.hostSignature, '');
   });
 
+  await t.test('publishes for admitted host and recipient without consuming their reservations', async () => {
+    const admittedAt = new Date('2026-10-29T12:00:00.000Z');
+    mockCharacters.get(hostAccountId).inventory.pendingReservation.admittedAt = admittedAt;
+    mockCharacters.get(playerAccountId).inventory.pendingReservation.admittedAt = admittedAt;
+    const before = structuredClone([...mockCharacters]);
+
+    const result = await RaidResultService.publishHostResult(hostAccountId, {
+      raidId, resultId, targetCharacterId: 'char_player_id',
+      items: [{ lootId: 'iron_ore', amount: 5 }],
+      preparedEquipment: { weaponSlot1: 'arming_sword' },
+      experienceGranted: 250, issuedAt
+    });
+
+    assert.deepEqual(result, { status: 'published', alreadyPublished: false,
+      raidId, accountId: playerAccountId, resultId });
+    assert.equal(createArgs.accountId, playerAccountId);
+    assert.equal(createArgs.consumed, false);
+    assert.deepEqual([...mockCharacters], before);
+  });
+
   await t.test('rejects with 422 NO_ACTIVE_RESERVATION when target character has no active reservation', async () => {
     mockCharacters.get(playerAccountId).inventory.pendingReservation = null;
 

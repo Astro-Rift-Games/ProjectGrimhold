@@ -7,14 +7,18 @@ using System.Collections.Generic;
 public interface ICombatContributionTracker : IEntity
 {
     /// <summary>
-    /// Records a valid contribution by the given attacker participant.
-    /// Replaces the previous timestamp if the attacker already contributed.
+    /// Records an already-effective contribution on this target by the given participant.
+    /// Replaces the latest kind and timestamp; the window, not Downed-cycle entry, expires history.
     /// </summary>
-    void TryRecordContribution(RaidParticipantId contributor, int simulationTick);
+    void TryRecordContribution(RaidParticipantId contributor, int simulationTick,
+        CombatContributionKind kind = CombatContributionKind.Damage);
 
     /// <summary>
     /// Retrieves a snapshot of all participant IDs whose latest contribution 
     /// occurred within the acceptable time window relative to <paramref name="currentTick"/>.
     /// </summary>
     void GetValidContributors(int currentTick, HashSet<RaidParticipantId> contributors);
+
+    /// <summary>Reads the latest effective contribution's kind and resolution tick for audit.</summary>
+    bool TryGetLatestContribution(RaidParticipantId contributor, out int simulationTick, out CombatContributionKind kind);
 }

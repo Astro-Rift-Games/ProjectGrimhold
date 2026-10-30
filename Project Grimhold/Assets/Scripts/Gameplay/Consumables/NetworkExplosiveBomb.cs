@@ -189,7 +189,8 @@ public sealed class NetworkExplosiveBomb : NetworkBehaviour
                 }
                 else
                 {
-                    damageable.ApplyDamage(in request);
+                    // Fail closed: bypassing the resolver would bypass friendly-fire policy.
+                    Debug.LogError($"{nameof(NetworkExplosiveBomb)} requires an {nameof(IDamageResolver)} to apply damage.", this);
                 }
             }
         }

@@ -204,7 +204,7 @@ namespace Tests.PlayMode.Abilities
                 }
                 else if (reason == AbilityExecutionStopReason.Knockback)
                 {
-                    _runtime.GetComponent<PlayerMovementNetworkController>().ApplyKnockbackImpulse(Vector2.up, 1f);
+                    _runtime.GetComponent<PlayerMovementNetworkController>().TryApplyKnockback(Vector2.up, 1f, true);
                 }
                 else Assert.That(_runtime.TryInterrupt(UniversalAbilitySlot.Slot1, accepted.Sequence, reason), Is.True);
             });

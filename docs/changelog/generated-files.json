@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "generator": "tools/changelog",
+  "files": [
+    "docs/changelog/README.md",
+    "docs/changelog/generated-files.json",
+    "docs/changelog/history-2026-07.md",
+    "docs/changelog/history-2026-08.md",
+    "docs/changelog/history-2026-09.md",
+    "docs/changelog/history-2026-10.md",
+    "docs/changelog/report.json"
+  ]
+}

@@ -20,7 +20,8 @@ namespace Tests.EditMode.Equipment
         private static readonly MotionSpec[] Motions =
         {
             new("Idle", 6),
-            new("Walk", 8)
+            new("Walk", 8),
+            new("Knockback", 4)
         };
 
         private static readonly DefinitionSpec[] Definitions =
@@ -207,7 +208,7 @@ namespace Tests.EditMode.Equipment
             {
                 LootDefinition definition = LoadDefinition(spec);
                 Dictionary<Sprite, Sprite> mappings = ReadMappings(definition, spec);
-                int expectedCount = 84 * spec.Parts.Length;
+                int expectedCount = 108 * spec.Parts.Length;
 
                 Assert.That(mappings.Count, Is.EqualTo(expectedCount), spec.AssetName);
                 AssertExpectedMappings(spec, definition, mappings);
@@ -217,11 +218,11 @@ namespace Tests.EditMode.Equipment
                 mappingsPerSet[spec.SetName] = setCount + mappings.Count;
             }
 
-            Assert.That(totalMappings, Is.EqualTo(2520));
+            Assert.That(totalMappings, Is.EqualTo(3240));
             Assert.That(mappingsPerSet.Count, Is.EqualTo(6));
             foreach (int count in mappingsPerSet.Values)
             {
-                Assert.That(count, Is.EqualTo(420));
+                Assert.That(count, Is.EqualTo(540));
             }
         }
 

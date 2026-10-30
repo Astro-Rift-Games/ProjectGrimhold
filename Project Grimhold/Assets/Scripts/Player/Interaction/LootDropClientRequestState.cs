@@ -12,6 +12,26 @@ public sealed class LootDropClientRequestState
     public bool TryCreateCandidate(
         int catalogIndex,
         LootTransferQuantityMode quantityMode,
+        out LootDropRequestIdentity identity) =>
+        TryCreateCandidateCore(catalogIndex, quantityMode, -1, -1, out identity);
+
+    public bool TryCreateCandidate(
+        int catalogIndex,
+        LootTransferQuantityMode quantityMode,
+        int sourceInventorySlotIndex,
+        int expectedInventoryRevision,
+        out LootDropRequestIdentity identity)
+    {
+        identity = default;
+        return LootTransferRequest.IsValidInventorySlotAddress(sourceInventorySlotIndex, expectedInventoryRevision) &&
+            TryCreateCandidateCore(catalogIndex, quantityMode, sourceInventorySlotIndex, expectedInventoryRevision, out identity);
+    }
+
+    private bool TryCreateCandidateCore(
+        int catalogIndex,
+        LootTransferQuantityMode quantityMode,
+        int sourceInventorySlotIndex,
+        int expectedInventoryRevision,
         out LootDropRequestIdentity identity)
     {
         identity = default;
@@ -26,7 +46,8 @@ public sealed class LootDropClientRequestState
             sequence = 1;
         }
 
-        identity = new LootDropRequestIdentity(sequence, catalogIndex, quantityMode);
+        identity = new LootDropRequestIdentity(sequence, catalogIndex, quantityMode,
+            sourceInventorySlotIndex, expectedInventoryRevision);
         return true;
     }
 

@@ -5,6 +5,7 @@ using UnityEngine;
 public struct WeaponHandAttackState : INetworkStruct
 {
     public WeaponAttackTiming Timing;
+    public WeaponReloadState Reload;
     public MeleeAttackRelease Melee;
     public RangedAttackRelease Ranged;
     public int Sequence;

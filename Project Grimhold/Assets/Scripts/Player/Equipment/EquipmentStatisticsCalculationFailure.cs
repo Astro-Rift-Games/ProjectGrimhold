@@ -7,5 +7,7 @@ public enum EquipmentStatisticsCalculationFailure : byte
     MagicalDefenseOverflow = 3,
     MaximumHealthModifierOverflow = 4,
     MaximumStaminaModifierOverflow = 5,
-    MaximumManaModifierOverflow = 6
+    MaximumManaModifierOverflow = 6,
+    /// <summary>The equipped RE sum exceeds the supported integer range.</summary>
+    KnockbackResistanceOverflow = 7
 }

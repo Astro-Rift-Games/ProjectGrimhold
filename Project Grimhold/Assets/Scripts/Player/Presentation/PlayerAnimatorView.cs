@@ -36,6 +36,8 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
     private const float FacingArcHysteresisDegrees = 5f;
     private bool _showingAimBucket;
     private PlayerMovementNetworkController _aimSource;
+    private int _observedKnockbackSequence;
+    private bool _hasKnockbackBaseline;
     private float _aimStanceBlend;
     private float _stringHandPinWeight;
     private bool _stancePoseActive;
@@ -291,6 +293,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         _hasTimedAttack = false;
         _timedAttackClip = null;
         _hasPresentedAim = false;
+        _hasKnockbackBaseline = false;
         _hasOffHandAttack = false;
         _showingAimBucket = false;
         _stancePoseActive = false;
@@ -319,6 +322,7 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
             playbackRate);
 
         RefreshCombatParameters();
+        RefreshKnockbackReaction();
         if (_hasTimedAttack)
         {
             RefreshTimedAttack();
@@ -333,6 +337,25 @@ public sealed class PlayerAnimatorView : CharacterAnimatorView
         }
 
         RefreshAimStanceBlend();
+    }
+
+    // Plays the knockback reaction on every observed knockback. The first observation only sets the baseline, so a
+    // peer that joins late does not replay knockbacks that happened before it spawned the avatar.
+    private void RefreshKnockbackReaction()
+    {
+        if (_aimSource == null || !_aimSource.TryGetKnockbackSequence(out int sequence))
+        {
+            _hasKnockbackBaseline = false;
+            return;
+        }
+
+        if (_hasKnockbackBaseline && sequence != _observedKnockbackSequence)
+        {
+            TriggerKnockback();
+        }
+
+        _observedKnockbackSequence = sequence;
+        _hasKnockbackBaseline = true;
     }
 
     protected override void CacheDependencies()

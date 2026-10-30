@@ -57,6 +57,9 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     [SerializeField, Min(1)]
     private int _developmentLaunchSequence = 1;
 
+    [SerializeField]
+    private bool _developmentFriendlyFireEnabled;
+
     private readonly SessionConnectionStateMachine _stateMachine = new();
     private bool _operationActive;
     private bool _isQuitting;
@@ -72,6 +75,9 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private bool _launchDispatchActive;
     private bool _raidAdmissionConfirmed;
     private bool _loadoutConfirmationPending;
+    private string _reservationParticipationRaidId;
+    private NetworkRunner _hostMigrationSourceRunner;
+    private Task _participationOutcomeTask = Task.CompletedTask;
     private bool _hostResultsReturnRequested;
     private bool _hostResultsReturnStarted;
     private bool _hostCancellationReturnArmed;
@@ -257,7 +263,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         RaidLaunchContext launchContext,
         TownPartyContinuationContext partyContinuation)
     {
-        if (launchContext == null || State != SessionConnectionState.Town || _operationActive)
+        if (launchContext == null || State != SessionConnectionState.Town || _operationActive ||
+            !_participationOutcomeTask.IsCompleted)
         {
             return RaidLaunchPreparationResult.NotReady;
         }
@@ -1085,6 +1092,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             _currentRaidCode = ticket.LaunchContext.RaidCode;
             _currentProfileId = ticket.LaunchContext.LocalProfileId;
             _currentRaidGenerationId = ticket.LaunchContext.RaidCode.RaidId;
+            _reservationParticipationRaidId = _currentRaidGenerationId;
             _currentSessionName = ticket.Request.SessionName;
             _currentRole = ticket.Request.Role;
 
@@ -1265,6 +1273,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             _currentRaidCode = ticket.RaidCode;
             _currentProfileId = ticket.ProfileId;
             _currentRaidGenerationId = ticket.RaidGenerationId;
+            _reservationParticipationRaidId = _currentRaidGenerationId;
             _currentSessionName = ticket.SessionName;
             _currentRole = RaidConnectionRole.Client;
             _activeReconnectTicket = null;
@@ -1320,6 +1329,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     public void DiscardActiveReconnectTicket()
     {
         bool hadTicket = _activeReconnectTicket.HasValue;
+        // Explicit discard (including terminal reconnect refusal) ends the retained participation.
+        if (hadTicket) ClearLostParticipationReservation();
         _activeReconnectTicket = null;
         _currentRaidCode = default;
         _currentProfileId = default;
@@ -1437,6 +1448,9 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 return SessionTransitionResult.LoadoutConfirmationFailed;
             }
 
+            // A local extraction receipt survives both backend ACK and runner destruction.
+            // Every other explicit Return is a loss, including defeat, abandon and closure.
+            ClearLostParticipationReservation();
             NetworkRunner raidRunner = _raidLauncher.Runner;
             Debug.Log(
                 $"[HM-MULTI] Ordinary Town return requested. " +
@@ -1618,6 +1632,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             _currentRaidCode = launchContext.RaidCode;
             _currentProfileId = launchContext.LocalProfileId;
             _currentRaidGenerationId = launchContext.RaidCode.RaidId;
+            _reservationParticipationRaidId = _currentRaidGenerationId;
             _currentSessionName = sessionName;
             _currentRole = role;
             TryConfirmActiveReservation();
@@ -1745,6 +1760,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
     private bool TryRollbackActiveReservation()
     {
+        // Recovery after admission must never restore the Town ownership. The transition
+        // out of Raid below consumes the backend reservation as a loss instead.
+        if (_raidAdmissionConfirmed)
+            return !_loadoutConfirmationPending || TryConfirmActiveReservation();
+
         if (!_activeTicket.HasValue || !_activeTicket.Value.HasLoadoutReservation)
         {
             // [AUDIT] No reservation to roll back — this is OK
@@ -1875,7 +1895,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             participants,
             localProfile,
             Mathf.Max(1, _developmentLaunchSequence),
-            out launchContext);
+            out launchContext,
+            _developmentFriendlyFireEnabled);
     }
 
     private bool TryConfirmActiveReservation()
@@ -1901,7 +1922,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             var remoteInventoryService = stashContext.GetComponent<RemoteInventoryService>();
             if (remoteInventoryService != null)
             {
-                _ = remoteInventoryService.ClearPendingReservationAsync();
+                _ = MarkReservationAdmittedAsync(remoteInventoryService,
+                    _activeTicket.Value.LoadoutReservation.ReservationId);
             }
             _loadoutConfirmationPending = false;
             return true;
@@ -1910,8 +1932,48 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         return false;
     }
 
+    private async Task MarkReservationAdmittedAsync(RemoteInventoryService service, string reservationId)
+    {
+        var (success, error) = await service.MarkPendingReservationAdmittedAsync(reservationId);
+        if (!success)
+        {
+            Debug.LogWarning($"[{nameof(SessionConnectionCoordinator)}] Reservation admission failed: {error.error} - {error.message}");
+        }
+    }
+
+    private void ClearLostParticipationReservation()
+    {
+        string raidId = _reservationParticipationRaidId;
+        if (string.IsNullOrEmpty(raidId)) return;
+        // Consume the local departure guard before starting asynchronous work. Repeated Return,
+        // Failed-state recovery and reconnect-ticket disposal cannot issue a second loss clear.
+        _reservationParticipationRaidId = null;
+        ApplicationStashContext context = ResolveRecoveryStashContext();
+        if (context?.Store != null && context.Store.ProfileId == _currentProfileId &&
+            context.Store.HasCommittedExtraction(raidId)) return;
+
+        RemoteInventoryService service = context != null ? context.GetComponent<RemoteInventoryService>() : null;
+        if (service == null || context.Store == null || context.Store.ProfileId != _currentProfileId)
+        {
+            Debug.LogWarning($"[{nameof(SessionConnectionCoordinator)}] Loss cleanup unavailable; login will recover the orphan reservation.");
+            return;
+        }
+        _participationOutcomeTask = ClearLostParticipationReservationAsync(service);
+    }
+
+    private async Task ClearLostParticipationReservationAsync(RemoteInventoryService service)
+    {
+        var (success, error) = await service.ClearPendingReservationAsync();
+        if (!success && error.error != "EXTRACTION_RESULT_PENDING")
+        {
+            Debug.LogWarning($"[{nameof(SessionConnectionCoordinator)}] Reservation loss cleanup failed: {error.error} - {error.message}");
+        }
+    }
+
     private async Task<bool> ShutdownActiveRunnersAsync()
     {
+        // Do not enable a new Town launch while an old loss clear is still in flight.
+        await _participationOutcomeTask;
         bool hubShutdown = await _hubLauncher.ShutdownAndDestroyRunnerAsync();
         bool raidShutdown = await _raidLauncher.ShutdownAndDestroyRunnerAsync();
         return hubShutdown && raidShutdown;
@@ -1942,6 +2004,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         {
             if (shutdownReason == ShutdownReason.HostMigration && State == SessionConnectionState.Raid)
             {
+                _hostMigrationSourceRunner = runner;
                 Debug.Log(
                     "[HM-MULTI] Town recovery suppressed; Host Migration owns runner replacement.",
                     this);
@@ -1949,10 +2012,16 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             return;
         }
 
-        RecoverFromUnexpectedShutdown();
+        // Failed migration is reported with Error on the original source runner. It is
+        // definitive, unlike an ordinary Client transport disconnect from a live Raid.
+        bool migrationFailed = _hostMigrationSourceRunner == runner &&
+            shutdownReason == ShutdownReason.Error;
+        _hostMigrationSourceRunner = null;
+        RecoverFromUnexpectedShutdown(
+            preserveReconnect: !migrationFailed && !IsTerminalReconnectShutdownReason(shutdownReason));
     }
 
-    private async void RecoverFromUnexpectedShutdown()
+    private async void RecoverFromUnexpectedShutdown(bool preserveReconnect = true)
     {
         if (_isQuitting)
         {
@@ -1969,7 +2038,13 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         CancellationToken cancellationToken = BeginTransitionCancellation();
         try
         {
-            if (State == SessionConnectionState.Raid && _raidAdmissionConfirmed && _currentRole == RaidConnectionRole.Client)
+            if (!preserveReconnect)
+            {
+                ClearLostParticipationReservation();
+                DiscardActiveReconnectTicket();
+            }
+            if (preserveReconnect && State == SessionConnectionState.Raid &&
+                _raidAdmissionConfirmed && _currentRole == RaidConnectionRole.Client)
             {
                 string genId = _currentRaidGenerationId;
                 if (_raidLauncher != null && _raidLauncher.MatchController != null)
@@ -2065,6 +2140,9 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         if (previousState == SessionConnectionState.Raid &&
             nextState != SessionConnectionState.Raid)
         {
+            // Unexpected Client disconnects retain a reconnectable participation. Only a
+            // definitive ending (or explicit ticket discard) may consume its reservation.
+            if (!_activeReconnectTicket.HasValue) ClearLostParticipationReservation();
             ResetHostResultsReturn();
         }
 

@@ -3,11 +3,13 @@ using System;
 using UnityEditor;
 
 
-    public enum AttackPreviewAction { MainAttack, OffAttack, Defend }
+    public enum AttackPreviewAction { MainAttack, OffAttack, Defend, Knockback }
 
     /// <summary>Immutable catalog cell. Facing indices follow PlayerAnimatorView: N, NE, NW, S, SE, SW.</summary>
     public sealed class AttackPreviewCombination
     {
+        private static readonly string[] FacingNames = { "N", "NE", "NW", "S", "SE", "SW" };
+
         public AttackPreviewCombination(LootDefinition mainHand, LootDefinition offHand, AttackPreviewAction action, int facingIndex)
         {
             if (facingIndex < 0 || facingIndex > 5) throw new ArgumentOutOfRangeException(nameof(facingIndex));
@@ -16,7 +18,7 @@ using UnityEditor;
             OffHand = offHand;
             Action = action;
             FacingIndex = facingIndex;
-            string facing = new[] { "N", "NE", "NW", "S", "SE", "SW" }[facingIndex];
+            string facing = FacingNames[facingIndex];
             Id = $"{AssetKey(mainHand)}/{AssetKey(offHand)}/{action}/{facingIndex}";
             DisplayName = $"{(mainHand != null ? mainHand.name : "None")} + {(offHand != null ? offHand.name : "None")} / {action} / {facing}";
 
@@ -32,6 +34,14 @@ using UnityEditor;
 
         internal static bool HasDefensePresentation(LootDefinition definition) => definition != null &&
             definition.Category == LootCategory.Shield && definition.DefenseSprites != null && definition.DefenseSprites.IsComplete;
+        internal static bool HasKnockbackPresentation(int facingIndex)
+        {
+            if (facingIndex < 0 || facingIndex >= FacingNames.Length) return false;
+            string facing = FacingNames[facingIndex];
+            return AssetDatabase.LoadAssetAtPath<UnityEngine.AnimationClip>($"Assets/Animations/Player/Knockback/Knockback_{facing}.anim") != null &&
+                AssetDatabase.LoadAssetAtPath<UnityEngine.AnimationClip>($"Assets/Animations/Player/Knockback/RightHand/RightHand_Knockback_{facing}.anim") != null &&
+                AssetDatabase.LoadAssetAtPath<UnityEngine.AnimationClip>($"Assets/Animations/Player/Knockback/LeftHand/LeftHand_Knockback_{facing}.anim") != null;
+        }
         public LootDefinition MainHand { get; }
         public LootDefinition OffHand { get; }
         public AttackPreviewAction Action { get; }
@@ -50,6 +60,8 @@ using UnityEditor;
                 var off = OffHand != null ? OffHand.WeaponDefinition : null;
                 if (off != null && (off.Presentation.HasGenericAttack || Action == AttackPreviewAction.OffAttack) && InvalidOffSet(off))
                     return "Off Hand attack set is missing/incomplete or lacks grip origin offsets. Regenerate Off Hand attacks.";
+                if (Action == AttackPreviewAction.Knockback)
+                    return HasKnockbackPresentation(FacingIndex) ? null : "Missing Knockback presentation clips.";
                 if (Action == AttackPreviewAction.Defend)
                     return HasDefensePresentation(MainHand) || HasDefensePresentation(OffHand) ? null : "Missing defense presentation.";
                 var attacker = Action == AttackPreviewAction.MainAttack ? MainHand : OffHand;

@@ -38,6 +38,8 @@ using UnityEditor;
                     if (IsWeapon(off)) cells.Add(new AttackPreviewCombination(main, off, AttackPreviewAction.OffAttack, facing));
                     if (AttackPreviewCombination.HasDefensePresentation(main) || AttackPreviewCombination.HasDefensePresentation(off))
                         cells.Add(new AttackPreviewCombination(main, off, AttackPreviewAction.Defend, facing));
+                    if (AttackPreviewCombination.HasKnockbackPresentation(facing))
+                        cells.Add(new AttackPreviewCombination(main, off, AttackPreviewAction.Knockback, facing));
                 }
             }
             return cells.AsReadOnly();

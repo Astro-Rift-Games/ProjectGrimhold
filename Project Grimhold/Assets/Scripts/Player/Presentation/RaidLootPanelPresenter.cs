@@ -12,6 +12,56 @@ public sealed class RaidLootPanelPresenter
     private IReadOnlyList<LootEntry> _occupiedEntries;
 
     public IReadOnlyList<LootEntry> OccupiedEntries => _occupiedEntries;
+    public IReadOnlyList<RaidInventorySlotData> Slots => _slotData;
+
+    /// <summary>Raid alone projects stable physical addresses; aggregate reads serve feedback/value only.</summary>
+    public bool RefreshInventory(
+        PlayerLootReceiver receiver, LootDefinitionCatalog catalog, RaidLootPanelView view,
+        long? totalValue, RaidLootSlotInteractionMode interactionMode,
+        LootId selectedLootId, int selectedInventorySlotIndex)
+    {
+        _slotData.Clear();
+        _occupiedEntries = null;
+        if (receiver == null || catalog == null || view == null ||
+            !LootTransferRequest.IsValidInventorySlotAddress(0, receiver.Revision) ||
+            !view.EnsureSlotCount(PlayerLootReceiver.PhysicalSlotCount) ||
+            !receiver.TryGetLootContent(out IReadOnlyList<LootEntry> aggregate))
+        {
+            view?.ShowUnavailable();
+            return false;
+        }
+
+        int revision = receiver.Revision;
+        for (int index = 0; index < PlayerLootReceiver.PhysicalSlotCount; index++)
+        {
+            if (!receiver.TryGetInventorySlot(index, out LootInventorySlot slot))
+            {
+                _slotData.Clear();
+                view.ShowUnavailable();
+                return false;
+            }
+            if (slot.IsEmpty)
+            {
+                _slotData.Add(RaidInventorySlotData.EmptyInventorySlot(index, revision));
+                continue;
+            }
+            if (!catalog.TryGetByIndex(slot.CatalogIndex, out LootDefinition definition))
+            {
+                _slotData.Clear();
+                view.ShowUnavailable();
+                return false;
+            }
+            _slotData.Add(RaidInventorySlotData.CreateInventorySlot(
+                new LootEntry(definition.LootId, slot.Quantity), definition, view.PlaceholderIcon,
+                index, revision, slot.Origin));
+        }
+
+        _occupiedEntries = aggregate;
+        if (view.Present(_slotData, totalValue, false, interactionMode, selectedLootId, selectedInventorySlotIndex))
+            return true;
+        view.ShowUnavailable();
+        return false;
+    }
 
     public bool Refresh(
         IInventoryReadSource inventorySource,

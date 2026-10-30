@@ -61,6 +61,32 @@ slot sequence independently, dispatches coalesced snapshots in acceptance-sequen
 pending timelines without start audio, and does not let
 Off-hand events replace Main-hand Animator/VFX timelines.
 
+## Combat action cycle (TASK-248)
+
+Game Design 17 §4-§7 and §9 own the cross-action rules; this section maps them onto the
+equipped-hand path.
+
+- **Attack during Sprint.** `IsOffensiveStartRequested(buttons)` reports a weapon start the active
+  set can accept this tick (Press/Hold input mode, hand availability, defense priority). Movement
+  ends Sprint on that same tick, before combat accepts the attack; locomotion continues at normal
+  speed. Sprint stays suppressed during the Execution Window and any pending release, and resumes
+  automatically if still held. See `PlayerMovementArchitecture.md` §20.1.
+- **Weapon Set switching.** It is rejected during `WeaponExecutionEndTick` and ability execution and
+  allowed right after, even while Attack Intervals continue.
+- **Load state (Crossbow).** `WeaponDefinition.UsesReload` and `ReloadSeconds` (Reload Time) are
+  separate from `AttackIntervalSeconds` (Shot Interval). Each hand's `WeaponHandAttackState.Reload`
+  (`WeaponReloadState`) becomes Unloaded on a committed shot. The authority advances it on forward
+  ticks once the hand's release has resolved, while its set is active, the avatar is not sprinting,
+  alive and not Downed, and combat is enabled. Any tick that does not meet those conditions
+  discards partial progress, so Sprint, a set switch or Downed interrupt the reload, and it restarts
+  from zero. Movement, damage and consumption do not interrupt it. An Unloaded hand is unavailable.
+  A stowed Loaded weapon stays Loaded. Reload costs no Stamina. Light Crossbow uses a provisional
+  1.3-second reload: 0.3 s release plus 1.3 s reload keeps the uninterrupted 1.6-second baseline cycle.
+- **Mutual exclusion.** Weapon attacks, abilities and consumable activations reject each other while
+  executing. A rejected request never cancels or queues the running one and spends no resource.
+- **Stamina.** A hand start checks the weapon's full cost before acceptance and debits it once at
+  valid acceptance (TASK-222).
+
 Off-hand weapons reuse the existing grip/renderer, but never the right-hand sprite or its absolute
 pose. `OffHandAnimationGenerator` derives six left-hand clips from the weapon's assigned Main Hand
 set and the real directional idle hand/grip anchors. The source set explicitly authors `OffHandStroke`:
@@ -232,7 +258,7 @@ with the participant's effective `CharacterAttributeState`. Equipment adapts the
 `WeaponOffensiveScaling` to resolved runtime contributions, calculates effective damage through the
 single canonical `WeaponDamageCalculator`, and builds a
 local, non-replicated `AttackExecutionParameters` value from the active weapon's damage, type,
-interval, effective range and knockback, configures the shared `MeleeAttack` or `RangedAttack`
+interval, effective range and knockback (original PE, not world units/s), configures the shared `MeleeAttack` or `RangedAttack`
 executor, and assigns it
 through `TrySetActiveAttack`. Inserting an inactive weapon never reconfigures either executor.
 Armor changes do not rebuild the weapon strategy or disturb the authoritative cooldown; their
@@ -310,14 +336,14 @@ replicated read model consumed by the six-direction shield presentation.
 ### 4. Melee Attack Strategy (`MeleeAttack` & `MeleeAttackConfig`)
 Executes instant damage detection in a localized area:
 * Reads radius, maximum targets and target mask from `MeleeAttackConfig`.
-* Receives damage, type, interval, effective range and knockback through `AttackExecutionParameters`.
+* Receives damage, type, interval, effective range and knockback (original PE) through `AttackExecutionParameters`.
 * Converts effective weapon range into the query's circle-center offset as `Range - Radius` and rejects `Range < Radius`.
 * Passes damage requests directly to the centralized `IDamageResolver`.
 
 ### 5. Ranged Attack Strategy (`RangedAttack` & `RangedAttackConfig`)
 Generates physical projectiles that traverse the world:
 * Reads projectile prefab, speed, lifetime, spawn offset and impact mask from `RangedAttackConfig`.
-* Receives damage, type, interval, maximum range and knockback through `AttackExecutionParameters`.
+* Receives damage, type, interval, maximum range and knockback (original PE) through `AttackExecutionParameters`.
 * Integrates a configurable **`ProjectileSpawnOffset`**, configured according to the combined collision bounds of the shooter and projectile, which offsets the initial projectile spawn coordinate in the direction of the aim vector to clear the shooter's own collider bounds.
 * A weapon may own its spawn point: `WeaponDefinition` carries an explicit override (`HasProjectileSpawnDistance` plus `ProjectileSpawnDistance`, finite and non-negative, ranged weapons only) that replaces the shared offset so the shot can start at the weapon tip. `PlayerWeaponEquipmentNetworkController.CreateExecutionParameters` passes it through the optional `AttackExecutionParameters` value; without it, and for enemies and traps, the shared `ProjectileSpawnOffset` applies.
 * Delegates spawning requests to an `IProjectileSpawner` instance.
@@ -329,8 +355,11 @@ Represents a networked projectile whose gameplay simulation is executed exclusiv
 * **Continuous collision detection**: Casts the projectile's collider across the requested tick displacement so targets cannot be skipped between ticks.
 * **Physical initialization**: Aligns the Rigidbody2D, Transform, and networked spawn position before the first authoritative simulation step.
 * **Physics synchronization**: When required by manually updated transforms, synchronizes the Unity 2D physics state before performing the collider cast.
-* **Impact selection and owner filtering**: Chooses the nearest cast hit. Registered owner colliders and registered non-damage colliders are ignored; an unregistered collider in the impact mask is treated as blocking world geometry.
-* **Single-impact guarantee**: Consumes an accepted impact before applying damage or requesting despawn, preventing duplicated damage across subsequent ticks or multiple overlapping cast results.
+* **Impact selection and owner filtering**: Registered owner colliders and registered non-damage colliders are ignored; an unregistered collider in the impact mask is treated as blocking world geometry. Each accepted cast hit becomes a classified `ProjectileContact` (`Interceptor` orb slot, `Target`, `Blocker`).
+* **Contact resolution (TASK-249, Doc 18 §5)**: the pure `ProjectileContactResolver` sorts contacts by authoritative distance with a deterministic tie-break (distance, Interceptor → Target → Blocker, EntityId, slot, buffer index), keeps one contact per target/orb slot per tick event and resolves them in order. A consumed orb or a blocker terminates; a target is impacted through the projectile's re-impact policy and terminates when the impact count is reached. Contacts after termination are discarded. An orb that is no longer active is passed through and never hides a contact behind it. Damage mitigated to zero does not terminate the projectile.
+* **Impact contract**: serialized per prefab on `NetworkProjectile`: `ProjectileReimpactPolicy` (`OncePerTarget`, `OncePerContact` — new impact after leaving and re-entering — or `PeriodicPulse`), maximum impact count (1..255; default 1) and pulse interval. `ProjectileImpactSettings` validates it in `Spawned`; an invalid contract logs an error and the projectile despawns without impacts. The defaults (`OncePerTarget`, 1 impact) reproduce the previous first-contact behavior for every existing prefab. Continuous-contact policies also query overlaps the projectile is already inside.
+* **Re-impact state**: `AppliedImpactCount`, `NextPulseTick` and an 8-entry `[Networked]` ledger (target EntityId, last contact tick) are flight state copied with the snapshot. A full ledger fails closed (no new impact). Ledger EntityIds are not remapped by the Host Migration restorer; this only matters for multi-impact prefabs, none of which exist yet.
+* **Termination guarantee**: `ImpactConsumed` is committed on the terminating contact before despawn, so no later tick or cast result can reapply it. Functional disappearance is immediate; impact VFX observe `Despawned` independently.
 * **Range and lifetime**: Tracks the exact traveled distance and a network `TickTimer`. The final movement step is clamped so the projectile never exceeds its configured maximum range.
 * **Obstacle behavior**: A collider without a registered damageable entity still blocks and despawns the projectile but does not produce a damage request. A wall blocks/despawns the projectile without damage.
 * **Collision volume**: The projectile prefab defines a gameplay collider whose effective world-space size is independent from unintended visual scaling. The current implementation validates or adjusts the CircleCollider2D radius during initialization to prevent prefab scale from producing an oversized world-space collision volume.
@@ -349,7 +378,8 @@ Hit used by the PvE Kill Experience producer. `DamageResolver` resolves the targ
 source synchronously. The source requests ledger application before setting its replicated
 one-shot flag, so rejected rewards remain available and accepted deaths cannot reward twice.
 This direct relationship introduces no gameplay event, RPC, transaction service or coordinator.
-PvP remains blocked until networking provides an authoritative ally/enemy affiliation contract.
+Damage policy now uses authoritative initial Raid team affiliation (see Friendly Fire below).
+PvP reward attribution remains outside this PvE Kill Experience contract.
 
 ---
 
@@ -405,9 +435,12 @@ separate `EquipmentVisualDefinition` concern.
 `WeaponDefinition` owns player weapon `BaseDamage`, `AttackIntervalSeconds`, `AttackReleaseSeconds` (the wind-up from
 acceptance to the projectile spawn or the melee hit; it replaces the former ranged-only `RangedReleaseSeconds`, and the
 serialized field keeps loading old assets through `FormerlySerializedAs`), effective `Range`,
-`StaminaCost`, `DamageType`, `KnockbackForce`, handedness, requirements and natural scaling
-attribute. `ArmorDefinition` owns integer Physical Defense, Magical Defense and one flat maximum
-Health, Stamina or Mana modifier. `EquipmentStatisticsCalculator` rebuilds a complete immutable
+`StaminaCost`, `DamageType`, `KnockbackForce` (original PE, not velocity), handedness, requirements and natural scaling
+attribute. Per “18 - Resolución de Impactos, Proyectiles y Knockback” §6, the receiver subtracts RE
+before the movement motor converts effective PE to travel (see `PlayerMovementArchitecture.md` §20.6).
+`ArmorDefinition` owns integer Physical Defense, Magical Defense, flat Knockback Resistance (RE) and
+one flat maximum Health, Stamina or Mana modifier; RE-only armor is also valid. Equipment RE is summed
+in `EquipmentStatisticsModifiers.KnockbackResistance`, without primary-attribute scaling. `EquipmentStatisticsCalculator` rebuilds a complete immutable
 `EquipmentStatisticsModifiers` snapshot from the four equipped armor definitions whenever
 `EquipmentRevision` changes; it never accumulates deltas. `StaminaCost` is validated weapon
 configuration but is not consumed yet. Bow, wand and staff templates reuse the shared ranged
@@ -505,7 +538,7 @@ remains an immediate executor for existing enemies/tests/other consumers; schedu
 the player combat boundary. No Animator, animation event, VFX, local input or RPC releases a shot.
 
 1. **Input and aim**: transport remains `PlayerNetworkInput`. Movement resolves the normalized networked `AimDirection` before combat; the shot direction is locked at acceptance.
-2. **Acceptance**: ready State Authority captures the ranged config and resolved statistics by value: direction, prefab GUID, impact mask, spawn offset, speed, lifetime, damage/type, range and knockback. The spawn offset is the weapon's own spawn distance when it sets one, otherwise the shared config offset. The existing presentation fields capture the original Main Hand catalog identity, acceptance origin/tick and sequence.
+2. **Acceptance**: ready State Authority captures the ranged config and resolved statistics by value: direction, prefab GUID, impact mask, spawn offset, speed, lifetime, damage/type, range and knockback (original PE, forwarded unchanged through `ProjectileSpawnRequest` and `DamageRequest` until receiver RE mitigation). The spawn offset is the weapon's own spawn distance when it sets one, otherwise the shared config offset. The existing presentation fields capture the original Main Hand catalog identity, acceptance origin/tick and sequence.
 3. **Deadline and cooldown**: `ReleaseTick = AcceptedTick + ceil(ReleaseDelay / Runner.DeltaTime)`. `ReleaseDelay` is `AttackReleaseSeconds`, unless the shooter holds the aim stance of a two-handed `AimStance` weapon and it is fully drawn (`PlayerMovementNetworkController.IsAimStanceFullyDrawn`, from `AimStanceStartTick` and the weapon's `AimStanceDrawSeconds`); that aimed shot uses the weapon's shorter `AimedReleaseSeconds` instead. The choice is made once at acceptance and is part of the committed `ReleaseTick` (`RangedAttack.TryAcceptRelease` takes it as an optional override), so the release snapshot, resimulation and Host Migration need no extra state. `LastAttackAimed` and `AttackPerformedEvent.IsAimed` tell presentation which timing applies. Attack Interval begins now, not at release and is unchanged by the aimed delay. An outstanding shot blocks another acceptance even if that interval expires first; acceptance validates finite origin/direction/config/timing before committing anything.
 4. **Continuation/cancellation**: the match phase comes from the runner-scoped `NetworkSpawnManager.MatchController` (the match is a spawned object, not necessarily a component on the runner). Before input processing, State Authority advances the pending value on forward ticks. Missing input, a cleared/reconfigured strategy or an Equipment switch cannot stall or alter it. Movement continues. Death, Downed, phase exit and explicit combat disable cancel it without refunding cooldown. Defense prevents same-tick acceptance but does not cancel an accepted wind-up.
 5. **Consume and spawn**: at or after the exact deadline, sample current authoritative AttackOrigin plus committed offset along committed aim, and use the containing avatar's current EntityId. Commit `Pending = false` before calling the spawner. Invalid release origin, absent spawner or spawn failure consumes the attempt and marks presentation cancelled; no perpetual pending state or retry loop remains.
@@ -544,6 +577,35 @@ A network component that validates damage rules:
 * Queries target `IDamageable` from the `EntityRegistry`.
 * Excludes targets that cannot receive damage or are dead.
 * Calls `IDamageable.ApplyDamage()` on the target.
+
+### Friendly Fire
+
+TASK-245 (GD 19 §7, GD 10 §6.1) uses the Host's serialized
+`TownRaidPreparationNetworkController._friendlyFireEnabled` default (`false`), captured and
+replicated by Town State Authority, then frozen into `TownRaidPreparationSnapshot.FriendlyFireEnabled`
+and immutable `RaidLaunchContext.FriendlyFireEnabled`. The development path uses
+`SessionConnectionCoordinator._developmentFriendlyFireEnabled`; no UI toggle exists yet.
+`NetworkSpawnManager.TryGetRaidFriendlyFireEnabled(out bool)` exposes the Raid policy; unavailable
+policy means disabled. Retained launch context preserves it across Host Migration.
+
+* An ally hit requires two `PlayerCharacter` instances and
+  `AbilityAllyAffiliation.AreInitialTeammates`, using the initial Raid team roster and failing
+  closed for unresolved affiliation. Environmental (`AttackerId = 0`) and creature damage are not ally damage.
+* After target lookup, State Authority `DamageResolver` rejects disabled-policy ally hits with
+  non-applied `FriendlyFireBlocked`: no damage, knockback, aggro or contribution. Allowed ally
+  hits use serialized `_allyDamageMultiplier` (default 1.0); only the resolver rebuilds the
+  request with `DamageRequest.IsAllyDirectDamage = true`. Pure math lives in `FriendlyFireRules`.
+* `CharacterBase.ApplyDamage` clamps ally damage after mitigation to preserve at least 1 HP,
+  bypassing fatal/Downed interception. Ally hits on Downed players neither reduce the reserve nor
+  call `NotifyDownedDamaged`. Zero effective damage runs no damage-applied hooks and produces no
+  Health loss for reviver interruption polling.
+* Allowed ally hits may still apply eligible knockback at zero clamped damage. Zero-damage
+  `AbilityImpact` pushes also pass through the resolver; `NetworkExplosiveBomb` logs an error
+  and fails closed without one, never calling `ApplyDamage` directly. Aggro and contribution
+  require `AppliedDamage > 0` and a non-ally hit.
+
+No stun system exists and knockback does not become stun. Enemy-only targeting (Seismic Strike,
+Vital Drain, Trap and `enemyOnly` projectiles) is unchanged.
 
 ### 3. Entity Registration (`EntityRegistry` & `CharacterBase`)
 * Any damageable character must inherit from `CharacterBase` (which implements `IDamageable` and `ICharacter`).
@@ -1267,7 +1329,7 @@ for in-flight replication; local persistence stores `LootId` strings.
 
 ## Known Limitations and Technical Debt
 
-* **Ability/basic-attack exclusion is one-way**: basic attacks are blocked during ability execution. Blocking ability start during a basic attack remains a TASK-223 follow-up to the bidirectional incompatibility in Game Design 17 §7.3.
+* **Load state identity is template-based**: a hand's Unloaded state belongs to the weapon catalog identity that fired. Replacing that slot's weapon resets the state to Loaded, because unique weapon instances are not transported yet. Reload has no dedicated presentation; HUD availability reflects it through `TryGetAttackStatus`.
 
 * **Layer Configuration Dependency**: The system requires strict layer separation. If targets or obstacles are not on the correct layers specified in `MeleeAttackConfig` and `RangedAttackConfig`, collision queries will fail to report hits.
 * **Component Casting**: Configured strategies rely on a serialized `MonoBehaviour` cast to `IAttack`. An empty source is a valid neutral state; a non-empty source must implement the contract.

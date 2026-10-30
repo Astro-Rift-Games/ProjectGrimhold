@@ -16,6 +16,8 @@ MonoBehaviour:
   _attackIntervalSeconds: 1.6
   _executionWindowSeconds: 0.2
   _rangedReleaseSeconds: 0.3
+  _usesReload: 1
+  _reloadSeconds: 1.3
   _range: 8
   _aimStanceDrawSeconds: 0.3
   _aimedReleaseSeconds: 0.1

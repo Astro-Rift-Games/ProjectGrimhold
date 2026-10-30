@@ -14,6 +14,31 @@ public sealed class LootTransferClientRequestState
         EntityId destinationId,
         int catalogIndex,
         LootTransferQuantityMode quantityMode,
+        out LootTransferRequestIdentity identity) =>
+        TryCreateCandidateCore(sourceId, destinationId, catalogIndex, quantityMode, -1, -1, out identity);
+
+    public bool TryCreateCandidate(
+        EntityId sourceId,
+        EntityId destinationId,
+        int catalogIndex,
+        LootTransferQuantityMode quantityMode,
+        int sourceInventorySlotIndex,
+        int expectedInventoryRevision,
+        out LootTransferRequestIdentity identity)
+    {
+        identity = default;
+        return LootTransferRequest.IsValidInventorySlotAddress(sourceInventorySlotIndex, expectedInventoryRevision) &&
+            TryCreateCandidateCore(sourceId, destinationId, catalogIndex, quantityMode,
+                sourceInventorySlotIndex, expectedInventoryRevision, out identity);
+    }
+
+    private bool TryCreateCandidateCore(
+        EntityId sourceId,
+        EntityId destinationId,
+        int catalogIndex,
+        LootTransferQuantityMode quantityMode,
+        int sourceInventorySlotIndex,
+        int expectedInventoryRevision,
         out LootTransferRequestIdentity identity)
     {
         identity = default;
@@ -36,7 +61,9 @@ public sealed class LootTransferClientRequestState
             sourceId,
             destinationId,
             catalogIndex,
-            quantityMode);
+            quantityMode,
+            sourceInventorySlotIndex,
+            expectedInventoryRevision);
         return true;
     }
 

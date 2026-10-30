@@ -176,18 +176,28 @@ for state presentation.
 
 The local minimap is a separate `RaidMinimapPresenter`/`RaidMinimapView` section
 bound by `LocalPlayerHudBinder` and composed as the first child of `RaidRightPanel`; `RaidHudPresenter` retains responsibility only for textual HUD
-content and the expedition progress bar. `MinimapLayoutGenerator` derives the immutable `MinimapLayout` asset from the serialized
-`Floor`, `Walls` and `Obstacles` Tilemaps of the unique `Dungeon_Graybox` instance in saved `Gameplay.unity`, including its overrides, world placement,
-cell size, occupancy, original tile sprites/UVs/tints/transforms, ordered texture batches and a
-versioned dependency hash. `RaidMinimapGraphic` renders the source tile art at reduced scale as
+content and the expedition progress bar. Each Raid scene declares its own map with exactly one
+`RaidSceneMinimap`, which references that scene's generated `MinimapLayout` asset and the root that
+holds its `Floor`, `Walls` and `Obstacles` Tilemaps (for example the `Dungeon_Graybox` instance in
+`Gameplay.unity`). `MinimapLayoutGenerator` finds every scene
+that contains a `RaidSceneMinimap` and derives one immutable layout per scene from those saved Tilemaps,
+including their overrides, world placement,
+cell size, occupancy, original tile sprites/UVs/tints/transforms, ordered texture batches bound to
+embedded 2x2-averaged copies of the source atlases, and a per-scene versioned dependency hash.
+On every bind, `RaidMinimapPresenter` resolves the single active `RaidSceneMinimap` once
+(`RaidSceneMinimap.TryResolveLoaded`) and configures the graphic with that layout. The layout serialized
+on the HUD prefab is only an editor preview. A loaded scene with zero, several or an empty declaration
+makes the minimap configuration invalid and logs an error. It never falls back to another map's layout.
+`RaidMinimapGraphic` renders that averaged tile art at reduced scale as
 north-up uGUI geometry inside a `RectMask2D`, with a centered local marker and a private Sanctuary marker. It
 adds no Canvas, camera, RenderTexture, networked property, RPC, event bus or gameplay timer. A
-changed graybox or imported art dependency is regenerated through the permanent editor generator;
-the prebuild hook verifies/regenerates freshness and fails the build on invalid sources. Only the
-generated asset is saved, leaving other dirty assets untouched. No hand-drawn/static PNG or
+changed map, scene declaration or imported art dependency regenerates that scene's layout through the permanent editor generator;
+the prebuild hook verifies/regenerates every declared scene and fails the build on invalid sources. Only the
+generated assets are saved, leaving other dirty assets untouched. Adding a new Raid map requires
+one `RaidSceneMinimap` that points to a new layout asset and to the map's Tilemap root; the generator fills the asset. No hand-drawn/static PNG or
 runtime Tilemap watcher is retained. The generated pivot is already in scene-world coordinates;
 the presenter applies no additional origin offset, keeping the fixed player marker aligned with
-the actual Gameplay placement without runtime scene lookup or applying scene overrides to the prefab.
+the actual placement of the loaded map without per-frame scene lookup or applying scene overrides to the prefab.
 Only the local player and its assigned extraction are shown; the latter appears after quota
 completion and assignment, before ritual completion, and never reveals another team's assignment.
 
@@ -214,7 +224,7 @@ Positions below are authored in prefabs and guarded by EditMode layout tests; no
 
 - **Right panel.** `RaidRightPanel` in `LocalGameplayHud.prefab` is a top-right column (`VerticalLayoutGroup`, 240 wide) with four children in order: `RaidMinimap` (240x260; the ornate `Frame` sprite shared with the blocks is drawn over the clipped viewport, with a static gold "Mapa" `Title` and a static `N` `Compass` above it, both outside the viewport; no zone or map name exists in the project data, so the title is static, and the map stays north-up with no zoom, help or other controls), `ObjectivesBlock` ("Objetivos de expedición": quota text, then the expedition progress bar and percentage), `SanctuaryBlock` ("Santuario") and `RitualBlock` ("Estado del ritual"). Block headers and the minimap title are centered, gold, 18 pt in the pixel font. Expedition progress is individual, not team.
 - **Bottom row.** The weapon cooldown (`RaidCooldownHud`) and the Q and E ability slots (`RaidAbilityHud`) form one even row of 72x72 slots (8 px gaps) at the bottom center, in the order weapon, Q, E. The ability slots reuse the weapon slot frame style. `ActionBarFrame` (a non-interactive sliced `UI_0` image, 256x96, first among the bottom-row siblings so it draws behind them) is a dark container enclosing the three slots with an even 12 px padding. Each slot has a `KeyBadge` (dark plate) with a `Key` label at its top-left corner: the weapon slot shows `RaidWeaponSlotKeyLabel.Label` (`LMB`), the ability slots `TownAbilitySlotKeyLabels` (`Q`, `E`). Both label sources are constants guarded by EditMode tests against the real Input Actions (`Gameplay/PrimaryAttack` = `<Mouse>/leftButton`; `AbilitySlot1/2`); the weapon label is static text in `RaidCooldownHud.prefab`. Cooldown seconds and key labels use the `alagard SDF Outline` material (outline plus underlay shadow) so they stay readable over icons. State visuals (ready, cooldown, preparing, executing, insufficient resource) are unchanged. The bar has only three slots: no Quick Slots, no item counts and no hotbar.
-- **Vitals block.** `RaidMainHud` is anchored bottom-left (24 px margin) as three icon + bar rows (Health, Mana, Stamina). Each bar is a dark track with a coloured fill anchored and pivoted at the left edge, and one centered value text (for example `85 / 130`) drawn over the fill, never inside it. There are no static name labels. Icons are 16x16 pixel sprites under `Assets/Art/UI/Hud`. The defeated indicator sits just above the frame and `RaidDuoHud` above it; none of them overlaps the bottom action bar, the Dungeon Pressure timer and phase, or the interaction prompt.
+- **Vitals block.** `RaidMainHud` is a 512x128 modular frame anchored bottom-center (24 px bottom margin). Fixed 112x112 holders sit at the two ends; Health and Mana retain independent 72x72 empty/fill sprites with centered 80x80 frames (`Filled`, Vertical, Bottom). The 96x96 Health ring presents Downed reserve or confirmed revive progress; the 96x96 Mana ring presents Stamina. Confirmed revive takes visual priority over reserve without changing their gameplay state. The existing 256x96 action-bar container and three 72x72 weapon/Q/E slots occupy the central gap (row center 88 px from the bottom). Numeric Health/Mana values remain inside their orbs; the connector Stamina value and obsolete connector ornaments are hidden. Sprite colours are authored, so Images use white tint, Point filtering and 16 PPU. The legacy outer rectangle and holder backing Images are disabled; circular geometry stays fixed. Teammate and right-panel placement remain unchanged.
 - **Quick Slots (TASK-214).** `RaidQuickSlotHud` is a provisional bottom-right row of four 56x56 slots authored under the `LocalGameplayHud` instance in `NetworkPlayer.prefab`, so it does not alter `LocalGameplayHud.prefab` or the bottom action bar. Each `RaidQuickSlotHudSlotView` shows the bound definition's icon, the units available in the Raid Inventory summed across stacks, the key (`1`-`4`) and an unavailable overlay (no units or Downed). `RaidQuickSlotHudPresenter` is bound by `LocalPlayerHudBinder` together with a `QuickSlotController`; a shortcut press calls `PlayerConsumableNetworkController.TryRequestConsume`, the same authoritative path as the Inventory, and rejections surface through a short message. `PlayerInputReader.QuickSlotActivated` is raised only while gameplay input is not suppressed, so it never fires with the Inventory or a menu open. Final art and position wait for the US-40 UI assets (#335). Weapon sets A/B still have no HUD indicator.
 
 ## Downed and revive HUD (`RaidDownedHudPresenter` / `RaidDownedHudView`, TASK-215)
@@ -223,13 +233,13 @@ Positions below are authored in prefabs and guarded by EditMode layout tests; no
 
 | Element | Source |
 | --- | --- |
-| Downed state and reserve bar (drain, paused while recovering) | `IsDowned`, `DownedHealth`, `InitialDownedHealth`, `HasValidSession` |
+| Downed state and reserve ring (drain, paused while recovering) | `IsDowned`, `DownedHealth`, `InitialDownedHealth`, `HasValidSession` |
 | Revive progress, Downed side | own `PlayerDownedRecoveryNetworkController.TryGetProgress` |
 | Revive progress, reviver side | the Duo teammate's controller (`RaidTeammateHudPresenter.TryGetTeammateCharacter`), only while its `ReviverId` is the local avatar |
 | Ally Downed and "in range" hint | teammate `IsDowned`; local distance against `ReviveRange` (no side effects, no rule duplication) |
 | Interruption and completion notices | `LastOutcomeSequence` edge, kind and reason; reviver side also requires `LastOutcomeReviverId` to be the local avatar |
 
-Pure rules live in `DownedRecoveryFeedbackRules` (clamped progress/reserve, Spanish messages) and `DownedRecoveryOutcomeTracker` (silent first sample or backwards sequence, so late join, rebind, restore and Host Migration never replay an old outcome). Bars scale a left-anchored fill on X like the vitals bars. Notices expire on the unscaled clock. Cues: a pulse of the Downed panel on entry, and optional 2D clips for entering Downed, interruption and completion played through `AudioManager`; no clip assets exist yet, so they are silent until assigned on the presenter. The hint reuses no interaction prompt: `InteractionPromptMetadata` on the avatar is shared with its corpse loot container, so the revive wording lives in this HUD instead. The slot for Self-revive and Accelerated Resolution is intentionally absent (out of scope).
+Pure rules live in `DownedRecoveryFeedbackRules` (clamped progress/reserve, Spanish messages) and `DownedRecoveryOutcomeTracker` (silent first sample or backwards sequence, so late join, rebind, restore and Host Migration never replay an old outcome). The modular status Images use Radial360 fillAmount with unit local scale. Explicit optional reserve/revive ring roots share the Health-orb position; confirmed revive takes visual priority and ending it restores a still-active reserve ring. Reserve/state text, ally hints and outcome notices remain independent. Legacy non-Filled bars retain their scale-X behavior; expedition progress is unchanged. Notices expire on the unscaled clock. Cues: a pulse of the Downed panel on entry, and optional 2D clips for entering Downed, interruption and completion played through `AudioManager`; no clip assets exist yet, so they are silent until assigned on the presenter. The hint reuses no interaction prompt: `InteractionPromptMetadata` on the avatar is shared with its corpse loot container, so the revive wording lives in this HUD instead. The slot for Self-revive and Accelerated Resolution is intentionally absent (out of scope).
 
 ## Dungeon Pressure HUD
 
@@ -303,7 +313,7 @@ World VFX and audio for abilities are not part of this HUD.
 - Progress is individual (MVP). Whether and how a team progress is shown is undecided.
 - Expedition progress is a horizontal bar; the concept image shows a ring, which would need a dedicated sprite.
 - Weapon sets A/B have no HUD indicator, and the Quick Slot row layout is provisional until it is validated in the Game view.
-- The Downed HUD layout and colours are provisional (no US-40 assets, #335), and Host/Client plus late-join behaviour are covered only by Single Runner PlayMode.
+- Modular HUD art is integrated for testing; final artistic approval and real multi-process Host/Client, late-join and Host Migration validation remain pending.
 - `RaidMenuView` still carries a static `F — Interactuar` help line, independent of `InteractionPromptText`.
 - Layout and visuals of the rework (right panel, bottom row, vitals, prompt position) are pending validation in the Game view and Play Mode.
 

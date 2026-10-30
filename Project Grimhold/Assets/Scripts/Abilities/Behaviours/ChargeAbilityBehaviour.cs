@@ -22,6 +22,7 @@ public sealed class ChargeAbilityBehaviour : AbilityExecutionBehaviour
     [Tooltip("Zero is allowed: the enemy is still pushed, without damage.")]
     [SerializeField, Min(0f)] private float _damage = 5f;
     [SerializeField] private DamageType _damageType = DamageType.Physical;
+    [Tooltip("Knockback power (PE original, Doc 18), converted to displacement by KnockbackCurveConfig after RE mitigation.")]
     [SerializeField, Min(0f)] private float _knockbackForce = 8f;
     [Tooltip("Layers holding the enemies' damage colliders.")]
     [SerializeField] private LayerMask _targetLayerMask;

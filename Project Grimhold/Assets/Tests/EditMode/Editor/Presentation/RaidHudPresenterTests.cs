@@ -125,9 +125,9 @@ namespace Tests.EditMode.Presentation
             Assert.That(_view.StaminaFill.fillAmount, Is.Zero);
             Assert.That(_view.ManaFill.fillAmount, Is.Zero);
             Assert.That(_view.CooldownFill.fillAmount, Is.Zero);
-            Assert.That(_view.HealthFill.rectTransform.localScale.x, Is.Zero);
-            Assert.That(_view.StaminaFill.rectTransform.localScale.x, Is.Zero);
-            Assert.That(_view.ManaFill.rectTransform.localScale.x, Is.Zero);
+            Assert.That(_view.HealthFill.rectTransform.localScale, Is.EqualTo(Vector3.one));
+            Assert.That(_view.StaminaFill.rectTransform.localScale, Is.EqualTo(Vector3.one));
+            Assert.That(_view.ManaFill.rectTransform.localScale, Is.EqualTo(Vector3.one));
             Assert.That(_view.CooldownRoot.gameObject.activeSelf, Is.False);
             Assert.That(_view.DefeatedRoot.activeSelf, Is.False);
         }
@@ -139,7 +139,7 @@ namespace Tests.EditMode.Presentation
 
             Assert.That(_view.StaminaText.text, Is.EqualTo("25 / 100 (Agotado)"));
             Assert.That(_view.StaminaFill.fillAmount, Is.EqualTo(25.4f / 100.4f).Within(0.0001f));
-            Assert.That(_view.StaminaFill.rectTransform.localScale.x, Is.EqualTo(25.4f / 100.4f).Within(0.0001f));
+            Assert.That(_view.StaminaFill.rectTransform.localScale, Is.EqualTo(Vector3.one));
 
             _view.PresentStamina(float.NaN, float.PositiveInfinity, isExhausted: false);
             Assert.That(_view.StaminaText.text, Is.EqualTo("0 / 0"));
@@ -157,7 +157,7 @@ namespace Tests.EditMode.Presentation
 
             Assert.That(_view.ManaText.text, Is.EqualTo(expectedText));
             Assert.That(_view.ManaFill.fillAmount, Is.EqualTo(expectedFill).Within(0.0001f));
-            Assert.That(_view.ManaFill.rectTransform.localScale.x, Is.EqualTo(expectedFill).Within(0.0001f));
+            Assert.That(_view.ManaFill.rectTransform.localScale, Is.EqualTo(Vector3.one));
         }
 
         [Test]

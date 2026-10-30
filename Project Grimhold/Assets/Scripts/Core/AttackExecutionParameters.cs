@@ -33,6 +33,7 @@ public struct AttackExecutionParameters
     public DamageType DamageType => _damageType;
     public float CooldownSeconds => _cooldownSeconds;
     public float Range => _range;
+    /// <summary>Knockback power (PE original, Doc 18), converted by KnockbackCurveConfig after RE mitigation.</summary>
     public float KnockbackForce => _knockbackForce;
 
     public AttackExecutionParameters(

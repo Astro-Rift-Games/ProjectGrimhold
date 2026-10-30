@@ -4,15 +4,16 @@ Builds the Project Grimhold changelogs from Git history. Zero dependencies, Node
 
 | File | Audience | Content | Updated |
 |---|---|---|---|
-| `CHANGELOG_DEV.md` | Developers | Every commit by version, plus `Unreleased` | Every push to `New-Testing` |
+| `CHANGELOG_DEV.md` | Developers | Bounded system/type overview and recent release/month highlights | Every push to `New-Testing` |
+| `docs/changelog/` | Developers | Complete originals, evidence and classification diagnostics | Alongside the technical summary |
 | `CHANGELOG.md` | Players | Explicit player notes of published releases | When a release is published |
 | `changelog-players.json` | Game / tools | Same as `CHANGELOG.md`, machine-readable | When a release is published |
 
-All three files are generated. Do not edit them by hand; the next run overwrites them.
+The root files and archive directory are generated. Do not edit them by hand.
 
 ## Writing commits
 
-Use Conventional Commits (`type(scope): summary`). The developer changelog groups commits by type:
+Use Conventional Commits (`type(scope): summary`). The developer summary combines systems, periods and these kinds:
 
 | Type | Section |
 |---|---|
@@ -22,11 +23,12 @@ Use Conventional Commits (`type(scope): summary`). The developer changelog group
 | `refactor` | Refactoring |
 | `test` | Tests |
 | `docs` | Documentation |
-| `build`, `ci`, `chore` | Architecture & Infrastructure |
+| `build`, `ci` | Architecture & Infrastructure |
+| `chore`, `style` | Maintenance |
 | `revert` | Reverts |
-| anything else, legacy subjects | Other Changes |
+| legacy subjects | Evidence-based inference, otherwise Other Changes |
 
-`type!:` or a `BREAKING CHANGE:` footer marks an entry as **BREAKING**. Merge commits and `chore(changelog)` commits (reserved for the bot) are skipped. Commits with the same message appear once with every commit link. This covers cherry-picks and rewrites that only add or drop `Co-authored-by`/`Signed-off-by`. A message already listed in an earlier version is not repeated in later ones.
+`type!:` or a `BREAKING CHANGE:` footer marks an entry as **BREAKING**. Merge commits and `chore(changelog)` commits (reserved for the bot) are skipped as before. Every other original commit is archived. Canonical entries deduplicate only with SHA/cherry-pick/patch evidence, never message similarity alone. The identity policy below covers restored effects and repeated notes.
 
 ## Adding player notes
 
@@ -71,7 +73,7 @@ Pushed commit messages cannot change, so corrections live in `tools/changelog/pl
 
 `commit` accepts a full SHA or a unique prefix of at least 7 characters. Categories are `added`, `improved`, `fixed` and `balanced`. An invalid file fails every command.
 
-Notes of a commit that is reverted in the same release are dropped. A note with the same category and text appears only once.
+Notes of a commit reverted in the same release are dropped; a revert-of-revert restores the original effect. Equivalent/cherry-picked aliases share this treatment. Repeated category/text is consolidated within one release, never globally across unrelated changes in different releases. See identity policy below.
 
 ## Previewing
 
@@ -87,6 +89,148 @@ node tools/changelog/src/cli.js release-notes --tag v0.1.0 [--strict]
 
 Run the tests with `npm test` inside `tools/changelog`.
 
+## Technical history and evidence
+
+The generator reprocesses the entire reachable non-merge history on every run,
+not only future Conventional Commits. The main document prioritizes recorded
+advances by period and system: at most six periods and three selected advances
+per period, with at most three related records per advance. Full metrics live in
+the existing classification report and archives, not a primary summary matrix.
+All older periods remain navigable through `docs/changelog/README.md`.
+The first development history (also after its initial tag) is split by **UTC author
+month**, not synthetic releases. Later stable tags retain their release boundaries.
+A release may contain commits from several months; author dates never determine
+revert ordering or publication order.
+
+### How the main summary chooses advances
+
+- Functional systems outrank routine tooling. Explicit change kind contributes:
+  features 12, fixes 10, performance 9, refactoring 7, reverts 6. Recognized functional
+  systems use relevance tier 300; unassigned concrete changes 200; supporting-only
+  work and routine infrastructure/tooling 100. The historical classification is unchanged.
+- Architectural infrastructure needs a structural subject (for example ownership,
+  authority, composition, recovery, migration or persistence), not just a configure/
+  prepare action. Anchored structural refactors such as decoupling simulation or
+  transport can also use the functional tier with kind priority 12 and a 3-point
+  architecture bonus. Breaking changes add 3. These are message-based selection
+  signals, not proof of current behavior, deployment, validation or completion.
+- Greedy selection adds 8 for a new displayed system, 3 for a new kind, and at most
+  2 for related records. Original history position, then SHA, breaks ties; recency
+  is not the sole selection rule. Scope evidence chooses the displayed system
+  first, then the strongest distinct-path evidence among existing functional labels.
+- Generic/unknown/secondary records and test/document-only paths stay in the full
+  archive, even when a subject uses `feat`. Routine Editor/tooling-only paths do not
+  outrank functional advances. Descriptions over 240 characters remain in the archive
+  rather than being cut in a way that could remove a qualification.
+- Display grouping requires an exact shared `TASK-<number>` in a subject or positive
+  `Refs`/`Fixes`/`Closes` line, **or** the same non-empty scope, an actual shared
+  implementation source file, and at least two meaningful shared subject terms.
+  Deferred/negative task lines, same-system labels, docs/tests/meta paths or scope
+  alone are insufficient. Every pair must have evidence; no transitive chaining.
+- Grouping is presentation only, never deduplication. Each highlight is one brief
+  evidence-backed synthesis, not a concatenation of descriptions or type labels.
+  Every supporting canonical reference remains linked; originals and types stay in
+  the unchanged historical records and classification report.
+  No generated prose claims that the combined feature is complete or still active.
+
+### Same-period outcome reconciliation
+
+Highlights are conservative deterministic templates, not AI-generated prose. A
+representative functional result may incorporate related fixes or refactoring;
+parallel migrations can share one target description. This is a lossy reading aid,
+not a replacement for the linked original records or proof of runtime acceptance.
+
+Only the highlight projection reconciles lifecycle changes, using the original
+newest-first Git topological order, never author dates. Initial tagged aggregation
+recovers that order from its source version rather than monthly concatenation.
+The existing `activeCommits` helper resolves exact revert chains and canonical
+aliases read-only; neither canonical identity nor public-note behavior changes.
+
+Explicit positive removal/replacement objects can supersede an earlier claim
+when they identify the same concrete topic in a shared scope/source, or directly
+name the affected implementation file's mechanism. Shared paths, task IDs or
+systems alone are not cancellation evidence. Negated, deferred, retained and
+context-only mentions are ignored. Partial removals do not automatically remove
+the whole feature. Replacement chains select the final recorded approach;
+revert-of-revert and later reintroduction retain their supporting history.
+
+A canceled approach is summarized as reverted/removed/replaced, not as a current
+addition. All supporting links remain, even when the contradiction spans more
+than three records; the synthesis stays short. Reconciliation is period-local:
+later periods do not rewrite earlier historical outcomes. No filename-difference
+or source-code deletion inference is made from the existing path-only metadata;
+ambiguous edits cannot establish lifecycle state. The historical archive/report,
+raw subjects/bodies/types, classifiers, deduplication, SemVer and publisher remain
+unchanged.
+
+### Initial history and releases
+
+Before the first stable tag there is no trustworthy post-release pending range.
+The main summary explicitly distinguishes **Unreleased** (no release baseline yet)
+from monthly **Initial development history** instead of labeling all months as one
+pending release. Once tags exist, the main summary presents each release once by
+version and the actual latest `Unreleased` range separately. Initial tagged history
+may still span several monthly archive files; those files, archive headings, report
+metadata, full records and classifications remain byte-for-byte unchanged by the
+summary-only temporal projection. No release, SemVer or publication rule changes.
+
+Classification is independent from public notes and SemVer:
+
+- Explicit Conventional Commit types take precedence. Existing scopes remain valid.
+- Historical anchored actions (add, implement, fix, refactor, document, configure,
+  and supported Spanish equivalents) justify a kind only with a meaningful object.
+- Documentation-only/test-only paths establish an artifact category before generic historical action inference, never new gameplay. Explicit Conventional Commit types retain precedence.
+- Exact scope/path tokens and bounded message/body terms establish overlapping
+  affected systems (including combat, abilities, extraction, inventory, networking,
+  UI, tooling and testing). Negated, excluded and deferred prose is not positive evidence.
+  These labels do not prove a new feature or a fixed behavior.
+- Generic subjects and unknown kinds stay out of primary headlines. Documentation,
+  tests, maintenance, explicitly minor adjustments and metadata-only changes stay
+  in the archive rather than saturating headlines. Unknown kinds retain **Other Changes**.
+- Every eligible original SHA, subject, full body, changed paths and classification
+  evidence/diagnostics remains in a generated archive and `report.json`.
+  Canonical summaries may consolidate equivalent changes but never erase originals.
+
+`report.json` records original and new category counts over the **same raw commits**,
+canonical counts, overlapping system counts, historical examples and every unknown
+entry. Do not add system totals: a single commit can affect several systems.
+Actionable diagnostics identify the SHA, evidence gap, and how future messages
+should use an action/object and a Conventional Commit type/scope. These are technical
+metadata, not public player notes and not permission to rewrite old messages.
+
+### Identity, reverts and automation
+
+A SHA identifies a commit. Full cherry-pick origin hashes prove lineage, and repeated
+subjects are candidates for comparison using **Git stable patch IDs**. Attribution,
+case, whitespace or identical generic messages never suffice. Matching patches on
+ancestor/descendant commits are separate executions unless explicit cherry-pick
+provenance proves equivalence; ordinary inverse edits need not contain revert trailers. Empty commits have no
+patch equivalence. Bodies and metadata remain original in detailed records. Reverts
+are separate actions even when a revert-of-revert repeats an earlier patch.
+A later legitimate reapplication after a revert is not an already-published effect.
+
+Reserved `chore(changelog)` bot commits remain excluded exactly as before; including
+their own generated output would create a feedback loop. Non-merge commits named
+`Merge ...` are not discarded. No original Git history is rewritten.
+
+### Validation and regeneration
+
+`generate --strict` validates public notes before writing any output. `check`
+compares the main files **and the complete archive inventory**, read-only.
+The generated ownership manifest allows regeneration to retire obsolete archive
+files only after their replacements exist. Unmanaged files or an invalid manifest
+are rejected before writes; arbitrary files are never deleted. Empty tagged releases
+produce an actionable diagnostic; `--strict` treats it as a failure. Release preparation
+always uses strict public validation. A technical-only version may be planned but
+cannot be published until explicitly reviewed player notes exist. No notes are invented.
+The player JSON remains schema v1, with the same four categories and SHA-based IDs.
+
+Generated historical files are not edited manually. Regenerate locally, then run
+`check`; a second identical generation reports `up to date` without rewriting files.
+The `New-Testing` workflow still updates only developer outputs, now including
+`docs/changelog/`; the weekly publisher stages the same archives with metadata.
+No workflow is activated by this refactor, and no local regeneration publishes anything.
+
 ## Automatic version planning
 
 The weekly publisher plans against the candidate integration of `New-Testing`
@@ -100,9 +244,9 @@ node tools/changelog/src/release-cli.js prepare --ref HEAD
 ```
 
 Both commands accept `--root R` and print one JSON plan. `plan` is read-only;
-`prepare` writes only the three generated root changelogs when a release is due.
+`prepare` writes the root changelogs and generated developer archives when a release is due.
 Unknown, repeated or missing options fail with exit 2; validation failures use
-exit 1. The existing `cli.js` commands and output remain unchanged.
+exit 1. Existing CLI options and exit codes are preserved; technical output now includes the archives.
 
 | Effective change since the last public tag | Increment |
 |---|---|
@@ -117,7 +261,7 @@ exclusion. Functional impact of an otherwise internal type must use those
 existing breaking markers, not an additional trailer convention. A feature
 and its revert in the pending period cancel for version impact while remaining
 in technical history. Reverting previously published functionality warrants a
-patch. Published duplicate messages cannot increment the version again.
+patch. Already-published equivalent changes cannot increment the version again while their effect remains active. Reusing a generic message alone never proves equivalence.
 
 Only strict stable `vX.Y.Z` tags without leading zeroes define publication
 boundaries. Reachable stable tags must occur on distinct commits in the
@@ -139,7 +283,7 @@ so repeated planning against the same history is deterministic.
 
 `writePlannedRelease(root, plan)` validates the plan again, validates overrides
 against that history, rejects all player-note warnings and validates the player
-JSON before writing. It returns the three output filenames. A no-release,
+JSON before writing. It returns all generated output filenames, including developer archive files. Releases without visible public notes are diagnosed and refused before publication; no technical change is converted automatically into a player announcement. A no-release,
 stale or modified plan is refused. The outputs retain prior release boundaries,
 explicit trailers, overrides, commit references and an empty `Unreleased`.
 

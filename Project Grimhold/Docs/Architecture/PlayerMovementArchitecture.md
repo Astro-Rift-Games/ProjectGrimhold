@@ -95,7 +95,7 @@ direction at a fixed speed. It is not a general Dash: it owns no duration, input
   State Authority and restored by `CopyStateFrom`. They are not initialized in `Spawned()`, and nothing in
   the hook depends on tick values, so a Host Migration restore keeps the displacement until its owner ends it.
 - **Tick behaviour:** while active, voluntary input displacement is zero (voluntary and forced movement are
-  different events), `KnockbackVelocity` still adds, and `direction * speed * DeltaTime` is summed into the
+  different events), the tick-derived knockback step still adds, and `direction * speed * DeltaTime` is summed into the
   single displacement passed to `Kinematic2DMovementMotor.Move`. Collision is the motor's, unchanged.
 - **Results:** `LastAppliedDisplacement` is what the motor actually applied in the last tick.
   `WasForcedDisplacementBlocked` is true when the avatar advanced less than the forced step along the forced
@@ -144,7 +144,7 @@ Quedan fuera de alcance para v1:
 
 - Colisiones entre jugadores.
 - Dash.
-- Knockback.
+- Knockback (implementado posteriormente según Doc 18 §6; véase §20.6).
 - Sprint.
 - Aceleración o inercia.
 - Buffs y debuffs de velocidad.
@@ -1020,13 +1020,20 @@ derives whether Sprint applies for the current tick from valid movement intentio
 availability and a successful complete payment to `PlayerStaminaNetworkController`. Sprint has
 no independent `[Networked]` flag: when payment fails, the same input continues at walking speed.
 
-`ShouldSprint` reevaluates `isActionExecuting` every tick from
-`PlayerCombatNetworkController.IsExecutingWeaponAttack` or
-`PlayerAbilityRuntimeNetworkController.HasActiveExecution`. While either is true, Sprint provides
-no speed bonus, spends no sprint Stamina and emits no sprint-rejection telemetry. It resumes when
-execution ends if still held; `canMove` and base movement are unaffected by this Sprint gate.
-Movement runs at execution order `-10`, before combat at `-7`, so Sprint still applies on the tick
-an attack starts (known one-tick latency).
+`ShouldSprint` reevaluates `isActionExecuting` every tick (Game Design 17 §5, TASK-248). It is true
+while `PlayerCombatNetworkController.IsExecutingWeaponAttack` (Execution Window) or
+`HasPendingAttackRelease` (the accepted attack has not resolved yet), while
+`PlayerAbilityRuntimeNetworkController.HasActiveExecution`, while consuming, and on the tick
+`PlayerCombatNetworkController.IsOffensiveStartRequested(buttons)` reports a weapon start the
+active set can accept. While it is true, Sprint provides no speed bonus, spends no sprint Stamina
+and emits no sprint-rejection telemetry. It resumes when execution ends if still held; `canMove`
+and base movement are unaffected by this Sprint gate.
+
+Movement runs at execution order `-10`, before combat at `-7`. The offensive-request query lets
+Movement end Sprint on the attack's own tick: that tick already moves at walking speed and leaves
+the sprint Stamina for the attack cost. The query reads only replicated state (equipped weapon
+input mode, combat `PreviousButtons`, hand availability), so the predicting Input Authority
+evaluates it the same way. A request it reports that combat then rejects costs one tick of Sprint.
 
 `PlayerStaminaNetworkController.FixedUpdateNetwork()` runs before
 `PlayerMovementNetworkController.FixedUpdateNetwork()`. The current configured orders are `-11`
@@ -1091,21 +1098,51 @@ No debería reemplazar la cadena de input ni la presentación base.
 
 Knockback no es solamente un bloqueo.
 
-Modelo futuro:
+Modelo implementado según «18 - Resolución de Impactos, Proyectiles y Knockback», §6:
 
 ```text
-movimiento final = movimiento voluntario + desplazamiento externo
+movimiento final = movimiento voluntario + desplazamiento forzado + paso de knockback
+PE efectiva = max(0, PE original − RE)
 ```
 
-La intención voluntaria puede ignorarse temporalmente, pero el motor debe continuar aplicando el desplazamiento externo.
+`KnockbackForce` en `DamageRequest`, `AttackExecutionParameters`, `WeaponDefinition`,
+`ProjectileSpawnRequest` y las habilidades Charge/Seismic expresa PE original, no unidades/s.
+`CharacterBase` (`IKnockbackReceiver`) resta RE: en jugadores suma
+`ArmorDefinition.KnockbackResistance` del equipo mediante `EquipmentStatisticsModifiers`, sin escalado
+por atributos primarios. `PlayerCharacter.ResolveKnockbackResistance` sumará efectos temporales cuando
+se diseñen. En enemigos usa `EnemyCharacter._knockbackResistance` (serializado, 0 por defecto).
+PE efectiva 0 absorbe el empuje sin desplazamiento, incremento de `KnockbackSequence` ni interrupción
+de habilidades; el daño no cambia.
+
+`PlayerMovementNetworkController` y `EnemyMovementAIController`, mediante
+`IKnockbackMotor.TryApplyKnockback`, mantienen un único estado `[Networked]` escrito por State Authority:
+Active, Direction, EffectivePower, Distance, StartTick y DurationTicks. Solo una PE efectiva
+estrictamente mayor reemplaza el activo, reiniciando desde la posición actual; empates o valores
+menores lo conservan, sin acumulación vectorial. En jugadores solo iniciar o reemplazar incrementa
+`KnockbackSequence` y solicita interrupción de habilidades según sus reglas.
+
+El primer paso ocurre en el tick posterior a la aceptación. Cada paso se deriva del tick y del perfil
+acumulativo de `KnockbackCurveConfig`, sin acumuladores locales (seguro ante resimulación).
+`Assets/Scriptable Objects/KnockbackCurveConfig.asset`, referenciado por NetworkPlayer, SocialPlayer y
+NetworkEnemy, convierte PE efectiva a distancia (0.1 m/PE, máximo 3 m) y duración
+(0.03 s/PE limitada a [0.1, 0.5] s, redondeada hacia arriba a ticks), con perfil ease-out.
+Son valores provisionales pendientes de Balance (Doc 18 §9). Configuración ausente o inválida hace
+fallar `ValidateDependencies` con error.
+
+El desplazamiento forzado suprime el voluntario; el paso de knockback sigue sumándose en el mismo tick.
+`Kinematic2DMovementMotor` conserva collide-and-slide: la distancia bloqueada por paredes se pierde,
+sin daño ni stun por pared. Host Migration conserva el estado copiado y StartTick en el dominio de ticks
+reanudado; solo un spawn nuevo lo reinicia (véase `HostMigrationRecoveryArchitecture.md`).
 
 ### 20.6.1 Estado Downed (Abatido)
 
 Mientras `PlayerDownedStateNetworkController.IsDowned` es verdadero, `PlayerMovementNetworkController`
 reduce la velocidad voluntaria multiplicándola por `DownedMovementSpeedMultiplier` (0.35 provisional) y
 desactiva Sprint (no se paga Stamina). `IsAlive` sigue siendo verdadero, por lo que el movimiento no se
-bloquea por muerte. Se lee estado `[Networked]`, por lo que es seguro ante resimulación. El knockback
-no cambia: se aplica igual que fuera de Downed. Mecánicas futuras (Revive, Self-revive, Accelerated
+bloquea por muerte. Se lee estado `[Networked]`, por lo que es seguro ante resimulación. Según Doc 18 §6.4 y Doc 13 §5, `DamageResolver` captura
+`IKnockbackReceiver.IsKnockbackEligible` antes de `ApplyDamage`: solo Active (`IsAlive && !IsDowned`)
+autoriza impactos. Ya Downed no inicia ni reemplaza knockback; uno autorizado antes de entrar en
+Downed continúa. Defeat definitivo (`!IsAlive`) lo cancela en el siguiente tick de movimiento. Mecánicas futuras (Revive, Self-revive, Accelerated
 Resolution, pose y HUD de Downed) quedan fuera de este alcance.
 
 ### 20.7 Carga de objetos
@@ -1448,7 +1485,7 @@ Validaciones:
 
 ### Etapa 6: primera extensión real
 
-Implementar sprint, slow, dash o knockback cuando el diseño lo requiera.
+Implementar sprint, slow o dash cuando el diseño lo requiera; knockback ya sigue Doc 18 §6 (§20.6).
 
 Solo en esta etapa se evalúa extraer:
 
@@ -1570,7 +1607,7 @@ Estas decisiones no cambian los límites principales entre input, simulación, m
 - [x] El movimiento continuo no depende de eventos.
 - [x] No se incorpora Event Bus.
 - [x] No se crean interfaces especulativas.
-- [x] Knockback queda modelado como desplazamiento externo futuro.
+- [x] Knockback implementado como desplazamiento externo por perfil acumulativo (Doc 18 §6).
 - [x] Supresión local y bloqueo autoritativo son conceptos distintos.
 - [x] La arquitectura permite agregar extensiones sin reemplazar el flujo completo.
 

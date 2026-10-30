@@ -75,3 +75,6 @@ Observed locally: existing generator tests, SemVer tests, temporary Git merge/pu
 
 Official scheduling reference: https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule
 Unity CLI reference: https://docs.unity.com/en-us/engine/6000.5/manual/unity-editor/command-line-arguments/editor
+## Generated technical archives
+
+Development and publication metadata include `docs/changelog/` alongside the three root files. The summary is bounded; original subjects, bodies, SHA links, paths and classification evidence remain in generated monthly/release archives. Repeated subjects alone are not duplicate evidence. Public notes must pass strict validation before any preparation writes; an empty public release needs explicit reviewed trailers/overrides. This does not activate schedules or authorize a publication. See [generator policy](README.md#technical-history-and-evidence).

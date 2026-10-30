@@ -166,14 +166,14 @@ public sealed class RaidHudView : MonoBehaviour
         float safeCurrent = IsFinite(currentHealth) ? Mathf.Max(0f, currentHealth) : 0f;
         float safeMaximum = IsFinite(maximumHealth) ? Mathf.Max(0f, maximumHealth) : 0f;
         SetText(_healthText, $"{safeCurrent:0.#} / {safeMaximum:0.#}");
-        SetFill(_healthFill, safeMaximum > 0f ? safeCurrent / safeMaximum : 0f);
+        SetResourceFill(_healthFill, safeMaximum > 0f ? safeCurrent / safeMaximum : 0f);
     }
 
     /// <summary>Restores the unavailable health placeholder and empty fill.</summary>
     public void ClearHealth()
     {
         SetText(_healthText, $"{UnavailableValue} / {UnavailableValue}");
-        SetFill(_healthFill, 0f);
+        SetResourceFill(_healthFill, 0f);
     }
 
     /// <summary>Presents current, maximum and Exhaustion state without owning gameplay state.</summary>
@@ -185,14 +185,14 @@ public sealed class RaidHudView : MonoBehaviour
         SetText(
             _staminaText,
             $"{safeCurrent:0} / {safeMaximum:0}{exhaustionSuffix}");
-        SetFill(_staminaFill, safeMaximum > 0f ? safeCurrent / safeMaximum : 0f);
+        SetResourceFill(_staminaFill, safeMaximum > 0f ? safeCurrent / safeMaximum : 0f);
     }
 
     /// <summary>Restores the unavailable Stamina placeholder and empty fill.</summary>
     public void ClearStamina()
     {
         SetText(_staminaText, $"{UnavailableValue} / {UnavailableValue}");
-        SetFill(_staminaFill, 0f);
+        SetResourceFill(_staminaFill, 0f);
     }
 
     /// <summary>Presents current and maximum Mana; the current value never exceeds the maximum.</summary>
@@ -201,14 +201,14 @@ public sealed class RaidHudView : MonoBehaviour
         float safeMaximum = IsFinite(maximumMana) ? Mathf.Max(0f, maximumMana) : 0f;
         float safeCurrent = IsFinite(currentMana) ? Mathf.Clamp(currentMana, 0f, safeMaximum) : 0f;
         SetText(_manaText, $"{safeCurrent:0} / {safeMaximum:0}");
-        SetFill(_manaFill, safeMaximum > 0f ? safeCurrent / safeMaximum : 0f);
+        SetResourceFill(_manaFill, safeMaximum > 0f ? safeCurrent / safeMaximum : 0f);
     }
 
     /// <summary>Restores the unavailable Mana placeholder and empty fill.</summary>
     public void ClearMana()
     {
         SetText(_manaText, $"{UnavailableValue} / {UnavailableValue}");
-        SetFill(_manaFill, 0f);
+        SetResourceFill(_manaFill, 0f);
     }
 
     /// <summary>Presents primary-attack availability and normalized cooldown.</summary>
@@ -419,6 +419,18 @@ public sealed class RaidHudView : MonoBehaviour
         {
             target.text = value;
         }
+    }
+
+    private static void SetResourceFill(Image target, float value)
+    {
+        if (target != null && target.type == Image.Type.Filled)
+        {
+            SetRadialFill(target, value);
+            target.rectTransform.localScale = Vector3.one;
+            return;
+        }
+
+        SetFill(target, value);
     }
 
     private static void SetFill(Image target, float value)

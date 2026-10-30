@@ -136,6 +136,13 @@ namespace Tests.EditMode.Presentation
                 RaidAbilityHudMessages.ForRejection(AbilityActivationFailure.InsufficientResource),
                 Is.EqualTo("Recurso insuficiente"));
             Assert.That(
+                RaidAbilityHudMessages.ForRejection(AbilityActivationFailure.AttackInProgress),
+                Is.EqualTo("Ataque en curso"));
+            Assert.That(AbilityFeedbackPolicy.ShouldNotifyRejection(AbilityActivationFailure.AttackInProgress), Is.True);
+            Assert.That((byte)AbilityActivationFailure.AimUnavailable, Is.EqualTo(10));
+            Assert.That((byte)AbilityActivationFailure.AttackInProgress, Is.EqualTo(11),
+                "RPC failure values must remain append-only.");
+            Assert.That(
                 RaidAbilityHudMessages.ForRejection(AbilityActivationFailure.BehaviourRejected),
                 Is.EqualTo(RaidAbilityHudMessages.ForRejection(AbilityActivationFailure.InvalidPlan)));
             Assert.That(

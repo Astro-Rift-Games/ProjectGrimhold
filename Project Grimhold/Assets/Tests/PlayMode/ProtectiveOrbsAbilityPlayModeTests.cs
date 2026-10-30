@@ -446,7 +446,7 @@ namespace Tests.PlayMode.Abilities
             yield return InSimulation(() =>
             {
                 _runtime.InterruptActiveExecutions(AbilityExecutionStopReason.Stun);
-                _runtime.GetComponent<PlayerMovementNetworkController>().ApplyKnockbackImpulse(Vector2.up, 1f);
+                _runtime.GetComponent<PlayerMovementNetworkController>().TryApplyKnockback(Vector2.up, 1f, true);
                 _runtime.Object.AssignInputAuthority(PlayerRef.None);
                 Assert.That(Character.ApplyDamage(new DamageRequest(default, Character.Id, 10000f,
                     DamageType.TrueDamage, Vector2.down, Character.transform.position, _runner.Tick)).IsApplied, Is.True);

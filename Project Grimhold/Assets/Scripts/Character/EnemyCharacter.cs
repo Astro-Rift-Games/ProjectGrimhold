@@ -35,7 +35,13 @@ public sealed class EnemyCharacter : CharacterBase, IAbilityEnemyTarget
     [SerializeField]
     private EnemyFSM _fsm;
 
+    [Tooltip("Knockback Resistance (RE)")]
+    [SerializeField, Min(0f)] private float _knockbackResistance;
+
     private bool _deathDependenciesValid;
+
+    /// <summary>Resolves this enemy's configured knockback resistance (RE).</summary>
+    protected override float ResolveKnockbackResistance() => _knockbackResistance;
 
     protected override void Awake()
     {

@@ -164,6 +164,68 @@ namespace Tests.EditMode.Loot
             }));
         }
 
+        [Test]
+        public void AddressedRequest_PreservesAddressAndRevisionAcrossExistingJointTransaction()
+        {
+            var calls = new List<string>();
+            var source = new RaidSource(calls, true);
+            var destination = new RaidDestination(calls, true);
+            var request = new LootTransferRequest(new EntityId(1), new EntityId(2), new LootId("coin"), 4, 30, 7, 19);
+            Assert.That(request.IsValid, Is.True);
+            Assert.That(LootTransferTransaction.Execute(source, destination, request).Success, Is.True);
+            foreach (LootTransferRequest observed in new[] { source.ValidatedRequest, source.ResolvedRequest, source.CommittedRequest })
+            {
+                Assert.That(observed.SourceInventorySlotIndex, Is.EqualTo(7));
+                Assert.That(observed.ExpectedInventoryRevision, Is.EqualTo(19));
+                Assert.That(observed.RequestedAmount, Is.EqualTo(4));
+            }
+            Assert.That(calls, Is.EqualTo(new[]
+            {
+                "ValidateExtraction", "ValidateReceive", "ResolveRaidOrigin",
+                "ValidateRaidOriginReceive", "CommitRaidExtraction", "CommitRaidReceive"
+            }));
+        }
+
+        [Test]
+        public void AddressedRequest_DestinationRejectionStillPrecedesEveryCommit()
+        {
+            var calls = new List<string>();
+            var request = new LootTransferRequest(new EntityId(1), new EntityId(2), new LootId("coin"), 4, 30, 7, 19);
+            LootTransferResult result = LootTransferTransaction.Execute(
+                new Source(calls, LootTransferFailureReason.None),
+                new Destination(calls, LootTransferFailureReason.InventoryFull), request);
+            Assert.That(result.FailureReason, Is.EqualTo(LootTransferFailureReason.InventoryFull));
+            Assert.That(calls, Is.EqualTo(new[] { "ValidateExtraction", "ValidateReceive" }));
+        }
+
+        [TestCase(-2)]
+        [TestCase(-1)]
+        [TestCase(30)]
+        public void AddressedRequest_InvalidAddressCannotMasqueradeAsLegacy(int slotIndex)
+        {
+            var request = new LootTransferRequest(new EntityId(1), new EntityId(2), new LootId("coin"), 4, 30, slotIndex, 19);
+            Assert.That(request.IsValid, Is.False);
+        }
+
+        [TestCase(0, -1)]
+        [TestCase(29, -1)]
+        [TestCase(-1, 0)]
+        public void DomainRequest_MixedAddressRevisionSentinelsAreInvalid(int slotIndex, int revision)
+        {
+            var request = new LootTransferRequest(new EntityId(1), new EntityId(2), new LootId("coin"), 1, 30,
+                slotIndex, revision);
+            Assert.That(request.IsValid, Is.False);
+        }
+
+        [Test]
+        public void LegacyDomainRequest_RemainsValidAndExplicitlyUnaddressed()
+        {
+            LootTransferRequest request = ValidRequest();
+            Assert.That(request.IsValid, Is.True);
+            Assert.That(request.SourceInventorySlotIndex, Is.EqualTo(-1));
+            Assert.That(request.ExpectedInventoryRevision, Is.EqualTo(-1));
+        }
+
         private static LootTransferRequest ValidRequest() => new(
             new EntityId(1),
             new EntityId(2),
@@ -246,6 +308,9 @@ namespace Tests.EditMode.Loot
         private sealed class RaidSource : ILootExtractor, IRaidLootOriginSource
         {
             private readonly List<string> _calls;
+            public LootTransferRequest ValidatedRequest { get; private set; }
+            public LootTransferRequest ResolvedRequest { get; private set; }
+            public LootTransferRequest CommittedRequest { get; private set; }
 
             public RaidSource(List<string> calls, bool isAware)
             {
@@ -259,6 +324,7 @@ namespace Tests.EditMode.Loot
             public LootTransferFailureReason ValidateExtraction(in LootTransferRequest request)
             {
                 _calls.Add("ValidateExtraction");
+                ValidatedRequest = request;
                 return LootTransferFailureReason.None;
             }
 
@@ -269,13 +335,18 @@ namespace Tests.EditMode.Loot
                 out RaidLootOriginTransfer transfer)
             {
                 _calls.Add("ResolveRaidOrigin");
+                ResolvedRequest = request;
                 transfer = RaidLootOriginTransfer.Dungeon(request.RequestedAmount);
                 return true;
             }
 
             public void CommitRaidLootExtraction(
                 in LootTransferRequest request,
-                RaidLootOriginTransfer transfer) => _calls.Add("CommitRaidExtraction");
+                RaidLootOriginTransfer transfer)
+            {
+                CommittedRequest = request;
+                _calls.Add("CommitRaidExtraction");
+            }
         }
 
         private sealed class RaidDestination : ILootReceiver, IRaidLootOriginReceiver

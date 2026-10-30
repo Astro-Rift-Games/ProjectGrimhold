@@ -117,6 +117,7 @@ public static class ApplicationStashServiceBootstrapper
             _configuration.MissionCatalog,
             _configuration.AbilityCatalog,
             _configuration.StashCapacity);
+        bool? orphanRollback = null;
         if (store.PendingExtractionCommit != null)
         {
             Debug.LogWarning($"[{nameof(ApplicationStashServiceBootstrapper)}] Retrying pending extraction commit from a previous session crash.");
@@ -140,20 +141,18 @@ public static class ApplicationStashServiceBootstrapper
         }
         else if (store.PendingReservation != null)
         {
-            Debug.LogWarning($"[{nameof(ApplicationStashServiceBootstrapper)}] Rolling back orphaned loadout reservation from a previous session crash.");
-            store.TryRollbackLoadoutReservation(store.PendingReservation.ReservationId);
-            
-            // At this point we haven't created the RemoteInventoryService component yet.
-            // But we can just use the client directly since we have the auth token in context
-            var authToken = ApplicationAuthContext.Instance?.Token;
-            if (!string.IsNullOrEmpty(authToken) && _configuration != null)
-            {
-                var backendConfig = ApplicationAuthContext.Instance?.BackendConfig ?? Resources.Load<BackendConfiguration>("BackendConfiguration");
-                if (backendConfig != null)
-                {
-                    _ = ClearReservationAndUpdateRevisionAsync(backendConfig, authToken, store);
-                }
-            }
+            bool admitted = inventoryData.HasValue &&
+                !string.IsNullOrEmpty(inventoryData.Value.pendingReservation.admittedAt);
+            Debug.LogWarning(admitted
+                ? $"[{nameof(ApplicationStashServiceBootstrapper)}] Discarding admitted orphaned loadout reservation as a loss."
+                : $"[{nameof(ApplicationStashServiceBootstrapper)}] Rolling back orphaned loadout reservation from a previous session crash.");
+            StashOperationResult recovery = TryResolveOrphanedReservation(store, admitted);
+            // Login stays available, as before: the backend is left untouched and the next
+            // hydration retries the orphan.
+            if (recovery != StashOperationResult.Success)
+                Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Orphan reservation recovery failed: {recovery}. Backend cleanup skipped.");
+            else
+                orphanRollback = !admitted;
         }
 
         var stashService = contextObject.AddComponent<InMemoryPlayerStashService>();
@@ -164,6 +163,10 @@ public static class ApplicationStashServiceBootstrapper
         // Add RemoteInventoryService to handle backend operations
         var remoteInventoryService = contextObject.AddComponent<RemoteInventoryService>();
         remoteInventoryService.Initialize(_configuration, store);
+        if (orphanRollback.HasValue)
+        {
+            _ = ClearOrphanedReservationAsync(remoteInventoryService, orphanRollback.Value);
+        }
 
         // Add ProfileReconciliationService to handle automatic retry and hydration on conflicts
         var reconciliationService = contextObject.AddComponent<ProfileReconciliationService>();
@@ -558,13 +561,33 @@ public static class ApplicationStashServiceBootstrapper
         Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Context reset for logout.");
     }
 
-    private static async System.Threading.Tasks.Task ClearReservationAndUpdateRevisionAsync(
-        BackendConfiguration backendConfig, string authToken, LocalProfileStore store)
+    /// <summary>
+    /// Resolves only an orphan, never a pending extraction. Confirmation already implements
+    /// the transactional discard we need: it removes the reservation without returning ownership.
+    /// Admission metadata comes from the authenticated inventory payload, not the local cache.
+    /// </summary>
+    public static StashOperationResult TryResolveOrphanedReservation(LocalProfileStore store, bool admitted)
     {
-        var (success, result, _) = await InventoryClient.RollbackPendingReservationAsync(backendConfig, authToken);
-        if (success && result.revision > store.RemoteRevision)
+        if (store == null || !store.IsAvailable) return StashOperationResult.InvalidInventory;
+        if (store.PendingExtractionCommit != null) return StashOperationResult.ReservationPending;
+        if (store.PendingReservation == null) return StashOperationResult.InvalidInventory;
+        string reservationId = store.PendingReservation.ReservationId;
+        return admitted
+            ? store.TryConfirmLoadoutReservation(reservationId)
+            : store.TryRollbackLoadoutReservation(reservationId);
+    }
+
+    private static async System.Threading.Tasks.Task ClearOrphanedReservationAsync(
+        RemoteInventoryService service, bool rollback)
+    {
+        var (success, error) = rollback
+            ? await service.RollbackPendingReservationAsync()
+            : await service.ClearPendingReservationAsync();
+        // The loss service already warns for this protected authoritative result.
+        // Do not retry as rollback, reconcile, or discard a pending extraction.
+        if (!success && error.error != "EXTRACTION_RESULT_PENDING")
         {
-            store.SetRemoteRevision(result.revision);
+            Debug.LogWarning($"[{nameof(ApplicationStashServiceBootstrapper)}] Orphan reservation cleanup failed: {error.error} - {error.message}");
         }
     }
 }

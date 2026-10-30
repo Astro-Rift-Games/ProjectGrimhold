@@ -149,13 +149,14 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
             return alternateResult;
         }
 
+        finalDamage = FriendlyFireRules.ClampDamage(Health, finalDamage, request.IsAllyDirectDamage);
         float previousHealth = Health;
         Health = Mathf.Max(0f, Health - finalDamage);
         float actualDamageApplied = previousHealth - Health;
 
         if (actualDamageApplied > 0f) OnDamageApplied(actualDamageApplied);
 
-        bool isFatal = Health <= 0f;
+        bool isFatal = !request.IsAllyDirectDamage && Health <= 0f;
 
         if (isFatal && TryInterceptFatalDamage(request))
         {
@@ -224,23 +225,24 @@ public abstract class CharacterBase : NetworkBehaviour, ICharacter, IDamageable,
         );
     }
 
-    /// <summary>
-    /// Delivers a knockback impulse to the character's movement motor.
-    ///
-    /// Called by <see cref="DamageResolver"/> after a successful damage application.
-    /// Only effective when called on State Authority; the motor guards this requirement.
-    /// </summary>
-    /// <param name="impactDirection">Normalized direction of the incoming hit.</param>
-    /// <param name="force">Knockback force in world units per second.</param>
-    public void ReceiveKnockback(Vector2 impactDirection, float force)
+    /// <summary>Current eligibility, captured by callers before damage is applied.</summary>
+    public virtual bool IsKnockbackEligible => IsAlive;
+
+    /// <summary>Mitigates original PE by RE and delegates using the pre-damage eligibility snapshot.</summary>
+    public KnockbackDecision ReceiveKnockback(in KnockbackRequest request)
     {
-        if (_knockbackMotor == null || force <= 0f)
+        if (_knockbackMotor == null)
         {
-            return;
+            return KnockbackDecision.Absorbed;
         }
 
-        _knockbackMotor.ApplyKnockbackImpulse(impactDirection, force);
+        float effectivePower = KnockbackRules.ComputeEffectivePower(
+            request.OriginalPower, ResolveKnockbackResistance());
+        return _knockbackMotor.TryApplyKnockback(request.Direction, effectivePower, request.WasEligibleAtImpact);
     }
+
+    /// <summary>Resolves knockback resistance (RE), independently of damage defenses.</summary>
+    protected virtual float ResolveKnockbackResistance() => 0f;
 
     /// <summary>
     /// Allows calculation of specific damage mitigations.

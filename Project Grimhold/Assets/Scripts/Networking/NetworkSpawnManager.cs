@@ -296,6 +296,16 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     public NetworkPrefabRef BreakablePrefab => _breakablePrefab;
 
     /// <summary>
+    /// Reads the expedition's frozen Friendly Fire policy. If the context is unavailable,
+    /// returns false and outputs false; callers must treat unavailable policy as disabled.
+    /// </summary>
+    public bool TryGetRaidFriendlyFireEnabled(out bool friendlyFireEnabled)
+    {
+        friendlyFireEnabled = _launchContext != null && _launchContext.FriendlyFireEnabled;
+        return _launchContext != null;
+    }
+
+    /// <summary>
     /// Projects the immutable launch cohort into its canonical initial affiliation snapshot.
     /// The launch context remains the sole source of this runner-local projection.
     /// </summary>

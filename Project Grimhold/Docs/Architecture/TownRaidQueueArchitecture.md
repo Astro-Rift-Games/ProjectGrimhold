@@ -59,7 +59,8 @@ Unloading/disable cancels any pending consent. No runtime UI construction or vie
 Each preparation member controls only its own Ready flag. Only the Raid Host may Start, and only
 when every current member is Ready. Start freezes the full preparation snapshot and the current ACK,
 release and deadline workflow operates exclusively on that frozen roster. `RaidLaunchContext`
-contains the code, Raid Host and up to 16 frozen profiles. `SessionConnectionCoordinator` remains
+contains the code, Raid Host and up to 16 frozen profiles.
+`TownRaidPreparationSnapshot.FriendlyFireEnabled` is also frozen into immutable `RaidLaunchContext.FriendlyFireEnabled` (Host default: `false`). `SessionConnectionCoordinator` remains
 the only owner of Town/Raid runner replacement and local loadout reservation.
 
 The staged release keeps the profile that owns State Authority for the Town preparation as the final

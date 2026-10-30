@@ -61,7 +61,8 @@ public sealed class AttackPreviewWindowModel
     /// <summary>Compare the attacking weapon in isolated Main/Off cells, without changing weapon or facing.</summary>
     public AttackPreviewCombination Counterpart(AttackPreviewCombination cell)
     {
-        if (cell == null || cell.Action == AttackPreviewAction.Defend || Classify(cell) == AttackPreviewEquipmentKind.TwoHand) return null;
+        if (cell == null || (cell.Action != AttackPreviewAction.MainAttack && cell.Action != AttackPreviewAction.OffAttack) ||
+            Classify(cell) == AttackPreviewEquipmentKind.TwoHand) return null;
         bool off = cell.Action == AttackPreviewAction.OffAttack;
         var weapon = off ? cell.OffHand : cell.MainHand;
         return _catalog.FirstOrDefault(c => c.FacingIndex == cell.FacingIndex &&

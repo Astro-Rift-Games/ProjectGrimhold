@@ -42,6 +42,33 @@ namespace Tests.PlayMode.Downed
         }
 
         [UnityTest]
+        public IEnumerator AllyDamage_DownedTarget_PreservesReserveAndRevive()
+        {
+            yield return StartRunnerAndLoadPlayer();
+            Avatar target = SpawnAvatar(Vector3.zero);
+            Avatar reviver = SpawnAvatar(new Vector3(1f, 0f, 0f));
+            SetField(target.Recovery, "_reviveDurationSeconds", 30f);
+            yield return DownAndHoldInteract(target, reviver);
+            Assert.That(target.Recovery.TryBeginAssisted(reviver.Character), Is.True);
+            float reserve = target.Downed.DownedHealth;
+            _driver.RequestedAllyDirectDamage = true;
+            yield return Hit(target, 100000f);
+            Assert.That(target.Downed.DownedHealth, Is.EqualTo(reserve));
+            Assert.That(target.Recovery.Kind, Is.EqualTo(RecoveryKind.Assisted));
+            Assert.That(_driver.FirstResult.AppliedDamage, Is.Zero);
+
+            // A zero-effective hit on the reviver also leaves health-loss polling unchanged.
+            yield return Hit(reviver, 100000f);
+            Assert.That(reviver.Character.Health, Is.EqualTo(1f));
+            // That first hit did lose health, so open a fresh session at the floor.
+            if (target.Recovery.Kind == RecoveryKind.None)
+                Assert.That(target.Recovery.TryBeginAssisted(reviver.Character), Is.True);
+            yield return Hit(reviver, 100000f);
+            Assert.That(_driver.FirstResult.AppliedDamage, Is.Zero);
+            Assert.That(target.Recovery.Kind, Is.EqualTo(RecoveryKind.Assisted));
+        }
+
+        [UnityTest]
         public IEnumerator Defaults_AreFourSecondsAndOnePointFiveUnits()
         {
             yield return StartRunnerAndLoadPlayer();

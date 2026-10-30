@@ -341,9 +341,13 @@ namespace Tests.PlayMode.Abilities
         }
 
 
-        private static Vector2 Knockback(Component enemy) => (Vector2)typeof(EnemyMovementAIController)
-            .GetProperty("KnockbackVelocity", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
-            .GetValue(enemy.GetComponent<EnemyMovementAIController>());
+        private static Vector2 Knockback(Component enemy)
+        {
+            var movement = enemy.GetComponent<EnemyMovementAIController>();
+            return (Vector2)typeof(EnemyMovementAIController)
+                .GetProperty("KnockbackDirection", BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(movement) * movement.ActiveKnockbackEffectivePower;
+        }
 
         // Networked objects overwrite plain transform writes on the next Render; teleport inside simulation.
         private IEnumerator Teleport(Component target, Vector3 position)

@@ -64,7 +64,7 @@ internal static class MinimapTileArtBuilder
                 }
 
                 // Never freeze the Editor's packed preview atlas/UVs: build packing can change it.
-                // Direct source-texture references preserve art/import settings without copying PNGs.
+                // Keep source textures here; the generator later rebinds batches to the averaged atlas.
                 Vector2[] vertices = SpriteUtility.GetSpriteMesh(sprite, false);
                 Vector2[] spriteUvs = SpriteUtility.GetSpriteUVs(sprite, false);
                 ushort[] triangles = SpriteUtility.GetSpriteIndices(sprite, false);

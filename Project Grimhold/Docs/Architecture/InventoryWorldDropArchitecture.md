@@ -13,14 +13,16 @@ action:
 
 ```text
 Personal inventory: right click -> contextual actions
-Open container:     left click -> transfer one, right click -> transfer all
+Open container:     right click or drag/drop -> transfer full stack
+Left click:         no transfer
 Read only:          no slot interaction
 ```
 
 ## Contextual action providers
 
-`RaidInventoryPresenter` owns the selected `LootId` while the menu is open. It
-resolves the selected catalog definition and stack snapshot, then asks its local
+`RaidInventoryPresenter` captures the selected physical address, Inventory revision,
+`LootId` and per-slot quantity while the menu is open. The slot projection also carries its
+exact Raid origin; no origin is inferred from the holder. It resolves local metadata and asks its
 `ILootContextActionProvider` instances to append applicable descriptors in
 provider order. A descriptor contains a stable action identifier, visible text,
 availability and its owning provider.
@@ -36,17 +38,23 @@ in this order for valid loot:
 1. `Soltar`, mapped to `LootTransferQuantityMode.SingleUnit`.
 2. `Soltar todo`, mapped to `LootTransferQuantityMode.FullStack`.
 
-The menu closes after an action, on an outside left click, Escape, inventory
-close, interaction-mode change, selected-stack disappearance, or a new drop
-request. Merely moving the pointer outside the popup does not close it.
+The menu closes after an action, on an outside left click, Escape, inventory close,
+interaction-mode change, source identity/revision change, rebind, drag start or a new drop request.
+Before dispatch the presenter revalidates the captured source without replacing its revision or
+searching for another matching `LootId`. A hidden stale button cannot send. Merely moving the
+pointer outside the popup does not close it. Rejection refreshes presentation without automatic retry.
 
 ## Request and authority boundary
 
 `PlayerLootDropNetworkController` is colocated with the player's
 `PlayerLootReceiver` and runs the authoritative operation from
-`FixedUpdateNetwork`. Its request transports only the catalog index, quantity
-mode and sequence. State Authority resolves all mutable facts: player life,
-current stack quantity, facing, world origin and valid placement.
+`FixedUpdateNetwork`. Addressed UI requests transport catalog index, quantity mode, sequence,
+source Inventory address and the revision captured by the displayed snapshot. The provider passes
+that metadata unchanged through the existing addressed public overload; malformed or stale
+addresses never fall back to the legacy route. Legacy constructors/callers remain unaddressed
+`-1/-1`. Revisions are opaque integers except reserved `-1`.
+State Authority validates address, revision and item identity before resolving the selected slot's
+quantity and exact origin, player life, facing, world position and valid placement.
 
 Only one local request and one authority-side pending request are allowed at a
 time. `LootDropRequestState` records the last processed identity and typed
@@ -55,9 +63,10 @@ obsolete or concurrent identity is rejected without spawning or extracting.
 Presentation callbacks are deferred to `Render`, so simulation and
 resimulation do not directly drive UI side effects.
 
-`Soltar` resolves to one unit when the stack still exists. `Soltar todo`
-resolves to the complete authoritative amount observed during the processing
-tick, not the quantity previously displayed by the client.
+`Soltar` resolves to one unit in the selected physical slot. Addressed `Soltar todo`
+resolves to that slot's complete authoritative quantity only after the captured revision and
+identity match, never the item's aggregate or another same-origin stack. Legacy unaddressed
+callers retain aggregate quantity resolution. The UI sends intention, not an authoritative amount.
 
 ## Atomic extraction and provisional pickup
 
@@ -94,18 +103,34 @@ remains.
 
 ## Sources of truth and lifecycle
 
-- `PlayerLootReceiver` owns authoritative inventory content and quantity.
+- `PlayerLootReceiver` owns quantity and exact Raid origin together in thirty physical slots.
 - The loot catalog owns static loot definitions and catalog indices.
 - Player network state owns alive state and facing.
 - `PlayerLootDropNetworkController` owns request sequencing and confirmation.
 - `NetworkLootPickup.IsPublished` owns replicated pickup availability.
-- `RaidInventoryPresenter` owns only local menu selection and feedback.
+- `RaidInventoryPresenter` owns only snapshot-bound local menu/drag identity and feedback.
 
 Closing the inventory never cancels a request already accepted by the network
 controller. Reopening observes `HasRequestInFlight` and keeps slots/actions
 disabled until a matching confirmation or transport rejection finalizes it.
 
 ## Validation strategy
+
+Physical-slot UI has parent-observed fresh compilation with 0 C# errors, 19 EditMode passes and
+79 full UI PlayMode passes, with no failed or skipped tests in those focused runs. The Console had
+0 errors and 0 warnings after the full UI run. Coverage includes selected-slot drop metadata and
+origin projection, stale context/drag dispatch rejection before refresh, cancellation after refresh,
+hidden pooled-button rejection and unchanged definition-only PlayerFirst consumption. The four
+earlier UI failures were corrected in the fixtures' active-Canvas lifecycle, not production code.
+See [UI verification evidence and limits](RaidInventoryUIArchitecture.md#validation-strategy)
+for the focused fixtures, job identifiers and broader-suite failures; neither compilation failure nor
+initialization failure with zero tests constitutes behavioral RED.
+
+Visual checks, multi-peer RPC behavior and real Host Migration with a Host plus two Clients remain
+unexecuted; these focused passes do not close TASK-227 or establish all-suite success. No scene,
+prefab, dependency or placement configuration changes are part of this UI unit. The known container
+authored-pool shortage remains visible under strict logs. Backend and local exact-position
+persistence remain out of scope.
 
 Edit Mode tests cover candidate order and facing rotation, blocked-candidate
 failure, quantity modes, provider filtering/order and idempotent request-state
@@ -119,6 +144,6 @@ corner placement, and closing the inventory while a request is in flight.
 
 ## Credited world drops
 
-All content held by `PlayerLootReceiver` is already credited for first acquisition and therefore carries no first-acquisition-eligible quantity. Raid ownership provenance is preserved independently. Before spawning a drop, State Authority resolves the exact requested origin buckets in Dungeon-then-`RaidParticipantId` order. The provisional `NetworkLootPickup` stores those logical IDs and quantities directly, is initialized with eligible quantity zero, and remains unpublished until the source jointly commits quantity and provenance. Recollection copies the same logical origins into the destination Inventory.
+All content held by `PlayerLootReceiver` is already credited for first acquisition and therefore carries no first-acquisition-eligible quantity. Raid ownership provenance is preserved independently. Before spawning an addressed drop, State Authority resolves only the selected physical slot's exact origin. Legacy unaddressed drops retain Dungeon-then-`RaidParticipantId` bucket selection. The provisional `NetworkLootPickup` stores those logical IDs and quantities directly, is initialized with eligible quantity zero, and remains unpublished until the source jointly commits quantity and provenance. Recollection copies the same logical origins into the destination Inventory.
 
 Failed spawn, verification, extraction or publication despawns the provisional object, so quantity, ownership provenance and eligibility cannot be published inconsistently. World drops do not grant first-acquisition progress and do not reinterpret Player origins as Dungeon.

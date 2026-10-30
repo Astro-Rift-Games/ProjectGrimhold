@@ -6,6 +6,9 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { git } from '../src/git.js';
+import { readPublicationVersions } from '../src/versions.js';
+import { developerVersions } from '../src/commits.js';
+import { developerArtifacts } from '../src/render-dev.js';
 import { createReleasePlan, writePlannedRelease } from '../src/release-plan.js';
 
 const cli = fileURLToPath(new URL('../src/cli.js', import.meta.url));
@@ -80,11 +83,11 @@ test('highest impact wins and existing breaking footer declares functional impac
   assert.equal(createReleasePlan(root).version, '2.0.0');
 });
 
-test('no changes and duplicate published messages do not release', () => {
+test('no changes do not release but distinct same-message commits do', () => {
   const root = published();
   assert.equal(createReleasePlan(root).version, null);
   commit(root, 'feat: published feature', 'Player-Added: Published adventure.');
-  assert.equal(createReleasePlan(root).version, null);
+  assert.equal(createReleasePlan(root).version, '0.4.0');
 });
 
 test('pending feature and its revert cancel while technical history remains', () => {
@@ -95,10 +98,12 @@ test('pending feature and its revert cancel while technical history remains', ()
   commit(root, 'fix: unrelated repair');
   const plan = createReleasePlan(root);
   assert.equal(plan.version, '0.3.3');
-  writePlannedRelease(root, plan);
-  const text = readFileSync(join(root, 'CHANGELOG_DEV.md'), 'utf8');
-  assert.match(text, /cancelled feature/);
-  assert.match(text, /cancel feature/);
+  assert.throws(() => writePlannedRelease(root, plan), /no visible player notes/);
+  // Cancelled originals remain in the developer artifact stream, not public notes.
+  const versions = readPublicationVersions(root, 'HEAD');
+  const archives = developerArtifacts(developerVersions(versions)).map(file => file.text).join('\n');
+  assert.match(archives, /cancelled feature/);
+  assert.match(archives, /cancel feature/);
 });
 
 test('a revert of published functionality warrants a patch', () => {
@@ -121,9 +126,8 @@ test('features without public notes increment version without inventing notes', 
   commit(root, 'feat: private implementation');
   const plan = createReleasePlan(root);
   assert.equal(plan.version, '0.4.0');
-  writePlannedRelease(root, plan);
-  const release = JSON.parse(readFileSync(join(root, 'changelog-players.json'), 'utf8')).releases[0];
-  assert.equal(release.categories.flatMap(category => category.entries).length, 0);
+  assert.throws(() => writePlannedRelease(root, plan), /no visible player notes/);
+  assert.equal(existsSync(join(root, 'changelog-players.json')), false);
 });
 
 test('leading-zero tags and prereleases are not stable publication tags', () => {
@@ -231,7 +235,7 @@ test('prepare rejects invalid overrides, modified plans and no-release plans wit
 
 test('additive release CLI prints JSON and rejects unknown, duplicate and missing arguments', () => {
   const root = published();
-  commit(root, 'fix: repair');
+  commit(root, 'fix: repair', 'Player-Fixed: Repairs remain available.');
   for (const command of ['plan', 'prepare']) {
     const result = spawnSync(process.execPath, [releaseCli, command, '--root', root, '--ref', 'HEAD'], { encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);

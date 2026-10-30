@@ -19,7 +19,30 @@ MonoBehaviour:
   _worldSprite: {fileID: 21300000, guid: 1d146328d2b503e49b51da00f2533826, type: 3}
   _category: 1
   _rarity: 0
+  _objectValue: 0
+  _stackMax: 10
+  _maxTransportable: 0
+  _family: 
+  _tags: []
+  _tradable: 1
+  _canBeTransferred: 1
+  _canEnterDungeon: 1
+  _canBeFoundInDungeon: 1
+  _canBeDiscarded: 1
+  _canBeUsed: 0
+  _missionCompatible: 0
+  _useMode: 0
   _extractionValuePerUnit: 1
   _sellValuePerUnit: 1
+  _buyValuePerUnit: 0
   _defaultPickupQuantity: 1
   _consumableDefinition: {fileID: 0}
+  _weaponDefinition: {fileID: 0}
+  _shieldDefinition: {fileID: 0}
+  _armorDefinition: {fileID: 0}
+  _equipmentVisualDefinition:
+    _usesBaseSpritesAsPlaceholder: 1
+    _tint: {r: 1, g: 1, b: 1, a: 1}
+    _spriteMappings: []
+  _defenseSprites: {fileID: 0}
+  _quickSlotCompatible: 0

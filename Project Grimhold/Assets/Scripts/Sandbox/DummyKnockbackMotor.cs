@@ -19,14 +19,27 @@ public sealed class DummyKnockbackMotor : NetworkBehaviour, IKnockbackMotor
     // State Authority only; intentionally not networked (remote peers get the resulting position).
     private Vector2 _velocity;
 
-    public void ApplyKnockbackImpulse(Vector2 impactDirection, float force)
-    {
-        if (!HasStateAuthority || force <= 0f || impactDirection.sqrMagnitude <= 0f)
-        {
-            return;
-        }
+    private float _activeEffectivePower;
 
-        _velocity += impactDirection.normalized * force;
+    /// <summary>Applies strict replacement while retaining the sandbox's simple decaying movement.</summary>
+    public KnockbackDecision TryApplyKnockback(Vector2 direction, float effectivePower, bool wasEligibleAtImpact)
+    {
+        if (!HasStateAuthority)
+        {
+            return KnockbackDecision.KeptActive;
+        }
+        if (!PlayerAimMath.TryNormalizeDirection(direction, out Vector2 normalizedDirection))
+        {
+            return KnockbackDecision.Absorbed;
+        }
+        KnockbackDecision decision = KnockbackRules.Resolve(wasEligibleAtImpact, effectivePower,
+            _velocity.sqrMagnitude > StopSqrSpeed, _activeEffectivePower);
+        if (decision == KnockbackDecision.Started || decision == KnockbackDecision.Replaced)
+        {
+            _activeEffectivePower = effectivePower;
+            _velocity = normalizedDirection * effectivePower;
+        }
+        return decision;
     }
 
     public override void FixedUpdateNetwork()

@@ -198,7 +198,9 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
         int pendingCount = _pendingPresentationEvents.Count;
         for (int index = 0; index < pendingCount; index++)
         {
-            InteractionResolved?.Invoke(_pendingPresentationEvents.Dequeue());
+            // Dequeue first: `?.` skips argument evaluation when nothing is subscribed.
+            InteractionPresentationEvent interactionEvent = _pendingPresentationEvents.Dequeue();
+            InteractionResolved?.Invoke(interactionEvent);
         }
     }
 

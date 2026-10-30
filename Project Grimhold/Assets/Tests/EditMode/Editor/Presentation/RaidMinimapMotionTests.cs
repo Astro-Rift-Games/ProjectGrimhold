@@ -9,6 +9,7 @@ using UnityEngine.UI;
 public sealed class RaidMinimapMotionTests
 {
     private GameObject _root;
+    private GameObject _movingParent;
     private Canvas _canvas;
     private RectTransform _viewport;
     private RectTransform _map;
@@ -18,7 +19,10 @@ public sealed class RaidMinimapMotionTests
     [TearDown]
     public void TearDown()
     {
-        Object.DestroyImmediate(_root);
+        if (_root != null)
+            Object.DestroyImmediate(_root);
+        if (_movingParent != null)
+            Object.DestroyImmediate(_movingParent);
     }
 
     [TestCase(1f, 0.25f, -0.25f)]
@@ -41,6 +45,34 @@ public sealed class RaidMinimapMotionTests
         Assert.That(_map.localRotation, Is.EqualTo(Quaternion.identity));
         Assert.That(_map.localScale, Is.EqualTo(Vector3.one));
         Assert.That(_canvas.pixelPerfect, Is.False, "Snapping this map must not change the entire HUD Canvas.");
+    }
+
+    [TestCase(0.73f)]
+    [TestCase(1f)]
+    [TestCase(1.37f)]
+    public void MapPivotSnapsToCanvasPixelsWhenHudCanvasIsUnderAMovingParent(float canvasScale)
+    {
+        CreateView(canvasScale);
+        _movingParent = new GameObject("MovingPlayer");
+        _movingParent.transform.position = new Vector3(12.37f, -5.21f, 0f);
+        _root.transform.SetParent(_movingParent.transform, false);
+
+        for (int i = 1; i <= 8; i++)
+        {
+            Vector2 request = new Vector2(0.25f * i, -0.4f * i);
+            _map.anchoredPosition = request;
+            Vector2 desired = CanvasPixelPosition();
+
+            _view.PresentMapPosition(request);
+
+            Vector2 actual = CanvasPixelPosition();
+            // Measuring through world space with a displaced parent costs ~1e-4 px of float
+            // precision; still far below GPU subpixel precision (1/256 px) and the 0.37 px drift.
+            AssertIntegerPixel(actual.x, 0.001f);
+            AssertIntegerPixel(actual.y, 0.001f);
+            Assert.That(Mathf.Abs(actual.x - desired.x), Is.LessThanOrEqualTo(0.5001f));
+            Assert.That(Mathf.Abs(actual.y - desired.y), Is.LessThanOrEqualTo(0.5001f));
+        }
     }
 
     [TestCase(0.73f)]
@@ -254,9 +286,16 @@ public sealed class RaidMinimapMotionTests
         return RectTransformUtility.WorldToScreenPoint(null, _map.position);
     }
 
-    private static void AssertIntegerPixel(float value)
+    private Vector2 CanvasPixelPosition()
     {
-        Assert.That(value, Is.EqualTo(Mathf.Round(value)).Within(0.0001f));
+        var rootRect = (RectTransform)_canvas.transform;
+        Vector3 local = rootRect.InverseTransformPoint(_map.position);
+        return ((Vector2)local - rootRect.rect.min) * _canvas.scaleFactor;
+    }
+
+    private static void AssertIntegerPixel(float value, float tolerance = 0.0001f)
+    {
+        Assert.That(value, Is.EqualTo(Mathf.Round(value)).Within(tolerance));
     }
 
     private void SetField(string name, object value)

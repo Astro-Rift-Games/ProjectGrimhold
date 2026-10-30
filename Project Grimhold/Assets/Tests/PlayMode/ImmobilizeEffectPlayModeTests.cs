@@ -66,7 +66,7 @@ namespace Tests.PlayMode.Abilities
             Assert.That((target.transform.position - held).magnitude, Is.LessThan(0.001f),
                 "An immobilized creature must not walk on its own.");
 
-            yield return InSimulation(() => movement.ApplyKnockbackImpulse(Vector2.right, 30f));
+            yield return InSimulation(() => movement.TryApplyKnockback(Vector2.right, 30f, true));
             yield return WaitTicks(10);
             Assert.That((target.transform.position - held).magnitude, Is.GreaterThan(0.5f),
                 "Forced displacement stays possible while immobilized.");

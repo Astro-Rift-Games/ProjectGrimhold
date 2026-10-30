@@ -12,6 +12,16 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
 {
     private EntityRegistry _registry;
     private NetworkSpawnManager _spawnManager;
+    [SerializeField, Min(0f)] private float _allyDamageMultiplier = 1f;
+
+    // Explicit test seams; production composition remains runner-scoped.
+    internal System.Func<PlayerCharacter, PlayerCharacter, bool> AreInitialTeammates { get; set; } =
+        AbilityAllyAffiliation.AreInitialTeammates;
+    internal System.Func<bool> FriendlyFireEnabled { get; set; }
+
+    private bool ResolveFriendlyFireEnabled() => FriendlyFireEnabled != null
+        ? FriendlyFireEnabled()
+        : _spawnManager != null && _spawnManager.TryGetRaidFriendlyFireEnabled(out bool enabled) && enabled;
 
     private void Awake()
     {
@@ -73,6 +83,21 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
             ));
         }
 
+        bool isAlly = request.AttackerId.Value != 0 && target is PlayerCharacter targetPlayer &&
+            _registry.TryGetDamageable(request.AttackerId, out IDamageable source) &&
+            source is PlayerCharacter attackerPlayer && AreInitialTeammates(attackerPlayer, targetPlayer);
+        if (FriendlyFireRules.IsBlocked(isAlly, ResolveFriendlyFireEnabled()))
+        {
+            return CompleteResolution(request, new DamageResult(request.TargetId, false, 0f, 0f,
+                false, DamageFailureReason.FriendlyFireBlocked));
+        }
+
+        // Always reconstruct: callers cannot opt into the protected ally path themselves.
+        var resolvedRequest = new DamageRequest(request.AttackerId, request.TargetId,
+            FriendlyFireRules.ScaleDamage(request.Amount, isAlly, _allyDamageMultiplier),
+            request.DamageType, request.Direction, request.HitPoint, request.SimulationTick,
+            request.KnockbackForce, isAlly, request.EmpowerSourceId);
+
         // 3. Verify target can receive damage
         if (!target.CanReceiveDamage)
         {
@@ -86,24 +111,31 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
             ));
         }
 
+        // Doc 18 §4.3: capture eligibility before this hit can transition Active to Downed.
+        bool knockbackEligibleAtImpact = target is IKnockbackReceiver receiver && receiver.IsKnockbackEligible;
+
+        // Reserve depletion clears IsDowned before ApplyDamage returns, so capture both sides.
+        bool wasDowned = target is PlayerCharacter { IsDowned: true };
         // 4. Delegate damage application and handle authority validation within IDamageable
-        DamageResult result = target.ApplyDamage(request);
+        DamageResult result = target.ApplyDamage(resolvedRequest);
 
         // 5. Apply knockback to the target if the damage was successfully applied.
         //    IKnockbackReceiver is implemented by CharacterBase, which delegates to
         //    the movement motor. Breakables do not implement IKnockbackReceiver.
-        if (result.IsApplied &&
+        if ((result.IsApplied || (resolvedRequest.Amount == 0f &&
+                result.FailureReason == DamageFailureReason.InvalidAmount)) &&
             request.KnockbackForce > 0f &&
             target is IKnockbackReceiver knockbackReceiver)
         {
-            knockbackReceiver.ReceiveKnockback(request.Direction, request.KnockbackForce);
+            knockbackReceiver.ReceiveKnockback(new KnockbackRequest(
+                request.Direction, request.KnockbackForce, knockbackEligibleAtImpact));
         }
 
         // 6. Alert enemy targets aggro'd by a player hit.
         //    IAggroReceiver is implemented by EnemyMovementAIController (a sibling component).
         //    Only player-sourced damage triggers the pursuit bypass; traps and
         //    breakable objects do not because they are not registered as PlayerCharacter.
-        if (result.IsApplied &&
+        if (result.IsApplied && result.AppliedDamage > 0f && !isAlly &&
             target is MonoBehaviour mb &&
             mb.TryGetComponent(out IAggroReceiver aggroReceiver) &&
             _registry != null &&
@@ -113,7 +145,9 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
             aggroReceiver.ReceiveAggroAlert(request.AttackerId, attackerTransform);
         }
 
-        if (result.IsApplied && HasStateAuthority && request.AttackerId.Value != 0 && request.TargetId.Value != 0 && _registry != null)
+        if (result.IsApplied && result.AppliedDamage > 0f && !isAlly && !wasDowned &&
+            target is not PlayerCharacter { IsDowned: true } && HasStateAuthority &&
+            request.AttackerId.Value != 0 && request.TargetId.Value != 0 && _registry != null)
         {
             if (_registry.TryGetCombatContributionTracker(request.TargetId, out ICombatContributionTracker tracker))
             {
@@ -124,10 +158,16 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
                     if (participantLink != null &&
                         participantLink.TryResolveParticipant(out NetworkRaidParticipant participant) &&
                         participant.RaidParticipantId.IsValid &&
-                        participant.TryResolveCurrentAvatar(out NetworkObject currentAvatar) &&
-                        currentAvatar == player.Object)
+                        (target is PlayerCharacter ||
+                         (participant.TryResolveCurrentAvatar(out NetworkObject currentAvatar) && currentAvatar == player.Object)))
                     {
                         tracker.TryRecordContribution(participant.RaidParticipantId, request.SimulationTick);
+                        // Effective empowered basic attacks contribute only to the PvP register, never PvE.
+                        if (target is PlayerCharacter && request.EmpowerSourceId.IsValid &&
+                            request.EmpowerSourceId != participant.RaidParticipantId)
+                        {
+                            tracker.TryRecordContribution(request.EmpowerSourceId, request.SimulationTick, CombatContributionKind.Empower);
+                        }
                     }
                 }
             }

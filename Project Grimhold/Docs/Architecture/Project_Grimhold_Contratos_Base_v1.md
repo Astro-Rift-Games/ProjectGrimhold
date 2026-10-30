@@ -218,13 +218,16 @@ public readonly struct LootTransferRequest
     public LootId LootId { get; }
     public int RequestedAmount { get; }
     public int SimulationTick { get; }
+    public int SourceInventorySlotIndex { get; }
+    public int ExpectedInventoryRevision { get; }
+    public bool HasInventorySlotAddress { get; }
     public bool IsValid { get; }
 }
 ```
 
-Validity requires non-default source and destination identities, a valid loot ID, and a positive requested amount. The simulation tick is preserved without imposing an additional validity rule.
+Validity requires non-default source and destination identities, a valid loot ID, a positive requested amount, and valid source metadata. The legacy constructor supplies the unaddressed pair `-1/-1`; an addressed request requires a slot index in `0..29` and an opaque integer revision other than the reserved `-1`. Mixed sentinel pairs are invalid. The simulation tick is preserved without imposing an additional validity rule.
 
-The constructor preserves invalid gameplay data instead of throwing, allowing endpoints to return typed rejection reasons.
+The constructor preserves invalid gameplay data instead of throwing, allowing endpoints to return typed rejection reasons. Source metadata is ephemeral intent, not provenance or persisted position. At runtime an addressed source must be the authenticated actor's Inventory: validation binds the current source revision, address, item and complete selected quantity, without fallback, retargeting or automatic retry. A destination validates metadata shape but never compares the source revision with its own. See [Addressed Inventory actions](LootInteractionArchitecture.md#addressed-inventory-actions) for the owning integration contract.
 
 ### `LootTransferResult`
 
@@ -250,7 +253,7 @@ The stable domain reasons are:
 | `SourceNotFound` | The source entity cannot be resolved. |
 | `DestinationNotFound` | The destination entity cannot be resolved. |
 | `InsufficientAmount` | The source cannot provide the complete requested quantity. |
-| `InventoryFull` | A gameplay slot rule prevents receiving a new distinct loot ID. |
+| `InventoryFull` | The endpoint's gameplay slot capacity prevents receiving the complete quantity; an existing player item ID may also require another physical slot. |
 | `OutOfRange` | The endpoints do not satisfy the gameplay distance rule. |
 | `MissingAuthority` | The operation is not running under the required State Authority. |
 | `ContainerUnavailable` | A resolved endpoint cannot currently participate in the operation. |
@@ -273,17 +276,23 @@ Capabilities are intentionally independent:
 
 Reading must not expose a mutable backing collection. A caller may retain or enumerate a snapshot without gaining write access to authoritative storage.
 
-Gameplay slots count distinct loot IDs with positive quantities. Increasing an existing ID does not consume another slot; receiving a new ID requires a free slot. There is no automatic splitting, weight capacity, or per-stack maximum in the current contract.
+Slot semantics belong to each endpoint; aggregate read capabilities do not require aggregate authoritative storage. Content snapshots remain detached `LootEntry` projections, and quantity queries remain item aggregates.
 
-The shared `NetworkDictionary` capacity of 30 used by `PlayerLootReceiver` and `NetworkLootContainer` is a Fusion representation limit, not necessarily gameplay slot capacity. Reaching a technical representation constraint must not be reported as `InventoryFull`.
+### Player Inventory
 
-`PlayerLootReceiver` implements content reading, quantity queries, configurable gameplay slots, reception, and extraction. Its serialized slot capacity is positive, cannot exceed the `NetworkDictionary` representation limit, and is configured to 30 on the base network-player prefab. World and enemy `NetworkLootContainer` prefabs are configured to six; the co-located defeated-player container is configured to 30 so it can preserve the complete player inventory. These values are local static configuration rather than replicated state.
+`PlayerLootReceiver` is the sole owner of Inventory quantity and exact Raid origin in a `NetworkArray<LootInventorySlot>` of exactly 30 physical slots. Its positive serialized `SlotCapacity` is an occupied-slot limit no greater than 30, configured to 30 on the base network-player prefab. A lower limit neither restricts the address range nor repacks or discards existing slots. `OccupiedSlotCount` counts physical stacks; `DistinctLootCount` counts item identities.
 
-State Authority is the only writer. Reception stacks an existing ID regardless of occupied-slot count and rejects a new ID with `InventoryFull` only when the configured gameplay capacity is full. Extraction requires the complete requested quantity, removes an entry when its remainder reaches zero, and never stores zero or negative quantities. Both successful commits increment `LootChangeSequence`, allowing Input Authority presentation to refresh from the replicated read-only snapshot.
+Stacks merge only when both item identity and exact origin match: `Dungeon` or `Player(RaidParticipantId)` with participant values `1..16`. Different participants' units never merge. Reception fills compatible partial stacks in ascending address order, then empty slots in ascending order, respecting per-stack `StackMax` and the item's aggregate `MaxTransportable` across all slots and origins. An existing item ID can require another physical slot and fail with `InventoryFull`. Extraction clears only depleted slots and never compacts.
+
+State Authority alone writes quantity and origin together. Complete preflight includes all incoming origin buckets competing for holes and, for equipment exchanges, all displaced equipment origins; rejection changes neither quantity, origin nor revision. Each successful transfer commit advances the joint `LootChangeSequence` once, not once per stack or bucket. The detailed storage and planning contract belongs to [Player physical Inventory](LootInteractionArchitecture.md#player-physical-inventory).
 
 The temporary inventory has the same lifecycle as the player's `NetworkObject`. On authoritative defeat, `PlayerCorpseGenerationController` copies and verifies its snapshot in the unavailable `NetworkLootContainer` co-located on that same object, clears the receiver exactly once, and only then makes the source available. Player despawn or runner shutdown destroys both replicated collections with that object, local presentation queues are cleared during despawn, and a player spawned in a later session starts from empty network collections. No loot state is persisted in static fields, services, or `ScriptableObject` assets.
 
-`NetworkLootContainer` is a reusable bidirectional endpoint implementing reception, extraction, quantity, content and slot-capacity reads. It is not itself interactable. State Authority owns its replicated catalog-index quantities, initialization, availability and change sequence. Availability is independent of emptiness and changing it does not mutate content or the sequence. Reception combines compatible stacks, applies the same gameplay slot and overflow rules as the player inventory, and advances `LootChangeSequence` only after a successful commit.
+### Containers
+
+`NetworkLootContainer` remains a reusable bidirectional endpoint implementing reception, extraction, quantity, content and slot-capacity reads. It is not itself interactable. Its aggregate `NetworkDictionary<catalog index, quantity>` retains a technical capacity of 30, distinct from its configured gameplay capacity: six distinct item IDs for world/enemy containers and 30 for the co-located defeated-player container. These capacities remain local static configuration. Increasing an existing ID needs no new gameplay slot; a new ID requires one. Containers do not migrate to physical player slots or inherit player per-stack origin/capacity rules. A technical representation failure is not `InventoryFull`.
+
+State Authority owns container quantities, initialization, availability and change sequence. Availability is independent of emptiness and changing it does not mutate content or the sequence. Reception retains aggregate distinct-ID and overflow rules; extraction removes an entry only when its complete requested quantity depletes it. Successful commits advance `LootChangeSequence`. Container provenance remains in the separate packed `ContainerRaidLootOriginState`, as specified by [Raid loot origin](LootInteractionArchitecture.md#raid-loot-origin); player slot ownership does not replace it.
 
 Containers are deliberately not registered in the single-value `EntityRegistry` receiver map. A defeated player's `PlayerLootReceiver` and `NetworkLootContainer` share one `NetworkId`; the authoritative transfer controller therefore resolves the exact container component from the destination `NetworkObject` for deposits. This keeps the active player inventory registered as the entity receiver while preventing deposits from being routed into a defeated player's co-located inventory.
 

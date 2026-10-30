@@ -63,6 +63,7 @@ public static class SandboxRuleBypass
             case AbilityActivationFailure.BehaviourRejected: return "rejected by the ability rules (for example Seismic Strike needs an enemy in range)";
             case AbilityActivationFailure.InvalidPlan: return "ability produced an invalid start plan";
             case AbilityActivationFailure.AimUnavailable: return "no usable aim or facing direction";
+            case AbilityActivationFailure.AttackInProgress: return "a weapon attack is still executing";
             default: return $"unknown failure ({(int)failure})";
         }
     }

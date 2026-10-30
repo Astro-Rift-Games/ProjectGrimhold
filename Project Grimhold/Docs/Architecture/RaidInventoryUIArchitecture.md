@@ -8,7 +8,7 @@ share a runtime presenter, view, input-suppression token, source, or open/closed
 or unbinding one context therefore cannot retain presentation state into the next runner.
 
 `IInventoryReadSource` is the neutral read boundary used by the shared presenter. It exposes only
-a `LootEntry` snapshot, slot capacity, a monotonic revision and a local change notification. It
+a `LootEntry` snapshot, slot capacity, a revision and a local change notification. It
 does not expose mutations, transfer endpoints, Town/Raid knowledge, catalog metadata or economic
 value. `LootInventoryValueCalculator` derives the displayed total from the snapshot and
 `LootDefinitionCatalog` outside the source.
@@ -16,7 +16,8 @@ value. `LootInventoryValueCalculator` derives the displayed total from the snaps
 The bindings remain context-specific:
 
 ```text
-Raid: PlayerLootReceiver -> IInventoryReadSource -> RaidInventoryPresenter
+Raid: PlayerLootReceiver.TryGetInventorySlot(0..29) + Revision -> RaidInventoryPresenter
+      PlayerLootReceiver.TryGetLootContent -> aggregate value and legacy readers
 Town: IPlayerLoadoutService -> LocalLoadoutInventoryReadSource -> RaidInventoryPresenter
       IPlayerLoadoutService -> TownEquipmentMutationEndpoint -> RaidInventoryPresenter
 ```
@@ -53,7 +54,7 @@ fields or RPCs. Its baked position follows the interactable, allowing `Spawned()
 to capture fresh/restored state before presentation observations. Missing/looping
 audio configuration skips only sound, never the animation or inventory flow.
 
-The Raid inventory UI replaces the provisional textual loot summary with a local uGUI slot screen and composes the player inventory with an inspected `NetworkLootContainer` in that screen. It supports symmetric single-unit and full-stack mouse intentions in both transfer directions, plus a local “Tomar todo” sequence that reuses those full-stack intentions one at a time. A provider-driven contextual menu exposes the authoritative world-drop transaction documented in `Docs/Architecture/InventoryWorldDropArchitecture.md`. Each network endpoint remains the source of truth for its own snapshot and State Authority remains the only writer.
+The Raid inventory UI replaces the provisional textual loot summary with a local uGUI slot screen and composes the player inventory with an inspected `NetworkLootContainer` in that screen. Right click requests a full-stack transfer in container mode; drag/drop also requests a full stack. Left click does not transfer. A local “Tomar todo” sequence reuses full-stack container withdrawals one at a time. A provider-driven contextual menu exposes the authoritative world-drop transaction documented in `Docs/Architecture/InventoryWorldDropArchitecture.md`. Each network endpoint remains the source of truth for its own snapshot and State Authority remains the only writer.
 
 The personal Raid inventory projects all eight replicated Equipment slots: Main Hand and Off Hand
 for Set A and Set B plus `Helmet`, `Armor`, `Gloves` and `Boots`. All eight views reuse the same serialized
@@ -79,15 +80,14 @@ The local presentation flow is:
 
 ```text
 PlayerLootReceiver
-    -> snapshot, capacity, LootChangeSequence and local metadata
+    -> thirty physical slots, LootChangeSequence and local metadata
     -> RaidInventoryPresenter
-    -> RaidInventoryProjection
-    -> RaidLootPanelPresenter / RaidInventoryView
+    -> RaidLootPanelPresenter.RefreshInventory / RaidInventoryView
     -> RaidLootPanelView / eight Equipment slot views
     -> RaidInventorySlotView
 ```
 
-The presentation layer calls only snapshot readers, capacities, change sequences and local catalog projection. It never accesses extractors, validators, commits or network dictionaries. In container mode, a real uGUI slot emits its occupied `LootId` plus `SingleUnit` for a left click or `FullStack` for a right click. In personal mode, only right click opens the contextual action menu; left click performs no gameplay action. `LootEquipContextActionProvider` contributes one action per compatible explicit destination and forwards `LootId + EquipmentSlot` to `PlayerWeaponEquipmentNetworkController`; State Authority resolves the current amount and validates the complete exchange. The orchestrator supplies the player and open-container endpoint identities to `PlayerLootTransferNetworkController`; it never supplies an authoritative amount.
+The presentation layer calls only read APIs, revision queries and local catalog projection. It never calls extractors, authoritative validators or commits. Personal right click opens the contextual menu; container-mode right click and drag/drop express full-stack intentions. Physical player-cell events carry the captured `RaidInventorySlotData`, not just `LootId`. Deposit, drop and equip forward its source address and observed revision unchanged to the existing addressed public controller overloads. State Authority resolves quantity and validates the complete operation. Container withdrawal, Take All, container equip and unequip keep their existing unaddressed routes. No destination cell address, editable amount or placement intention is supplied.
 
 Every context request carries the exact originating slot `RectTransform`. The shared context menu
 positions itself from that anchor in Canvas-local space, prefers the slot's right side, falls back
@@ -106,11 +106,54 @@ outside attribute requirements during the MVP.
 
 ## Slot projection and metadata
 
-`PlayerLootReceiver.TryGetLootContent` emits catalog-index order. For TASK-218, the personal
-panel projects the owning client's presentation-local order described below, rather than catalog-index
-order; Town projects stored Loadout order. Container panels still preserve snapshot order.
-`RaidInventoryProjection` rejects content beyond gameplay capacity and appends empty entries until
-the projection length equals `SlotCapacity`.
+`RaidInventorySlotView` optionally binds authored charcoal empty, occupied, hover, selected,
+invalid-drop and reserved sprites. The slot view, not Button SpriteSwap, owns this background.
+Its existing selection/drop/reservation inputs determine the sprite; inactive-set alpha and the
+unscaled confirmed-transfer pulse remain independent and restore the current semantic resting
+appearance. Icons, tooltip data, gestures and gameplay capability rules are unchanged.
+Without authored sprite references, existing color-only presentation is retained for callers and
+test fixtures. The charcoal skin does not create new locked or pending gameplay states.
+
+Equipment cells retain exactly one non-raycast `Icon` Image. Its optional serialized
+`EquipmentSlotIconPresentation` swaps between the category sprite and actual item sprite;
+no `EmptyCategoryGlyph` GameObject or second icon Image is used.
+Every glyph is 16x16 source pixels, with the PNG and editable Aseprite importers configured at 16 PPU.
+The six neutral pixel glyphs (main hand, off hand, helmet, armor, gloves and boots) identify only
+genuinely empty equipment positions; A/B sets reuse their role glyphs. Main hand uses two crossed
+swords based on the ArmingSword silhouette, and off hand uses a single shield. Boots use a paired
+cuffed-boot silhouette with distinct toe boxes and soles. These are
+category cues, not equipment-eligibility rules. Generic inventory and
+Quick Slot presentation explicitly hides this layer. Occupied entries hide it even when item art
+is missing, and two-handed off-hand reservation retains the existing weapon icon/alpha rather
+than an empty-category indicator. Town character-sheet, preparation inspection and the three
+member-card summary cells follow the same emptiness rule; portrait layers are unaffected.
+Both empty and item styles (anchors, position, size, pivot and color) are authored with the
+single Image. This preserves manually adjusted empty-category size/opacity independently
+from item geometry and restores normal item alpha when equipping; reserved items retain
+their existing reduced alpha. Generic inventory and Quick Slot paths clear the category
+sprite rather than reusing it as an occupied fallback. Unconfigured views retain legacy behavior.
+The single Icon and its category configuration are authored in source prefabs, not created or
+discovered at runtime. The original
+charcoal frame atlas, slot state sprites and equipment compatibility rules remain unchanged.
+
+Raid player projection reads exactly addresses `0..29` through `TryGetInventorySlot`, independent
+of the lower configurable occupancy limit. It emits thirty entries, including interior holes;
+repeated `LootId`s remain separate even when their origins match. Each occupied entry retains its
+physical quantity and exact `Dungeon` or `Player(RaidParticipantId)` origin. Origin is nullable
+only for an empty or unaddressed presentation entry; the holder is never inferred as origin.
+
+| Presentation value | Snapshot identity |
+| --- | --- |
+| Physical slot data, including holes | Source address and captured Inventory revision |
+| Inventory context and drag payload | The same captured address/revision, copied unchanged |
+| Legacy/default Town, container or Equipment values | Unaddressed `-1/-1` |
+
+Revisions are opaque integers except reserved `-1`, matching `LootTransferRequest` validation.
+`WithDisplayName` preserves all metadata. These disposable values never own inventory state.
+Aggregate `TryGetLootContent` remains the read contract for total value, Quick Slot quantities,
+backend/persistence and legacy feedback. It is not used to reconstruct Raid cell positions.
+Town preserves stored Loadout order; container panels preserve their aggregate snapshot order.
+Those paths retain `RaidInventoryProjection`, including capacity checks and appended empties.
 
 Every occupied slot whose `LootDefinition` resolves carries an immutable equipment-tooltip
 presentation built from definition-owned data. Weapons expose base damage/type, interval, range,
@@ -127,24 +170,26 @@ fallback behavior.
 view. Panel slots forward hover intentions through `RaidLootPanelView`; the direct Equipment slots
 bind to the same screen-local view. The tooltip prefers the anchor's right side, falls back to the
 left and clamps to the Canvas. Pointer exit, content replacement, screen close/disable and opening a
-context menu clear it. This local presentation has no networking, mutation or simulation role and is
+context menu clear it. A physical cell also dismisses its tooltip when its captured revision changes,
+even if its `LootId` stays the same. This local presentation has no networking, mutation or simulation role and is
 shared by Town/Raid Inventory, Equipment, Stash, Loadout and an open container panel.
 
-The view creates a stable slot pool when binding or capacity changes. Normal content refreshes reuse those views. The shared personal Inventory prefab authors 30 slots, matching both `LocalProfileSnapshot.MaxLoadoutSlots` in Town and `PlayerLootReceiver.SlotCapacity` in Raid, so initialization keeps all 30 active and usable. World and enemy container projections request six logical slots and hide the unused remainder of their authored pool. A missing icon uses the serialized project placeholder. If a complete definition cannot be resolved, only that slot degrades to the placeholder, raw `LootId` text, and replicated quantity; the presenter reports the integration error once per ID and keeps other slots visible.
+The view binds an authored stable slot pool and never creates inventory cells at runtime. Normal content refreshes reuse those views. The shared personal Inventory prefab authors 30 slots, matching `LocalProfileSnapshot.MaxLoadoutSlots` in Town and the fixed physical storage length in Raid, even when Raid's occupancy limit is lower. Container projections request their source's gameplay capacity and hide the unused remainder of their authored pool. An insufficient authored pool remains an explicit error; the known six-view versus thirty-capacity container case is not repaired by player projection. A missing icon uses the serialized project placeholder. Legacy aggregate projections can degrade an unresolved definition to raw `LootId`, placeholder and quantity, reporting the integration error once per ID. A physical slot requires a catalog-index-to-ID mapping; an invalid physical snapshot makes that panel unavailable rather than inventing an item identity.
 
 `PanelsRow` contains reusable sibling panels. Personal mode shows the player panel and the Equipment
 panel appropriate to the bound context; Town Equipment is mutable only through its explicit local
 capability. Loot mode makes occupied slots in both the player and container panels selectable at
 full capacity, including empty slots and `Contenedor vacío`; empty content does not close the
-screen. A container-slot click withdraws to the player, while a player-slot click deposits into the
-open container. In either panel, left click requests exactly one unit and right click requests the
-complete authoritative stack. These container transfer clicks do not define drag and drop,
-editable amount or multiple selection; personal Quick Slot assignment supports the Inventory drag
-documented below.
+screen. A container-slot right click withdraws to the player, while a physical player-slot right click
+deposits into the open container. Drag/drop preserves those directions. `FullStack` from a player
+cell means only that selected physical slot's quantity, not the item's aggregate; from a container
+it keeps the existing aggregate-stack meaning. Left click does not transfer. These gestures do not
+define authoritative sorting, moving, splitting, swapping, multiple selection or destination-hover
+placement. Quick Slot assignment remains definition-based as documented below.
 
 The container panel's “Tomar todo” button is enabled only for a valid open container with at least one visible occupied stack and no active request or batch. `RaidLootTakeAllState` copies the visible `LootId` values in order and tracks only the current local request. The presenter disables both panels and the button until that request finalizes, refreshes the replicated projections, and continues after success or rejection. It retains the last rejection feedback during the batch. New stacks are not appended, quantities remain authoritative, and close or target loss cancels unsent identities without affecting completed transfers.
 
-Each panel owns a `RaidLootSelectionState` containing only its selected `LootId`. Selecting one panel clears the other panel's selection. Both clear on close or target change, preserve a selection while that stack remains in the corresponding snapshot, and remove it when the stack disappears. Selection state intentionally has no pending flag or controller reference. Slot interactivity is derived each time from loot mode, a valid current container, an occupied slot, and `!PlayerLootTransferNetworkController.HasRequestInFlight`.
+Each panel owns a `RaidLootSelectionState`. Raid player selection contains its `LootId`, physical address and captured revision, so only one duplicate cell is highlighted. A new revision, missing/changed source identity or empty selected address clears it without selecting another matching item. Legacy Town/container selection remains item-based and unaddressed. Selecting one panel clears the other; close, target change and rebind clear local interactions. Selection state has no pending flag or controller reference. Slot interactivity is derived each time from loot mode, a valid current container, an occupied slot, and `!PlayerLootTransferNetworkController.HasRequestInFlight`.
 
 ## Confirmed opening, refresh and close
 
@@ -154,11 +199,11 @@ Each panel owns a `RaidLootSelectionState` containing only its selected `LootId`
 
 Opening reconstructs the target `NetworkId`, resolves the exact instance through the bound runner, requires a same-root `NetworkLootContainer` and registered `NetworkLootContainerInteractable` sharing that `NetworkObject`, and requires initialized/available state. The presenter then caches object, components and colliders. The watchdog only rechecks that instance, state and distance through cached colliders; it performs no component or global searches per frame.
 
-Player and container `LootChangeSequence` values are the definitive Raid refresh signals, including remote transfers. `PlayerLootReceiver.Render` publishes one local `IInventoryReadSource.Changed` notification when it observes a new player revision; it does not modify network state. `RequestInFlightChanged` only recalculates interactivity. `TransferConfirmed` always refreshes the player; it reconciles the current container and selections only when either endpoint matches the open container. Therefore a late confirmation from A cannot alter B.
+Player and container `LootChangeSequence` values are the definitive Raid refresh signals, including remote transfers. Before refreshing or dispatching an Inventory action, the presenter checks the captured source address, revision, item and quantity. A stale menu is dismissed and an active drag is canceled; hidden stale buttons cannot dispatch. Refresh never updates an existing action's revision or retargets by `LootId`, and rejection never triggers automatic retry. `PlayerLootReceiver.Render` publishes one local `IInventoryReadSource.Changed` notification when it observes a new player revision; it does not modify network state. `RequestInFlightChanged` only recalculates interactivity. `TransferConfirmed` always refreshes the player; it reconciles the current container and selections only when either endpoint matches the open container. Therefore a late confirmation from A cannot alter B.
 
-Transfer feedback is local presentation state inside the inventory screen. An Input Authority peer considers a request in flight only when Fusion reports that the RPC was sent to State Authority; local invocation alone is sufficient only on the State Authority peer. The request RPC uses `RpcHostMode.SourceIsHostPlayer`, so a local Host invocation reports the Host player as `RpcInfo.Source` and passes the same Input Authority validation as a remote Client. A failed local send shows a generic request message, while an authoritative confirmation maps its typed `LootTransferFailureReason` to a player-facing reason. Authority-side transport rejections also finalize the matching request before publishing their local feedback, so an unavailable dependency or rejected envelope cannot leave slots permanently blocked. A standalone success, a new request, close, disable and unbind clear that message; during take-all, later successes preserve the most recent rejection until the sequence finishes. Feedback never predicts or mutates content; replicated endpoint snapshots and their `LootChangeSequence` values remain the only sources of truth.
+Transfer feedback is local presentation state inside the inventory screen. An Input Authority peer considers a request in flight only when Fusion reports that the RPC was sent to State Authority; local invocation alone is sufficient only on the State Authority peer. The request RPC uses `RpcHostMode.SourceIsHostPlayer`, so a local Host invocation reports the Host player as `RpcInfo.Source` and passes the same Input Authority validation as a remote Client. A failed local send shows a generic request message, while an authoritative confirmation maps its typed `LootTransferFailureReason` to a player-facing reason. Authority-side transport rejections also finalize the matching request before publishing their local feedback, so an unavailable dependency or rejected envelope cannot leave slots permanently blocked. A confirmed withdrawal into physical player Inventory retains textual success feedback: a confirmation containing only `LootId` cannot identify a destination cell, so it never pulses an arbitrary first matching physical stack. Legacy container pulses remain unchanged. New requests, close, disable and unbind clear feedback; during take-all, later successes preserve the most recent rejection until the sequence finishes. Feedback never predicts or mutates content; replicated endpoint snapshots and their `LootChangeSequence` values remain the only sources of truth.
 
-The request identity contains source, destination, catalog index, quantity mode and sequence. State Authority accepts only open-container-to-owning-player withdrawals or owning-player-to-exact-open-container deposits. It resolves the exact `NetworkLootContainer` from the supplied `NetworkId`, verifies that the other endpoint is the controller's co-located `PlayerLootReceiver`, rechecks range and reads the source amount during the simulation tick. `SingleUnit` resolves to one when the source still contains loot; `FullStack` resolves to the complete amount observed in that tick. Containers are not registered as generic receivers because defeated players colocate their inventory and container under one `NetworkId`; direct component resolution prevents a deposit from targeting the defeated player's inventory.
+The request identity contains source, destination, catalog index, quantity mode and sequence, plus source Inventory address/revision for a player-cell action. State Authority accepts only open-container-to-owning-player withdrawals or owning-player-to-exact-open-container deposits. It resolves the exact `NetworkLootContainer` from the supplied `NetworkId`, verifies that the other endpoint is the controller's co-located `PlayerLootReceiver`, rechecks range and reads the source amount during the simulation tick. `SingleUnit` resolves to one when the validated source still contains loot; addressed `FullStack` resolves only the selected slot after revision and identity validation. Unaddressed container `FullStack` retains its aggregate meaning. Containers are not registered as generic receivers because defeated players colocate their inventory and container under one `NetworkId`; direct component resolution prevents a deposit from targeting the defeated player's inventory.
 
 Close is idempotent, releases one suppression token, clears mode, target, colliders, selection and any unsent take-all identities, and never rolls back gameplay. Distance, target replacement/despawn, unavailable/uninitialized state, local close (via local Tab toggle, Escape, or a new local interaction press edge `InteractPressedLocally`), session end, player despawn and HUD disable all close the screen. Closing and reopening while a request remains in flight observes the controller directly and keeps slots blocked.
 
@@ -298,13 +343,14 @@ or hides it; it never adds components or configures the Canvas at runtime.
 
 ## Player-controlled order and Sort (TASK-218)
 
-TASK-218 source implementation: no inventory surface sorts automatically: Stash, Town Loadout and Raid personal
-Inventory reorder only on an explicit Sort press. `StashDisplayOrder` becomes the shared Sort
+TASK-218 Town behavior remains unchanged: Stash and Town Loadout never sort automatically and
+reorder only on an explicit Sort press. TASK-227/#613 disables Raid Sort entirely; Raid addresses
+and holes remain in physical order. `StashDisplayOrder` becomes the shared Sort
 comparer, not a display projection: category rank Valuable, Material, Quest, Miscellaneous, Weapon,
 Helmet, Armor, Gloves, Boots, Shield, then None/unresolved/unrecognized at one last rank; display
 name ordinal-ignore-case next, then raw `LootId` ordinal. Blank names fall back to `LootId`;
 missing icons do not alter a resolved category. Sort never changes identity, amount or `Origin`,
-merges stacks or reorders fixed Equipment slots. Lists have one entry per ID and no holes: removing
+merges stacks or reorders fixed Equipment slots. Town lists have one entry per ID and no holes: removing
 an entry shifts the rest up, a new ID appends, and a merge preserves the existing position.
 
 Town Sort persists through the Store, cache and backend, using the order
@@ -316,17 +362,12 @@ remote failure or local divergence reconciles once and stops without retry. A pe
 reservation rejects Sort with `ReservationPending`; Ready does not block it because ownership is
 unchanged. Stash and Loadout buttons affect only their own lists.
 
-`PlayerLootReceiver` remains a catalog-index-keyed networked dictionary with
-unchanged replicated order. The owning client's `RaidInventoryPresenter` keeps a personal-panel
-list of `LootId`s, seeded at binding from the runner's local
-`LocalPlayerJoinContext.RaidAdmission.ReservedLoadout`, retained independently of reservation
-confirmation and inherited from Town. Snapshot IDs absent from that list (picked-up loot or unequipped items) append; IDs that
-leave are removed and the remainder shifts up. Each Raid Sort press sorts this local list once;
-new items are never automatically sorted in. This is local presentation only: no RPC, replication,
-other-peer use, container/corpse ordering or extraction persistence. Extraction retains its existing
-append behavior into Town Loadout. Container panels have no Sort button. The shared screen's
-Sort control is disabled outside Personal mode and while gameplay mutations are blocked. Source
-implementation is separate from prefab wiring and Unity/runtime acceptance, which remain required.
+Raid no longer seeds, reconciles or sorts a personal `LootId` display permutation. Its player panel
+reads the receiver's thirty physical slots directly, preserving duplicate IDs, origins and holes.
+The shared Sort control is disabled for every Raid mode, including after Downed recovery. There is
+no new sorting RPC or authoritative rearrangement. Town's comparer, persistent Sort queue and Ready/
+reservation gates remain unchanged. Container panels have no Sort button; extraction persistence
+and append behavior are unchanged.
 
 ## Equipment presentation and Downed read-only (TASK-218)
 
@@ -353,6 +394,33 @@ feedback until recovery or close. This is UX only: authoritative gates in `Downe
 remain unchanged.
 
 ## Validation strategy
+
+Physical-slot UI (TASK-227/#613) has parent-observed Unity compilation and focused automated passes:
+
+| Check | Observed result |
+| --- | --- |
+| Fresh compilation | 0 C# errors |
+| EditMode: `RaidInventorySlotDataTests`, `RaidLootSelectionStateTests` | 19 passed, 0 failed, 0 skipped; job `92d06125b0fc45ccbdecf043a3082849` |
+| Full UI PlayMode: `RaidInventoryPresenterInteractionTests`, `RaidInventoryViewPlayModeTests` | 79 passed, 0 failed, 0 skipped in 13.8495613 seconds; terminal job `4a255f03db3c4fefb3c42dd57c9565c1` |
+
+The Console had 0 errors and 0 warnings after the full UI run. Coverage includes thirty addresses,
+holes and exact origins; duplicate-stack selection; immutable/default metadata; selected-slot
+deposit/drop/equip metadata; stale context/drag dispatch before refresh and cancellation after
+refresh; hidden pooled-button rejection; tooltip revision changes; Raid Sort disabled with Town
+persistent Sort retained; ID-only physical-cell pulse suppression with legacy container feedback;
+and definition-only PlayerFirst consumption. Repeated bind/disable/enable is exercised with a real
+button confirmation; one confirmation does not establish an exact delegate invocation count.
+Four earlier failures were resolved by correcting the fixtures' active-Canvas lifecycle, not by a
+production fix. The initial missing-metadata compile failure and an earlier initialization failure
+that ran zero tests are not behavioral RED evidence.
+
+These results verify the bounded UI unit, not full TASK-227 closure. Manual visual checks,
+multi-peer RPC behavior and real Host Migration with a Host plus two Clients remain unexecuted.
+Broader suites are not all green: outstanding failures concern damage fixture configuration,
+endpoint word budget, the six-authored-view/thirty-required container pool, a runnerless ritual
+authority fixture and an old Take All test with incompatible stack expectations. Strict container
+shortage logs remain unsuppressed. Previously recorded core/receiver/gear passes are separate
+evidence, not new UI verification. Backend and local exact-position persistence remain out of scope.
 
 Implemented (TASK-218; Host/Client validation pending): pure tests cover Sort's exact permutation and amount/`Origin` invariance, plus
 order maintenance on add, merge and remove. PlayMode tests cover the panel-specific Sort buttons,

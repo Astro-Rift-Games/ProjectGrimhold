@@ -7,8 +7,7 @@ using UnityEngine;
 internal static class AbilityImpact
 {
     /// <summary>
-    /// The shared damage resolver rejects a non-positive amount (no damage applied, no knockback), so an ability
-    /// configured with zero damage pushes the target directly instead of going through the damage pipeline.
+    /// Damage and knockback both require resolver policy checks, including zero-damage pushes.
     /// </summary>
     public static bool UsesDamagePipeline(float damage) => damage > 0f;
 
@@ -20,7 +19,7 @@ internal static class AbilityImpact
         float damage, DamageType damageType, float knockbackForce, Vector2 direction, Vector2 hitPoint,
         int tick, Object owner)
     {
-        if (UsesDamagePipeline(damage))
+        if (UsesDamagePipeline(damage) || knockbackForce > 0f)
         {
             if (resolver == null)
             {
@@ -29,10 +28,6 @@ internal static class AbilityImpact
             }
             resolver.Resolve(new DamageRequest(casterId, targetId, damage, damageType, direction, hitPoint, tick,
                 knockbackForce));
-        }
-        else if (knockbackForce > 0f && target is IKnockbackReceiver receiver)
-        {
-            receiver.ReceiveKnockback(direction, knockbackForce);
         }
         return true;
     }

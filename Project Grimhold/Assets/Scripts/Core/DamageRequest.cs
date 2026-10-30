@@ -9,13 +9,17 @@ public readonly struct DamageRequest
     public EntityId AttackerId { get; }
     public EntityId TargetId { get; }
     public float Amount { get; }
+    /// <summary>Resolved initial-team direct damage; protects normal and Downed HP.</summary>
+    public bool IsAllyDirectDamage { get; }
     public DamageType DamageType { get; }
     public Vector2 Direction { get; }
     public Vector2 HitPoint { get; }
     public int SimulationTick { get; }
+    /// <summary>Supporter of an empowered basic attack. Abilities leave this unset.</summary>
+    public RaidParticipantId EmpowerSourceId { get; }
 
     /// <summary>
-    /// Knockback force in world units per second applied to the target on impact.
+    /// Knockback power (PE original, Doc 18), converted to displacement by KnockbackCurveConfig after RE mitigation.
     /// A value of 0 produces no knockback. Clamped to [0, ∞).
     /// </summary>
     public float KnockbackForce { get; }
@@ -28,15 +32,19 @@ public readonly struct DamageRequest
         Vector2 direction,
         Vector2 hitPoint,
         int simulationTick,
-        float knockbackForce = 0f)
+        float knockbackForce = 0f,
+        bool isAllyDirectDamage = false,
+        RaidParticipantId empowerSourceId = default)
     {
         AttackerId     = attackerId;
         TargetId       = targetId;
         Amount         = amount;
+        IsAllyDirectDamage = isAllyDirectDamage;
         DamageType     = damageType;
         Direction      = direction.normalized;
         HitPoint       = hitPoint;
         SimulationTick = simulationTick;
+        EmpowerSourceId = empowerSourceId;
         KnockbackForce = Mathf.Max(0f, knockbackForce);
     }
 }

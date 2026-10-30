@@ -9,8 +9,12 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public sealed class RaidMinimapGraphic : MaskableGraphic
 {
+    // Editor preview only: binds render the layout declared by the loaded Raid scene instead.
     [SerializeField]
     private MinimapLayout _layout;
+
+    // Runtime binding; never written back to the serialized preview, so prefab assets stay untouched.
+    private MinimapLayout _boundLayout;
 
     // Retain legacy serialized fields so existing HUD prefab overrides need no migration.
     // Tile colours now come exclusively from the authored sprite/Tilemap data.
@@ -27,15 +31,15 @@ public sealed class RaidMinimapGraphic : MaskableGraphic
     private bool _configured;
     private readonly List<RaidMinimapBatchGraphic> _batches = new List<RaidMinimapBatchGraphic>();
 
-    public override Texture mainTexture => _layout != null && _layout.ArtBatchCount > 0
-        ? _layout.GetArtBatch(0)?.Texture : base.mainTexture;
+    public override Texture mainTexture => Layout != null && Layout.ArtBatchCount > 0
+        ? Layout.GetArtBatch(0)?.Texture : base.mainTexture;
 
     /// <summary>Gets the generated layout consumed by this graphic.</summary>
-    public MinimapLayout Layout => _layout;
+    public MinimapLayout Layout => _boundLayout != null ? _boundLayout : _layout;
 
     /// <summary>Gets the world pivot encoded by the generated layout.</summary>
-    public Vector2 WorldPivotPosition => _layout != null
-        ? _layout.WorldPivotPosition
+    public Vector2 WorldPivotPosition => Layout != null
+        ? Layout.WorldPivotPosition
         : Vector2.zero;
 
     /// <summary>
@@ -43,6 +47,13 @@ public sealed class RaidMinimapGraphic : MaskableGraphic
     /// </summary>
     public bool TryConfigure(float uiUnitsPerWorldUnit, out Vector2 uiSize, out string error)
     {
+        return TryConfigure(_layout, uiUnitsPerWorldUnit, out uiSize, out error);
+    }
+
+    /// <summary>Binds the layout of the loaded Raid scene and configures its local UI scale.</summary>
+    public bool TryConfigure(MinimapLayout layout, float uiUnitsPerWorldUnit, out Vector2 uiSize, out string error)
+    {
+        _boundLayout = layout;
         _configured = false;
         foreach (RaidMinimapBatchGraphic batch in _batches)
             if (batch != null) batch.gameObject.SetActive(false);
@@ -50,13 +61,13 @@ public sealed class RaidMinimapGraphic : MaskableGraphic
         SetAllDirty();
         uiSize = Vector2.zero;
         error = null;
-        if (_layout == null)
+        if (layout == null)
         {
             error = "RaidMinimapGraphic has no MinimapLayout reference.";
             return false;
         }
 
-        if (!_layout.TryValidate(out error))
+        if (!layout.TryValidate(out error))
         {
             return false;
         }
@@ -68,7 +79,7 @@ public sealed class RaidMinimapGraphic : MaskableGraphic
         }
 
         _uiUnitsPerWorldUnit = uiUnitsPerWorldUnit;
-        uiSize = _layout.RenderSize * _uiUnitsPerWorldUnit;
+        uiSize = Layout.RenderSize * _uiUnitsPerWorldUnit;
         if (!IsPositiveFinite(uiSize.x) || !IsPositiveFinite(uiSize.y))
         {
             error = "RaidMinimapGraphic produced an invalid UI size.";
@@ -85,7 +96,7 @@ public sealed class RaidMinimapGraphic : MaskableGraphic
     protected override void OnPopulateMesh(VertexHelper vertexHelper)
     {
         RaidMinimapBatchGraphic.Populate(vertexHelper,
-            _configured && _layout != null && _layout.ArtBatchCount > 0 ? _layout.GetArtBatch(0) : null,
+            _configured && Layout != null && Layout.ArtBatchCount > 0 ? Layout.GetArtBatch(0) : null,
             _uiUnitsPerWorldUnit, color);
     }
 
@@ -104,7 +115,7 @@ public sealed class RaidMinimapGraphic : MaskableGraphic
 
     private void RefreshBatches()
     {
-        int required = _layout.ArtBatchCount - 1;
+        int required = Layout.ArtBatchCount - 1;
         for (int i = 0; i < required; i++)
         {
             if (i == _batches.Count)
@@ -123,7 +134,7 @@ public sealed class RaidMinimapGraphic : MaskableGraphic
             }
 
             RaidMinimapBatchGraphic graphic = _batches[i];
-            graphic.Configure(_layout.GetArtBatch(i + 1), _uiUnitsPerWorldUnit, color);
+            graphic.Configure(Layout.GetArtBatch(i + 1), _uiUnitsPerWorldUnit, color);
             graphic.gameObject.SetActive(isActiveAndEnabled);
         }
 

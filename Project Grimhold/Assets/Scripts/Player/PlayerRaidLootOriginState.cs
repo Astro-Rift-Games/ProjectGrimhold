@@ -1,112 +1,46 @@
-using System;
 using System.Collections.Generic;
 using Fusion;
 using UnityEngine;
 
-/// <summary>Replicated Raid-only provenance for one player's Inventory and Equipment.</summary>
+/// <summary>
+/// Replicates only Raid Equipment origins. Inventory queries are a compatibility facade
+/// over PlayerLootReceiver's physical slots; no Inventory provenance is stored here.
+/// </summary>
 [DisallowMultipleComponent]
 public sealed class PlayerRaidLootOriginState : NetworkBehaviour
 {
-    [Networked]
-    private RaidLootOriginPackedState InventoryOrigins { get; set; }
+    private PlayerLootReceiver _lootReceiver;
+
+    private void Awake() => _lootReceiver = GetComponent<PlayerLootReceiver>();
 
     // Eight 5-bit stable origin slots, one for each EquipmentSlotRules.AllSlots entry.
     [Networked]
     private long EquipmentOriginSlots { get; set; }
 
-    public bool TryInitializePlayerLoadout(
-        IReadOnlyList<LootEntry> entries,
-        LootDefinitionCatalog catalog,
-        RaidParticipantId participantId,
-        out string error)
-    {
-        error = null;
-        RaidLootOriginPackedState state = InventoryOrigins;
-        if (!HasStateAuthority || entries == null || catalog == null || state.BucketCount != 0 ||
-            !RaidLootOriginTransfer.TryCreatePlayer(participantId, 1, out _))
-        {
-            error = "Player Raid origin initialization requires empty authoritative state and a valid RaidParticipantId.";
-            return false;
-        }
-
-        for (int index = 0; index < entries.Count; index++)
-        {
-            LootEntry entry = entries[index];
-            if (!entry.IsValid || !catalog.TryGetIndex(entry.LootId, out int catalogIndex) ||
-                !RaidLootOriginTransfer.TryCreatePlayer(participantId, entry.Amount, out RaidLootOriginTransfer transfer) ||
-                !RaidLootOriginIndexedStateUtility.TryAdd(
-                    ref state,
-                    catalogIndex,
-                    transfer))
-            {
-                error = "Loadout provenance cannot be represented by the Raid origin state.";
-                return false;
-            }
-        }
-
-        InventoryOrigins = state;
-        return true;
-    }
-
     public bool HasExactInventoryTotal(int catalogIndex, int expectedAmount) =>
-        RaidLootOriginIndexedStateUtility.HasExactTotal(
-            InventoryOrigins,
-            catalogIndex,
-            expectedAmount);
+        expectedAmount > 0 && _lootReceiver != null && _lootReceiver.LootCatalog != null &&
+        _lootReceiver.LootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition) &&
+        _lootReceiver.GetLootAmount(definition.LootId) == expectedAmount;
 
     public bool TryResolveInventoryTransfer(
         int catalogIndex,
         int amount,
         out RaidLootOriginTransfer transfer,
-        RaidLootOriginSelectionOrder selectionOrder = RaidLootOriginSelectionOrder.Canonical) =>
-        RaidLootOriginIndexedStateUtility.TryResolveTransfer(
-            InventoryOrigins,
-            catalogIndex,
-            amount,
-            out transfer,
-            selectionOrder);
-
-    public bool CanReceiveInventory(int catalogIndex, RaidLootOriginTransfer transfer) =>
-        HasStateAuthority && RaidLootOriginIndexedStateUtility.CanAdd(
-            InventoryOrigins,
-            catalogIndex,
-            transfer);
-
-    public void CommitReceiveInventory(int catalogIndex, RaidLootOriginTransfer transfer)
+        RaidLootOriginSelectionOrder selectionOrder = RaidLootOriginSelectionOrder.Canonical)
     {
-        RaidLootOriginPackedState state = InventoryOrigins;
-        if (!HasStateAuthority || !RaidLootOriginIndexedStateUtility.TryAdd(
-                ref state,
-                catalogIndex,
-                transfer))
-        {
-            throw new InvalidOperationException("Validated Inventory provenance reception could not be committed.");
-        }
-
-        InventoryOrigins = state;
-    }
-
-    public void CommitExtractInventory(int catalogIndex, RaidLootOriginTransfer transfer)
-    {
-        RaidLootOriginPackedState state = InventoryOrigins;
-        if (!HasStateAuthority || !RaidLootOriginIndexedStateUtility.TryRemove(
-                ref state,
-                catalogIndex,
-                transfer))
-        {
-            throw new InvalidOperationException("Validated Inventory provenance extraction could not be committed.");
-        }
-
-        InventoryOrigins = state;
+        transfer = null;
+        return _lootReceiver != null &&
+            _lootReceiver.TryResolveInventoryTransfer(catalogIndex, amount, selectionOrder, out transfer);
     }
 
     public bool TryGetInventoryEntries(
         LootDefinitionCatalog catalog,
-        out IReadOnlyList<RaidLootOriginEntry> entries) =>
-        RaidLootOriginIndexedStateUtility.TryGetEntries(
-            InventoryOrigins,
-            catalog,
-            out entries);
+        out IReadOnlyList<RaidLootOriginEntry> entries)
+    {
+        entries = System.Array.Empty<RaidLootOriginEntry>();
+        return _lootReceiver != null && catalog != null && catalog == _lootReceiver.LootCatalog &&
+            _lootReceiver.TryGetRaidLootOriginEntries(out entries);
+    }
 
     public bool TrySetEquipmentOrigin(EquipmentSlot slot, RaidLootOrigin origin)
     {
@@ -154,29 +88,6 @@ public sealed class PlayerRaidLootOriginState : NetworkBehaviour
         }
 
         SetEquipmentOriginSlot(equipmentIndex, 0);
-        return true;
-    }
-
-    public bool TryClearExactInventory(
-        IReadOnlyList<RaidLootOriginEntry> expected,
-        LootDefinitionCatalog catalog,
-        out string error)
-    {
-        error = null;
-        if (!HasStateAuthority || !TryGetInventoryEntries(catalog, out IReadOnlyList<RaidLootOriginEntry> current) ||
-            !AreEqual(expected, current))
-        {
-            error = "Inventory provenance differs from the expected snapshot.";
-            return false;
-        }
-
-        RaidLootOriginPackedState state = InventoryOrigins;
-        for (int index = state.BucketCount - 1; index >= 0; index--)
-        {
-            RaidLootOriginPackedBuffer.Clear(ref state, index);
-        }
-        state.BucketCount = 0;
-        InventoryOrigins = state;
         return true;
     }
 
@@ -233,25 +144,5 @@ public sealed class PlayerRaidLootOriginState : NetworkBehaviour
 
         equipmentIndex = -1;
         return false;
-    }
-
-    private static bool AreEqual(
-        IReadOnlyList<RaidLootOriginEntry> expected,
-        IReadOnlyList<RaidLootOriginEntry> current)
-    {
-        if (expected == null || current == null || expected.Count != current.Count)
-        {
-            return false;
-        }
-
-        for (int index = 0; index < expected.Count; index++)
-        {
-            if (!expected[index].Equals(current[index]))
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 }

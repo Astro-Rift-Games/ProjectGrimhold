@@ -148,6 +148,22 @@ namespace Tests.EditMode.Combat
         }
 
         [Test]
+        public void SnapshotCopy_PreservesCommittedEmpowerSource_AndNextAcceptanceResetsIt()
+        {
+            RangedAttackRelease release = default;
+            Assert.That(release.TryAccept(Request, Config, Parameters, 0.02f), Is.True);
+            Assert.That(release.EmpowerSourceParticipantValue, Is.Zero, "Legacy shots have no support source.");
+            release.EmpowerSourceParticipantValue = 3;
+            RangedAttackRelease restored = release;
+            Assert.That(restored.TryConsume(123, new EntityId(70), Vector2.one, out var shot), Is.True);
+            Assert.That(restored.EmpowerSourceParticipantValue, Is.EqualTo(3));
+            Assert.That(shot.OwnerId, Is.EqualTo(new EntityId(70)));
+            Assert.That(shot.Damage, Is.EqualTo(28f));
+            Assert.That(restored.TryAccept(Request, Config, Parameters, 0.02f), Is.True);
+            Assert.That(restored.EmpowerSourceParticipantValue, Is.Zero);
+        }
+
+        [Test]
         public void Cancellation_DiscardsReleaseButAllowsLaterAcceptance()
         {
             RangedAttackRelease release = default;

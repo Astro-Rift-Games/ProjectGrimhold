@@ -249,7 +249,42 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService
     }
 
     /// <summary>
-    /// Clears the active raid reservation.
+    /// Marks the reservation admitted while preserving it for the participation outcome.
+    /// </summary>
+    public Task<(bool success, BackendError error)> MarkPendingReservationAdmittedAsync(string reservationId)
+    {
+        if (string.IsNullOrEmpty(AuthToken))
+        {
+            Debug.LogError($"[{nameof(RemoteInventoryService)}] MarkPendingReservationAdmittedAsync: Not authenticated.");
+            return Task.FromResult((false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" }));
+        }
+
+        return RemoteIdempotentRetryPolicy.ExecuteWithRetryAsync(async () =>
+        {
+            await _mutationLock.WaitAsync();
+            try
+            {
+                var (success, result, error) = await InventoryClient.MarkPendingReservationAdmittedAsync(
+                    _backendConfig, AuthToken, reservationId);
+                if (!success && error.error == BackendErrorUtility.Unauthorized)
+                {
+                    ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+                }
+                if (success && _store != null)
+                {
+                    _store.SetRemoteRevision(result.revision);
+                }
+                return (success, error);
+            }
+            finally
+            {
+                _mutationLock.Release();
+            }
+        });
+    }
+
+    /// <summary>
+    /// Consumes the active raid reservation as a loss, without rollback.
     /// </summary>
     public Task<(bool success, BackendError error)> ClearPendingReservationAsync()
     {
@@ -265,6 +300,10 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService
             try
             {
                 var (success, result, error) = await InventoryClient.ClearPendingReservationAsync(_backendConfig, AuthToken);
+                if (!success && error.error == "EXTRACTION_RESULT_PENDING")
+                {
+                    Debug.LogWarning($"[{nameof(RemoteInventoryService)}] Loss clear skipped: EXTRACTION_RESULT_PENDING - {error.message}");
+                }
                 if (!success && error.error == BackendErrorUtility.Unauthorized)
                 {
                     ApplicationAuthContext.Instance?.HandleUnauthorizedSession();

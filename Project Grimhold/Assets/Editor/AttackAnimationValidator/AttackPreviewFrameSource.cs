@@ -41,20 +41,26 @@ using UnityEngine;
                     var sprites = new HashSet<Sprite>();
                     foreach (string direction in Directions)
                     {
-                        var clip = LoadClip($"Idle/{side}/{side}_Idle_{direction}");
-                        if (clip == null) continue;
-                        foreach (var binding in AnimationUtility.GetObjectReferenceCurveBindings(clip))
-                        {
-                            if (binding.type != typeof(SpriteRenderer) || binding.propertyName != "m_Sprite" ||
-                                binding.path != side + "Pivot/" + side) continue;
-                            foreach (var key in AnimationUtility.GetObjectReferenceCurve(clip, binding))
-                                if (key.value is Sprite sprite) sprites.Add(sprite);
-                        }
+                        AddClipSprites(sprites, LoadClip($"Idle/{side}/{side}_Idle_{direction}"), side);
+                        if (combination.Action == AttackPreviewAction.Knockback)
+                            AddClipSprites(sprites, LoadClip($"Knockback/{side}/{side}_Knockback_{direction}"), side);
                     }
                     _identity[hand] = new List<Sprite>(sprites).AsReadOnly();
                 }
             }
             catch { _neutral.Dispose(); throw; }
+        }
+
+        private static void AddClipSprites(HashSet<Sprite> sprites, AnimationClip clip, string side)
+        {
+            if (clip == null) return;
+            foreach (var binding in AnimationUtility.GetObjectReferenceCurveBindings(clip))
+            {
+                if (binding.type != typeof(SpriteRenderer) || binding.propertyName != "m_Sprite" ||
+                    binding.path != side + "Pivot/" + side) continue;
+                foreach (var key in AnimationUtility.GetObjectReferenceCurve(clip, binding))
+                    if (key.value is Sprite sprite) sprites.Add(sprite);
+            }
         }
 
         private static AnimationClip LoadClip(string relative) => AssetDatabase.LoadAssetAtPath<AnimationClip>("Assets/Animations/Player/" + relative + ".anim");
