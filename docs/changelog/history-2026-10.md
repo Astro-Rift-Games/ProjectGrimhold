@@ -4,32 +4,237 @@
 
 Release: Unreleased
 
-395 original commits; 393 canonical entries.
+396 original commits; 394 canonical entries.
 
 ## Canonical classification
 
-206 features; 60 bug fixes; 7 refactoring; 1 architecture & infrastructure; 75 documentation; 23 tests; 5 maintenance; 16 other changes
+207 features; 60 bug fixes; 7 refactoring; 1 architecture & infrastructure; 75 documentation; 23 tests; 5 maintenance; 16 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 59 | 5 | 0 | 0 | 16 | 2 |
-| Art & Animation | 34 | 10 | 1 | 0 | 4 | 7 |
+| Art & Animation | 35 | 10 | 1 | 0 | 4 | 7 |
 | Audio | 8 | 0 | 0 | 0 | 1 | 0 |
-| Build & Tooling | 170 | 35 | 7 | 1 | 17 | 5 |
-| Combat | 79 | 11 | 3 | 0 | 42 | 3 |
-| Documentation | 86 | 31 | 2 | 0 | 28 | 4 |
+| Build & Tooling | 171 | 35 | 7 | 1 | 17 | 5 |
+| Combat | 80 | 11 | 3 | 0 | 42 | 3 |
+| Documentation | 87 | 31 | 2 | 0 | 28 | 4 |
 | Extraction | 17 | 12 | 1 | 0 | 11 | 2 |
 | Input | 6 | 1 | 0 | 0 | 0 | 0 |
-| Inventory & Loot | 79 | 27 | 4 | 0 | 17 | 4 |
+| Inventory & Loot | 80 | 27 | 4 | 0 | 17 | 4 |
 | Movement | 25 | 3 | 0 | 0 | 6 | 0 |
 | Networking & Sessions | 60 | 20 | 0 | 0 | 11 | 5 |
-| Persistence & Backend | 26 | 29 | 0 | 0 | 13 | 1 |
-| Tests | 190 | 54 | 7 | 1 | 27 | 6 |
+| Persistence & Backend | 27 | 29 | 0 | 0 | 13 | 1 |
+| Tests | 191 | 54 | 7 | 1 | 27 | 6 |
 | UI | 69 | 13 | 3 | 0 | 20 | 6 |
 | Unassigned | 0 | 0 | 0 | 0 | 4 | 0 |
 | World & Visibility | 43 | 12 | 1 | 0 | 11 | 5 |
 
 ## Original commit records
+
+### 35f779e744acbfede1ff5badc520ccd6b811b703
+
+[35f779e744acbfede1ff5badc520ccd6b811b703](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/35f779e744acbfede1ff5badc520ccd6b811b703)
+
+Date: 2026-10-31T01:12:40-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, Persistence & Backend, Art & Animation, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(combat): add melee impact splatter and white hit flash
+```
+
+#### Original body
+
+```text
+Confirmed melee hits now burst a short splatter of target-colored
+particles at the real contact point, and the melee hit reaction flashes
+the target as a bright white silhouette instead of a faint tint. Both
+stay attacker-local presentation: no networked state, damage, knockback
+or timing changes.
+
+Impact particles:
+- MeleeImpactParticleProfile (Light/Medium/Heavy) referenced by
+  WeaponDefinition.Presentation.ImpactParticles, same weight mapping as
+  the hit reaction profiles.
+- One shared world-space emitter (Prefabs/VFX/MeleeImpactParticles)
+  owned by PlayerCombatNetworkController through a plain
+  MeleeImpactParticleEmitter: instantiated lazily once, Emit(EmitParams)
+  per drop at the pixel-snapped HitPoint inside a cone around
+  HitDirection, disposed on despawn. Triggered from the sequence-deduped
+  feedback drain, for characters only, killing blows included.
+- Viscous splatter: unlit Sprite-Unlit-Default squares, opaque until 80%
+  of life, linear drag k = 8. Exit speed / life / size: Light 13-15 u/s,
+  .32-.40 s, 2 px; Medium 15-18, .36-.46, 2-3 px; Heavy 17-21, .40-.52,
+  3-4 px. Profile lifetime cap raised to 0.6 s.
+- Target color: CharacterDamageParticlePresenter optional override.
+  NetworkEnemy (skeleton, inherited by the ranged variant) light gray;
+  Blue/Green/Red slime variants use their art colors; players keep the
+  profile's warm spark.
+- Generic Health particles on the attacker's peer are coalesced by
+  amount: a recent or upcoming drop is absorbed only when the confirmed
+  AppliedDamage explains it; larger drops keep their generic burst.
+
+Hit flash:
+- HitFlashSprite shader + HitFlash material (Art/Shaders): unlit HDR
+  white silhouette that 2D lights cannot dim.
+- MeleeHitReactionProfile.FlashMaterial; HitReactionPlayback swaps
+  sharedMaterial while weight >= 1 - FlashStrength and restores the
+  original material and color exactly; tint remains the fallback.
+
+Tests: MeleeImpactParticleProfileTests, MeleeImpactParticleEmitterTests,
+CharacterDamageParticlePresenterTests, HitReactionPlaybackTests,
+DamageFeedbackPresenterTests, MeleeHitReactionProfileTests,
+PlayerCombatNetworkControllerPlayModeTests (emission, ranged exclusion,
+dedupe, multi-contact, target color, despawn cleanup).
+
+Docs: GameFeelParticlesArchitecture.md melee impact section and
+PlayerCombatArchitecture.md hit reaction / impact particle sections.
+
+Player-Added: Melee hits now splatter colored droplets from the struck enemy onto the floor, colored like the creature you hit.
+Player-Improved: Enemies flash bright white when struck by a melee weapon, making every hit easier to read.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Art/Shaders/HitFlash.mat
+Project Grimhold/Assets/Art/Shaders/HitFlash.mat.meta
+Project Grimhold/Assets/Art/Shaders/HitFlashSprite.shader
+Project Grimhold/Assets/Art/Shaders/HitFlashSprite.shader.meta
+Project Grimhold/Assets/Prefabs/Enemies/NetworkEnemy.prefab
+Project Grimhold/Assets/Prefabs/Enemies/Slimes/BlueSlime.prefab
+Project Grimhold/Assets/Prefabs/Enemies/Slimes/GreenSlime.prefab
+Project Grimhold/Assets/Prefabs/Enemies/Slimes/RedSlime.prefab
+Project Grimhold/Assets/Prefabs/VFX/MeleeImpactParticles.prefab
+Project Grimhold/Assets/Prefabs/VFX/MeleeImpactParticles.prefab.meta
+Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Heavy.asset
+Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Light.asset
+Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Medium.asset
+Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles.meta
+Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Heavy.asset
+Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Heavy.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Light.asset
+Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Light.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Medium.asset
+Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Medium.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicCinquedeaWeaponDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordWeaponDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RondelDaggerWeaponDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookWeaponDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset
+Project Grimhold/Assets/Scripts/Character/Presentation/CharacterDamageParticlePresenter.cs
+Project Grimhold/Assets/Scripts/Character/Presentation/HitReactionPlayback.cs
+Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs
+Project Grimhold/Assets/Scripts/Combat/MeleeImpactParticleProfile.cs
+Project Grimhold/Assets/Scripts/Combat/MeleeImpactParticleProfile.cs.meta
+Project Grimhold/Assets/Scripts/Combat/WeaponDefinition.cs
+Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/MeleeImpactParticleEmitter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/MeleeImpactParticleEmitter.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Character/CharacterDamageParticlePresenterTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Character/CharacterDamageParticlePresenterTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeImpactParticleEmitterTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeImpactParticleEmitterTests.cs.meta
+Project Grimhold/Assets/Tests/PlayMode/PlayerCombatNetworkControllerPlayModeTests.cs
+Project Grimhold/Docs/Architecture/GameFeelParticlesArchitecture.md
+Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Heavy.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Light.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Medium.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles.meta
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Heavy.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Heavy.asset.meta
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Light.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Light.asset.meta
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Medium.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Medium.asset.meta
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicCinquedeaWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RondelDaggerWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scripts/Character/Presentation/CharacterDamageParticlePresenter.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/MeleeImpactParticleProfile.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/MeleeImpactParticleProfile.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/WeaponDefinition.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Character/CharacterDamageParticlePresenterTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Character/CharacterDamageParticlePresenterTests.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/PlayMode/PlayerCombatNetworkControllerPlayModeTests.cs
+- path → Combat: Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+- scope → Combat: combat
+- message-term → Combat: combat
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicCinquedeaWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RondelDaggerWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Combat/MeleeImpactParticleProfile.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Combat/MeleeImpactParticleProfile.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Shaders/HitFlash.mat
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Shaders/HitFlash.mat.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Shaders/HitFlashSprite.shader
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Shaders/HitFlashSprite.shader.meta
+- message-term → Art &amp; Animation: Sprite
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Character/CharacterDamageParticlePresenterTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Character/CharacterDamageParticlePresenterTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeImpactParticleEmitterTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeImpactParticleEmitterTests.cs.meta
+- path → Documentation: Project Grimhold/Docs/Architecture/GameFeelParticlesArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Character/CharacterDamageParticlePresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Character/CharacterDamageParticlePresenterTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeImpactParticleEmitterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeImpactParticleEmitterTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayerCombatNetworkControllerPlayModeTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 916002017acaf4b5b9486093aca484c5c0c12ead
 

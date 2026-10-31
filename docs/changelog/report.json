@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 871,
-  "canonicalEntries": 868,
+  "rawCommits": 872,
+  "canonicalEntries": 869,
   "before": {
+    "Features": 318,
     "Bug Fixes": 78,
-    "Features": 317,
     "Documentation": 75,
     "Refactoring": 13,
     "Architecture & Infrastructure": 12,
@@ -12,8 +12,8 @@
     "Tests": 24
   },
   "after": {
+    "Features": 455,
     "Bug Fixes": 94,
-    "Features": 454,
     "Documentation": 90,
     "Refactoring": 26,
     "Maintenance": 11,
@@ -23,15 +23,15 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Combat": 311,
-    "Persistence & Backend": 184,
-    "Art & Animation": 206,
-    "Build & Tooling": 435,
-    "Documentation": 337,
-    "Tests": 515,
+    "Combat": 312,
+    "Inventory & Loot": 314,
+    "Persistence & Backend": 185,
+    "Art & Animation": 207,
+    "Build & Tooling": 436,
+    "Documentation": 338,
+    "Tests": 516,
     "Abilities": 104,
     "Movement": 88,
-    "Inventory & Loot": 313,
     "UI": 264,
     "Unassigned": 18,
     "Extraction": 119,
@@ -42,8 +42,8 @@
   },
   "canonical": {
     "sections": {
+      "Features": 454,
       "Bug Fixes": 93,
-      "Features": 453,
       "Documentation": 90,
       "Refactoring": 26,
       "Maintenance": 11,
@@ -52,15 +52,15 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "Combat": 309,
-      "Persistence & Backend": 184,
-      "Art & Animation": 203,
-      "Build & Tooling": 433,
-      "Documentation": 335,
-      "Tests": 513,
+      "Combat": 310,
+      "Inventory & Loot": 314,
+      "Persistence & Backend": 185,
+      "Art & Animation": 204,
+      "Build & Tooling": 434,
+      "Documentation": 336,
+      "Tests": 514,
       "Abilities": 102,
       "Movement": 88,
-      "Inventory & Loot": 313,
       "UI": 263,
       "Unassigned": 18,
       "Extraction": 119,
@@ -34029,8 +34029,8 @@
       "title": "2026-10 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 395,
-      "canonicalEntries": 393
+      "originalCommits": 396,
+      "canonicalEntries": 394
     },
     {
       "key": "history-2026-09",
@@ -34058,6 +34058,476 @@
     }
   ],
   "commits": [
+    {
+      "sha": "35f779e744acbfede1ff5badc520ccd6b811b703",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/35f779e744acbfede1ff5badc520ccd6b811b703",
+      "subject": "feat(combat): add melee impact splatter and white hit flash",
+      "body": "Confirmed melee hits now burst a short splatter of target-colored\nparticles at the real contact point, and the melee hit reaction flashes\nthe target as a bright white silhouette instead of a faint tint. Both\nstay attacker-local presentation: no networked state, damage, knockback\nor timing changes.\n\nImpact particles:\n- MeleeImpactParticleProfile (Light/Medium/Heavy) referenced by\n  WeaponDefinition.Presentation.ImpactParticles, same weight mapping as\n  the hit reaction profiles.\n- One shared world-space emitter (Prefabs/VFX/MeleeImpactParticles)\n  owned by PlayerCombatNetworkController through a plain\n  MeleeImpactParticleEmitter: instantiated lazily once, Emit(EmitParams)\n  per drop at the pixel-snapped HitPoint inside a cone around\n  HitDirection, disposed on despawn. Triggered from the sequence-deduped\n  feedback drain, for characters only, killing blows included.\n- Viscous splatter: unlit Sprite-Unlit-Default squares, opaque until 80%\n  of life, linear drag k = 8. Exit speed / life / size: Light 13-15 u/s,\n  .32-.40 s, 2 px; Medium 15-18, .36-.46, 2-3 px; Heavy 17-21, .40-.52,\n  3-4 px. Profile lifetime cap raised to 0.6 s.\n- Target color: CharacterDamageParticlePresenter optional override.\n  NetworkEnemy (skeleton, inherited by the ranged variant) light gray;\n  Blue/Green/Red slime variants use their art colors; players keep the\n  profile's warm spark.\n- Generic Health particles on the attacker's peer are coalesced by\n  amount: a recent or upcoming drop is absorbed only when the confirmed\n  AppliedDamage explains it; larger drops keep their generic burst.\n\nHit flash:\n- HitFlashSprite shader + HitFlash material (Art/Shaders): unlit HDR\n  white silhouette that 2D lights cannot dim.\n- MeleeHitReactionProfile.FlashMaterial; HitReactionPlayback swaps\n  sharedMaterial while weight >= 1 - FlashStrength and restores the\n  original material and color exactly; tint remains the fallback.\n\nTests: MeleeImpactParticleProfileTests, MeleeImpactParticleEmitterTests,\nCharacterDamageParticlePresenterTests, HitReactionPlaybackTests,\nDamageFeedbackPresenterTests, MeleeHitReactionProfileTests,\nPlayerCombatNetworkControllerPlayModeTests (emission, ranged exclusion,\ndedupe, multi-contact, target color, despawn cleanup).\n\nDocs: GameFeelParticlesArchitecture.md melee impact section and\nPlayerCombatArchitecture.md hit reaction / impact particle sections.\n\nPlayer-Added: Melee hits now splatter colored droplets from the struck enemy onto the floor, colored like the creature you hit.\nPlayer-Improved: Enemies flash bright white when struck by a melee weapon, making every hit easier to read.\n",
+      "date": "2026-10-31T01:12:40-03:00",
+      "files": [
+        "Project Grimhold/Assets/Art/Shaders/HitFlash.mat",
+        "Project Grimhold/Assets/Art/Shaders/HitFlash.mat.meta",
+        "Project Grimhold/Assets/Art/Shaders/HitFlashSprite.shader",
+        "Project Grimhold/Assets/Art/Shaders/HitFlashSprite.shader.meta",
+        "Project Grimhold/Assets/Prefabs/Enemies/NetworkEnemy.prefab",
+        "Project Grimhold/Assets/Prefabs/Enemies/Slimes/BlueSlime.prefab",
+        "Project Grimhold/Assets/Prefabs/Enemies/Slimes/GreenSlime.prefab",
+        "Project Grimhold/Assets/Prefabs/Enemies/Slimes/RedSlime.prefab",
+        "Project Grimhold/Assets/Prefabs/VFX/MeleeImpactParticles.prefab",
+        "Project Grimhold/Assets/Prefabs/VFX/MeleeImpactParticles.prefab.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Heavy.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Light.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Medium.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Heavy.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Heavy.asset.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Light.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Light.asset.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Medium.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Medium.asset.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicCinquedeaWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RondelDaggerWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scripts/Character/Presentation/CharacterDamageParticlePresenter.cs",
+        "Project Grimhold/Assets/Scripts/Character/Presentation/HitReactionPlayback.cs",
+        "Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs",
+        "Project Grimhold/Assets/Scripts/Combat/MeleeImpactParticleProfile.cs",
+        "Project Grimhold/Assets/Scripts/Combat/MeleeImpactParticleProfile.cs.meta",
+        "Project Grimhold/Assets/Scripts/Combat/WeaponDefinition.cs",
+        "Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/MeleeImpactParticleEmitter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/MeleeImpactParticleEmitter.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Character/CharacterDamageParticlePresenterTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Character/CharacterDamageParticlePresenterTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeImpactParticleEmitterTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeImpactParticleEmitterTests.cs.meta",
+        "Project Grimhold/Assets/Tests/PlayMode/PlayerCombatNetworkControllerPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/GameFeelParticlesArchitecture.md",
+        "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "combat",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Art & Animation",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Heavy.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Light.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/HitReactions/Medium.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Heavy.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Heavy.asset.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Light.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Light.asset.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Medium.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Combat/ImpactParticles/Medium.asset.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicCinquedeaWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RondelDaggerWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Character/Presentation/CharacterDamageParticlePresenter.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/MeleeImpactParticleProfile.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/MeleeImpactParticleProfile.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/WeaponDefinition.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/CharacterDamageParticlePresenterTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/CharacterDamageParticlePresenterTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerCombatNetworkControllerPlayModeTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Combat"
+        },
+        {
+          "source": "scope",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ArmingSwordWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/GreatHammerWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/LongSwordCombatDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicCinquedeaWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/MagicSwordWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RapierWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RondelDaggerWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/SpellbookWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/ZweihanderWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/MeleeHitReactionProfile.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/MeleeImpactParticleProfile.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/MeleeImpactParticleProfile.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Shaders/HitFlash.mat",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Shaders/HitFlash.mat.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Shaders/HitFlashSprite.shader",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Shaders/HitFlashSprite.shader.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "message-term",
+          "value": "Sprite",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/CharacterDamageParticlePresenterTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/CharacterDamageParticlePresenterTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeImpactParticleEmitterTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeImpactParticleEmitterTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/GameFeelParticlesArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/CharacterDamageParticlePresenterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/CharacterDamageParticlePresenterTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/DamageFeedbackPresenterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Character/HitReactionPlaybackTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeHitReactionProfileTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/MeleeImpactParticleProfileTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeImpactParticleEmitterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/MeleeImpactParticleEmitterTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerCombatNetworkControllerPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "916002017acaf4b5b9486093aca484c5c0c12ead",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/916002017acaf4b5b9486093aca484c5c0c12ead",
