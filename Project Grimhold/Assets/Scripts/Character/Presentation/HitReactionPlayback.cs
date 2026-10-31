@@ -8,6 +8,7 @@ public sealed class HitReactionPlayback
     private readonly Vector3 _basePosition;
     private readonly Vector3 _baseScale;
     private readonly Color[] _baseColors;
+    private readonly Material[] _baseMaterials;
     private readonly float _retriggerGuardSeconds;
     private MeleeHitReactionProfile _profile;
     private Vector2 _direction;
@@ -23,6 +24,7 @@ public sealed class HitReactionPlayback
         _visual = visual;
         _renderers = renderers != null ? (SpriteRenderer[])renderers.Clone() : new SpriteRenderer[0];
         _baseColors = new Color[_renderers.Length];
+        _baseMaterials = new Material[_renderers.Length];
         _retriggerGuardSeconds = Mathf.Max(0f, retriggerGuardSeconds);
         if (_visual != null)
         {
@@ -30,7 +32,11 @@ public sealed class HitReactionPlayback
             _baseScale = _visual.localScale;
         }
         for (int i = 0; i < _renderers.Length; i++)
-            if (_renderers[i] != null) _baseColors[i] = _renderers[i].color;
+        {
+            if (_renderers[i] == null) continue;
+            _baseColors[i] = _renderers[i].color;
+            _baseMaterials[i] = _renderers[i].sharedMaterial;
+        }
     }
 
     /// <summary>True also for a guarded hit: it is absorbed without restarting the current contact.</summary>
@@ -90,9 +96,18 @@ public sealed class HitReactionPlayback
             _visual.localScale = Vector3.Scale(_baseScale, HitReactionMath.Scale(_direction,
                 _profile.Compression, _profile.StretchRatio, weight));
         }
+        // Strength controls the duration of the white silhouette, not a tint on the original art.
+        // Zero disables the flash; full strength lasts through recovery, ending at exact restoration.
+        bool materialFlash = _profile.FlashMaterial != null;
+        bool showMaterial = materialFlash && _profile.FlashStrength > 0f && weight > 0f &&
+            weight >= 1f - _profile.FlashStrength;
         for (int i = 0; i < _renderers.Length; i++)
-            if (_renderers[i] != null)
-                _renderers[i].color = Color.Lerp(_baseColors[i], _profile.FlashColor, _profile.FlashStrength * weight);
+        {
+            if (_renderers[i] == null) continue;
+            _renderers[i].sharedMaterial = showMaterial ? _profile.FlashMaterial : _baseMaterials[i];
+            _renderers[i].color = materialFlash ? _baseColors[i] :
+                Color.Lerp(_baseColors[i], _profile.FlashColor, _profile.FlashStrength * weight);
+        }
     }
 
     private void RestoreVisuals()
@@ -103,7 +118,11 @@ public sealed class HitReactionPlayback
             _visual.localScale = _baseScale;
         }
         for (int i = 0; i < _renderers.Length; i++)
-            if (_renderers[i] != null) _renderers[i].color = _baseColors[i];
+        {
+            if (_renderers[i] == null) continue;
+            _renderers[i].sharedMaterial = _baseMaterials[i];
+            _renderers[i].color = _baseColors[i];
+        }
     }
 
     private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);

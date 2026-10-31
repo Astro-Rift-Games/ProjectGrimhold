@@ -1,6 +1,7 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System.Reflection;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Tests.EditMode.Character
@@ -130,6 +131,28 @@ namespace Tests.EditMode.Character
             }
             AssertBase();
             Assert.That(Play(), Is.False);
+        }
+
+        [TestCase("cancel")]
+        [TestCase("disable")]
+        [TestCase("despawn")]
+        public void MaterialFlash_PresenterLifecycleRestoresSharedMaterialAndColor(string ending)
+        {
+            Material original = _renderer.sharedMaterial;
+            var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Shaders/HitFlash.mat");
+            Assert.That(material, Is.Not.Null);
+            var so = new SerializedObject(_profile);
+            Assert.That(so.FindProperty("_flashMaterial"), Is.Not.Null);
+            so.FindProperty("_flashMaterial").objectReferenceValue = material;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            Assert.That(Play(), Is.True);
+            Assert.That(_renderer.sharedMaterial, Is.EqualTo(material));
+            Assert.That(_renderer.color, Is.EqualTo(_baseColor));
+            if (ending == "cancel") _presenter.CancelAndRestore();
+            else typeof(DamageFeedbackPresenter).GetMethod(ending == "disable" ? "OnDisable" : "LateUpdate",
+                BindingFlags.Instance | BindingFlags.NonPublic).Invoke(_presenter, null);
+            AssertBase();
+            Assert.That(_renderer.sharedMaterial, Is.EqualTo(original));
         }
 
         private bool Play() => _presenter.TryPlayMeleeReaction(_profile, Vector2.right, 0f, .1f);

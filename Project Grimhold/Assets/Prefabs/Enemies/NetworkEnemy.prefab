@@ -5265,10 +5265,12 @@ MonoBehaviour:
   - {fileID: 9000000000000000003}
   _Health: 0
   _PopulationOrigin: 0
+  _creatureTier: 0
   _movementController: {fileID: 4047341824300862929}
   _combatController: {fileID: 3988879926097982634}
   _lootContainer: {fileID: 7201000000000000010}
   _fsm: {fileID: -3796636682103364817}
+  _knockbackResistance: 0
 --- !u!114 &7201000000000000004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5432,6 +5434,8 @@ MonoBehaviour:
     m_PostInfinity: 2
     m_RotationOrder: 4
   _healthEpsilon: 0.001
+  _meleeMergeWindowSeconds: 0.15
+  _meleeRetriggerGuardSeconds: 0.05
 --- !u!114 &9200230494000326815
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5464,6 +5468,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ba6e9ecc0c8b7a941af085f53dd307e5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DamageResolver
+  _allyDamageMultiplier: 1
 --- !u!114 &3133108637029622038
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5740,6 +5745,7 @@ MonoBehaviour:
   - {fileID: 1066720069559603162}
   - {fileID: 4522316450052852347}
   - {fileID: 1700867630524570978}
+  _occlusionOnly: 0
   _visibilityOffset: {x: 0, y: 1}
   _visibilityCollider: {fileID: 0}
   _useColliderBounds: 0
@@ -5775,6 +5781,9 @@ MonoBehaviour:
   _characterBase: {fileID: 4980760815071069997}
   _damageParticles: {fileID: 8951037927164024647}
   _healthEpsilon: 0.001
+  _meleeMergeWindowSeconds: 0.15
+  _overrideMeleeImpactColor: 1
+  _meleeImpactColor: {r: 0.82, g: 0.82, b: 0.85, a: 1}
 --- !u!114 &4419076183045921921
 MonoBehaviour:
   m_ObjectHideFlags: 0

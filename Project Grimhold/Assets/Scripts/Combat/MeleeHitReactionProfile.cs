@@ -4,9 +4,11 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "MeleeHitReaction", menuName = "Grimhold/Combat/Melee Hit Reaction")]
 public sealed class MeleeHitReactionProfile : ScriptableObject
 {
-    [SerializeField, Tooltip("Peak sprite tint; blended from each renderer's captured color.")]
+    [SerializeField, Tooltip("Optional unlit silhouette material. Swapped via sharedMaterial; null retains the legacy tint flash.")]
+    private Material _flashMaterial;
+    [SerializeField, Tooltip("Peak sprite tint used only when no flash material is configured.")]
     private Color _flashColor = new Color(1f, .85f, .8f, 1f);
-    [SerializeField, Range(0f, 1f), Tooltip("Peak flash blend strength.")]
+    [SerializeField, Range(0f, 1f), Tooltip("Material flash persists while reaction weight >= 1 - strength; otherwise peak tint blend strength.")]
     private float _flashStrength = .9f;
     [SerializeField, Range(0f, .25f), Tooltip("Compression along the dominant hit axis. Scale factors snap to 1/16 steps.")]
     private float _compression = .1f;
@@ -19,6 +21,7 @@ public sealed class MeleeHitReactionProfile : ScriptableObject
     [SerializeField, Min(.001f), Tooltip("Fast ease-out recovery after the existing hitstop hold, in seconds.")]
     private float _recoverySeconds = .12f;
 
+    public Material FlashMaterial => _flashMaterial;
     public Color FlashColor => _flashColor;
     public float FlashStrength => _flashStrength;
     public float Compression => _compression;

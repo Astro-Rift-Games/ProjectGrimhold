@@ -68,6 +68,18 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 2604764590180358513, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _meleeImpactColor.b
+      value: 0.757
+      objectReference: {fileID: 0}
+    - target: {fileID: 2604764590180358513, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _meleeImpactColor.g
+      value: 0.631
+      objectReference: {fileID: 0}
+    - target: {fileID: 2604764590180358513, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _meleeImpactColor.r
+      value: 0.208
+      objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: SortKey
       value: 1289245101
@@ -450,6 +462,9 @@ MonoBehaviour:
     _cooldownSeconds: 0.5
     _range: 1.5
     _knockbackForce: 7
+    _releaseDelaySeconds: 0
+    _hasProjectileSpawnDistance: 0
+    _projectileSpawnDistance: 0
   _targetQuerySource: {fileID: 142597065861624644}
   _damageResolverSource: {fileID: 8746061331448358488}
 --- !u!114 &142597065861624644

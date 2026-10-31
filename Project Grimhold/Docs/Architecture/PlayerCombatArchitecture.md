@@ -578,16 +578,23 @@ null disables only this reaction. Initial art tuning in `Assets/Scriptable Objec
 | Medium | Arming Sword, Magic Sword, Rapier, Spellbook | .9 | .10 | .5 | 1 | .12 |
 | Heavy | Long Sword, Zweihander, Great Hammer | 1 | .16 | .75 | 2 | .18 |
 
-All use the damage-red flash `(1, .2, .2, 1)` and 16 PPU. `SpriteRenderer.color` multiplies the art, so a
-near-white flash cannot brighten a white-tinted sprite and reads as no flash; strength alone scales intensity
-(peak tint `(1, .4, .4)`, `(1, .28, .28)`, `(1, .2, .2)`). Ranged weapons reference none. These are
-presentation values, not damage, knockback, stun or gameplay timing. Profiles validate normalized
-color/strength, compression 0–.25, stretch 0–1, whole-pixel nudge 0–4, and finite positive PPU/recovery.
+All use 16 PPU, white `FlashColor` and the optional `FlashMaterial` reference to
+`Assets/Art/Shaders/HitFlash.mat`. Its `Grimhold/Combat/HitFlashSprite` URP unlit shader replaces art RGB
+with HDR white `(4, 4, 4, 1)`, preserving texture/vertex/renderer alpha, sprite flipping and the art's
+sampling filter. It is not dimmed by 2D lights. Bloom remains globally unchanged (currently intensity
+zero): this is a bright white silhouette, not a promise of a glowing halo. Ranged weapons reference none.
+These are presentation values, not damage, knockback, stun or gameplay timing. Profiles validate normalized
+fallback color/strength, compression 0–.25, stretch 0–1, whole-pixel nudge 0–4, and positive finite PPU/recovery.
+A null material preserves the previous color-lerp flash for compatibility; the generic Health flash is unchanged.
 
-`HitReactionPlayback` captures visual local position/scale and renderer colors once. Until the
-remaining contact delay expires it leaves the captured base unchanged; contact applies full flash,
+`HitReactionPlayback` captures visual local position/scale, renderer colors and each `sharedMaterial` once.
+Until the remaining contact delay expires it leaves the captured base unchanged; contact applies full flash,
 compression and nudge, holds that peak for the **existing** remaining hitstop hold, then recovers with
-cubic ease-out to exact base values. A confirmed hit still reacts with zero delay/hold when hitstop
+cubic ease-out to exact base values. With a flash material, it swaps `sharedMaterial` while the cubic
+weight is positive and `weight >= 1 - FlashStrength`; strength zero disables it. Light ends sooner,
+Medium lasts longer and Heavy stays white until recovery completes. Outside that threshold the original
+material returns immediately, even while deformation continues. There is no simultaneous color tint,
+no access to `renderer.material`, and no per-hit material allocation. A confirmed hit still reacts with zero delay/hold when hitstop
 scheduling is too late or disabled; scheduling and target Animator freezing retain their existing
 semantics. Later targets of a multi-target swing can share its remaining contact clock without
 starting another freeze. The playback never writes `Animator.speed` or global time scale and uses
@@ -610,9 +617,29 @@ windows are serialized on the presenter; they are timing-based coalescing, not a
 ledger, so unrelated damage inside the window may also be coalesced on the attacker's peer.
 
 Death, Downed, invalid/despawned network objects, disable and explicit `CancelAndRestore` stop playback
-and restore position, scale and colors, including inactive renderers. Normal completion restores exactly.
-There are no new sprites, animations, particles or sounds. Host/Client visual approval and real
+and restore position, scale, colors and captured shared materials, including inactive renderers. Normal
+completion and delayed retriggers restore exactly. This reaction adds one shared shader/material, no
+sprites, animations, particles or sounds; confirmed contact particles are a separate path below. Host/Client visual approval and real
 multi-process checks remain manual; deterministic EditMode coverage does not prove those visuals.
+
+### Melee impact particles
+
+`WeaponDefinition.Presentation.ImpactParticles` optionally selects a Light/Medium/Heavy contact profile.
+The controller's Render feedback drain emits once per confirmed damage sequence, only on Input Authority,
+at the pixel-snapped `HitPoint`, oriented by `HitDirection`. This call is separate from hitstop/reaction
+scheduling: it also works when their hold is disabled/late and on killing blows while the character is
+still registered. A controller-owned shared world-space emitter handles simultaneous targets, continues
+on normal time during hitstop, and is disposed on despawn/destruction. No simulation or network state changes.
+
+Contact sizes are Light 2 px, Medium 2–3 px and Heavy 3–4 px. Before emitting, the controller reads
+the target's optional `CharacterDamageParticlePresenter.TryGetMeleeImpactColor` override: skeletons
+(including the ranged variant) use light gray, each slime uses its body color, and players retain the
+profile's warm spark. Overrides affect only this local emission, never shared profiles or generic particles.
+
+The target's generic damage particles coalesce locally only when the confirmed `AppliedDamage` explains
+the observed Health drop inside a short window; a larger drop includes another source and keeps its generic
+burst. Other peers retain Health-driven particles. See [Game Feel Particles — Impactos melee confirmados](GameFeelParticlesArchitecture.md#impactos-melee-confirmados)
+for profile tuning, lifecycle, pixel-art constraints, coalescing limitations and test coverage.
 
 ## Fatal defeat contribution
 

@@ -83,6 +83,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     private int _meleeFeedbackWeapon;
     private readonly AttackHitstop[] _hitstop = new AttackHitstop[5]; // Four hands + legacy.
     private readonly HitstopTargetFreeze _targetFreeze = new();
+    private readonly MeleeImpactParticleEmitter _impactParticles = new();
     private EntityRegistry _hitstopRegistry;
     private EntityId _hitstopTargetId;
     private Transform _hitstopTargetRoot;
@@ -169,6 +170,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         _lastObservedSequence = AttackSequence;
         _resumePendingPresentation = PendingRangedRelease.Pending || PendingMeleeRelease.Pending;
         _pendingFeedbackEvents.Clear();
+        _impactParticles.Dispose();
         ClearHitstop(true);
         _hitstopRegistry = Runner.GetComponent<EntityRegistry>();
         _lastHitstopFeedbackSequence = CombatFeedbackSequence;
@@ -347,6 +349,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             {
                 _lastHitstopFeedbackSequence = feedbackEvent.Sequence;
                 TryScheduleHitstop(feedbackEvent);
+                TryEmitMeleeImpactParticles(feedbackEvent);
             }
             CombatFeedbackResolved?.Invoke(feedbackEvent);
         }
@@ -355,11 +358,13 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
         _pendingFeedbackEvents.Clear();
+        _impactParticles.Dispose();
         ClearHitstop(true);
         _hitstopRegistry = null;
     }
 
     private void OnDisable() => ClearHitstop();
+    private void OnDestroy() => _impactParticles.Dispose();
 
     /// <summary>
     /// Reads the current primary-attack availability and cooldown for presentation.
@@ -985,6 +990,27 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         }
         return attack.AttackType == AttackType.Melee && attack.HasReleaseTimeline &&
             (cancellationTick < 0 || AttackRenderTime < (double)cancellationTick * Runner.DeltaTime);
+    }
+
+    private void TryEmitMeleeImpactParticles(in CombatPresentationEvent feedback)
+    {
+        if (!HasInputAuthority || !feedback.IsMeleeImpact ||
+            feedback.Kind != CombatFeedbackKind.ConfirmedImpact || !(feedback.AppliedDamage > 0f) ||
+            _character == null || feedback.TargetId == _character.Id || _equipmentController == null ||
+            !_equipmentController.TryGetWeaponByCatalogIndexPlusOne(feedback.MeleeWeaponCatalogIndexPlusOne, out LootDefinition loot) ||
+            loot.WeaponDefinition == null || loot.WeaponDefinition.PrimaryAttack is not MeleeAttackConfig ||
+            _hitstopRegistry == null || !_hitstopRegistry.TryGetCharacter(feedback.TargetId, out _) ||
+            !_hitstopRegistry.TryGetTransform(feedback.TargetId, out Transform target) || target == null ||
+            target == transform || target.IsChildOf(transform) || transform.IsChildOf(target)) return;
+
+        // Unlike target deformation/freezing, contact VFX also survive a killing blow. The unparented
+        // emitter keeps existing bursts alive when another target is hit or the victim is pooled.
+        var generic = target.GetComponentInChildren<CharacterDamageParticlePresenter>(true);
+        Color? colorOverride = generic != null && generic.TryGetMeleeImpactColor(out Color color)
+            ? color : (Color?)null;
+        if (!_impactParticles.Emit(loot.WeaponDefinition.Presentation.ImpactParticles,
+            feedback.HitPoint, feedback.HitDirection, colorOverride)) return;
+        if (generic != null) generic.AbsorbConfirmedMeleeImpact(feedback.AppliedDamage);
     }
 
     private void TryScheduleHitstop(in CombatPresentationEvent feedback)

@@ -342,6 +342,10 @@ public sealed class WeaponDefinition : ScriptableObject
         private MeleeHitReactionProfile _hitReaction;
         public MeleeHitReactionProfile HitReaction => _hitReaction;
 
+        [SerializeField, Tooltip("Optional attacker-local particles at confirmed melee contact. Null preserves generic damage particles.")]
+        private MeleeImpactParticleProfile _impactParticles;
+        public MeleeImpactParticleProfile ImpactParticles => _impactParticles;
+
         [SerializeField]
         private Vector2 _stanceOffset;
 
@@ -406,6 +410,8 @@ public sealed class WeaponDefinition : ScriptableObject
                 return false;
             }
             if (_hitReaction != null && !_hitReaction.TryValidate(out error))
+                return false;
+            if (_impactParticles != null && !_impactParticles.TryValidate(out error))
                 return false;
             if (_offHandAttackAnimationSet != null && !_offHandAttackAnimationSet.TryValidate(out error))
                 return false;

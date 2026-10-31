@@ -12,6 +12,7 @@ namespace Tests.EditMode.Character
         private SpriteRenderer _renderer;
         private MeleeHitReactionProfile _profile;
         private HitReactionPlayback _playback;
+        private Material _baseMaterial;
         private readonly Vector3 _position = new Vector3(.25f, -.5f, .3f);
         private readonly Vector3 _scale = new Vector3(-1f, 2f, 1f);
         private readonly Color _color = new Color(.3f, .4f, .5f, .7f);
@@ -26,6 +27,7 @@ namespace Tests.EditMode.Character
             _visual.localScale = _scale;
             _renderer = _visual.gameObject.AddComponent<SpriteRenderer>();
             _renderer.color = _color;
+            _baseMaterial = _renderer.sharedMaterial;
             _profile = ScriptableObject.CreateInstance<MeleeHitReactionProfile>();
             _playback = new HitReactionPlayback(_visual, new[] { _renderer });
         }
@@ -200,11 +202,60 @@ namespace Tests.EditMode.Character
             Assert.That(HitReactionMath.NormalizeDirection(new Vector2(float.MaxValue, 0f)), Is.EqualTo(Vector2.right));
         }
 
+        [TestCase(.75f, .5f, false)]
+        [TestCase(.9f, .5f, true)]
+        [TestCase(1f, .99f, true)]
+        [TestCase(0f, 0f, false)]
+        public void MaterialFlash_UsesStrengthThreshold_NoTint_AndRestoresAtEnd(float strength, float recovery, bool visible)
+        {
+            Material material = ConfigureMaterial(strength);
+            _playback.Play(_profile, Vector2.right, 0f, .1f);
+            Assert.That(_renderer.sharedMaterial, Is.EqualTo(strength > 0f ? material : _baseMaterial));
+            Assert.That(_renderer.color, Is.EqualTo(_color), "Material flash must not also tint the sprite.");
+            _playback.Tick(.1f + recovery * _profile.RecoverySeconds);
+            Assert.That(_renderer.sharedMaterial, Is.EqualTo(visible ? material : _baseMaterial));
+            Assert.That(_renderer.color, Is.EqualTo(_color));
+            _playback.Tick(1f);
+            AssertBase();
+        }
+
+        [Test]
+        public void MaterialFlash_CancelAndDelayedRetrigger_RestoreCapturedMaterialAndColor()
+        {
+            var material = ConfigureMaterial(1f);
+            _playback.Play(_profile, Vector2.right, 0f, .5f);
+            Assert.That(_renderer.sharedMaterial, Is.EqualTo(material));
+            _playback.Tick(.06f);
+            _playback.Play(_profile, Vector2.left, .1f, .2f);
+            AssertBase();
+            _playback.Tick(.1f);
+            Assert.That(_renderer.sharedMaterial, Is.EqualTo(material));
+            _playback.Restore();
+            AssertBase();
+            _playback.Play(_profile, Vector2.right, 0f, .5f);
+            _playback.Restore();
+            AssertBase();
+        }
+
+        private Material ConfigureMaterial(float strength)
+        {
+            var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Shaders/HitFlash.mat");
+            Assert.That(material, Is.Not.Null);
+            var so = new SerializedObject(_profile);
+            var property = so.FindProperty("_flashMaterial");
+            Assert.That(property, Is.Not.Null);
+            property.objectReferenceValue = material;
+            so.FindProperty("_flashStrength").floatValue = strength;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return material;
+        }
+
         private void AssertBase()
         {
             Assert.That(_visual.localPosition, Is.EqualTo(_position));
             Assert.That(_visual.localScale, Is.EqualTo(_scale));
             Assert.That(_renderer.color, Is.EqualTo(_color));
+            Assert.That(_renderer.sharedMaterial, Is.EqualTo(_baseMaterial));
         }
 
         private static void AssertGrid(float value) => Assert.That(value, Is.EqualTo(Mathf.Round(value)).Within(.00001f));

@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: be8bf0ff74d194745835150a611abf56, type: 3}
+  m_Name: Light
+  m_EditorClassIdentifier: Assembly-CSharp::MeleeImpactParticleProfile
+  _emitterPrefab: {fileID: 272577180457866951, guid: 861fecdf36b50d54eb4784d865abaca9, type: 3}
+  _countMin: 5
+  _countMax: 7
+  _speedMin: 13
+  _speedMax: 15
+  _spreadDegrees: 70
+  _sizePixelsMin: 2
+  _sizePixelsMax: 2
+  _pixelsPerUnit: 16
+  _lifetimeMin: 0.32
+  _lifetimeMax: 0.4
+  _color: {r: 1, g: 0.92, b: 0.65, a: 1}

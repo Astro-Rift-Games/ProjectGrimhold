@@ -29,6 +29,7 @@ MonoBehaviour:
   _presentation:
     _hitReaction: {fileID: 11400000, guid: 0dafaa1903704af4d87ce34685f533fe, type: 2}
     _hitstopSeconds: 0.12
+    _impactParticles: {fileID: 11400000, guid: 10d576a773bae8242876885fe223e998, type: 2}
     _stanceOffset: {x: 0, y: 0}
     _gripPoint: {x: 0, y: -0.375}
     _angleCorrection: 180

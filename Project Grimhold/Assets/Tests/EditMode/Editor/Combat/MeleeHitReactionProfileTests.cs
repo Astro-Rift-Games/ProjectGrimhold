@@ -46,20 +46,45 @@ namespace Tests.EditMode.Combat
             Assert.That(weapon.Presentation.HitReaction, Is.EqualTo(Load(weight)));
         }
 
-        // SpriteRenderer.color multiplies the art, so a near-white flash is invisible on white-tinted sprites.
-        // The peak tint must pull at least one channel well below white, at least as hard as the lighter profile.
         [Test]
-        public void Profiles_PeakFlashIsVisiblyTinted_AndNotWeakerForHeavierWeapons()
+        public void Profiles_UseSupportedWhiteUnlitMaterial_AndHeavierFlashLastsAtLeastAsLong()
         {
-            float previous = float.MaxValue;
+            var shader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/Art/Shaders/HitFlashSprite.shader");
+            Assert.That(shader, Is.Not.Null);
+            Assert.That(shader.isSupported, Is.True);
+            Assert.That(ShaderUtil.ShaderHasError(shader), Is.False);
+            var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Shaders/HitFlash.mat");
+            Assert.That(material, Is.Not.Null);
+            Assert.That(material.shader, Is.EqualTo(shader));
+            Color hdr = material.GetColor("_FlashColor");
+            Assert.That(hdr.r, Is.GreaterThan(1f));
+            Assert.That(hdr.g, Is.EqualTo(hdr.r));
+            Assert.That(hdr.b, Is.EqualTo(hdr.r));
+            Assert.That(hdr.a, Is.EqualTo(1f));
+            float previous = 0f;
             foreach (string weight in new[] { "Light", "Medium", "Heavy" })
             {
                 var profile = Load(weight);
-                Color peak = Color.Lerp(Color.white, profile.FlashColor, profile.FlashStrength);
-                float darkest = Mathf.Min(peak.r, Mathf.Min(peak.g, peak.b));
-                Assert.That(darkest, Is.LessThanOrEqualTo(.5f), $"{weight} peak tint {peak} is too close to white to read.");
-                Assert.That(darkest, Is.LessThanOrEqualTo(previous), $"{weight} must flash at least as strongly as the lighter profile.");
-                previous = darkest;
+                var property = new SerializedObject(profile).FindProperty("_flashMaterial");
+                Assert.That(property, Is.Not.Null);
+                Assert.That(property.objectReferenceValue, Is.EqualTo(material));
+                Assert.That(profile.FlashColor, Is.EqualTo(Color.white));
+                var go = new GameObject("Flash duration fixture");
+                try
+                {
+                    var renderer = go.AddComponent<SpriteRenderer>();
+                    var playback = new HitReactionPlayback(go.transform, new[] { renderer });
+                    playback.Play(profile, Vector2.right, 0f, .1f);
+                    float duration = 0f;
+                    while (playback.IsActive)
+                    {
+                        if (renderer.sharedMaterial == material) duration += .001f;
+                        playback.Tick(.001f);
+                    }
+                    Assert.That(duration, Is.GreaterThanOrEqualTo(previous), weight);
+                    previous = duration;
+                }
+                finally { Object.DestroyImmediate(go); }
             }
         }
 

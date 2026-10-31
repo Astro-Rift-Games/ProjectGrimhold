@@ -412,6 +412,8 @@ namespace Tests.PlayMode.Combat
             Assert.That(confirmed.IsMeleeImpact, Is.False);
             Assert.That(confirmed.MeleeAttackSequence, Is.Zero);
             Assert.That(confirmed.MeleeWeaponCatalogIndexPlusOne, Is.Zero);
+            Assert.That(((MeleeImpactParticleEmitter)GetField("_impactParticles").GetValue(combat)).InstanceCount, Is.Zero,
+                "Ranged confirmations must not instantiate a melee emitter.");
         }
 
         [UnityTest]
@@ -727,10 +729,21 @@ namespace Tests.PlayMode.Combat
             Assert.That(inventoryDriver.LastResult, Is.True, inventoryDriver.LastError);
             yield return Equip(equipment, sword, EquipmentSlot.WeaponSetAMainHand);
             yield return Equip(equipment, sword, EquipmentSlot.WeaponSetAOffHand);
-            ConfigureMeleeAttack(player, .3f, 1f, out _);
+            var victim = SpawnPlayerWithParticipant(Vector3.right * 4f, 2).GetComponent<PlayerCharacter>();
+            ConfigureMeleeAttack(player, .3f, 1f, out RecordingMeleeTargets recorder);
+            recorder.TargetId = victim.Id;
             CombatPresentationEvent confirmed = default;
             AttackPerformedEvent performed = default;
-            combat.CombatFeedbackResolved += feedback => { if (feedback.Kind == CombatFeedbackKind.ConfirmedImpact) confirmed = feedback; };
+            int bursts = 0;
+            combat.CombatFeedbackResolved += feedback =>
+            {
+                if (feedback.Kind != CombatFeedbackKind.ConfirmedImpact) return;
+                confirmed = feedback;
+                var particles = FindLocalImpactParticles();
+                Assert.That(particles, Is.Not.Null, "The real melee release/RPC must reach the local particle path.");
+                Assert.That(particles.particleCount, Is.GreaterThan(0));
+                bursts++;
+            };
             combat.AttackPerformed += attack => performed = attack;
             _inputDriver.AimWorldPosition = Vector2.right * 10f;
             foreach (EquipmentSlot slot in new[] { EquipmentSlot.WeaponSetAMainHand, EquipmentSlot.WeaponSetAOffHand })
@@ -746,6 +759,8 @@ namespace Tests.PlayMode.Combat
                 Assert.That(confirmed.MeleeSourceSlot, Is.EqualTo(slot));
                 Assert.That(confirmed.MeleeAttackSequence, Is.EqualTo(performed.Sequence));
                 Assert.That(confirmed.MeleeWeaponCatalogIndexPlusOne, Is.EqualTo(equipment.GetWeaponCatalogIndexPlusOne(slot)));
+                Assert.That(bursts, Is.EqualTo(slot == EquipmentSlot.WeaponSetAMainHand ? 1 : 2));
+                Assert.That(((MeleeImpactParticleEmitter)GetField("_impactParticles").GetValue(combat)).InstanceCount, Is.EqualTo(1));
                 yield return WaitUntil(() => !combat.IsExecutingWeaponAttack && !combat.HasPendingAttackRelease,
                     "Previous hand release did not finish.");
             }
@@ -860,6 +875,90 @@ namespace Tests.PlayMode.Combat
             Assert.That(meleeRecorder.ResolveCount, Is.Zero, "A swing from the previous weapon must never deal damage.");
         }
 
+        [UnityTest]
+        public IEnumerator ConfirmedMeleeParticles_RenderFiltersDeduplicatesAndKeepsMultipleContacts()
+        {
+            yield return StartGameplayRunner();
+            NetworkObject attacker = SpawnPlayerWithParticipant();
+            var victim = SpawnPlayerWithParticipant(Vector3.right * 4f, 2).GetComponent<PlayerCharacter>();
+            var otherVictim = SpawnPlayerWithParticipant(Vector3.left * 4f, 3).GetComponent<PlayerCharacter>();
+            var combat = attacker.GetComponent<PlayerCombatNetworkController>();
+            var equipment = attacker.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            var catalog = (LootDefinitionCatalog)typeof(PlayerWeaponEquipmentNetworkController)
+                .GetField("_lootCatalog", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(equipment);
+            var sword = AssetDatabase.LoadAssetAtPath<LootDefinition>("Assets/Scriptable Objects/Loot/Definitions/ArmingSword.asset");
+            var wand = AssetDatabase.LoadAssetAtPath<LootDefinition>("Assets/Scriptable Objects/Loot/Definitions/MagicWand.asset");
+            Assert.That(catalog.TryGetIndex(sword.LootId, out int meleeIndex), Is.True);
+            Assert.That(catalog.TryGetIndex(wand.LootId, out int rangedIndex), Is.True);
+            var emitter = (MeleeImpactParticleEmitter)GetField("_impactParticles").GetValue(combat);
+            var queue = (System.Collections.Generic.Queue<CombatPresentationEvent>)GetField("_pendingFeedbackEvents").GetValue(combat);
+            int sequence = (int)GetField("_lastHitstopFeedbackSequence").GetValue(combat);
+            var contact = new Vector2(1.03f, -2.09f);
+            CombatPresentationEvent Feedback(EntityId id, float damage = 5f, int attack = 1, int weapon = -1) =>
+                new CombatPresentationEvent(++sequence, CombatFeedbackKind.ConfirmedImpact, id, contact,
+                    damage, (int)_runner.Tick, AttackFailureReason.None, EquipmentSlot.None, attack,
+                    weapon < 0 ? meleeIndex + 1 : weapon, Vector2.right);
+
+            queue.Enqueue(Feedback(victim.Id, damage: 0f));
+            queue.Enqueue(Feedback(victim.Id, attack: 0));
+            queue.Enqueue(Feedback(victim.Id, weapon: rangedIndex + 1));
+            queue.Enqueue(Feedback(victim.Id, weapon: 0));
+            queue.Enqueue(Feedback(attacker.GetComponent<PlayerCharacter>().Id));
+            queue.Enqueue(Feedback(new EntityId(999999)));
+            combat.Render();
+            Assert.That(emitter.InstanceCount, Is.Zero);
+            float health = victim.Health;
+            float otherHealth = otherVictim.Health;
+            var targetPresenter = victim.GetComponentInChildren<CharacterDamageParticlePresenter>(true);
+            var targetConfig = new SerializedObject(targetPresenter);
+            Assert.That(targetConfig.FindProperty("_overrideMeleeImpactColor"), Is.Not.Null);
+            targetConfig.FindProperty("_overrideMeleeImpactColor").boolValue = true;
+            Color targetColor = new Color(.208f, .631f, .757f, 1f);
+            targetConfig.FindProperty("_meleeImpactColor").colorValue = targetColor;
+            targetConfig.ApplyModifiedPropertiesWithoutUndo();
+            var first = Feedback(victim.Id);
+            queue.Enqueue(first);
+            queue.Enqueue(first); // Reliable confirmation replay must not create another burst.
+            queue.Enqueue(Feedback(otherVictim.Id));
+            combat.Render();
+            var particles = FindLocalImpactParticles();
+            Assert.That(particles, Is.Not.Null);
+            var profile = sword.WeaponDefinition.Presentation.ImpactParticles;
+            int count = particles.particleCount;
+            Assert.That(count, Is.InRange(profile.CountMin * 2, profile.CountMax * 2));
+            var samples = new ParticleSystem.Particle[particles.main.maxParticles];
+            int read = particles.GetParticles(samples);
+            int targetColored = 0, profileColored = 0;
+            for (int i = 0; i < read; i++)
+            {
+                if (samples[i].startColor.Equals((Color32)targetColor)) targetColored++;
+                if (samples[i].startColor.Equals((Color32)profile.Color)) profileColored++;
+                Assert.That(samples[i].position, Is.EqualTo(new Vector3(1f, -2.0625f, 0f)));
+                Assert.That(Vector2.Angle(Vector2.right, samples[i].velocity), Is.LessThanOrEqualTo(profile.SpreadDegrees / 2f + .001f));
+            }
+            Assert.That(targetColored, Is.InRange(profile.CountMin, profile.CountMax));
+            Assert.That(profileColored, Is.InRange(profile.CountMin, profile.CountMax));
+            queue.Enqueue(first); // Older sequences also remain consumed across Render calls.
+            combat.Render();
+            Assert.That(particles.particleCount, Is.EqualTo(count));
+            queue.Enqueue(Feedback(victim.Id));
+            combat.Render();
+            Assert.That(particles.particleCount, Is.InRange(count + profile.CountMin, count + profile.CountMax));
+            Assert.That(emitter.InstanceCount, Is.EqualTo(1));
+            Assert.That(victim.Health, Is.EqualTo(health), "Presentation must not apply damage.");
+            Assert.That(otherVictim.Health, Is.EqualTo(otherHealth));
+            _runner.Despawn(attacker);
+            yield return null;
+            Assert.That(particles == null, Is.True, "Despawn must not leave a world emitter orphaned.");
+        }
+
+        private static ParticleSystem FindLocalImpactParticles()
+        {
+            foreach (var particles in Object.FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None))
+                if (particles.name == "MeleeImpactParticles (Local)") return particles;
+            return null;
+        }
+
         private static MeleeAttackRelease ReadPendingMelee(PlayerCombatNetworkController combat) =>
             TryReadHandAttack(combat, out WeaponHandAttackState state) ? state.Melee :
                 (MeleeAttackRelease)GetProperty("PendingMeleeRelease").GetValue(combat);
@@ -896,7 +995,7 @@ namespace Tests.PlayMode.Combat
 
         private sealed class RecordingMeleeTargets : IAttackTargetQuery, IDamageResolver
         {
-            private static readonly EntityId TargetId = new(9999);
+            public EntityId TargetId = new(9999);
             public PlayerCombatNetworkController Combat;
             public Transform AttackOrigin;
             public int ResolveCount;
