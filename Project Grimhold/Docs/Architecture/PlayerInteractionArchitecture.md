@@ -119,6 +119,45 @@ When in loot mode, a subsequent press of the interaction input raises `PlayerInp
 
 ## 5. Loot pickup integration
 
+### TASK-235: contextual lockpicking
+
+`NetworkLootContainer` optionally starts locked (`_startsLocked`, default false). Its replicated
+`IsLocked` is initialized only on fresh spawn, blocks loot transfers and random-content resolution,
+and can only transition to unlocked through forward State Authority simulation. Snapshot restoration
+does not reset the lock. Existing chest, enemy and corpse configurations remain unlocked by default.
+
+`PlayerInteractionNetworkController` owns the contextual `CON_LOCKPICK` channel and its replicated
+target, start position and deadline. Its serialized duration defaults to 3 seconds. Starting does
+not open the container, generate contents, award first-open progress or spend inventory. Missing
+inventory produces `LockpickRequired`, displayed as "Requiere Ganzúa". Pending execution uses
+`LockpickingStarted`, not a successful loot-panel opening signal.
+
+Movement intent or displacement, positive committed damage, invalid actor/target state, range loss
+or missing inventory cancels without spending. Completion runs in `IAfterTick`, after movement and
+committed damage on the deadline tick. It revalidates inventory/provenance, unlocks once and spends
+exactly one unit through the existing PlayerFirst extraction without yielding. Only then does the
+normal interaction adapter resolve first opening and publish the confirmed opening result. A second
+participant observing an already unlocked chest cancels their channel without a second spend.
+After Host Migration, a copied in-flight channel is cancelled without spending on its first forward
+tick: its target EntityId has not been remapped. The restored container lock itself is preserved.
+
+`LockedChest.prefab` uses the static `LockedChest` sprite as its sole presentation frame and starts
+locked. Gameplay's scene spawn configuration assigns this variant a 10% chance per existing chest
+point; the total count and points remain unchanged. Selection is deterministic from the container
+seed, independent of content generation, so retries keep the same variant. Both prefab references
+and the chance are copied to the runner-owned manager. Scenes without variant configuration retain
+the normal-only path. Enabled variants must pass the same Fusion/content preflight plus a locked
+initial-state check before any chest spawning begins.
+For testing, Gameplay enables `Guarantee First Locked Chest For Testing`: the first existing chest
+point is forced locked in the Editor and development builds, while the remaining points retain
+their configured 10% rolls. The flag defaults to false elsewhere and is ignored by release builds.
+It does not add a chest when the configured spawn count is zero, bypass spawning failures or
+change the total count, content seed or idempotent retry policy.
+
+For manual tests, the existing `RaidLootTestSpawner` Custom Item slot can spawn `CON_LOCKPICK` on
+the Host, then normal pickup supplies inventory for contextual interaction. The item already exists
+in the shared catalog; this integration does not add natural loot-table entries or merchant stock.
+
 `NetworkLootPickup` implements `IInteractable` while preserving a strict reservation transaction:
 
 1. `CanInteract` verifies that the pickup is not consumed.

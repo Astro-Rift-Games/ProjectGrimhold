@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Fusion.Editor;
 using NUnit.Framework;
 using Spawning;
@@ -16,6 +17,7 @@ namespace Tests.EditMode.Loot
     {
         private const string GameplayScenePath = "Assets/Scenes/Gameplay.unity";
         private const string LootContainerPath = "Assets/Prefabs/LootContainer.prefab";
+        private const string LockedChestPath = "Assets/Prefabs/LockedChest.prefab";
         private const string EnemyPrefabPath = "Assets/Prefabs/Enemies/NetworkEnemy.prefab";
         private const string BreakablePrefabPath = "Assets/Prefabs/BreakableObject.prefab";
         private const string PickupPrefabPath = "Assets/Prefabs/LootPickup.prefab";
@@ -204,13 +206,24 @@ namespace Tests.EditMode.Loot
                 Assert.That(configuredManager, Is.Not.Null);
                 Assert.That(configuration, Is.Not.Null);
                 Assert.That(configuredManager.LootContainerPrefab.IsValid, Is.True);
+                Assert.That(configuredManager.LockedChestPrefab.IsValid, Is.True);
+                Assert.That(configuredManager.LockedChestChancePercent, Is.EqualTo(10));
                 Assert.That(target.CopyReferencesFrom(configuredManager), Is.True);
                 Assert.That(target.LootContainerPrefab, Is.EqualTo(configuredManager.LootContainerPrefab));
+                Assert.That(target.LockedChestPrefab, Is.EqualTo(configuredManager.LockedChestPrefab));
+                Assert.That(target.LockedChestChancePercent, Is.EqualTo(10));
+                Assert.That(configuredManager.GuaranteeFirstLockedChestForTesting, Is.True);
+                Assert.That(target.GuaranteeFirstLockedChestForTesting, Is.True);
 
                 NetworkObject lootContainer = AssetDatabase.LoadAssetAtPath<GameObject>(LootContainerPath)
                     .GetComponent<NetworkObject>();
                 NetworkObject enemy = AssetDatabase.LoadAssetAtPath<GameObject>(EnemyPrefabPath)
                     .GetComponent<NetworkObject>();
+                NetworkObject lockedChest = AssetDatabase.LoadAssetAtPath<GameObject>(LockedChestPath)
+                    .GetComponent<NetworkObject>();
+                Assert.That(configuredManager.LockedChestPrefab.ToString(),
+                    Is.EqualTo(NetworkObjectEditor.GetPrefabGuid(lockedChest).ToString()));
+                Assert.That(lockedChest.GetComponent<NetworkLootContainer>().StartsLocked, Is.True);
                 LootContainerRandomContentConfig containerRandomConfig = lootContainer.GetComponent<LootContainerRandomContentConfig>();
                 Assert.That(configuredManager.LootContainerPrefab.ToString(),
                     Is.EqualTo(NetworkObjectEditor.GetPrefabGuid(lootContainer).ToString()));
@@ -271,6 +284,89 @@ namespace Tests.EditMode.Loot
                 Object.DestroyImmediate(targetObject);
                 Object.DestroyImmediate(sourceObject);
             }
+        }
+
+        [Test]
+        public void CopyReferencesFrom_CopiesOptionalLockedVariantAndChance()
+        {
+            Scene scene = EditorSceneManager.OpenPreviewScene(GameplayScenePath);
+            var targetObject = new GameObject("Persistent locked loot manager");
+            NetworkSpawnManager target = targetObject.AddComponent<NetworkSpawnManager>();
+            try
+            {
+                FindSceneConfiguration(scene, out NetworkSpawnManager source, out _);
+                SetPrivateField(source, "_lockedChestPrefab", source.LootContainerPrefab);
+                SetPrivateField(source, "_lockedChestChancePercent", 10);
+
+                Assert.That(target.CopyReferencesFrom(source), Is.True);
+                Assert.That(target.LockedChestPrefab,
+                    Is.EqualTo(source.LootContainerPrefab));
+                Assert.That(target.LockedChestChancePercent, Is.EqualTo(10));
+            }
+            finally
+            {
+                Object.DestroyImmediate(targetObject);
+                EditorSceneManager.ClosePreviewScene(scene);
+            }
+        }
+
+        [TestCase(0, true)]
+        [TestCase(10, false)]
+        public void MissingLockedVariant_IsAllowedOnlyWhenDisabled(int chancePercent, bool expected)
+        {
+            Scene scene = EditorSceneManager.OpenPreviewScene(GameplayScenePath);
+            var targetObject = new GameObject("Persistent locked loot manager");
+            NetworkSpawnManager target = targetObject.AddComponent<NetworkSpawnManager>();
+            try
+            {
+                FindSceneConfiguration(scene, out NetworkSpawnManager source, out _);
+                SetPrivateField(source, "_lockedChestPrefab", default(Fusion.NetworkPrefabRef));
+                SetPrivateField(source, "_lockedChestChancePercent", chancePercent);
+                if (!expected)
+                {
+                    LogAssert.Expect(LogType.Error,
+                        $"[NetworkSpawnManager] Scene manager '{source.name}' enables locked chests but has no valid locked-chest prefab. Loot groups will be skipped.");
+                }
+
+                Assert.That(target.CopyReferencesFrom(source), Is.EqualTo(expected));
+                Assert.That(target.LootContainerPrefab, Is.EqualTo(source.LootContainerPrefab));
+            }
+            finally
+            {
+                Object.DestroyImmediate(targetObject);
+                EditorSceneManager.ClosePreviewScene(scene);
+            }
+        }
+
+        [Test]
+        public void LockedVariant_CannotBypassInitialContentViaExplicitSpawn()
+        {
+            Scene scene = EditorSceneManager.OpenPreviewScene(GameplayScenePath);
+            var targetObject = new GameObject("Persistent locked loot manager");
+            NetworkSpawnManager target = targetObject.AddComponent<NetworkSpawnManager>();
+            try
+            {
+                FindSceneConfiguration(scene, out NetworkSpawnManager source, out _);
+                SetPrivateField(target, "_lockedChestPrefab", source.LootContainerPrefab);
+                LogAssert.Expect(LogType.Error,
+                    "[NetworkSpawnManager] Randomized scene entities cannot bypass their dedicated initial-content pipeline.");
+
+                Assert.That(target.Spawn(source.LootContainerPrefab, Vector3.zero, Quaternion.identity),
+                    Is.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(targetObject);
+                EditorSceneManager.ClosePreviewScene(scene);
+            }
+        }
+
+        private static void SetPrivateField(NetworkSpawnManager manager, string name, object value)
+        {
+            FieldInfo field = typeof(NetworkSpawnManager).GetField(name,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, name);
+            field.SetValue(manager, value);
         }
 
         private static void FindSceneConfiguration(

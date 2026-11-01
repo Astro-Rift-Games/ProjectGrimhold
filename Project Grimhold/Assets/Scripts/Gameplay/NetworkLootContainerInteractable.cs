@@ -109,6 +109,19 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
             return InteractionResult.Rejected(InteractionFailureReason.TargetUnavailable);
         }
 
+        if (_container.IsLocked)
+        {
+            if (_registry == null ||
+                !_registry.TryGetDamageable(request.InteractorId, out IDamageable damageable) ||
+                damageable is not PlayerCharacter player ||
+                !player.TryGetComponent(out PlayerInteractionNetworkController interaction))
+            {
+                return InteractionResult.Rejected(InteractionFailureReason.InteractorUnavailable);
+            }
+
+            return interaction.TryBeginLockpicking(_container, request);
+        }
+
         if (_container.GenerationState == LootSourceGenerationState.Pending &&
             !_container.TryResolveRandomContent(request.InteractorId, out string generationError))
         {

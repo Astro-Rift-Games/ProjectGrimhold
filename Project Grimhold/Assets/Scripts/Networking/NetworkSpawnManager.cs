@@ -83,6 +83,16 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private NetworkPrefabRef _lootContainerPrefab;
 
     [SerializeField]
+    private NetworkPrefabRef _lockedChestPrefab;
+
+    [SerializeField, Range(0, 100)]
+    private int _lockedChestChancePercent;
+
+    [Tooltip("Editor/development builds only: force the first chest point to use the locked variant when its chance is positive.")]
+    [SerializeField]
+    private bool _guaranteeFirstLockedChestForTesting;
+
+    [SerializeField]
     private NetworkPrefabRef _breakablePrefab;
 
     [SerializeField]
@@ -293,6 +303,19 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
          _matchController.Phase == NetworkMatchController.MatchPhase.Finished);
 
     public NetworkPrefabRef LootContainerPrefab => _lootContainerPrefab;
+    public NetworkPrefabRef LockedChestPrefab => _lockedChestPrefab;
+    public int LockedChestChancePercent => _lockedChestChancePercent;
+    public bool GuaranteeFirstLockedChestForTesting
+    {
+        get
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            return _guaranteeFirstLockedChestForTesting;
+#else
+            return false;
+#endif
+        }
+    }
     public NetworkPrefabRef BreakablePrefab => _breakablePrefab;
 
     /// <summary>
@@ -554,6 +577,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         _lootContainerPrefab = configuredManager._lootContainerPrefab;
+        _lockedChestPrefab = configuredManager._lockedChestPrefab;
+        _lockedChestChancePercent = configuredManager._lockedChestChancePercent;
+        _guaranteeFirstLockedChestForTesting = configuredManager._guaranteeFirstLockedChestForTesting;
         _breakablePrefab = configuredManager._breakablePrefab;
         _lootCatalog = configuredManager._lootCatalog;
         _abilityCatalog = configuredManager._abilityCatalog;
@@ -572,6 +598,14 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         {
             Debug.LogError(
                 $"[NetworkSpawnManager] Scene manager '{configuredManager.name}' has no valid loot-container prefab. Loot groups will be skipped.",
+                configuredManager);
+            return false;
+        }
+
+        if (_lockedChestChancePercent > 0 && !_lockedChestPrefab.IsValid)
+        {
+            Debug.LogError(
+                $"[NetworkSpawnManager] Scene manager '{configuredManager.name}' enables locked chests but has no valid locked-chest prefab. Loot groups will be skipped.",
                 configuredManager);
             return false;
         }
@@ -3634,11 +3668,27 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         if (!TryPrepareLootContentSnapshot(
                 runner,
+                _lootContainerPrefab,
+                requireLocked: false,
                 out ValidatedLootContainerContentSnapshot snapshot,
                 out string preparationError))
         {
             Debug.LogError(
                 $"[NetworkSpawnManager] Loot group skipped because its random-content configuration is invalid. {preparationError}",
+                this);
+            return false;
+        }
+
+        if (_lockedChestChancePercent > 0 &&
+            !TryPrepareLootContentSnapshot(
+                runner,
+                _lockedChestPrefab,
+                requireLocked: true,
+                out _,
+                out string lockedPreparationError))
+        {
+            Debug.LogError(
+                $"[NetworkSpawnManager] Loot group skipped because its locked-chest configuration is invalid. {lockedPreparationError}",
                 this);
             return false;
         }
@@ -3720,12 +3770,24 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return null;
         }
 
+        NetworkPrefabRef selectedPrefab = LockedChestSpawnRules.ShouldSpawnLocked(
+            containerSeed,
+            _lockedChestChancePercent,
+            spawnIndex,
+            GuaranteeFirstLockedChestForTesting)
+            ? _lockedChestPrefab
+            : _lootContainerPrefab;
+        if (!selectedPrefab.IsValid)
+        {
+            return null;
+        }
+
         GetSpawnTransform(group, spawnIndex, out Vector3 position, out Quaternion rotation);
         bool callbackApplied = false;
         NetworkObject callbackObject = null;
         NetworkLootContainer callbackContainer = null;
         NetworkObject lootContainer = runner.Spawn(
-            _lootContainerPrefab,
+            selectedPrefab,
             position,
             rotation,
             inputAuthority: null,
@@ -3810,6 +3872,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
     private bool TryPrepareLootContentSnapshot(
         NetworkRunner runner,
+        NetworkPrefabRef prefab,
+        bool requireLocked,
         out ValidatedLootContainerContentSnapshot snapshot,
         out string error)
     {
@@ -3822,7 +3886,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
-        NetworkPrefabId prefabId = runner.Config.PrefabTable.GetId((NetworkObjectGuid)_lootContainerPrefab);
+        NetworkPrefabId prefabId = runner.Config.PrefabTable.GetId((NetworkObjectGuid)prefab);
         if (!prefabId.IsValid)
         {
             error = "The configured loot prefab is not registered in Fusion's prefab table.";
@@ -3841,6 +3905,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (container == null)
         {
             error = "The configured loot prefab has no NetworkLootContainer on its root.";
+            return false;
+        }
+
+        if (requireLocked && !container.StartsLocked)
+        {
+            error = "The configured locked-chest prefab must start locked.";
             return false;
         }
 
@@ -4650,6 +4720,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (group == SpawnGroupType.Loot ||
             group == SpawnGroupType.Breakables ||
             prefab == _lootContainerPrefab ||
+            prefab == _lockedChestPrefab ||
             prefab == _breakablePrefab)
         {
             Debug.LogError("[NetworkSpawnManager] Randomized scene entities must use their dedicated initial spawn pipeline.", this);
@@ -4679,7 +4750,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         Vector3 position,
         Quaternion rotation)
     {
-        if (prefab == _lootContainerPrefab || prefab == _breakablePrefab)
+        if (prefab == _lootContainerPrefab || prefab == _lockedChestPrefab || prefab == _breakablePrefab)
         {
             Debug.LogError("[NetworkSpawnManager] Randomized scene entities cannot bypass their dedicated initial-content pipeline.", this);
             return null;

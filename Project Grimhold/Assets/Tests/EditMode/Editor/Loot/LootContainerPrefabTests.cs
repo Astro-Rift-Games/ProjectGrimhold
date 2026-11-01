@@ -12,7 +12,34 @@ namespace Tests.EditMode.Loot
 {
     public sealed class LootContainerPrefabTests
     {
+        [Test]
+        public void LockedChest_UsesStaticSpriteAndExistingLootPipeline()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/LockedChest.prefab");
+            Assert.That(prefab, Is.Not.Null);
+            NetworkLootContainer container = prefab.GetComponent<NetworkLootContainer>();
+            Assert.That(container.StartsLocked, Is.True);
+            Assert.That(container.StartsAvailable, Is.True);
+            Assert.That(prefab.GetComponent<NetworkLootContainerInteractable>(), Is.Not.Null);
+            GameObject normal = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/LootContainer.prefab");
+            Assert.That(prefab.GetComponent<LootContainerRandomContentConfig>().Table,
+                Is.SameAs(normal.GetComponent<LootContainerRandomContentConfig>().Table));
+            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Props/LockedChest.png");
+            Assert.That(sprite, Is.Not.Null);
+            Assert.That(prefab.GetComponentInChildren<SpriteRenderer>(true).sprite, Is.SameAs(sprite));
+            var presentation = new SerializedObject(prefab.GetComponent<ChestOpeningPresenter>());
+            SerializedProperty frames = presentation.FindProperty("_openingFrames");
+            Assert.That(frames.arraySize, Is.EqualTo(1));
+            Assert.That(frames.GetArrayElementAtIndex(0).objectReferenceValue, Is.SameAs(sprite));
+            var importer = (TextureImporter)AssetImporter.GetAtPath(AssetDatabase.GetAssetPath(sprite));
+            Assert.That(importer.filterMode, Is.EqualTo(FilterMode.Point));
+            Assert.That(importer.mipmapEnabled, Is.False);
+            Assert.That(importer.spritePixelsPerUnit, Is.EqualTo(32));
+            Assert.That(AssetDatabase.GetLabels(prefab), Does.Contain("FusionPrefab"));
+        }
+
         [TestCase("Assets/Prefabs/LootContainer.prefab")]
+        [TestCase("Assets/Prefabs/LockedChest.prefab")]
         [TestCase("Assets/Prefabs/Enemies/NetworkEnemy.prefab")]
         [TestCase("Assets/Prefabs/Enemies/NetworkEnemyRanged.prefab")]
         [TestCase("Assets/Prefabs/Enemies/Slimes/BlueSlime.prefab")]

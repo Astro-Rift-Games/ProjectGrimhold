@@ -41,6 +41,9 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     [SerializeField]
     private bool _startsAvailable = true;
 
+    [SerializeField]
+    private bool _startsLocked;
+
     [Tooltip("Allows this container to preserve the complete 30-slot player inventory after defeat.")]
     [SerializeField]
     private bool _supportsFullPlayerInventory;
@@ -59,6 +62,9 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 
     [Networked]
     public NetworkBool IsAvailable { get; private set; }
+
+    [Networked]
+    public NetworkBool IsLocked { get; private set; }
 
     [Networked]
     public int LootChangeSequence { get; private set; }
@@ -95,6 +101,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     public int SlotCapacity => _slotCapacity;
     public LootDefinitionCatalog LootCatalog => _lootCatalog;
     public bool StartsAvailable => _startsAvailable;
+    public bool StartsLocked => _startsLocked;
     public bool SupportsFullPlayerInventory => _supportsFullPlayerInventory;
     public int OccupiedSlotCount => LootInventory.Count;
     public bool IsEmpty => LootInventory.Count == 0;
@@ -184,6 +191,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                 : LootSourceGenerationState.NotApplicable;
             IsInitialized = true;
             IsAvailable = false;
+            IsLocked = _startsLocked;
         }
 
         _registry = Runner.GetComponent<EntityRegistry>();
@@ -303,7 +311,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     {
         error = null;
         if (!HasStateAuthority || Runner == null || !Runner.IsSimulationUpdating ||
-            !IsInitialized || !IsAvailable || !_isRegistered ||
+            !IsInitialized || !IsAvailable || IsLocked || !_isRegistered ||
             GenerationState != LootSourceGenerationState.Pending)
         {
             error = "A pending, available State Authority Loot source is required.";
@@ -494,6 +502,23 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         IsAvailable = isAvailable;
     }
 
+    /// <summary>
+    /// Opens the lock once from forward authoritative simulation without resolving or changing Loot.
+    /// Caller-owned interaction rules must validate the actor and lockpick before this transition.
+    /// </summary>
+    public bool TryUnlock()
+    {
+        if (Object == null || !Object.IsValid || !HasStateAuthority || Runner == null ||
+            !Runner.IsSimulationUpdating || !Runner.IsForward ||
+            !IsInitialized || !IsAvailable || !_isRegistered || !IsLocked)
+        {
+            return false;
+        }
+
+        IsLocked = false;
+        return true;
+    }
+
     public LootTransferFailureReason ValidateExtraction(in LootTransferRequest request)
     {
         if (!HasStateAuthority)
@@ -501,7 +526,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             return LootTransferFailureReason.MissingAuthority;
         }
 
-        if (!IsInitialized || !IsAvailable || !_isRegistered ||
+        if (!IsInitialized || !IsAvailable || IsLocked || !_isRegistered ||
             GenerationState == LootSourceGenerationState.Pending)
         {
             return LootTransferFailureReason.ContainerUnavailable;
@@ -554,7 +579,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             return LootTransferFailureReason.MissingAuthority;
         }
 
-        if (!IsInitialized || !IsAvailable || !_isRegistered ||
+        if (!IsInitialized || !IsAvailable || IsLocked || !_isRegistered ||
             GenerationState == LootSourceGenerationState.Pending)
         {
             return LootTransferFailureReason.ContainerUnavailable;
@@ -1059,7 +1084,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     {
         index = default;
         currentAmount = default;
-        if (!HasStateAuthority || !IsInitialized || !IsAvailable || !_isRegistered ||
+        if (!HasStateAuthority || !IsInitialized || !IsAvailable || IsLocked || !_isRegistered ||
             request.SourceId != Id || request.DestinationId.Value == 0 ||
             request.RequestedAmount <= 0 || _lootCatalog == null ||
             !_lootCatalog.TryGetIndex(request.LootId, out index) ||
@@ -1117,7 +1142,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     {
         index = default;
         currentAmount = default;
-        if (!HasStateAuthority || !IsInitialized || !IsAvailable || !_isRegistered ||
+        if (!HasStateAuthority || !IsInitialized || !IsAvailable || IsLocked || !_isRegistered ||
             request.SourceId.Value == 0 || request.DestinationId != Id ||
             request.RequestedAmount <= 0 || _lootCatalog == null ||
             !_lootCatalog.TryGetIndex(request.LootId, out index) ||

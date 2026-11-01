@@ -8,8 +8,14 @@ using UnityEngine;
 /// Delegates targets validation and execution to the pure logical resolver.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class PlayerInteractionNetworkController : NetworkBehaviour
+public sealed class PlayerInteractionNetworkController : NetworkBehaviour, IAfterTick
 {
+    public static readonly LootId LockpickLootId = new("CON_LOCKPICK");
+
+    [Header("Lockpicking")]
+    [SerializeField, Min(0.01f)]
+    private float _lockpickDurationSeconds = 3f;
+
     [Header("Dependencies")]
     [SerializeField]
     private PlayerInteractionConfig _config;
@@ -33,11 +39,24 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
     private NetworkMatchController _matchController;
     private PlayerAbilityRuntimeNetworkController _abilityRuntime;
     private PlayerDownedRecoveryNetworkController _downedRecovery;
+    private PlayerCombatNetworkController _combat;
+    private PlayerLootReceiver _lootReceiver;
     private bool _dependenciesValid;
+    private bool _spawned;
+    private bool _cancelRestoredLockpick;
     private readonly Queue<InteractionPresentationEvent> _pendingPresentationEvents = new();
 
     [Networked]
     private NetworkButtons PreviousButtons { get; set; }
+
+    [Networked] private TickTimer LockpickTimer { get; set; }
+    [Networked] private int LockpickTargetIdValue { get; set; }
+    [Networked] private Vector2 LockpickStartPosition { get; set; }
+
+    public bool IsLockpicking => _spawned && Object != null && Object.IsValid && LockpickTimer.IsRunning;
+    public EntityId LockpickTargetId => new(LockpickTargetIdValue);
+    public float LockpickDurationSeconds => _lockpickDurationSeconds;
+    public float LockpickRemainingSeconds => IsLockpicking ? LockpickTimer.RemainingTime(Runner) ?? 0f : 0f;
 
     /// <summary>
     /// True while the Interact input is held. Published by State Authority so a recovery session
@@ -88,6 +107,16 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
 
         _registry = Runner.GetComponent<EntityRegistry>();
         _matchController = Runner.GetComponent<NetworkMatchController>();
+        _spawned = true;
+        // EntityIds are reassigned during migration. Never resolve a copied target ID
+        // before explicit remapping; interrupted contextual work can safely be retried.
+        _cancelRestoredLockpick = HasStateAuthority && HostMigrationRestoreUtility.IsRestoreSpawn(this) &&
+            LockpickTimer.IsRunning;
+        if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
+        {
+            LockpickTimer = TickTimer.None;
+            LockpickTargetIdValue = 0;
+        }
         if (_registry == null)
         {
             Debug.LogError($"{nameof(PlayerInteractionNetworkController)}: EntityRegistry was not found on the NetworkRunner.", this);
@@ -97,7 +126,7 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
 
     public override void FixedUpdateNetwork()
     {
-        if (!Object.HasStateAuthority)
+        if (!Object.HasStateAuthority || !Runner.IsForward)
         {
             return;
         }
@@ -112,10 +141,13 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
         {
             PreviousButtons = default;
             IsInteractHeld = false;
+            CancelLockpicking();
             return;
         }
 
-        if (!GetInput(out PlayerNetworkInput input))
+        bool hasInput = GetInput(out PlayerNetworkInput input);
+        bool wasLockpicking = IsLockpicking;
+        if (!hasInput)
         {
             return;
         }
@@ -125,6 +157,11 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
         bool interactPressed = currentButtons.WasPressed(PreviousButtons, PlayerInputButton.Interact);
 
         PreviousButtons = currentButtons;
+
+        if (wasLockpicking)
+        {
+            return;
+        }
 
         if (!interactPressed)
         {
@@ -157,7 +194,129 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
 
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
+        _spawned = false;
         _pendingPresentationEvents.Clear();
+    }
+
+    public void AfterTick()
+    {
+        if (!_spawned || !HasStateAuthority || Runner == null || !Runner.IsForward || !IsLockpicking) return;
+        if (_cancelRestoredLockpick)
+        {
+            _cancelRestoredLockpick = false;
+            CancelLockpicking();
+            return;
+        }
+        // Run after all simulation callbacks: movement or committed damage on the deadline tick
+        // must interrupt before success, without reordering the existing Interact/revive pipeline.
+        bool hasInput = GetInput(out PlayerNetworkInput input);
+        AdvanceLockpicking(hasInput ? input.MoveDirection : Vector2.zero);
+    }
+
+    /// <summary>State Authority starts the contextual action without opening or spending anything.</summary>
+    public InteractionResult TryBeginLockpicking(NetworkLootContainer container, in InteractionRequest request)
+    {
+        if (!_spawned || !HasStateAuthority || Runner == null || !Runner.IsForward)
+            return InteractionResult.Rejected(InteractionFailureReason.MissingStateAuthority);
+        if (IsLockpicking || !CanLockpick() || request.InteractorId != _character.Id ||
+            container == null || container.Id != request.TargetId || !container.IsLocked ||
+            !TryResolveLockpickTarget(request.TargetId, out _, out _))
+            return InteractionResult.Rejected(InteractionFailureReason.InteractorUnavailable);
+        if (_lootReceiver.GetLootAmount(LockpickLootId) < 1)
+            return InteractionResult.Rejected(InteractionFailureReason.LockpickRequired);
+        if (GetInput(out PlayerNetworkInput input) &&
+            LockpickChannelRules.HasMoved(transform.position, transform.position, input.MoveDirection))
+            return InteractionResult.Rejected(InteractionFailureReason.InteractorUnavailable);
+
+        LockpickStartPosition = transform.position;
+        LockpickTargetIdValue = request.TargetId.Value;
+        LockpickTimer = TickTimer.CreateFromSeconds(Runner, _lockpickDurationSeconds);
+        return InteractionResult.Rejected(InteractionFailureReason.LockpickingStarted);
+    }
+
+    /// <summary>Direct committed-damage hook. Never called by presentation events.</summary>
+    public void CancelLockpicking()
+    {
+        if (!_spawned || !HasStateAuthority || Runner == null || !Runner.IsForward || !IsLockpicking) return;
+        EntityId targetId = LockpickTargetId;
+        ClearLockpickChannel();
+        RecordInteractionResult(targetId, Runner.Tick,
+            InteractionResult.Rejected(InteractionFailureReason.InteractorUnavailable));
+    }
+
+    private bool CanLockpick() => _dependenciesValid && _lootReceiver != null &&
+        LockpickChannelRules.IsValidDuration(_lockpickDurationSeconds) &&
+        (_matchController == null || _matchController.Phase == NetworkMatchController.MatchPhase.InProgress) &&
+        _character != null && _character.IsAlive && !PlayerDownedGate.IsDowned(_character) &&
+        !PlayerConsumptionGate.IsConsuming(_character) &&
+        (_abilityRuntime == null || !_abilityRuntime.HasActiveExecution) &&
+        (_combat == null || (!_combat.IsExecutingWeaponAttack && !_combat.HasPendingAttackRelease)) &&
+        (_downedRecovery == null || (!_downedRecovery.HasValidSession && !_downedRecovery.IsRevivingAnotherAvatar)) &&
+        (_extractionController == null || _extractionController.State != ExtractionState.Extracted) &&
+        _movementController != null && _movementController.IsControlEnabled;
+
+    private void AdvanceLockpicking(Vector2 movementIntent)
+    {
+        EntityId targetId = LockpickTargetId;
+        // Cancellation always wins over a deadline reached on this tick.
+        if (!CanLockpick() ||
+            LockpickChannelRules.HasMoved(LockpickStartPosition, transform.position, movementIntent) ||
+            !TryResolveLockpickTarget(targetId, out NetworkLootContainer container, out IInteractable interactable) ||
+            !container.IsLocked || _lootReceiver.GetLootAmount(LockpickLootId) < 1)
+        {
+            CancelLockpicking();
+            return;
+        }
+        if (!LockpickTimer.Expired(Runner)) return;
+
+        var extraction = new LootTransferRequest(_character.Id, _character.Id, LockpickLootId, 1, Runner.Tick);
+        if (_lootReceiver.ValidateExtraction(extraction) != LootTransferFailureReason.None ||
+            !_lootReceiver.TryResolveRaidLootOriginTransfer(extraction, RaidLootOriginSelectionOrder.PlayerFirst,
+                out RaidLootOriginTransfer origins))
+        {
+            CancelLockpicking();
+            return;
+        }
+
+        // Every fallible precondition is resolved first. These synchronous commits do not yield,
+        // call presentation or permit a competing mutation; a failed unlock never spends a pick.
+        if (!container.TryUnlock())
+        {
+            CancelLockpicking();
+            return;
+        }
+        _lootReceiver.CommitRaidLootExtraction(extraction, origins);
+        ClearLockpickChannel();
+        var request = new InteractionRequest(_character.Id, targetId, Runner.Tick);
+        RecordInteractionResult(targetId, Runner.Tick, interactable.Interact(request));
+    }
+
+    private bool TryResolveLockpickTarget(EntityId targetId, out NetworkLootContainer container,
+        out IInteractable interactable)
+    {
+        container = null;
+        interactable = null;
+        if (_registry == null || !_registry.TryGetInteractionHandler(targetId, out interactable) ||
+            interactable is not NetworkLootContainerInteractable adapter ||
+            !adapter.TryGetComponent(out container)) return false;
+        var request = new InteractionRequest(_character.Id, targetId, Runner.Tick);
+        if (!adapter.CanInteract(request)) return false;
+        Vector2 origin = _interactionOrigin != null ? _interactionOrigin.position : transform.position;
+        var query = new InteractionTargetQuery(_character.Id, origin, _config.MaximumDistance, _config.TargetLayerMask);
+        var candidates = _query.FindTargets(query);
+        for (int index = 0; index < candidates.Count; index++)
+        {
+            if (candidates[index].TargetId == targetId && candidates[index].Distance <= _config.MaximumDistance)
+                return true;
+        }
+        return false;
+    }
+
+    private void ClearLockpickChannel()
+    {
+        _cancelRestoredLockpick = false;
+        LockpickTimer = TickTimer.None;
+        LockpickTargetIdValue = 0;
     }
 
     private void TryProcessInteraction()
@@ -295,6 +454,8 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
     {
         _abilityRuntime = GetComponent<PlayerAbilityRuntimeNetworkController>();
         _downedRecovery = GetComponent<PlayerDownedRecoveryNetworkController>();
+        _combat = GetComponent<PlayerCombatNetworkController>();
+        _lootReceiver = GetComponent<PlayerLootReceiver>();
         if (_characterSource != null)
         {
             _character = _characterSource as ICharacter;

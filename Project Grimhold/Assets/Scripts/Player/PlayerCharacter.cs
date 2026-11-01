@@ -31,6 +31,7 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
 
     private PlayerStaminaNetworkController _staminaController;
     private PlayerConsumableNetworkController _consumableController;
+    private PlayerInteractionNetworkController _interactionController;
 
     [SerializeField]
     private PlayerManaNetworkController _manaController;
@@ -97,7 +98,11 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
         return true;
     }
 
-    protected override void OnDamageApplied(float amount) => _consumableController?.CancelConsumption();
+    protected override void OnDamageApplied(float amount)
+    {
+        _consumableController?.CancelConsumption();
+        if (amount > 0f) _interactionController?.CancelLockpicking();
+    }
     private bool _reportedMissingExtractionController;
     private bool _hasCachedEquipmentStatistics;
     private EquipmentStatisticsModifiers _cachedEquipmentStatistics;
@@ -499,6 +504,7 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
     private void CacheDependencies()
     {
         _consumableController = GetComponent<PlayerConsumableNetworkController>();
+        _interactionController = GetComponent<PlayerInteractionNetworkController>();
         if (_corpseGenerationController == null)
         {
             _corpseGenerationController = GetComponent<PlayerCorpseGenerationController>();

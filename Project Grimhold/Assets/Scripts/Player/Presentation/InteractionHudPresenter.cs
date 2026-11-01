@@ -263,6 +263,8 @@ public sealed class InteractionHudPresenter : MonoBehaviour
             InteractionFailureReason.TargetUnavailable => "Objetivo no disponible",
             InteractionFailureReason.ReceiverNotFound => "No se pudo recibir el loot",
             InteractionFailureReason.LootRejected => "Loot rechazado",
+            InteractionFailureReason.LockpickRequired => "Requiere Ganzúa",
+            InteractionFailureReason.LockpickingStarted => "Forzando cerradura…",
             _ => "Nada para interactuar"
         };
     }

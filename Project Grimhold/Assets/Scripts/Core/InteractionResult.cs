@@ -8,7 +8,9 @@ public enum InteractionFailureReason
     TargetUnavailable,
     ReceiverNotFound,
     LootRejected,
-    OutOfRange
+    OutOfRange,
+    LockpickRequired,
+    LockpickingStarted
 }
 
 /// <summary>
