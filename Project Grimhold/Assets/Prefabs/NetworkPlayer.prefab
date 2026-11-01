@@ -10970,6 +10970,7 @@ MonoBehaviour:
   _stateText: {fileID: 77755469340465316}
   _reviveRoot: {fileID: 8576571640011303839}
   _reviveFill: {fileID: 9058710020032423400}
+  _reviveBarFill: {fileID: 445503844840206294}
   _reserveRingRoot: {fileID: 3943178234684576122}
   _reviveRingRoot: {fileID: 114737667755277598}
   _reviveText: {fileID: 4597235458078616409}
@@ -12197,7 +12198,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &5492323962064544957
 RectTransform:
   m_ObjectHideFlags: 0

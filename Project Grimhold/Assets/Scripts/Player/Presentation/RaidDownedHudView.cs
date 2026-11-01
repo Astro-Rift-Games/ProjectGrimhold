@@ -29,6 +29,10 @@ public sealed class RaidDownedHudView : MonoBehaviour
     [SerializeField]
     private Image _reviveFill;
 
+    [Tooltip("Optional linear bar inside the revive panel; follows the same progress as the ring.")]
+    [SerializeField]
+    private Image _reviveBarFill;
+
     [Header("Optional modular status ring")]
     [SerializeField]
     private GameObject _reserveRingRoot;
@@ -70,6 +74,12 @@ public sealed class RaidDownedHudView : MonoBehaviour
 
     public void PresentDowned(bool active, float reserveFraction, string reserveText, bool isPaused)
     {
+        PresentDowned(active, reserveFraction, reserveText, isPaused ? "ABATIDO · Reanimando" : "ABATIDO");
+    }
+
+    /// <summary>Downed panel with a prepared status line (recovery form or Self-reviver availability).</summary>
+    public void PresentDowned(bool active, float reserveFraction, string reserveText, string stateText)
+    {
         _showReserveRing = active;
         RefreshStatusRing();
         SetActive(_downedRoot, active);
@@ -80,10 +90,16 @@ public sealed class RaidDownedHudView : MonoBehaviour
 
         SetFill(_reserveFill, reserveFraction);
         SetText(_reserveText, reserveText);
-        SetText(_stateText, isPaused ? "ABATIDO · Reanimando" : "ABATIDO");
+        SetText(_stateText, stateText);
     }
 
     public void PresentReviveProgress(bool visible, float fraction, bool asReviver)
+    {
+        PresentReviveProgress(visible, fraction, asReviver ? "Reanimando…" : "Te están reanimando…");
+    }
+
+    /// <summary>Recovery progress with a prepared label (revive, Self-revive or handoff).</summary>
+    public void PresentReviveProgress(bool visible, float fraction, string label)
     {
         _showReviveRing = visible;
         RefreshStatusRing();
@@ -94,15 +110,22 @@ public sealed class RaidDownedHudView : MonoBehaviour
         }
 
         SetFill(_reviveFill, fraction);
-        SetText(_reviveText, asReviver ? "Reanimando…" : "Te están reanimando…");
+        SetFill(_reviveBarFill, fraction);
+        SetText(_reviveText, label);
     }
 
     public void PresentAllyDowned(bool visible, bool isInRange)
     {
+        PresentAllyDowned(visible, isInRange, false);
+    }
+
+    /// <summary>Ally Downed hint; offers tap (Self-reviver handoff) and hold (revive) when both apply.</summary>
+    public void PresentAllyDowned(bool visible, bool isInRange, bool canHandoff)
+    {
         SetActive(_allyDownedRoot, visible);
         if (visible)
         {
-            SetText(_allyDownedText, isInRange ? $"Aliado abatido · mantén [{InteractionPromptText.KeyLabel}] para reanimar" : "Aliado abatido");
+            SetText(_allyDownedText, DownedRecoveryFeedbackRules.AllyDownedText(isInRange, canHandoff));
         }
     }
 

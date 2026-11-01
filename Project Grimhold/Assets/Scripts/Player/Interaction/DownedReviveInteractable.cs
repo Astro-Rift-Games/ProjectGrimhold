@@ -26,8 +26,17 @@ public sealed class DownedReviveInteractable : NetworkBehaviour, IInteractable
     /// <summary>Prompt wording while the avatar is Downed; the shared avatar metadata describes its corpse.</summary>
     public const string PromptText = "Mantener para reanimar";
 
+    /// <summary>Prompt wording when the viewer can also hand over a Self-reviver with a tap.</summary>
+    public const string HandoffPromptText = "Toca: entregar Auto-reanimador · Mantén: reanimar";
+
     /// <summary>True while this avatar is Downed, i.e. while the revive wording applies to it.</summary>
     public bool IsTargetDowned => _character != null && _character.IsDowned;
+
+    /// <summary>Revive prompt for <paramref name="viewer"/>: tap/hold when a handoff is possible, hold otherwise.</summary>
+    public string ResolvePromptText(PlayerCharacter viewer)
+    {
+        return _recovery != null && _recovery.CanOfferHandoff(viewer) ? HandoffPromptText : PromptText;
+    }
 
     public new EntityId Id => Object != null && Object.IsValid
         ? new EntityId(unchecked((int)Object.Id.Raw))

@@ -178,7 +178,10 @@ public sealed class RaidDownedHudPresenter : MonoBehaviour
             true,
             DownedRecoveryFeedbackRules.ReserveFraction(reserve, initial),
             $"{Mathf.CeilToInt(Mathf.Max(0f, reserve))} / {Mathf.CeilToInt(initial)}",
-            _ownRecovery.HasValidSession);
+            DownedRecoveryFeedbackRules.DownedStateText(
+                _ownRecovery.ActiveSessionKind,
+                _ownRecovery.CarriesSelfReviver,
+                _ownRecovery.SelfReviveUsed));
     }
 
     private void RefreshAlly(bool isDowned)
@@ -206,7 +209,10 @@ public sealed class RaidDownedHudPresenter : MonoBehaviour
         }
 
         bool allyDowned = !isDowned && _character.IsAlive && ally.IsDowned;
-        _view.PresentAllyDowned(allyDowned, allyDowned && IsWithinReviveRange(ally));
+        _view.PresentAllyDowned(
+            allyDowned,
+            allyDowned && IsWithinReviveRange(ally),
+            allyDowned && _allyRecovery != null && _allyRecovery.CanOfferHandoff(_character));
         ShowProgress(isDowned, allyDowned ? _allyRecovery : null);
     }
 
@@ -226,7 +232,10 @@ public sealed class RaidDownedHudPresenter : MonoBehaviour
         if (isDowned)
         {
             bool running = _ownRecovery.TryGetProgress(out float ownProgress);
-            _view.PresentReviveProgress(running, ownProgress, false);
+            _view.PresentReviveProgress(
+                running,
+                ownProgress,
+                DownedRecoveryFeedbackRules.ProgressLabel(_ownRecovery.ActiveSessionKind, false));
             return;
         }
 
@@ -234,7 +243,10 @@ public sealed class RaidDownedHudPresenter : MonoBehaviour
         bool reviving = allyRecovery != null &&
             allyRecovery.TryGetProgress(out progress) &&
             allyRecovery.ReviverId == _character.Object.Id;
-        _view.PresentReviveProgress(reviving, reviving ? progress : 0f, true);
+        _view.PresentReviveProgress(
+            reviving,
+            reviving ? progress : 0f,
+            DownedRecoveryFeedbackRules.ProgressLabel(reviving ? allyRecovery.ActiveSessionKind : RecoveryKind.Assisted, true));
     }
 
     private void RefreshNotices()
@@ -243,7 +255,7 @@ public sealed class RaidDownedHudPresenter : MonoBehaviour
         // owns that moment, so a notice is consumed but not shown once a participant is defeated.
         if (_ownOutcome.Observe(_ownRecovery.LastOutcomeSequence) && _character.IsAlive)
         {
-            Announce(_ownRecovery.LastOutcomeKind, _ownRecovery.LastOutcomeReason);
+            Announce(_ownRecovery.LastOutcomeKind, _ownRecovery.LastOutcomeReason, _ownRecovery.LastOutcomeSessionKind, true);
         }
 
         if (_allyRecovery != null && _allyRecovery.Object != null && _allyRecovery.Object.IsValid &&
@@ -251,7 +263,7 @@ public sealed class RaidDownedHudPresenter : MonoBehaviour
             _allyRecovery.LastOutcomeReviverId == _character.Object.Id &&
             _allyCharacter != null && _allyCharacter.IsAlive)
         {
-            Announce(_allyRecovery.LastOutcomeKind, _allyRecovery.LastOutcomeReason);
+            Announce(_allyRecovery.LastOutcomeKind, _allyRecovery.LastOutcomeReason, _allyRecovery.LastOutcomeSessionKind, false);
         }
 
         if (_messageUntil > 0f && Time.unscaledTime >= _messageUntil)
@@ -261,9 +273,13 @@ public sealed class RaidDownedHudPresenter : MonoBehaviour
         }
     }
 
-    private void Announce(RecoveryOutcomeKind kind, DownedRecoveryInterruptReason reason)
+    private void Announce(
+        RecoveryOutcomeKind kind,
+        DownedRecoveryInterruptReason reason,
+        RecoveryKind sessionKind,
+        bool asRecipient)
     {
-        string message = DownedRecoveryFeedbackRules.MessageFor(kind, reason);
+        string message = DownedRecoveryFeedbackRules.MessageFor(kind, reason, sessionKind, asRecipient);
         if (message == null)
         {
             return;

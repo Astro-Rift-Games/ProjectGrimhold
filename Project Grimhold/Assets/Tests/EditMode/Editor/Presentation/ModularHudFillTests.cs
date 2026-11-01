@@ -63,6 +63,34 @@ public sealed class ModularHudFillTests
         Assert.That(revive.rectTransform.localScale, Is.EqualTo(Vector3.one));
     }
 
+    [TestCase(0f)]
+    [TestCase(0.4f)]
+    [TestCase(1f)]
+    public void RevivePanelBarFollowsTheSameProgressAsTheRing(float fraction)
+    {
+        _root = new GameObject("Status");
+        RaidDownedHudView view = _root.AddComponent<RaidDownedHudView>();
+        Image ring = CreateImage("Revive ring fill", view, "_reviveFill", Image.Type.Filled);
+        Image bar = CreateImage("Revive bar fill", view, "_reviveBarFill", Image.Type.Simple);
+        view.PresentReviveProgress(true, fraction, "Auto-reanimándote…");
+        Assert.That(ring.fillAmount, Is.EqualTo(fraction).Within(0.0001f));
+        Assert.That(bar.rectTransform.localScale.x, Is.EqualTo(fraction).Within(0.0001f));
+    }
+
+    [Test]
+    public void NetworkPlayerRevivePanelBarIsAssignedAndActive()
+    {
+        GameObject prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkPlayer.prefab");
+        RaidDownedHudView view = prefab.GetComponentInChildren<RaidDownedHudView>(true);
+        Assert.That(view, Is.Not.Null);
+        Image bar = (Image)typeof(RaidDownedHudView)
+            .GetField("_reviveBarFill", BindingFlags.Instance | BindingFlags.NonPublic)
+            .GetValue(view);
+        Assert.That(bar, Is.Not.Null, "The revive panel bar fill is assigned.");
+        Assert.That(bar.gameObject.activeSelf, Is.True, "The revive panel bar fill is visible.");
+        Assert.That(bar.rectTransform.pivot.x, Is.Zero, "Scale-X grows from the left edge.");
+    }
+
     private Image CreateImage(string name, Component view, string field, Image.Type type)
     {
         GameObject child = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));

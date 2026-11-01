@@ -122,6 +122,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
 
     private CharacterBase _characterBase;
     private PlayerDownedStateNetworkController _downedState;
+    private PlayerDownedRecoveryNetworkController _downedRecovery;
     private PlayerWeaponEquipmentNetworkController _equipmentController;
     private PlayerAbilityRuntimeNetworkController _abilityRuntime;
     private PlayerCombatNetworkController _combatController;
@@ -188,8 +189,10 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
 
         bool isAlive = _characterBase == null || _characterBase.IsAlive;
         bool isConsuming = PlayerConsumptionGate.IsConsuming(_characterBase);
+        // A Self-revive channel locks voluntary movement; the session is networked, so this is resimulation-safe.
         bool canMove = gameplayPhaseActive && IsControlEnabled && isAlive &&
-            (_immobilizationEffect == null || !_immobilizationEffect.IsActive);
+            (_immobilizationEffect == null || !_immobilizationEffect.IsActive) &&
+            (_downedRecovery == null || !_downedRecovery.IsSelfReviveChanneling);
 
         // Downed is networked state, so reading it here stays resimulation-safe.
         bool isDowned = _downedState != null && _downedState.IsDowned;
@@ -571,6 +574,11 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         if (_downedState == null)
         {
             _downedState = GetComponent<PlayerDownedStateNetworkController>();
+        }
+
+        if (_downedRecovery == null)
+        {
+            _downedRecovery = GetComponent<PlayerDownedRecoveryNetworkController>();
         }
 
         if (_shieldDefenseController == null)

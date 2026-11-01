@@ -32,6 +32,7 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
     private PlayerExtractionController _extractionController;
     private NetworkMatchController _matchController;
     private PlayerAbilityRuntimeNetworkController _abilityRuntime;
+    private PlayerDownedRecoveryNetworkController _downedRecovery;
     private bool _dependenciesValid;
     private readonly Queue<InteractionPresentationEvent> _pendingPresentationEvents = new();
 
@@ -126,6 +127,12 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
         PreviousButtons = currentButtons;
 
         if (!interactPressed)
+        {
+            return;
+        }
+
+        // A Downed player cannot interact, but Interact is the contextual Self-revive input (GD 13 section 7).
+        if (PlayerDownedGate.IsDowned(_character) && _downedRecovery != null && _downedRecovery.TryBeginSelf())
         {
             return;
         }
@@ -287,6 +294,7 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour
     private void CacheDependencies()
     {
         _abilityRuntime = GetComponent<PlayerAbilityRuntimeNetworkController>();
+        _downedRecovery = GetComponent<PlayerDownedRecoveryNetworkController>();
         if (_characterSource != null)
         {
             _character = _characterSource as ICharacter;
