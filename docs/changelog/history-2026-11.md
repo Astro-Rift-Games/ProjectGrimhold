@@ -4,28 +4,161 @@
 
 Release: Unreleased
 
-4 original commits; 4 canonical entries.
+5 original commits; 5 canonical entries.
 
 ## Canonical classification
 
-4 features
+5 features
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Art & Animation | 2 | 0 | 0 | 0 | 0 | 0 |
+| Art & Animation | 3 | 0 | 0 | 0 | 0 | 0 |
 | Audio | 2 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 4 | 0 | 0 | 0 | 0 | 0 |
+| Build & Tooling | 5 | 0 | 0 | 0 | 0 | 0 |
 | Combat | 4 | 0 | 0 | 0 | 0 | 0 |
-| Documentation | 4 | 0 | 0 | 0 | 0 | 0 |
+| Documentation | 5 | 0 | 0 | 0 | 0 | 0 |
 | Input | 1 | 0 | 0 | 0 | 0 | 0 |
-| Inventory & Loot | 1 | 0 | 0 | 0 | 0 | 0 |
+| Inventory & Loot | 2 | 0 | 0 | 0 | 0 | 0 |
 | Movement | 1 | 0 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 1 | 0 | 0 | 0 | 0 | 0 |
-| Tests | 4 | 0 | 0 | 0 | 0 | 0 |
-| UI | 4 | 0 | 0 | 0 | 0 | 0 |
+| Networking & Sessions | 2 | 0 | 0 | 0 | 0 | 0 |
+| Tests | 5 | 0 | 0 | 0 | 0 | 0 |
+| UI | 5 | 0 | 0 | 0 | 0 | 0 |
 | World & Visibility | 1 | 0 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 07f13443b31d2faa85f2c3848c926cdb9056a71e
+
+[07f13443b31d2faa85f2c3848c926cdb9056a71e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/07f13443b31d2faa85f2c3848c926cdb9056a71e)
+
+Date: 2026-11-01T02:06:11-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, Networking & Sessions, UI, Art & Animation, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(loot): add lockpicking and locked chest spawns
+```
+
+#### Original body
+
+```text
+Implement deterministic lockpick channels and replicated chest locks for
+TASK-235. Movement and committed damage cancel without consumption;
+success spends one lockpick using existing inventory provenance.
+
+Add the static LockedChest prefab at a 10% chance per existing chest
+point. Guarantee the first locked chest for Editor/development testing
+without changing release probabilities or total chest counts.
+
+Preserve unlocked state across restoration and safely cancel restored
+channels whose target identities have not been remapped. Persist the
+accepted existing ambient-particle scene cleanup and configuration.
+
+Cover channel interruption, inventory spending, prefab configuration,
+spawn selection and legacy behavior; document the interaction flow.
+Latest focused checks: 38/38 EditMode and 19/19 PlayMode passed.
+Real Host/Client, migration and manual visual checks remain pending.
+
+Refs: TASK-235
+Player-Added: Locked chests can be opened with a lockpick after a short uninterrupted interaction.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Art/Props/LockedChest.png
+Project Grimhold/Assets/Art/Props/LockedChest.png.meta
+Project Grimhold/Assets/Prefabs/LockedChest.prefab
+Project Grimhold/Assets/Prefabs/LockedChest.prefab.meta
+Project Grimhold/Assets/Scenes/Gameplay.unity
+Project Grimhold/Assets/Scripts/Core/InteractionResult.cs
+Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs
+Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainerInteractable.cs
+Project Grimhold/Assets/Scripts/Networking/LockedChestSpawnRules.cs
+Project Grimhold/Assets/Scripts/Networking/LockedChestSpawnRules.cs.meta
+Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/LockpickChannelRules.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/LockpickChannelRules.cs.meta
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInteractionNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/InteractionHudPresenter.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Interaction.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Interaction/LockpickChannelRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Interaction/LockpickChannelRulesTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedChestSpawnRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedChestSpawnRulesTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedLootContainerTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedLootContainerTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/NetworkSpawnManagerLootTests.cs
+Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs.meta
+Project Grimhold/Assets/Tests/PlayMode/LockpickInteractionPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/LockpickInteractionPlayModeTests.cs.meta
+Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Core/InteractionResult.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainerInteractable.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/LockpickChannelRules.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/LockpickChannelRules.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInteractionNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/InteractionHudPresenter.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Interaction.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Interaction/LockpickChannelRulesTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Interaction/LockpickChannelRulesTests.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedChestSpawnRulesTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedChestSpawnRulesTests.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedLootContainerTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedLootContainerTests.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/NetworkSpawnManagerLootTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/LockpickInteractionPlayModeTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/LockpickInteractionPlayModeTests.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/LockedChestSpawnRules.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/LockedChestSpawnRules.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/InteractionHudPresenter.cs
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/LockedChest.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/LockedChest.png.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Interaction.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Interaction/LockpickChannelRulesTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Interaction/LockpickChannelRulesTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedChestSpawnRulesTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedChestSpawnRulesTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedLootContainerTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedLootContainerTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/NetworkSpawnManagerLootTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Interaction.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Interaction/LockpickChannelRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Interaction/LockpickChannelRulesTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedChestSpawnRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedChestSpawnRulesTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedLootContainerTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedLootContainerTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/NetworkSpawnManagerLootTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/LockpickInteractionPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/LockpickInteractionPlayModeTests.cs.meta
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 15e80657787f2601c3828703ae06c9b189a6a417
 

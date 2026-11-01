@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 876,
-  "canonicalEntries": 873,
+  "rawCommits": 877,
+  "canonicalEntries": 874,
   "before": {
-    "Features": 322,
+    "Features": 323,
     "Bug Fixes": 78,
     "Documentation": 75,
     "Refactoring": 13,
@@ -12,7 +12,7 @@
     "Tests": 24
   },
   "after": {
-    "Features": 459,
+    "Features": 460,
     "Bug Fixes": 94,
     "Documentation": 90,
     "Refactoring": 26,
@@ -23,17 +23,17 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Inventory & Loot": 316,
+    "Networking & Sessions": 256,
+    "UI": 269,
+    "Art & Animation": 210,
+    "Build & Tooling": 441,
+    "Documentation": 343,
+    "Tests": 521,
     "Combat": 316,
     "Movement": 89,
-    "Inventory & Loot": 315,
-    "Networking & Sessions": 255,
-    "UI": 268,
     "Input": 28,
-    "Build & Tooling": 440,
-    "Documentation": 342,
-    "Tests": 520,
     "Audio": 30,
-    "Art & Animation": 209,
     "World & Visibility": 110,
     "Persistence & Backend": 185,
     "Abilities": 104,
@@ -42,7 +42,7 @@
   },
   "canonical": {
     "sections": {
-      "Features": 458,
+      "Features": 459,
       "Bug Fixes": 93,
       "Documentation": 90,
       "Refactoring": 26,
@@ -52,17 +52,17 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
+      "Inventory & Loot": 316,
+      "Networking & Sessions": 256,
+      "UI": 268,
+      "Art & Animation": 207,
+      "Build & Tooling": 439,
+      "Documentation": 341,
+      "Tests": 519,
       "Combat": 314,
       "Movement": 89,
-      "Inventory & Loot": 315,
-      "Networking & Sessions": 255,
-      "UI": 267,
       "Input": 28,
-      "Build & Tooling": 438,
-      "Documentation": 340,
-      "Tests": 518,
       "Audio": 30,
-      "Art & Animation": 206,
       "World & Visibility": 108,
       "Persistence & Backend": 185,
       "Abilities": 102,
@@ -34029,8 +34029,8 @@
       "title": "2026-11 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 4,
-      "canonicalEntries": 4
+      "originalCommits": 5,
+      "canonicalEntries": 5
     },
     {
       "key": "history-2026-10",
@@ -34066,6 +34066,331 @@
     }
   ],
   "commits": [
+    {
+      "sha": "07f13443b31d2faa85f2c3848c926cdb9056a71e",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/07f13443b31d2faa85f2c3848c926cdb9056a71e",
+      "subject": "feat(loot): add lockpicking and locked chest spawns",
+      "body": "Implement deterministic lockpick channels and replicated chest locks for\nTASK-235. Movement and committed damage cancel without consumption;\nsuccess spends one lockpick using existing inventory provenance.\n\nAdd the static LockedChest prefab at a 10% chance per existing chest\npoint. Guarantee the first locked chest for Editor/development testing\nwithout changing release probabilities or total chest counts.\n\nPreserve unlocked state across restoration and safely cancel restored\nchannels whose target identities have not been remapped. Persist the\naccepted existing ambient-particle scene cleanup and configuration.\n\nCover channel interruption, inventory spending, prefab configuration,\nspawn selection and legacy behavior; document the interaction flow.\nLatest focused checks: 38/38 EditMode and 19/19 PlayMode passed.\nReal Host/Client, migration and manual visual checks remain pending.\n\nRefs: TASK-235\nPlayer-Added: Locked chests can be opened with a lockpick after a short uninterrupted interaction.\n",
+      "date": "2026-11-01T02:06:11-03:00",
+      "files": [
+        "Project Grimhold/Assets/Art/Props/LockedChest.png",
+        "Project Grimhold/Assets/Art/Props/LockedChest.png.meta",
+        "Project Grimhold/Assets/Prefabs/LockedChest.prefab",
+        "Project Grimhold/Assets/Prefabs/LockedChest.prefab.meta",
+        "Project Grimhold/Assets/Scenes/Gameplay.unity",
+        "Project Grimhold/Assets/Scripts/Core/InteractionResult.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainerInteractable.cs",
+        "Project Grimhold/Assets/Scripts/Networking/LockedChestSpawnRules.cs",
+        "Project Grimhold/Assets/Scripts/Networking/LockedChestSpawnRules.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/LockpickChannelRules.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/LockpickChannelRules.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInteractionNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/InteractionHudPresenter.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Interaction.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Interaction/LockpickChannelRulesTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Interaction/LockpickChannelRulesTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedChestSpawnRulesTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedChestSpawnRulesTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedLootContainerTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedLootContainerTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/NetworkSpawnManagerLootTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs.meta",
+        "Project Grimhold/Assets/Tests/PlayMode/LockpickInteractionPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/LockpickInteractionPlayModeTests.cs.meta",
+        "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "Art & Animation",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Core/InteractionResult.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainerInteractable.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/LockpickChannelRules.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/LockpickChannelRules.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInteractionNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/InteractionHudPresenter.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Interaction.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Interaction/LockpickChannelRulesTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Interaction/LockpickChannelRulesTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedChestSpawnRulesTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedChestSpawnRulesTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedLootContainerTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedLootContainerTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/NetworkSpawnManagerLootTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LockpickInteractionPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LockpickInteractionPlayModeTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/LockedChestSpawnRules.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/LockedChestSpawnRules.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/InteractionHudPresenter.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/LockedChest.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/LockedChest.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Interaction.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Interaction/LockpickChannelRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Interaction/LockpickChannelRulesTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedChestSpawnRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedChestSpawnRulesTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedLootContainerTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedLootContainerTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/NetworkSpawnManagerLootTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Interaction.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Interaction/LockpickChannelRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Interaction/LockpickChannelRulesTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedChestSpawnRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedChestSpawnRulesTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedLootContainerTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LockedLootContainerTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/NetworkSpawnManagerLootTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LockpickInteractionPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LockpickInteractionPlayModeTests.cs.meta",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "15e80657787f2601c3828703ae06c9b189a6a417",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/15e80657787f2601c3828703ae06c9b189a6a417",
