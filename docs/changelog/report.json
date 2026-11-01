@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 872,
-  "canonicalEntries": 869,
+  "rawCommits": 873,
+  "canonicalEntries": 870,
   "before": {
-    "Features": 318,
+    "Features": 319,
     "Bug Fixes": 78,
     "Documentation": 75,
     "Refactoring": 13,
@@ -12,7 +12,7 @@
     "Tests": 24
   },
   "after": {
-    "Features": 455,
+    "Features": 456,
     "Bug Fixes": 94,
     "Documentation": 90,
     "Refactoring": 26,
@@ -23,26 +23,26 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Combat": 312,
+    "Combat": 313,
+    "UI": 265,
+    "World & Visibility": 110,
+    "Build & Tooling": 437,
+    "Documentation": 339,
+    "Tests": 517,
     "Inventory & Loot": 314,
     "Persistence & Backend": 185,
     "Art & Animation": 207,
-    "Build & Tooling": 436,
-    "Documentation": 338,
-    "Tests": 516,
     "Abilities": 104,
     "Movement": 88,
-    "UI": 264,
     "Unassigned": 18,
     "Extraction": 119,
     "Networking & Sessions": 254,
-    "World & Visibility": 109,
     "Input": 27,
     "Audio": 28
   },
   "canonical": {
     "sections": {
-      "Features": 454,
+      "Features": 455,
       "Bug Fixes": 93,
       "Documentation": 90,
       "Refactoring": 26,
@@ -52,20 +52,20 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "Combat": 310,
+      "Combat": 311,
+      "UI": 264,
+      "World & Visibility": 108,
+      "Build & Tooling": 435,
+      "Documentation": 337,
+      "Tests": 515,
       "Inventory & Loot": 314,
       "Persistence & Backend": 185,
       "Art & Animation": 204,
-      "Build & Tooling": 434,
-      "Documentation": 336,
-      "Tests": 514,
       "Abilities": 102,
       "Movement": 88,
-      "UI": 263,
       "Unassigned": 18,
       "Extraction": 119,
       "Networking & Sessions": 254,
-      "World & Visibility": 107,
       "Input": 27,
       "Audio": 28
     }
@@ -34025,6 +34025,14 @@
   ],
   "periods": [
     {
+      "key": "history-2026-11",
+      "title": "2026-11 — Unreleased history",
+      "version": "Unreleased",
+      "tag": null,
+      "originalCommits": 1,
+      "canonicalEntries": 1
+    },
+    {
       "key": "history-2026-10",
       "title": "2026-10 — Unreleased history",
       "version": "Unreleased",
@@ -34058,6 +34066,131 @@
     }
   ],
   "commits": [
+    {
+      "sha": "735417b34141b2eb9b37e8bb5c5eb0a87cdc3f3c",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/735417b34141b2eb9b37e8bb5c5eb0a87cdc3f3c",
+      "subject": "feat(presentation): fade the local view to black and white while Downed",
+      "body": "When the local player enters Downed the screen now blends to a\nbalanced-contrast black and white with a soft vignette, stays that way\nwhile crawling or waiting for revive, and blends back to full colour on\nrevive or definitive Defeat. Only the Input Authority avatar's HUD\nbinds it, so proxies and other peers keep their normal camera, and the\nScreen Space Overlay HUD is never desaturated.\n\n- LocalPlayerDownedPostProcessPresenter owns a runtime global Volume\n  (ColorAdjustments + Vignette, priority above the dungeon ambient\n  Volume) with its own profile. It exists only while the effect is\n  visible, is a child of the presenter (never DontSave) and is released\n  on fade-out, unbind, disable or avatar loss. No renderer feature,\n  shader or shared Volume asset is modified.\n- DownedPostProcessBlend (pure): fade-in 0.4 s (config range 0.3-0.5),\n  fade-out 0.4 s through Volume weight; vignette and dimming deepen as\n  the Downed reserve drains (eased so damage chunks never pop); an\n  assisted or self revive session gradually recovers part of the\n  colour. Reserve and revive values are latched when Downed ends.\n- DownedPostProcessConfig ScriptableObject (blend curve, timings,\n  saturation -100, contrast, vignette, reserve and revive modulation)\n  and its asset, wired on NetworkPlayer RaidDownedHud and bound by\n  LocalPlayerHudBinder.\n- Reads IsDowned, DownedHealth and TryGetProgress only; no networked\n  state is added or written.\n\nTests: DownedPostProcessBlendTests, LocalPlayerDownedPostProcessPresenterTests\n(including a regression that the Volume cannot outlive its presenter).\n\nDocs: DownedAndReviveArchitecture section 9.1 and status table.\n\nRefs: TASK-254\nPlayer-Added: Your screen fades to black and white while you are downed and regains its colour as you are revived.\n",
+      "date": "2026-10-31T23:42:18-03:00",
+      "files": [
+        "Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab",
+        "Project Grimhold/Assets/Scriptable Objects/DownedPostProcessConfig.asset",
+        "Project Grimhold/Assets/Scriptable Objects/DownedPostProcessConfig.asset.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/DownedPostProcessBlend.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/DownedPostProcessBlend.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/DownedPostProcessConfig.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/DownedPostProcessConfig.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/DownedPostProcessFrame.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/DownedPostProcessFrame.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/IDownedPostProcessSource.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/IDownedPostProcessSource.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerDownedPostProcessPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerDownedPostProcessPresenter.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerHudBinder.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/PlayerDownedPostProcessSource.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/PlayerDownedPostProcessSource.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/DownedPostProcessBlendTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/DownedPostProcessBlendTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/LocalPlayerDownedPostProcessPresenterTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/LocalPlayerDownedPostProcessPresenterTests.cs.meta",
+        "Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "presentation",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "UI",
+        "World & Visibility",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "message-term",
+          "value": "damage",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerHudBinder.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "HUD",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/DownedPostProcessBlendTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/DownedPostProcessBlendTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/LocalPlayerDownedPostProcessPresenterTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/LocalPlayerDownedPostProcessPresenterTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/DownedPostProcessBlendTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/DownedPostProcessBlendTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/LocalPlayerDownedPostProcessPresenterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/LocalPlayerDownedPostProcessPresenterTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "35f779e744acbfede1ff5badc520ccd6b811b703",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/35f779e744acbfede1ff5badc520ccd6b811b703",

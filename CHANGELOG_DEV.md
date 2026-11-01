@@ -12,6 +12,12 @@ No release baseline exists yet. The monthly history below is initial development
 
 ## Initial development history
 
+### [2026-11 — before the first release](docs/changelog/history-2026-11.md)
+
+- **UI** — **presentation:** Fade the local view to black and white while Downed. ([735417b](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/735417b34141b2eb9b37e8bb5c5eb0a87cdc3f3c)).
+
+[Full period history](docs/changelog/history-2026-11.md)
+
 ### [2026-10 — before the first release](docs/changelog/history-2026-10.md)
 
 - **Networking & Sessions / Inventory & Loot** — **town:** Enabled inspection of another member's equipment in Preparation. ([3925da9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3925da99a497fe3a0ac064f7a0c42fc65ca5d3f2), [36143c9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/36143c92809977326eae46fadd813a58853f0ccf), [a448183](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a448183f336873960f022470b8dc8b9dbfb24c2f)).
