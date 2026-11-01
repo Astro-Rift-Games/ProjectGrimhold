@@ -4,22 +4,457 @@
 
 Release: Unreleased
 
-1 original commits; 1 canonical entries.
+4 original commits; 4 canonical entries.
 
 ## Canonical classification
 
-1 features
+4 features
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Build & Tooling | 1 | 0 | 0 | 0 | 0 | 0 |
-| Combat | 1 | 0 | 0 | 0 | 0 | 0 |
-| Documentation | 1 | 0 | 0 | 0 | 0 | 0 |
-| Tests | 1 | 0 | 0 | 0 | 0 | 0 |
-| UI | 1 | 0 | 0 | 0 | 0 | 0 |
+| Art & Animation | 2 | 0 | 0 | 0 | 0 | 0 |
+| Audio | 2 | 0 | 0 | 0 | 0 | 0 |
+| Build & Tooling | 4 | 0 | 0 | 0 | 0 | 0 |
+| Combat | 4 | 0 | 0 | 0 | 0 | 0 |
+| Documentation | 4 | 0 | 0 | 0 | 0 | 0 |
+| Input | 1 | 0 | 0 | 0 | 0 | 0 |
+| Inventory & Loot | 1 | 0 | 0 | 0 | 0 | 0 |
+| Movement | 1 | 0 | 0 | 0 | 0 | 0 |
+| Networking & Sessions | 1 | 0 | 0 | 0 | 0 | 0 |
+| Tests | 4 | 0 | 0 | 0 | 0 | 0 |
+| UI | 4 | 0 | 0 | 0 | 0 | 0 |
 | World & Visibility | 1 | 0 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 15e80657787f2601c3828703ae06c9b189a6a417
+
+[15e80657787f2601c3828703ae06c9b189a6a417](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/15e80657787f2601c3828703ae06c9b189a6a417)
+
+Date: 2026-10-31T22:22:59-03:00 · Classification: Features (explicit) · Systems: Combat, Movement, Inventory & Loot, Networking & Sessions, UI, Input, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(revive): add self-revive consumable and tap-to-hand-off flow
+```
+
+#### Original body
+
+```text
+Implement TASK-236 (GD 13 sections 7, 7.1, 8, 10; GD 14 section 11.4).
+A Downed player carrying CON_SELF_REVIVE presses Interact to start an
+authoritative 5 s Self-revive channel that locks voluntary movement and
+pauses the Downed drain. Damage, a displacement that still moves the
+avatar or definitive Defeat interrupts it without consuming the item;
+disconnect does not. Completion consumes one unit (Town origin first),
+restores 25 HP and spends the one Self-revive allowed per expedition.
+
+An Active teammate taps Interact on a Downed ally to hand over their
+Self-reviver and holds Interact to revive. The press still opens an
+assisted session; a release within 0.3 s converts it into a 1 s handoff
+when the giver carries the item and the ally can receive and use it.
+The handoff does not pause the drain, transfers the unit atomically
+without a world drop and starts the Self-revive automatically.
+
+Reviewers should verify:
+- RecoveryKind.Handoff and DownedRecoveryInterruptReason.HandoffRejected
+  are appended, so existing byte values are unchanged.
+- New networked SelfReviveUsed and LastOutcomeSessionKind are reset in
+  Spawned except on Host Migration restore.
+- Provisional balance values (25 HP, 5 s, 1 s, 0.3 s) are serialized on
+  PlayerDownedRecoveryNetworkController.
+- CON_SELF_REVIVE is no longer Quick Slot compatible; stored bindings
+  are dropped on load by the existing codec rule.
+- PlayerInputReader now transports a held Interact from an accepted
+  press until release. Previously only the one-tick press reached
+  simulation, so a real hold was read as a release.
+- The revive panel bar fill is assigned and active in
+  NetworkPlayer.prefab and follows the same progress as the ring.
+
+Tests:
+- DownedSelfReviveRulesTests, DownedSelfReviveFeedbackTests (EditMode)
+- PlayerSelfRevivePlayModeTests (completion, interruption, quota,
+  movement lock, tap handoff, hold revive, rejections)
+- PlayerInputReaderPlayModeTests: held Interact transport
+- ModularHudFillTests: revive panel bar progress and prefab wiring
+- MvpItemCatalogTests: CON_SELF_REVIVE is not Quick Slot compatible
+
+Docs: DownedAndReviveArchitecture section 7.1 and status tables;
+RaidMainHudArchitecture revive panel bar note.
+
+Player-Added: Carry a Self-reviver to get back up on your own while downed, or tap the interact key on a downed ally to give them yours.
+Player-Fixed: Holding the interact key on a downed ally now keeps reviving them instead of stopping right away, and the revive bar now fills up.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_SELF_REVIVE.asset
+Project Grimhold/Assets/Scripts/Player/DownedRecoveryFeedbackRules.cs
+Project Grimhold/Assets/Scripts/Player/DownedRecoveryInterruptReason.cs
+Project Grimhold/Assets/Scripts/Player/DownedRecoveryRules.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/DownedReviveInteractable.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInteractionNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/PlayerDownedRecoveryNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/PlayerInputReader.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/LocalInteractionCandidateSource.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidDownedHudPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidDownedHudView.cs
+Project Grimhold/Assets/Scripts/Player/RecoveryKind.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveFeedbackTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveFeedbackTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveRulesTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/ModularHudFillTests.cs
+Project Grimhold/Assets/Tests/PlayMode/Player/PlayerInputReaderPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/PlayerSelfRevivePlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/PlayerSelfRevivePlayModeTests.cs.meta
+Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md
+Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- message-term → Combat: Damage
+- path → Movement: Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs
+- message-term → Movement: movement
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_SELF\_REVIVE.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/DownedReviveInteractable.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInteractionNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/LocalInteractionCandidateSource.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+- message-term → Networking &amp; Sessions: Host Migration
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidDownedHudPresenter.cs
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidDownedHudView.cs
+- path → UI: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/ModularHudFillTests.cs
+- path → UI: Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md
+- path → Input: Project Grimhold/Assets/Scripts/Player/PlayerInputReader.cs
+- path → Input: Project Grimhold/Assets/Tests/PlayMode/Player/PlayerInputReaderPlayModeTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveFeedbackTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveFeedbackTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveRulesTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveRulesTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/ModularHudFillTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveFeedbackTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveFeedbackTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveRulesTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/ModularHudFillTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/Player/PlayerInputReaderPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayerSelfRevivePlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayerSelfRevivePlayModeTests.cs.meta
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 0200410152cc382ff8f2fc92db3fc0af77c3c813
+
+[0200410152cc382ff8f2fc92db3fc0af77c3c813](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0200410152cc382ff8f2fc92db3fc0af77c3c813)
+
+Date: 2026-11-01T00:40:00-03:00 · Classification: Features (explicit) · Systems: Combat, UI, Audio, Art & Animation, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(presentation): add peripheral low-health blur and color split
+```
+
+#### Original body
+
+```text
+Sample the completed scene below the agony health threshold using a camera-local URP RenderGraph fullscreen effect. Preserve the clear center, avatar, cursor and overlay HUD, and release runtime materials when presentation ends.
+
+Add configurable sampling radii, owner-scoped teardown and GPU regression tests for protected pixels, Renderer2D execution and exact baseline restoration. The focused presentation/audio/settings suite passed 104 tests; real multiplayer and visual calibration remain manual.
+
+Player-Added: At critically low health, subtle blur and color separation at the screen edges reinforce the danger without obscuring your character or aim.
+
+Refs: TASK-253
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.mat
+Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.mat.meta
+Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.shader
+Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.shader.meta
+Project Grimhold/Assets/Prefabs/Gameplay Camera.prefab
+Project Grimhold/Assets/Scriptable Objects/ScreenDamageConfig.asset
+Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerScreenDamagePresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageCameraEffect.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageCameraEffect.cs.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageConfig.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageFeedbackState.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageRendererFeature.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageRendererFeature.cs.meta
+Project Grimhold/Assets/Settings/Renderer2D.asset
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamagePeripheralTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamagePeripheralTests.cs.meta
+Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.mat
+- path → Combat: Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.mat.meta
+- path → Combat: Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.shader
+- path → Combat: Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.shader.meta
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/ScreenDamageConfig.asset
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerScreenDamagePresenter.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageCameraEffect.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageCameraEffect.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageConfig.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageFeedbackState.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageRendererFeature.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageRendererFeature.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamagePeripheralTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamagePeripheralTests.cs.meta
+- path → UI: Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md
+- message-term → UI: HUD
+- message-term → Audio: audio
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.mat
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.mat.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.shader
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.shader.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamagePeripheralTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamagePeripheralTests.cs.meta
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamagePeripheralTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamagePeripheralTests.cs.meta
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 21c13f917a6eb230ab66ffb438ad439e2be3938d
+
+[21c13f917a6eb230ab66ffb438ad439e2be3938d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/21c13f917a6eb230ab66ffb438ad439e2be3938d)
+
+Date: 2026-11-01T00:23:20-03:00 · Classification: Features (explicit) · Systems: Combat, UI, Audio, Art & Animation, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(presentation): add progressive local screen damage spray
+```
+
+#### Original body
+
+```text
+Bind translucent screen damage to confirmed local health with smooth severity, heartbeat, hit flash and an accessibility intensity control. Preserve the clear center and cover viewport edges and corners with the v05 pixel spray.
+
+Include serialized HUD/configuration assets and EditMode health, lifecycle, mask and settings tests. Presentation/audio/settings regression suite: 95 passed. Peripheral scene blur and chromatic aberration remain for the next implementation slice.
+
+Refs: TASK-253
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Art/UI/ScreenDamage.meta
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-00.png
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-00.png.meta
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-01.png
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-01.png.meta
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-02.png
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-02.png.meta
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-03.png
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-03.png.meta
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-04.png
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-04.png.meta
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-05.png
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-05.png.meta
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-06.png
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-06.png.meta
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-07.png
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-07.png.meta
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-08.png
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-08.png.meta
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-09.png
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-09.png.meta
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-10.png
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-10.png.meta
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-11.png
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-11.png.meta
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-12.png
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-12.png.meta
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite
+Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite.meta
+Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab
+Project Grimhold/Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab
+Project Grimhold/Assets/Prefabs/UI/SettingsPanel.prefab
+Project Grimhold/Assets/Scriptable Objects/ScreenDamageConfig.asset
+Project Grimhold/Assets/Scriptable Objects/ScreenDamageConfig.asset.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/IScreenDamageSource.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/IScreenDamageSource.cs.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerHudBinder.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerScreenDamagePresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerScreenDamagePresenter.cs.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/PlayerScreenDamageSource.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/PlayerScreenDamageSource.cs.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageAccessibility.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageAccessibility.cs.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageConfig.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageConfig.cs.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageFeedbackState.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageFeedbackState.cs.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageView.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageView.cs.meta
+Project Grimhold/Assets/Scripts/UI/Settings/ScreenDamageOptionsView.cs
+Project Grimhold/Assets/Scripts/UI/Settings/ScreenDamageOptionsView.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamageTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamageTests.cs.meta
+Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage.meta
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-00.png
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-00.png.meta
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-01.png
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-01.png.meta
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-02.png
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-02.png.meta
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-03.png
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-03.png.meta
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-04.png
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-04.png.meta
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-05.png
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-05.png.meta
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-06.png
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-06.png.meta
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-07.png
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-07.png.meta
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-08.png
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-08.png.meta
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-09.png
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-09.png.meta
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-10.png
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-10.png.meta
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-11.png
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-11.png.meta
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-12.png
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-12.png.meta
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite
+- path → Combat: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite.meta
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/ScreenDamageConfig.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/ScreenDamageConfig.asset.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/IScreenDamageSource.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/IScreenDamageSource.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerScreenDamagePresenter.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerScreenDamagePresenter.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/PlayerScreenDamageSource.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/PlayerScreenDamageSource.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageAccessibility.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageAccessibility.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageConfig.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageConfig.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageFeedbackState.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageFeedbackState.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageView.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageView.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/UI/Settings/ScreenDamageOptionsView.cs
+- path → Combat: Project Grimhold/Assets/Scripts/UI/Settings/ScreenDamageOptionsView.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamageTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamageTests.cs.meta
+- message-term → Combat: damage
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage.meta
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-00.png
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-00.png.meta
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-01.png
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-01.png.meta
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-02.png
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-02.png.meta
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-03.png
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-03.png.meta
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-04.png
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-04.png.meta
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-05.png
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-05.png.meta
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-06.png
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-06.png.meta
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-07.png
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-07.png.meta
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-08.png
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-08.png.meta
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-09.png
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-09.png.meta
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-10.png
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-10.png.meta
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-11.png
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-11.png.meta
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-12.png
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-12.png.meta
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite
+- path → UI: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite.meta
+- path → UI: Project Grimhold/Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab
+- path → UI: Project Grimhold/Assets/Prefabs/UI/SettingsPanel.prefab
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerHudBinder.cs
+- path → UI: Project Grimhold/Assets/Scripts/UI/Settings/ScreenDamageOptionsView.cs
+- path → UI: Project Grimhold/Assets/Scripts/UI/Settings/ScreenDamageOptionsView.cs.meta
+- path → UI: Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md
+- message-term → UI: HUD
+- message-term → Audio: audio
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-00.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-00.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-01.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-01.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-02.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-02.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-03.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-03.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-04.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-04.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-05.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-05.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-06.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-06.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-07.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-07.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-08.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-08.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-09.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-09.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-10.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-10.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-11.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-11.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-12.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-12.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamageTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamageTests.cs.meta
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamageTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamageTests.cs.meta
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 735417b34141b2eb9b37e8bb5c5eb0a87cdc3f3c
 

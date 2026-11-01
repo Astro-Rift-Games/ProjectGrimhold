@@ -14,6 +14,8 @@ No release baseline exists yet. The monthly history below is initial development
 
 ### [2026-11 — before the first release](docs/changelog/history-2026-11.md)
 
+- **Combat** — **presentation:** Added peripheral low-health blur and color split. ([0200410](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0200410152cc382ff8f2fc92db3fc0af77c3c813), [21c13f9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/21c13f917a6eb230ab66ffb438ad439e2be3938d)).
+- **Inventory & Loot** — **revive:** Added self-revive consumable and tap-to-hand-off flow. ([15e8065](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/15e80657787f2601c3828703ae06c9b189a6a417)).
 - **UI** — **presentation:** Fade the local view to black and white while Downed. ([735417b](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/735417b34141b2eb9b37e8bb5c5eb0a87cdc3f3c)).
 
 [Full period history](docs/changelog/history-2026-11.md)

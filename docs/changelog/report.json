@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 873,
-  "canonicalEntries": 870,
+  "rawCommits": 876,
+  "canonicalEntries": 873,
   "before": {
-    "Features": 319,
+    "Features": 322,
     "Bug Fixes": 78,
     "Documentation": 75,
     "Refactoring": 13,
@@ -12,7 +12,7 @@
     "Tests": 24
   },
   "after": {
-    "Features": 456,
+    "Features": 459,
     "Bug Fixes": 94,
     "Documentation": 90,
     "Refactoring": 26,
@@ -23,26 +23,26 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Combat": 313,
-    "UI": 265,
+    "Combat": 316,
+    "Movement": 89,
+    "Inventory & Loot": 315,
+    "Networking & Sessions": 255,
+    "UI": 268,
+    "Input": 28,
+    "Build & Tooling": 440,
+    "Documentation": 342,
+    "Tests": 520,
+    "Audio": 30,
+    "Art & Animation": 209,
     "World & Visibility": 110,
-    "Build & Tooling": 437,
-    "Documentation": 339,
-    "Tests": 517,
-    "Inventory & Loot": 314,
     "Persistence & Backend": 185,
-    "Art & Animation": 207,
     "Abilities": 104,
-    "Movement": 88,
     "Unassigned": 18,
-    "Extraction": 119,
-    "Networking & Sessions": 254,
-    "Input": 27,
-    "Audio": 28
+    "Extraction": 119
   },
   "canonical": {
     "sections": {
-      "Features": 455,
+      "Features": 458,
       "Bug Fixes": 93,
       "Documentation": 90,
       "Refactoring": 26,
@@ -52,22 +52,22 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "Combat": 311,
-      "UI": 264,
+      "Combat": 314,
+      "Movement": 89,
+      "Inventory & Loot": 315,
+      "Networking & Sessions": 255,
+      "UI": 267,
+      "Input": 28,
+      "Build & Tooling": 438,
+      "Documentation": 340,
+      "Tests": 518,
+      "Audio": 30,
+      "Art & Animation": 206,
       "World & Visibility": 108,
-      "Build & Tooling": 435,
-      "Documentation": 337,
-      "Tests": 515,
-      "Inventory & Loot": 314,
       "Persistence & Backend": 185,
-      "Art & Animation": 204,
       "Abilities": 102,
-      "Movement": 88,
       "Unassigned": 18,
-      "Extraction": 119,
-      "Networking & Sessions": 254,
-      "Input": 27,
-      "Audio": 28
+      "Extraction": 119
     }
   },
   "unknownEntries": [
@@ -34029,8 +34029,8 @@
       "title": "2026-11 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 1,
-      "canonicalEntries": 1
+      "originalCommits": 4,
+      "canonicalEntries": 4
     },
     {
       "key": "history-2026-10",
@@ -34066,6 +34066,1119 @@
     }
   ],
   "commits": [
+    {
+      "sha": "15e80657787f2601c3828703ae06c9b189a6a417",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/15e80657787f2601c3828703ae06c9b189a6a417",
+      "subject": "feat(revive): add self-revive consumable and tap-to-hand-off flow",
+      "body": "Implement TASK-236 (GD 13 sections 7, 7.1, 8, 10; GD 14 section 11.4).\nA Downed player carrying CON_SELF_REVIVE presses Interact to start an\nauthoritative 5 s Self-revive channel that locks voluntary movement and\npauses the Downed drain. Damage, a displacement that still moves the\navatar or definitive Defeat interrupts it without consuming the item;\ndisconnect does not. Completion consumes one unit (Town origin first),\nrestores 25 HP and spends the one Self-revive allowed per expedition.\n\nAn Active teammate taps Interact on a Downed ally to hand over their\nSelf-reviver and holds Interact to revive. The press still opens an\nassisted session; a release within 0.3 s converts it into a 1 s handoff\nwhen the giver carries the item and the ally can receive and use it.\nThe handoff does not pause the drain, transfers the unit atomically\nwithout a world drop and starts the Self-revive automatically.\n\nReviewers should verify:\n- RecoveryKind.Handoff and DownedRecoveryInterruptReason.HandoffRejected\n  are appended, so existing byte values are unchanged.\n- New networked SelfReviveUsed and LastOutcomeSessionKind are reset in\n  Spawned except on Host Migration restore.\n- Provisional balance values (25 HP, 5 s, 1 s, 0.3 s) are serialized on\n  PlayerDownedRecoveryNetworkController.\n- CON_SELF_REVIVE is no longer Quick Slot compatible; stored bindings\n  are dropped on load by the existing codec rule.\n- PlayerInputReader now transports a held Interact from an accepted\n  press until release. Previously only the one-tick press reached\n  simulation, so a real hold was read as a release.\n- The revive panel bar fill is assigned and active in\n  NetworkPlayer.prefab and follows the same progress as the ring.\n\nTests:\n- DownedSelfReviveRulesTests, DownedSelfReviveFeedbackTests (EditMode)\n- PlayerSelfRevivePlayModeTests (completion, interruption, quota,\n  movement lock, tap handoff, hold revive, rejections)\n- PlayerInputReaderPlayModeTests: held Interact transport\n- ModularHudFillTests: revive panel bar progress and prefab wiring\n- MvpItemCatalogTests: CON_SELF_REVIVE is not Quick Slot compatible\n\nDocs: DownedAndReviveArchitecture section 7.1 and status tables;\nRaidMainHudArchitecture revive panel bar note.\n\nPlayer-Added: Carry a Self-reviver to get back up on your own while downed, or tap the interact key on a downed ally to give them yours.\nPlayer-Fixed: Holding the interact key on a downed ally now keeps reviving them instead of stopping right away, and the revive bar now fills up.\n",
+      "date": "2026-10-31T22:22:59-03:00",
+      "files": [
+        "Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_SELF_REVIVE.asset",
+        "Project Grimhold/Assets/Scripts/Player/DownedRecoveryFeedbackRules.cs",
+        "Project Grimhold/Assets/Scripts/Player/DownedRecoveryInterruptReason.cs",
+        "Project Grimhold/Assets/Scripts/Player/DownedRecoveryRules.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/DownedReviveInteractable.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInteractionNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerDownedRecoveryNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerInputReader.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/LocalInteractionCandidateSource.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidDownedHudPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidDownedHudView.cs",
+        "Project Grimhold/Assets/Scripts/Player/RecoveryKind.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveFeedbackTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveFeedbackTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveRulesTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveRulesTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/ModularHudFillTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Player/PlayerInputReaderPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/PlayerSelfRevivePlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/PlayerSelfRevivePlayModeTests.cs.meta",
+        "Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "revive",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Movement",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "Input",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "message-term",
+          "value": "Damage",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs",
+          "supports": "Movement"
+        },
+        {
+          "source": "message-term",
+          "value": "movement",
+          "supports": "Movement"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_SELF_REVIVE.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/DownedReviveInteractable.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInteractionNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/LocalInteractionCandidateSource.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "Host Migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidDownedHudPresenter.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidDownedHudView.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/ModularHudFillTests.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/PlayerInputReader.cs",
+          "supports": "Input"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Player/PlayerInputReaderPlayModeTests.cs",
+          "supports": "Input"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveFeedbackTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveFeedbackTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveRulesTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/ModularHudFillTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveFeedbackTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveFeedbackTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/DownedSelfReviveRulesTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/ModularHudFillTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Player/PlayerInputReaderPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerSelfRevivePlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerSelfRevivePlayModeTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "0200410152cc382ff8f2fc92db3fc0af77c3c813",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0200410152cc382ff8f2fc92db3fc0af77c3c813",
+      "subject": "feat(presentation): add peripheral low-health blur and color split",
+      "body": "Sample the completed scene below the agony health threshold using a camera-local URP RenderGraph fullscreen effect. Preserve the clear center, avatar, cursor and overlay HUD, and release runtime materials when presentation ends.\n\nAdd configurable sampling radii, owner-scoped teardown and GPU regression tests for protected pixels, Renderer2D execution and exact baseline restoration. The focused presentation/audio/settings suite passed 104 tests; real multiplayer and visual calibration remain manual.\n\nPlayer-Added: At critically low health, subtle blur and color separation at the screen edges reinforce the danger without obscuring your character or aim.\n\nRefs: TASK-253\n",
+      "date": "2026-11-01T00:40:00-03:00",
+      "files": [
+        "Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.mat",
+        "Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.mat.meta",
+        "Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.shader",
+        "Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.shader.meta",
+        "Project Grimhold/Assets/Prefabs/Gameplay Camera.prefab",
+        "Project Grimhold/Assets/Scriptable Objects/ScreenDamageConfig.asset",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerScreenDamagePresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageCameraEffect.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageCameraEffect.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageConfig.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageFeedbackState.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageRendererFeature.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageRendererFeature.cs.meta",
+        "Project Grimhold/Assets/Settings/Renderer2D.asset",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamagePeripheralTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamagePeripheralTests.cs.meta",
+        "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "presentation",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "UI",
+        "Audio",
+        "Art & Animation",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.mat",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.mat.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.shader",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.shader.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/ScreenDamageConfig.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerScreenDamagePresenter.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageCameraEffect.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageCameraEffect.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageConfig.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageFeedbackState.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageRendererFeature.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageRendererFeature.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamagePeripheralTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamagePeripheralTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "HUD",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "audio",
+          "supports": "Audio"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.mat",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.mat.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.shader",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Shaders/ScreenDamagePeripheral.shader.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamagePeripheralTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamagePeripheralTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamagePeripheralTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamagePeripheralTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "21c13f917a6eb230ab66ffb438ad439e2be3938d",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/21c13f917a6eb230ab66ffb438ad439e2be3938d",
+      "subject": "feat(presentation): add progressive local screen damage spray",
+      "body": "Bind translucent screen damage to confirmed local health with smooth severity, heartbeat, hit flash and an accessibility intensity control. Preserve the clear center and cover viewport edges and corners with the v05 pixel spray.\n\nInclude serialized HUD/configuration assets and EditMode health, lifecycle, mask and settings tests. Presentation/audio/settings regression suite: 95 passed. Peripheral scene blur and chromatic aberration remain for the next implementation slice.\n\nRefs: TASK-253\n",
+      "date": "2026-11-01T00:23:20-03:00",
+      "files": [
+        "Project Grimhold/Assets/Art/UI/ScreenDamage.meta",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-00.png",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-00.png.meta",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-01.png",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-01.png.meta",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-02.png",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-02.png.meta",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-03.png",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-03.png.meta",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-04.png",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-04.png.meta",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-05.png",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-05.png.meta",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-06.png",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-06.png.meta",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-07.png",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-07.png.meta",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-08.png",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-08.png.meta",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-09.png",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-09.png.meta",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-10.png",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-10.png.meta",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-11.png",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-11.png.meta",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-12.png",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-12.png.meta",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite.meta",
+        "Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab",
+        "Project Grimhold/Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab",
+        "Project Grimhold/Assets/Prefabs/UI/SettingsPanel.prefab",
+        "Project Grimhold/Assets/Scriptable Objects/ScreenDamageConfig.asset",
+        "Project Grimhold/Assets/Scriptable Objects/ScreenDamageConfig.asset.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/IScreenDamageSource.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/IScreenDamageSource.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerHudBinder.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerScreenDamagePresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerScreenDamagePresenter.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/PlayerScreenDamageSource.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/PlayerScreenDamageSource.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageAccessibility.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageAccessibility.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageConfig.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageConfig.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageFeedbackState.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageFeedbackState.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageView.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageView.cs.meta",
+        "Project Grimhold/Assets/Scripts/UI/Settings/ScreenDamageOptionsView.cs",
+        "Project Grimhold/Assets/Scripts/UI/Settings/ScreenDamageOptionsView.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamageTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamageTests.cs.meta",
+        "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "presentation",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "UI",
+        "Audio",
+        "Art & Animation",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-00.png",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-00.png.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-01.png",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-01.png.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-02.png",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-02.png.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-03.png",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-03.png.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-04.png",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-04.png.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-05.png",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-05.png.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-06.png",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-06.png.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-07.png",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-07.png.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-08.png",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-08.png.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-09.png",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-09.png.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-10.png",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-10.png.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-11.png",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-11.png.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-12.png",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-12.png.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/ScreenDamageConfig.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/ScreenDamageConfig.asset.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/IScreenDamageSource.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/IScreenDamageSource.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerScreenDamagePresenter.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerScreenDamagePresenter.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/PlayerScreenDamageSource.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/PlayerScreenDamageSource.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageAccessibility.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageAccessibility.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageConfig.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageConfig.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageFeedbackState.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageFeedbackState.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageView.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/ScreenDamageView.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/UI/Settings/ScreenDamageOptionsView.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/UI/Settings/ScreenDamageOptionsView.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamageTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamageTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "damage",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-00.png",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-00.png.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-01.png",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-01.png.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-02.png",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-02.png.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-03.png",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-03.png.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-04.png",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-04.png.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-05.png",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-05.png.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-06.png",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-06.png.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-07.png",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-07.png.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-08.png",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-08.png.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-09.png",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-09.png.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-10.png",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-10.png.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-11.png",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-11.png.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-12.png",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-12.png.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/SettingsPanel.prefab",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerHudBinder.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/UI/Settings/ScreenDamageOptionsView.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/UI/Settings/ScreenDamageOptionsView.cs.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "HUD",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "audio",
+          "supports": "Audio"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-00.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-00.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-01.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-01.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-02.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-02.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-03.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-03.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-04.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-04.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-05.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-05.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-06.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-06.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-07.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-07.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-08.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-08.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-09.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-09.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-10.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-10.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-11.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-11.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-12.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-12.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamageTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamageTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamageTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ScreenDamageTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "735417b34141b2eb9b37e8bb5c5eb0a87cdc3f3c",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/735417b34141b2eb9b37e8bb5c5eb0a87cdc3f3c",
