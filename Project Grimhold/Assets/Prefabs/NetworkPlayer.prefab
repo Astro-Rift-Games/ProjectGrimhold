@@ -8984,6 +8984,7 @@ MonoBehaviour:
   _abilityHudPresenter: {fileID: 2116062982825614417}
   _downedHudPresenter: {fileID: 943674581904996840}
   _downedPostProcessPresenter: {fileID: 3166232998261261949}
+  _screenDamagePresenter: {fileID: 9116557547608970048}
   _quickSlotHudPresenter: {fileID: 7503110010564329903}
   _raidMinimapPresenter: {fileID: 9200000000000000007}
   _dungeonPressureHudPresenter: {fileID: 2804268915249948852}
@@ -16573,6 +16574,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d4b1b63d1ae24c9ed874561037eb0404, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CombatFeedbackPresenter
+--- !u!114 &9116557547608970048 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1504311149497180527, guid: 641fcb581b6043c4f9639cada0350750, type: 3}
+  m_PrefabInstance: {fileID: 7666507331312808495}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 359be3a47a8ecf842845646e9451f42a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LocalPlayerScreenDamagePresenter
 --- !u!114 &9200000000000000007 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 1569522668373013032, guid: 641fcb581b6043c4f9639cada0350750, type: 3}

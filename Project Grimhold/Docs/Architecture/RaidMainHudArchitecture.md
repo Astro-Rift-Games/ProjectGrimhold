@@ -31,6 +31,59 @@ Input Authority NetworkPlayer
 
 No additional Canvas, HUD prefab, global manager, service locator, event bus, or per-frame component search is used.
 
+## Active-health screen damage (TASK-253)
+
+`LocalPlayerScreenDamagePresenter` is bound/unbound by `LocalPlayerHudBinder` on the local
+HUD only. `PlayerScreenDamageSource` validates the spawned Input Authority object before
+reading Health/MaxHealth and suppresses feedback while Downed or dead. It never mutates
+simulation, sends RPCs or derives a second health cap. Rebind and temporary source loss
+start a silent damage baseline; maximum-health changes are not treated as impacts.
+
+`ScreenDamageFeedbackState` smoothly maps health below 70% to spray severity. Heartbeat
+modulation begins below 40% and accelerates toward zero health; confirmed observed health
+loss adds a 0.05s attack / 0.2s release flash. Its clock uses unscaled presentation time.
+`ScreenDamageConfig` owns the editable thresholds, severity curve, timing and tint.
+
+`ScreenDamageView` crossfades adjacent stages of the translucent pixel spray v05
+on two non-raycast Images, at the first sibling of `LocalGameplayHud`, behind all HUD content.
+Thirteen 320x180 RGBA stages retain the transparent center and alpha capped at 88/255;
+Point sampling, no mipmaps/compression and FullRect sprite meshes preserve their footprint.
+The v05 perimeter reaches every viewport edge and corner with faint pigment; only the
+inward spray boundary feathers to transparency. The v04 outer alpha feather was removed
+because it produced a visible inset gap in gameplay. The source Aseprite file is retained
+beside the PNGs. No circular URP Vignette is added and
+TASK-254's Downed Volume remains independently owned.
+
+The independent `ScreenDamageOptionsView` adds a local intensity slider to SettingsPanel,
+without changing audio control bindings. Zero disables all spray, heartbeat and hit flash;
+the scalar is persisted in PlayerPrefs, not replicated or stored in shared configuration.
+
+Below the agony threshold (20% by default), `ScreenDamageFeedbackState.PeripheralWeight`
+smoothly introduces scene-sampling blur and chromatic separation, independently of hit flashes.
+The same accessibility scalar attenuates these effects; zero clears them immediately.
+`ScreenDamageCameraEffect` is authored on `Gameplay Camera` with a serialized material template
+that retains the shader in builds. It owns a private runtime material and a lease scoped to
+the bound local presenter; stale teardown cannot clear another owner's presentation.
+
+`ScreenDamageRendererFeature` extends URP 17.5's `FullScreenPassRendererFeature` on Renderer2D.
+It enqueues only for a Game camera with a live camera-local lease, after postprocessing and
+before the Screen Space Overlay HUD. It fetches the completed scene color, including transparent
+sprites, through `_BlitTexture`, not `_CameraOpaqueTexture`. It restores the shared feature's
+material reference after enqueueing and never changes the scene Volume or Downed effect.
+No custom legacy render pass or render-pipeline compatibility mode is required.
+
+The shader uses a rectangular peripheral mask, preserves a central 60% region, and excludes
+the bound avatar and mouse viewport positions with aspect-correct clear radii. Exclusions are
+updated when the exact camera renders, after camera follow/shake. UVs follow URP's blit convention;
+an extra platform Y flip would incorrectly mirror those protection zones. Sample offsets are
+bounded in render-target pixels, so Pixel Perfect upscaling requires final visual calibration.
+Source loss, death, Downed, disable, unbind and destruction release the runtime material.
+
+GPU EditMode checks cover scene sampling, protected pixels, actual Renderer2D execution,
+owner-scoped material isolation and exact baseline restoration after clear. Actual Host/Client,
+camera-offset/cursor playtesting, migration and player-facing visual calibration remain manual;
+automated rendering/lifecycle checks are not multiplayer or visual acceptance.
+
 ## Sources of truth
 
 | HUD section | Source |

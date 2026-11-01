@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1d54e31df50c87e4bba8136281f326b8, type: 3}
+  m_Name: ScreenDamageConfig
+  m_EditorClassIdentifier: Assembly-CSharp::ScreenDamageConfig
+  _healthyThreshold: 0.7
+  _criticalThreshold: 0.4
+  _agonyThreshold: 0.2
+  _severityCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  _responseSeconds: 0.18
+  _flashInSeconds: 0.05
+  _flashOutSeconds: 0.2
+  _flashStrength: 0.4
+  _pulseStrength: 0.12
+  _slowHeartbeatHz: 1
+  _fastHeartbeatHz: 2.5
+  _tint: {r: 1, g: 1, b: 1, a: 1}
+  _blurPixels: 1.1
+  _chromaticPixels: 0.65
+  _clearCenter: 0.6
+  _avatarClearRadius: 0.1
+  _cursorClearRadius: 0.05

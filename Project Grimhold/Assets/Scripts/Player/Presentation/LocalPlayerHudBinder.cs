@@ -37,6 +37,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private LocalPlayerDownedPostProcessPresenter _downedPostProcessPresenter;
 
     [SerializeField]
+    private LocalPlayerScreenDamagePresenter _screenDamagePresenter;
+
+    [SerializeField]
     private RaidQuickSlotHudPresenter _quickSlotHudPresenter;
 
     [SerializeField]
@@ -253,6 +256,10 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         {
             _downedPostProcessPresenter.Bind(_playerCharacter);
         }
+        if (_screenDamagePresenter != null)
+        {
+            _screenDamagePresenter.Bind(_playerCharacter);
+        }
         if (_raidMinimapPresenter != null)
         {
             _raidMinimapPresenter.Bind(
@@ -313,6 +320,10 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         if (_downedPostProcessPresenter != null)
         {
             _downedPostProcessPresenter.Unbind();
+        }
+        if (_screenDamagePresenter != null)
+        {
+            _screenDamagePresenter.Unbind();
         }
 
         if (_teammateHudPresenter != null)
