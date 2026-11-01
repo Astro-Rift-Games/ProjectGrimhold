@@ -31,6 +31,37 @@ Input Authority NetworkPlayer
 
 No additional Canvas, HUD prefab, global manager, service locator, event bus, or per-frame component search is used.
 
+## Active-health screen damage (TASK-253)
+
+`LocalPlayerScreenDamagePresenter` is bound/unbound by `LocalPlayerHudBinder` on the local
+HUD only. `PlayerScreenDamageSource` validates the spawned Input Authority object before
+reading Health/MaxHealth and suppresses feedback while Downed or dead. It never mutates
+simulation, sends RPCs or derives a second health cap. Rebind and temporary source loss
+start a silent damage baseline; maximum-health changes are not treated as impacts.
+
+`ScreenDamageFeedbackState` smoothly maps health below 70% to spray severity. Heartbeat
+modulation begins below 40% and accelerates toward zero health; confirmed observed health
+loss adds a 0.05s attack / 0.2s release flash. Its clock uses unscaled presentation time.
+`ScreenDamageConfig` owns the editable thresholds, severity curve, timing and tint.
+
+`ScreenDamageView` crossfades adjacent stages of the translucent pixel spray v05
+on two non-raycast Images, at the first sibling of `LocalGameplayHud`, behind all HUD content.
+Thirteen 320x180 RGBA stages retain the transparent center and alpha capped at 88/255;
+Point sampling, no mipmaps/compression and FullRect sprite meshes preserve their footprint.
+The v05 perimeter reaches every viewport edge and corner with faint pigment; only the
+inward spray boundary feathers to transparency. The v04 outer alpha feather was removed
+because it produced a visible inset gap in gameplay. The source Aseprite file is retained
+beside the PNGs. No circular URP Vignette is added and
+TASK-254's Downed Volume remains independently owned.
+
+The independent `ScreenDamageOptionsView` adds a local intensity slider to SettingsPanel,
+without changing audio control bindings. Zero disables all spray, heartbeat and hit flash;
+the scalar is persisted in PlayerPrefs, not replicated or stored in shared configuration.
+
+This initial implementation does not yet implement scene-sampling peripheral blur/chromatic
+aberration. Those TASK-253 effects and actual Host/Client, cursor/offset and visual calibration
+remain pending; automated mask/lifecycle checks are not multiplayer or visual acceptance.
+
 ## Sources of truth
 
 | HUD section | Source |
