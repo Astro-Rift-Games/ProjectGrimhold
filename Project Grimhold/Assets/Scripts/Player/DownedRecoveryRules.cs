@@ -1,5 +1,5 @@
 /// <summary>
-/// Pure deterministic rules for Downed recovery sessions (GD 13 sections 6 and 18).
+/// Pure deterministic rules for Downed recovery sessions (GD 13 sections 6, 7, 7.1, 8 and 18).
 /// Holds no state; the session owner feeds it authoritative values each tick.
 /// </summary>
 internal static class DownedRecoveryRules
@@ -80,6 +80,94 @@ internal static class DownedRecoveryRules
         }
 
         return DownedRecoveryInterruptReason.None;
+    }
+
+    /// <summary>
+    /// True when a Downed player may start a Self-revive: carries a Self-reviver, has no session
+    /// running and has not used the one successful Self-revive allowed per expedition.
+    /// </summary>
+    internal static bool CanStartSelf(bool isDowned, bool hasValidSession, bool carriesSelfReviver, bool selfReviveUsed)
+    {
+        return isDowned && !hasValidSession && carriesSelfReviver && !selfReviveUsed;
+    }
+
+    /// <summary>
+    /// True when an Active teammate may hand their Self-reviver to the Downed target: the assisted
+    /// start conditions, plus an item to give and a target that can receive and still use it.
+    /// </summary>
+    internal static bool CanStartHandoff(
+        bool giverAlive,
+        bool giverDowned,
+        bool sameTeam,
+        float distance,
+        float range,
+        bool targetDowned,
+        bool targetHasValidSession,
+        bool giverAlreadyReviving,
+        bool giverCarriesSelfReviver,
+        bool targetCanReceive,
+        bool targetSelfReviveUsed)
+    {
+        return giverCarriesSelfReviver &&
+               targetCanReceive &&
+               !targetSelfReviveUsed &&
+               CanStartAssisted(giverAlive, giverDowned, sameTeam, distance, range,
+                   targetDowned, targetHasValidSession, giverAlreadyReviving);
+    }
+
+    /// <summary>
+    /// Tap-versus-hold resolution: an assisted session released within the tap window becomes a
+    /// handoff when one is possible. Any other interruption, or a longer hold, keeps its outcome.
+    /// </summary>
+    internal static bool ShouldConvertToHandoff(
+        DownedRecoveryInterruptReason interruption,
+        float elapsedSeconds,
+        float tapWindowSeconds,
+        bool canHandoff)
+    {
+        return canHandoff &&
+               interruption == DownedRecoveryInterruptReason.InteractReleased &&
+               !float.IsNaN(elapsedSeconds) && elapsedSeconds <= tapWindowSeconds;
+    }
+
+    /// <summary>
+    /// Self-revive interruptions. Voluntary movement is locked, so movement here is a displacement
+    /// that still moved the avatar; damage arrives through the damage observer and disconnect never
+    /// interrupts (GD 13 sections 7, 11 and 18).
+    /// </summary>
+    internal static DownedRecoveryInterruptReason EvaluateSelfInterruption(
+        bool downedIsDowned,
+        int sessionCycle,
+        int downedCycle,
+        bool downedMoving)
+    {
+        if (!downedIsDowned || sessionCycle != downedCycle)
+        {
+            return DownedRecoveryInterruptReason.DownedDefeated;
+        }
+
+        return downedMoving ? DownedRecoveryInterruptReason.DownedMoved : DownedRecoveryInterruptReason.None;
+    }
+
+    /// <summary>
+    /// Handoff interruptions: the giver's assisted conditions (damage, movement, range, incompatible
+    /// action, Downed, disconnect) without holding Interact, and without the Downed's own movement,
+    /// which only matters when it breaks the range (GD 13 sections 7.1 and 8).
+    /// </summary>
+    internal static DownedRecoveryInterruptReason EvaluateHandoffInterruption(
+        in DownedRecoveryInterruptionSnapshot snapshot)
+    {
+        DownedRecoveryInterruptReason reason = EvaluateInterruption(snapshot);
+        return reason == DownedRecoveryInterruptReason.InteractReleased ||
+               reason == DownedRecoveryInterruptReason.DownedMoved
+            ? DownedRecoveryInterruptReason.None
+            : reason;
+    }
+
+    /// <summary>Only a revive pauses the drain; the handoff does not (GD 13 section 4).</summary>
+    internal static bool PausesDrain(RecoveryKind kind)
+    {
+        return kind == RecoveryKind.Assisted || kind == RecoveryKind.Self;
     }
 
     /// <summary>A session is valid only for its own Downed cycle while the target is still Downed.</summary>

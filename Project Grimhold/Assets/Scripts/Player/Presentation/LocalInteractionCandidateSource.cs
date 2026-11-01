@@ -127,7 +127,7 @@ public sealed class LocalInteractionCandidateSource : NetworkBehaviour
             {
                 // The avatar's metadata describes its corpse, so a Downed target overrides it each frame.
                 _currentPromptText = _reviveInteractable.IsTargetDowned
-                    ? DownedReviveInteractable.PromptText
+                    ? _reviveInteractable.ResolvePromptText(_character as PlayerCharacter)
                     : _metadataPromptText;
             }
             return;
@@ -142,7 +142,7 @@ public sealed class LocalInteractionCandidateSource : NetworkBehaviour
         _currentPromptText = _socialPlayerInteractable != null
             ? _socialPlayerInteractable.PromptText
             : _reviveInteractable != null && _reviveInteractable.IsTargetDowned
-                ? DownedReviveInteractable.PromptText
+                ? _reviveInteractable.ResolvePromptText(_character as PlayerCharacter)
                 : _metadataPromptText;
     }
 

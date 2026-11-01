@@ -41,6 +41,10 @@ public sealed class PlayerInputReader : MonoBehaviour
     private bool _primaryAttackRequiresRelease;
     private bool _secondaryActionRequiresRelease;
     private bool _interactRequiresRelease;
+
+    // True from a transported Interact press until release, so a held Interact keeps
+    // reaching simulation (e.g. holding to revive) without a held key becoming a new press.
+    private bool _interactHoldActive;
     private bool _abilitySlot1RequiresRelease;
     private bool _abilitySlot2RequiresRelease;
 
@@ -133,6 +137,7 @@ public sealed class PlayerInputReader : MonoBehaviour
         ReadAbility(_abilitySlot1Action, PlayerInputButton.AbilitySlot1, ref _abilitySlot1RequiresRelease);
         ReadAbility(_abilitySlot2Action, PlayerInputButton.AbilitySlot2, ref _abilitySlot2RequiresRelease);
         ReadSprint();
+        ReadInteractHold();
         ReadWeaponSelection();
         ReadQuickSlots();
     }
@@ -177,6 +182,7 @@ public sealed class PlayerInputReader : MonoBehaviour
         }
 
         _pendingButtons.Set(PlayerInputButton.Interact, true);
+        _interactHoldActive = true;
     }
 
     private void OnToggleInventoryPerformed(InputAction.CallbackContext context)
@@ -212,6 +218,7 @@ public sealed class PlayerInputReader : MonoBehaviour
     private void OnInteractCanceled(InputAction.CallbackContext context)
     {
         _interactRequiresRelease = false;
+        _interactHoldActive = false;
     }
 
     private void OnPrimaryAttackCanceled(InputAction.CallbackContext context)
@@ -484,6 +491,17 @@ public sealed class PlayerInputReader : MonoBehaviour
         }
     }
 
+    private void ReadInteractHold()
+    {
+        if (IsGameplayInputSuppressed || _interactRequiresRelease ||
+            !_inputActions.Gameplay.Interact.IsPressed())
+        {
+            _interactHoldActive = false;
+        }
+
+        _buttons.Set(PlayerInputButton.Interact, _interactHoldActive);
+    }
+
     private void ReadSprint()
     {
         _buttons.Set(
@@ -535,6 +553,7 @@ public sealed class PlayerInputReader : MonoBehaviour
         _buttons = default;
         _pendingButtons = default;
         _resetAccumulatedButtons = false;
+        _interactHoldActive = false;
     }
 
     private void UpdateDiscreteButtonRearm()

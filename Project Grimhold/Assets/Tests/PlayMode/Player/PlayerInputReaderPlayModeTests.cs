@@ -203,6 +203,38 @@ namespace Assets.Tests.PlayMode.Player
         }
 
         [Test]
+        public void HeldInteract_IsTransportedAcrossCollectionsUntilReleased()
+        {
+            SetKey(Key.F, true);
+            InvokeReaderLifecycle("Update");
+            Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(PlayerInputButton.Interact), Is.True, "Press.");
+
+            for (int i = 0; i < 3; i++)
+            {
+                InvokeReaderLifecycle("Update");
+                Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(PlayerInputButton.Interact), Is.True,
+                    $"Still held on collection {i + 1}.");
+            }
+
+            SetKey(Key.F, false);
+            InvokeReaderLifecycle("Update");
+            Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(PlayerInputButton.Interact), Is.False, "Released.");
+        }
+
+        [Test]
+        public void HeldInteractAcrossSuppressionRelease_IsNotTransportedUntilANewPress()
+        {
+            SetKey(Key.F, true);
+            InvokeReaderLifecycle("Update");
+            _reader.ConsumeNetworkInput();
+            IDisposable suppression = _reader.AcquireGameplayInputSuppression();
+            suppression.Dispose();
+
+            InvokeReaderLifecycle("Update");
+            Assert.That(_reader.ConsumeNetworkInput().Buttons.IsSet(PlayerInputButton.Interact), Is.False);
+        }
+
+        [Test]
         public void DisableEnable_ClearsPendingDiscreteInputAndKeepsMapsUsable()
         {
             SetKey(Key.F, true);

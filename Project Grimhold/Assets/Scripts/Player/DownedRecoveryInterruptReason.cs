@@ -1,4 +1,4 @@
-/// <summary>Why an assisted recovery session was interrupted (one value per GD 13 matrix row).</summary>
+/// <summary>Why a recovery session was interrupted (one value per GD 13 matrix row).</summary>
 public enum DownedRecoveryInterruptReason : byte
 {
     None = 0,
@@ -11,5 +11,8 @@ public enum DownedRecoveryInterruptReason : byte
     IncompatibleReviverAction,
     ReviverDowned,
     ReviverDisconnected,
-    DownedDefeated
+    DownedDefeated,
+
+    /// <summary>The handoff ran its course but the Self-reviver could no longer be transferred.</summary>
+    HandoffRejected
 }
