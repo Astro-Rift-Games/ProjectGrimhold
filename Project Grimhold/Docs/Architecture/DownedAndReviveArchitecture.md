@@ -282,10 +282,33 @@ ritual (see section 13).
 | Weapon visuals hidden | `PlayerWeaponPresenter` | Implemented |
 | Mana-drain skills deactivate, Mana preserved | `PlayerManaNetworkController` does not reset Mana on Downed/recovery. The existing ability runtime stops active execution on Downed; periodic drain schedules and concrete abilities remain deferred. | Resource preservation implemented (TASK 199); periodic consumers deferred |
 | Downed HUD (reserve, revive progress, interruption/completion notices, ally Downed) | `RaidDownedHudPresenter` reads replicated state only (see `RaidMainHudArchitecture.md`) | Implemented (TASK-215); not yet validated Host/Client |
+| Downed black-and-white post-process (local camera only) | `LocalPlayerDownedPostProcessPresenter`, bound by `LocalPlayerHudBinder` to the Input Authority avatar; reads `IsDowned`, the reserve and `TryGetProgress` only (section 9.1) | Implemented (TASK-254); visual and Host/Client validation pending |
 | Downed pose | Presentation only, reads `IsDowned` | Planned (no task) |
 
 Unlisted abilities are blocked by the same rule: any new action choke point must call
 `PlayerDownedGate.IsDowned`. Extraction is intentionally not gated.
+
+### 9.1 Local Downed post-process (TASK-254)
+
+Presentation only; it never writes networked state and adds no replicated fields.
+
+* **Isolation.** Only the local HUD binder binds it, so proxies and other peers keep their normal
+  camera and see the Downed avatar with its usual sprites.
+* **Rendering.** A runtime global `Volume` (priority from `DownedPostProcessConfig`, above the
+  scene ambient Volume) with its own `VolumeProfile`: `ColorAdjustments` (saturation -100,
+  balanced contrast, exposure) and a soft `Vignette`. The Volume GameObject is a child of the
+  presenter (never `DontSave`), so it cannot outlive the HUD or survive a scene load. It exists only while the
+  effect is visible and is destroyed on fade-out completion, unbind, disable or avatar loss. No
+  renderer feature, shader or shared Volume asset is modified. The HUD canvas is Screen Space
+  Overlay, so post-processing never alters it.
+* **Blending.** `DownedPostProcessBlend` (pure) evaluates each frame: fade-in on
+  Active -> Downed (0.3-0.5 s), fade-out (0.4 s) on Downed -> Active or definitive Defeat;
+  Volume weight blends every override against the scene.
+* **Reactivity.** The vignette deepens and the image dims progressively as the reserve approaches
+  zero (eased so damage chunks never pop); a revive session (assisted or self) gradually recovers
+  part of the colour. Reserve and revive values are latched when Downed ends so the fade-out keeps
+  the last look instead of darkening on the cleared reserve.
+* **Out of scope.** The Defeat overlay owns definitive Defeat presentation; this effect only fades out.
 
 ## 10. Accelerated Resolution (Planned, no task)
 
@@ -530,6 +553,7 @@ Design intent, not a guaranteed MVP requirement (GD). Contract for everything th
 | End-to-end and interruption PlayMode coverage | Implemented (TASK 452) | `4bdf7d7f` |
 | Revive progress UI and feedback (GD 13 §14) | Implemented (TASK-215), pending Host/Client validation | `RaidDownedHudPresenter`, outcome record in section 7 |
 | Revive pose | Planned | no task |
+| Downed black-and-white post-process | Implemented (TASK-254), pending visual and Host/Client validation | section 9.1 |
 | Attribution fields and damage hook signatures | Implemented (initial TASK 453 slice; section 11) | This change |
 | PvP credit consolidation/freeze at Downed | Implemented; single-runner PlayMode verified, Host/Client pending | TASK-246, section 11 |
 | Extraction re-evaluation on Defeat | Pending | TASK 453 |

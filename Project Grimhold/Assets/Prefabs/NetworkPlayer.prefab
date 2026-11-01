@@ -8983,6 +8983,7 @@ MonoBehaviour:
   _teammateHudPresenter: {fileID: 8800000000000000118}
   _abilityHudPresenter: {fileID: 2116062982825614417}
   _downedHudPresenter: {fileID: 943674581904996840}
+  _downedPostProcessPresenter: {fileID: 3166232998261261949}
   _quickSlotHudPresenter: {fileID: 7503110010564329903}
   _raidMinimapPresenter: {fileID: 9200000000000000007}
   _dungeonPressureHudPresenter: {fileID: 2804268915249948852}
@@ -10887,6 +10888,7 @@ GameObject:
   - component: {fileID: 4492858769975573742}
   - component: {fileID: 943674581904996840}
   - component: {fileID: 4473199474649425688}
+  - component: {fileID: 3166232998261261949}
   m_Layer: 0
   m_Name: RaidDownedHud
   m_TagString: Untagged
@@ -10977,6 +10979,19 @@ MonoBehaviour:
   _completedColor: {r: 0.55, g: 1, b: 0.6, a: 1}
   _pulseScale: 1.08
   _pulseDuration: 0.25
+--- !u!114 &3166232998261261949
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5499014400868432824}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93d20433dcf6fab4a8840b1c427dc374, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LocalPlayerDownedPostProcessPresenter
+  _config: {fileID: 11400000, guid: ddfc83b36a9861447966f88e7d1e3671, type: 2}
 --- !u!1 &5519409559228361831
 GameObject:
   m_ObjectHideFlags: 0
