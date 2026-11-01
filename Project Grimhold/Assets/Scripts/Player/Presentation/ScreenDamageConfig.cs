@@ -16,6 +16,21 @@ public sealed class ScreenDamageConfig : ScriptableObject
     [SerializeField, Min(.1f)] private float _fastHeartbeatHz = 2.5f;
     [SerializeField] private Color _tint = Color.white;
 
+    [Header("Peripheral scene sampling (below agony threshold)")]
+    [SerializeField, Range(0f, 3f)] private float _blurPixels = 1.1f;
+    [SerializeField, Range(0f, 2f)] private float _chromaticPixels = .65f;
+    [Tooltip("Fraction of each screen axis kept clear around the center.")]
+    [SerializeField, Range(.5f, .9f)] private float _clearCenter = .6f;
+    [Tooltip("Clear radii in fractions of the viewport's shorter dimension.")]
+    [SerializeField, Range(.05f, .25f)] private float _avatarClearRadius = .1f;
+    [SerializeField, Range(.02f, .15f)] private float _cursorClearRadius = .05f;
+
+    public float BlurPixels => Mathf.Clamp(_blurPixels, 0f, 3f);
+    public float ChromaticPixels => Mathf.Clamp(_chromaticPixels, 0f, 2f);
+    public float ClearCenter => Mathf.Clamp(_clearCenter, .5f, .9f);
+    public float AvatarClearRadius => Mathf.Clamp(_avatarClearRadius, .05f, .25f);
+    public float CursorClearRadius => Mathf.Clamp(_cursorClearRadius, .02f, .15f);
+
     public float HealthyThreshold => Mathf.Clamp(_healthyThreshold, .01f, 1f);
     public float CriticalThreshold => Mathf.Clamp(_criticalThreshold, .001f, HealthyThreshold);
     public float AgonyThreshold => Mathf.Clamp(_agonyThreshold, .001f, CriticalThreshold);

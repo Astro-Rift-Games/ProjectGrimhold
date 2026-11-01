@@ -58,9 +58,31 @@ The independent `ScreenDamageOptionsView` adds a local intensity slider to Setti
 without changing audio control bindings. Zero disables all spray, heartbeat and hit flash;
 the scalar is persisted in PlayerPrefs, not replicated or stored in shared configuration.
 
-This initial implementation does not yet implement scene-sampling peripheral blur/chromatic
-aberration. Those TASK-253 effects and actual Host/Client, cursor/offset and visual calibration
-remain pending; automated mask/lifecycle checks are not multiplayer or visual acceptance.
+Below the agony threshold (20% by default), `ScreenDamageFeedbackState.PeripheralWeight`
+smoothly introduces scene-sampling blur and chromatic separation, independently of hit flashes.
+The same accessibility scalar attenuates these effects; zero clears them immediately.
+`ScreenDamageCameraEffect` is authored on `Gameplay Camera` with a serialized material template
+that retains the shader in builds. It owns a private runtime material and a lease scoped to
+the bound local presenter; stale teardown cannot clear another owner's presentation.
+
+`ScreenDamageRendererFeature` extends URP 17.5's `FullScreenPassRendererFeature` on Renderer2D.
+It enqueues only for a Game camera with a live camera-local lease, after postprocessing and
+before the Screen Space Overlay HUD. It fetches the completed scene color, including transparent
+sprites, through `_BlitTexture`, not `_CameraOpaqueTexture`. It restores the shared feature's
+material reference after enqueueing and never changes the scene Volume or Downed effect.
+No custom legacy render pass or render-pipeline compatibility mode is required.
+
+The shader uses a rectangular peripheral mask, preserves a central 60% region, and excludes
+the bound avatar and mouse viewport positions with aspect-correct clear radii. Exclusions are
+updated when the exact camera renders, after camera follow/shake. UVs follow URP's blit convention;
+an extra platform Y flip would incorrectly mirror those protection zones. Sample offsets are
+bounded in render-target pixels, so Pixel Perfect upscaling requires final visual calibration.
+Source loss, death, Downed, disable, unbind and destruction release the runtime material.
+
+GPU EditMode checks cover scene sampling, protected pixels, actual Renderer2D execution,
+owner-scoped material isolation and exact baseline restoration after clear. Actual Host/Client,
+camera-offset/cursor playtesting, migration and player-facing visual calibration remain manual;
+automated rendering/lifecycle checks are not multiplayer or visual acceptance.
 
 ## Sources of truth
 

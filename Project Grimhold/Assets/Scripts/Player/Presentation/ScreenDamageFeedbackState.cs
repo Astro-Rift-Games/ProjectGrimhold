@@ -7,10 +7,12 @@ public sealed class ScreenDamageFeedbackState
     private bool _baseline;
     private float _health, _maximum, _severity, _phase;
     private float _flashAge = float.PositiveInfinity;
+    private float _peripheral;
 
     public float Severity { get; private set; }
     public float Opacity { get; private set; }
     public float Flash { get; private set; }
+    public float PeripheralWeight { get; private set; }
 
     public ScreenDamageFeedbackState(ScreenDamageConfig config) => _config = config;
 
@@ -40,6 +42,10 @@ public sealed class ScreenDamageFeedbackState
             _config.PulseStrength * (.5f + .5f * Mathf.Cos(_phase * Mathf.PI * 2f)) : 0f;
         Severity = Mathf.Clamp01(_severity + Flash * _config.FlashStrength);
         float strength = Finite(intensity) ? Mathf.Clamp01(intensity) : 0f;
+        float peripheralTarget = Mathf.InverseLerp(_config.AgonyThreshold, 0f, fraction);
+        _peripheral = Mathf.Lerp(_peripheral, peripheralTarget,
+            1f - Mathf.Exp(-dt / _config.ResponseSeconds));
+        PeripheralWeight = _peripheral * strength;
         Opacity = Mathf.Clamp01((1f - pulse) * strength);
         if (Severity < .0001f) Opacity = 0f;
     }
@@ -49,6 +55,7 @@ public sealed class ScreenDamageFeedbackState
         _baseline = false;
         _health = _maximum = _severity = _phase = Severity = Opacity = Flash = 0;
         _flashAge = float.PositiveInfinity;
+        _peripheral = PeripheralWeight = 0f;
     }
 
     private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
