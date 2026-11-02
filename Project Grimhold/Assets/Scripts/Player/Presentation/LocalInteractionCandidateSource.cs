@@ -29,6 +29,7 @@ public sealed class LocalInteractionCandidateSource : NetworkBehaviour
     private NetworkObject _metadataNetworkObject;
     private SocialPlayerInteractable _socialPlayerInteractable;
     private DownedReviveInteractable _reviveInteractable;
+    private NetworkDoor _door;
     private string _metadataPromptText;
     private string _currentPromptText;
 
@@ -130,6 +131,10 @@ public sealed class LocalInteractionCandidateSource : NetworkBehaviour
                     ? _reviveInteractable.ResolvePromptText(_character as PlayerCharacter)
                     : _metadataPromptText;
             }
+            else if (_door != null)
+            {
+                _currentPromptText = _door.PromptText;
+            }
             return;
         }
 
@@ -138,12 +143,15 @@ public sealed class LocalInteractionCandidateSource : NetworkBehaviour
         InteractionPromptMetadata metadata = networkObject.GetComponent<InteractionPromptMetadata>();
         _socialPlayerInteractable = networkObject.GetComponent<SocialPlayerInteractable>();
         _reviveInteractable = networkObject.GetComponent<DownedReviveInteractable>();
+        _door = networkObject.GetComponent<NetworkDoor>();
         _metadataPromptText = metadata != null ? metadata.PromptText : null;
         _currentPromptText = _socialPlayerInteractable != null
             ? _socialPlayerInteractable.PromptText
             : _reviveInteractable != null && _reviveInteractable.IsTargetDowned
                 ? _reviveInteractable.ResolvePromptText(_character as PlayerCharacter)
-                : _metadataPromptText;
+                : _door != null
+                    ? _door.PromptText
+                    : _metadataPromptText;
     }
 
     private void ClearPromptMetadata()
@@ -152,6 +160,7 @@ public sealed class LocalInteractionCandidateSource : NetworkBehaviour
         _metadataNetworkObject = null;
         _socialPlayerInteractable = null;
         _reviveInteractable = null;
+        _door = null;
         _metadataPromptText = null;
         _currentPromptText = null;
     }
