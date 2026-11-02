@@ -145,6 +145,7 @@ GameObject:
   - component: {fileID: 6175277311156239243}
   - component: {fileID: 4160012335512890615}
   - component: {fileID: 7917998720512175286}
+  - component: {fileID: 1649341788552071490}
   m_Layer: 7
   m_Name: DamageParticles
   m_TagString: Untagged
@@ -4970,6 +4971,19 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
+--- !u!210 &1649341788552071490
+SortingGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 136234099313616467}
+  m_Enabled: 1
+  m_SortingLayerID: -316428783
+  m_SortingLayer: 4
+  m_SortingOrder: 0
+  m_SortAtRoot: 1
+  m_Sort3DAs2D: 0
 --- !u!1 &191791813471158084
 GameObject:
   m_ObjectHideFlags: 0
@@ -8449,6 +8463,7 @@ GameObject:
   - component: {fileID: 3851482750751976601}
   - component: {fileID: 4133092321343075297}
   - component: {fileID: 7941466659736207592}
+  - component: {fileID: 5722433930008915607}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -10010,6 +10025,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9a25962024210134888f2a8b7acb85e3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerHazardExposureCausalityNetworkController
+--- !u!210 &5722433930008915607
+SortingGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_SortingLayerID: -605295079
+  m_SortingLayer: 3
+  m_SortingOrder: 0
+  m_SortAtRoot: 0
+  m_Sort3DAs2D: 0
 --- !u!1 &4550749441162253346
 GameObject:
   m_ObjectHideFlags: 0

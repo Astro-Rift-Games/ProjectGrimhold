@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 5653517575288117095}
   - component: {fileID: 8951037927164024647}
   - component: {fileID: 1700867630524570978}
+  - component: {fileID: 1217397715763058627}
   m_Layer: 7
   m_Name: DamageParticles
   m_TagString: Untagged
@@ -4836,6 +4837,19 @@ ParticleSystemRenderer:
   m_MeshWeighting1: 1
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
+--- !u!210 &1217397715763058627
+SortingGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 112989399949971246}
+  m_Enabled: 1
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_SortAtRoot: 1
+  m_Sort3DAs2D: 0
 --- !u!1 &1079353573311724431
 GameObject:
   m_ObjectHideFlags: 0
@@ -5221,6 +5235,7 @@ GameObject:
   - component: {fileID: -2736405989838392395}
   - component: {fileID: 987654321012345678}
   - component: {fileID: 704239012396382804}
+  - component: {fileID: 4997924137503005760}
   m_Layer: 7
   m_Name: NetworkEnemy
   m_TagString: Player
@@ -5867,6 +5882,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 90f7460743e805f4281d562e79d43e76, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ImmobilizeEffect
+--- !u!210 &4997924137503005760
+SortingGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_SortingLayerID: -605295079
+  m_SortingLayer: 3
+  m_SortingOrder: 0
+  m_SortAtRoot: 0
+  m_Sort3DAs2D: 0
 --- !u!1 &6258069994273772255
 GameObject:
   m_ObjectHideFlags: 0

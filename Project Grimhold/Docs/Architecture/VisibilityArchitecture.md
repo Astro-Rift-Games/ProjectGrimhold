@@ -37,6 +37,12 @@ Obstacles are the only distance limit of vision. Occlusion queries live
 colliders every frame, so a door or obstacle whose collider appears, moves, or
 disappears at runtime blocks or unblocks vision without any cache refresh.
 
+Dungeon door blockers are non-trigger colliders on `WorldCollision` (layer 6), the
+`ObstacleLayer` used by `VisibilitySettings`. `NetworkDoor` toggles them from replicated
+state, so the existing live-collider queries already handle both entity and fog occlusion.
+The separate authoritative pathfinding region refresh is described in
+[Dungeon doors](PlayerInteractionArchitecture.md#task-276-dungeon-doors).
+
 `VisionConeRules` holds the pure shape math. `VisionQuery` adds occlusion with a
 reusable hit buffer and no per-frame allocation.
 
@@ -157,10 +163,25 @@ decides entity visibility, which stays owned by `EntityVisibilitySystem`.
 - **Rendering.** `Grimhold/Visibility/VisionFog` is a hand-written URP unlit
   shader drawn by the 2D Renderer on a built-in quad (`VisionFog` in
   `Gameplay.unity`). It sits on the `Fog` sorting layer, above every world
-  layer. Walls share the `Characters` layer with characters, so the fog cannot
-  sit between them; this is consistent because dynamic entities are only
-  visible inside the clear shape, and static occlusion-only objects outside it
-  stay visible under partial fog. Screen-space UI draws above it. The quad is
+  layer. Walls remain on `Default`, order 1. Characters and dungeon doors
+  Y-sort on `Characters`, order 0, using the active `Renderer2D` Custom Axis
+  `(0,1,0)`. Root `SortingGroup`s keep each multi-renderer raid character
+  together while preserving its body, equipment and attack-VFX relative orders;
+  enemy variants inherit the base group. The single-sprite TrainingDummy uses
+  Pivot sorting at order 0. The door's `SortAnchor` group sits 0.6875 units above
+  its base, matching the player's measured root-to-drawn-feet offset; its View
+  remains on `Characters/0`, Pivot, at local Y -0.6875 so no art or collider moves.
+  Player feet north of the door base draw behind it; south draw in front.
+  This is player-calibrated, not universal feet sorting: unchanged enemy offsets
+  (base 0, ranged 0.4375, slimes 0.5) leave north-side error bands of 0.6875,
+  0.25 and 0.1875 units respectively, where enemies still draw in front.
+  Damage particles keep independent
+  `sortAtRoot` groups (`VFX/0` on the player, `Default/0` on enemies), preserving
+  their previous world layers. Canvas UI remains independently sorted; it is
+  not part of the character renderer group. The fog overlays the world layers.
+  Dynamic entities are only visible inside
+  the clear shape, and static occlusion-only objects outside it stay visible
+  under partial fog. Screen-space UI draws above it. The quad is
   moved and scaled to cover the orthographic camera in
   `RenderPipelineManager.beginCameraRendering`, after camera followers move,
   so it never lags a frame. It is one full-screen transparent draw with no
