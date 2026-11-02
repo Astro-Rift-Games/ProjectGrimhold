@@ -46,6 +46,7 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
     private ICharacter _character;
     private IMovementState _movementState;
     private PlayerLootReceiver _lootReceiver;
+    private PlayerConsumableNetworkController _consumableController;
     private PlayerExtractionController _extractionController;
     private NetworkMatchController _matchController;
     private bool _dependenciesValid;
@@ -352,7 +353,8 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
             return Rejected(identity, tick, LootDropFailureReason.NoValidPosition);
 
         TickTimer utilityCooldown = default;
-        if (TryGetComponent<IUtilityCooldownProvider>(out var cooldownProvider))
+        IUtilityCooldownProvider cooldownProvider = _consumableController;
+        if (cooldownProvider != null)
         {
             utilityCooldown = cooldownProvider.GetUtilityCooldown(definition.LootId);
         }
@@ -511,6 +513,7 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
             ? _movementStateSource as IMovementState
             : GetComponent<IMovementState>();
         _lootReceiver = GetComponent<PlayerLootReceiver>();
+        _consumableController = GetComponent<PlayerConsumableNetworkController>();
         if (_dropOrigin == null)
         {
             _dropOrigin = transform;

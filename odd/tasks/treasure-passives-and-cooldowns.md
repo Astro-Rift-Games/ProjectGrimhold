@@ -27,9 +27,11 @@ Tasks:
 - [x] T2 Container utility cooldown retention (`NetworkLootContainer`, `LootTransferTransaction`, `PlayerCorpseGenerationController`).
 - [x] T3 EditMode & PlayMode tests (`InventoryPassiveEffectsTests`, `UtilityExpeditionRulesTests`, `UtilityExpeditionPlayModeTests`) + architecture contract sync (`VisibilityArchitecture.md`, `LootInteractionArchitecture.md`).
 - [x] T4 Runtime catalog validation fix (`LootDefinition.TryValidate` gating `_equipmentVisualDefinition` to armor categories so non-armor `CON_*`/`RES_*`/`TRE_*`/`UTL_*` definitions do not break `LootDefinitionCatalog.TryValidate`, drops and container initialization) + EditMode/PlayMode test stabilization; restored locked `RaidLootOriginWordCountTests` budgets per `LootInteractionArchitecture.md`.
+- [x] T5 Disambiguate `PlayerConsumableNetworkController` from the co-located dormant corpse `NetworkLootContainer` on `NetworkPlayer.prefab` across `LootTransferTransaction`, `PlayerLootDropNetworkController`, `NetworkLootPickup` and `PlayerCorpseGenerationController`, plus concrete `GreenSlime.prefab` and `NetworkBool` assertion fixes in `UtilityExpeditionPlayModeTests`.
 
 Validation & status:
-- `dotnet build "Project Grimhold/Assembly-CSharp.csproj"` -> 0 errors (zero warnings in modified files).
-- `dotnet build "Project Grimhold/Assembly-CSharp-Editor.csproj"` -> 0 errors.
-- `RaidLootOriginWordCountTests` retains the locked `New-Testing` expectations/ceilings (`LootContainer` and `NetworkEnemy` have a pre-existing documented discrepancy in `LootInteractionArchitecture.md` lines 236–238).
-- Unity MCP is not installed in this environment; re-run `InventoryPassiveEffectsTests` and `UtilityExpeditionPlayModeTests` in the Unity Test Runner plus Host/Client runtime validation.
+- Unity MCP (`Project Grimhold@9637642f241267cb`, Unity `6000.5.1f1`) compilation: 0 errors.
+- Unity MCP EditMode (`InventoryPassiveEffectsTests` + `UtilityExpeditionRulesTests`): **15/15 PASSED** (`0` failed).
+- Unity MCP PlayMode (`UtilityExpeditionPlayModeTests`): **8/8 PASSED** (`0` failed).
+- `RaidLootOriginWordCountTests`: `NetworkPlayer.prefab` passes (`<= 1884`); `LootContainer.prefab` (`1162` vs `983`), `NetworkEnemy.prefab` (`1223` vs `1007`), and `LootPickup.prefab` (`23` vs `22`) retain the pre-existing locked `New-Testing` expectations/ceilings documented in `LootInteractionArchitecture.md` lines 236–238.
+- Remaining manual checks: Host/Client multi-peer Raid runtime verification of `TRE_VOID_BELL` 15m observer culling, `TRE_WANDERER_EYE` local vision/minimap restriction, and utility cooldown transfer between two connected players via world containers.

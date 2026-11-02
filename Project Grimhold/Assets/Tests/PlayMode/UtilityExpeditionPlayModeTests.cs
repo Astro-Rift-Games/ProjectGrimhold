@@ -18,7 +18,7 @@ namespace Tests.PlayMode.Utilities
         private const string ParticipantGuid = "c39d451563bae6e43934008a0dadc6d6";
         private const string LootPickupGuid = "5d26f13a358d7894b9419465e4ba1869";
         private const string LootContainerGuid = "2c19a78647c64b84a765ff0280706b7d";
-        private const string NetworkEnemyGuid = "be065b8028b5c3446a4e981ab29a28a1";
+        private const string EnemyMeleeGuid = "5deca87613df0fa409d98702aec643d4";
         private const string SanctuaryPrefabPath = "Assets/Prefabs/ExtractionSanctuary.prefab";
 
         private static readonly LootId CompassId = PlayerConsumableNetworkController.RuneCompassId;
@@ -48,7 +48,7 @@ namespace Tests.PlayMode.Utilities
                 });
         }
 
-        [UnitySetUp]
+        [SetUp]
         public void SetUp()
         {
             _previousIgnoreFailingMessages = LogAssert.ignoreFailingMessages;
@@ -387,7 +387,7 @@ namespace Tests.PlayMode.Utilities
 
             // Corpse container must also retain the active utility cooldown
             var corpseContainer = player.GetComponent<NetworkLootContainer>();
-            Assert.That(corpseContainer.IsAvailable, Is.True);
+            Assert.That((bool)corpseContainer.IsAvailable, Is.True);
             Assert.That(corpseContainer.GetUtilityCooldown(CompassId).IsRunning, Is.True,
                 "Defeated player's corpse container must preserve active utility cooldowns.");
         }
@@ -400,7 +400,7 @@ namespace Tests.PlayMode.Utilities
             var loot = player.GetComponent<PlayerLootReceiver>();
             var passive = player.PassiveEffectsController;
 
-            var enemyObj = _runner.Spawn(Load(NetworkEnemyGuid), new Vector3(8f, 0f, 0f), Quaternion.identity);
+            var enemyObj = _runner.Spawn(Load(EnemyMeleeGuid), new Vector3(8f, 0f, 0f), Quaternion.identity);
             var enemyAi = enemyObj.GetComponent<EnemyMovementAIController>();
             Assert.That(enemyAi, Is.Not.Null);
             Assert.That(enemyAi.TryGetCurrentTarget(out _, out _), Is.False);

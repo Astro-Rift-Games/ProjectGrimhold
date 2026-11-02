@@ -143,10 +143,21 @@ public static class LootTransferTransaction
             return directProvider;
         }
 
-        if (source is Component component && component != null &&
-            component.TryGetComponent(out IUtilityCooldownProvider siblingProvider))
+        if (source is Component component && component != null)
         {
-            return siblingProvider;
+            if (component.TryGetComponent(out PlayerConsumableNetworkController playerConsumables))
+            {
+                return playerConsumables;
+            }
+
+            IUtilityCooldownProvider[] providers = component.GetComponents<IUtilityCooldownProvider>();
+            for (int i = 0; i < providers.Length; i++)
+            {
+                if (providers[i] is not NetworkLootContainer)
+                {
+                    return providers[i];
+                }
+            }
         }
 
         return null;
@@ -159,10 +170,21 @@ public static class LootTransferTransaction
             return directReceiver;
         }
 
-        if (destination is Component component && component != null &&
-            component.TryGetComponent(out IUtilityCooldownReceiver siblingReceiver))
+        if (destination is Component component && component != null)
         {
-            return siblingReceiver;
+            if (component.TryGetComponent(out PlayerConsumableNetworkController playerConsumables))
+            {
+                return playerConsumables;
+            }
+
+            IUtilityCooldownReceiver[] receivers = component.GetComponents<IUtilityCooldownReceiver>();
+            for (int i = 0; i < receivers.Length; i++)
+            {
+                if (receivers[i] is not NetworkLootContainer)
+                {
+                    return receivers[i];
+                }
+            }
         }
 
         return null;

@@ -159,7 +159,7 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
     private void TransferActiveUtilityCooldownsToCorpse(IReadOnlyList<LootEntry> snapshot)
     {
         if (snapshot == null || _lootContainer == null ||
-            !TryGetComponent(out IUtilityCooldownProvider cooldownProvider))
+            !TryGetComponent(out PlayerConsumableNetworkController cooldownProvider))
         {
             return;
         }
