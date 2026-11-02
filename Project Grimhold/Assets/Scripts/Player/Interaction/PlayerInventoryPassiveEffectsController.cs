@@ -18,15 +18,23 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
     public static readonly LootId WandererEyeId = new("TRE_WANDERER_EYE");
 
     private const int MaxAggroOverlapResults = 64;
-    private const int PulseRingSegments = 32;
-    private const float PulseDurationSeconds = 0.45f;
-    private const float PulseStartRadius = 0.35f;
-    private const float PulseEndRadius = 3.0f;
-    private const float PulseInitialAlpha = 0.75f;
+    private const int PulseRingSegments = 40;
+    private const float PulseDurationSeconds = 0.65f;
+    private const float PulseStartRadius = 0.4f;
+    private const float PulseEndRadius = 4.0f;
+    private const float PulseInitialAlpha = 0.85f;
     private static readonly int DefaultVoidBellAggroMask = (1 << 7) | (1 << 10) | (1 << 0);
 
     private static AudioClip s_provisionalVoidBellClip;
     private static Material s_provisionalPulseMaterial;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStaticState()
+    {
+        s_provisionalVoidBellClip = null;
+        s_provisionalPulseMaterial = null;
+        ObserverTransformOverrideForTesting = null;
+    }
 
     [Header("Modifiers Configuration")]
     [SerializeField, Range(0.1f, 1f)]
@@ -88,6 +96,7 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
     private readonly HashSet<IAggroReceiver> _alertedReceivers = new();
     private Vector3[] _pulsePositions;
     private LineRenderer _pulseRingRenderer;
+    private Vector3 _pulseCenter;
     private bool _isPulseActive;
     private float _pulseElapsed;
 
@@ -330,21 +339,28 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
 
     private void PlayChimeAudio(float observerDistance)
     {
-        AudioManager audioManager = AudioManager.Instance;
-        if (audioManager == null)
-        {
-            return;
-        }
-
-        if (_voidBellChimeSfx.IsValid)
-        {
-            audioManager.PlaySfx(in _voidBellChimeSfx, transform.position);
-            return;
-        }
-
         float normalizedCloseness = 1f - Mathf.Clamp01(observerDistance / Mathf.Max(0.01f, _voidBellAudibleRadius));
         float volume = Mathf.Lerp(0.25f, 0.85f, normalizedCloseness);
-        audioManager.PlaySfx(GetOrCreateProvisionalBellClip(), transform.position, volume, 1f);
+
+        AudioManager audioManager = AudioManager.Instance;
+        if (audioManager != null)
+        {
+            if (_voidBellChimeSfx.IsValid)
+            {
+                audioManager.PlaySfx(in _voidBellChimeSfx, transform.position);
+                return;
+            }
+
+            audioManager.PlaySfx(GetOrCreateProvisionalBellClip(), transform.position, volume, 1f);
+            return;
+        }
+
+        // Direct standalone editor playback when AudioManager is not initialized
+        AudioClip clip = _voidBellChimeSfx.IsValid ? _voidBellChimeSfx.GetRandomClip() : GetOrCreateProvisionalBellClip();
+        if (clip != null)
+        {
+            AudioSource.PlayClipAtPoint(clip, transform.position, volume);
+        }
     }
 
     private static AudioClip GetOrCreateProvisionalBellClip()
@@ -375,6 +391,7 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
             1,
             sampleRate,
             false);
+        s_provisionalVoidBellClip.hideFlags = HideFlags.HideAndDontSave;
         s_provisionalVoidBellClip.SetData(samples, 0);
         return s_provisionalVoidBellClip;
     }
@@ -387,6 +404,7 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
             return;
         }
 
+        _pulseCenter = transform.position;
         _pulseElapsed = 0f;
         _isPulseActive = true;
         _pulseRingRenderer.enabled = true;
@@ -405,10 +423,10 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
         ringObject.transform.localPosition = Vector3.zero;
 
         _pulseRingRenderer = ringObject.AddComponent<LineRenderer>();
-        _pulseRingRenderer.useWorldSpace = false;
+        _pulseRingRenderer.useWorldSpace = true;
         _pulseRingRenderer.loop = true;
         _pulseRingRenderer.positionCount = PulseRingSegments;
-        _pulseRingRenderer.widthMultiplier = 0.06f;
+        _pulseRingRenderer.widthMultiplier = 0.12f;
         _pulseRingRenderer.numCapVertices = 0;
         _pulseRingRenderer.numCornerVertices = 2;
         _pulseRingRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -418,7 +436,11 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
 
         if (s_provisionalPulseMaterial == null)
         {
-            Shader shader = Shader.Find("Sprites/Default");
+            Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit")
+                ?? Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default")
+                ?? Shader.Find("Sprites/Default")
+                ?? Shader.Find("Particles/Standard Unlit");
+
             if (shader != null)
             {
                 s_provisionalPulseMaterial = new Material(shader)
@@ -466,7 +488,7 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
         float eased = 1f - (1f - normalizedProgress) * (1f - normalizedProgress);
         float radius = Mathf.Lerp(PulseStartRadius, PulseEndRadius, eased);
         float alpha = Mathf.Lerp(PulseInitialAlpha, 0f, normalizedProgress);
-        var ringColor = new Color(0.72f, 0.62f, 0.95f, alpha);
+        var ringColor = new Color(0.85f, 0.45f, 1f, alpha);
 
         _pulseRingRenderer.startColor = ringColor;
         _pulseRingRenderer.endColor = ringColor;
@@ -475,7 +497,7 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
         for (int i = 0; i < PulseRingSegments; i++)
         {
             float angle = step * i;
-            _pulsePositions[i] = new Vector3(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius, 0f);
+            _pulsePositions[i] = _pulseCenter + new Vector3(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius, 0f);
         }
 
         _pulseRingRenderer.SetPositions(_pulsePositions);

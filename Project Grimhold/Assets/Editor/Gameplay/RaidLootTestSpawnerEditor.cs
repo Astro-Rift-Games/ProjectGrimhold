@@ -44,6 +44,18 @@ public sealed class RaidLootTestSpawnerEditor : Editor
             spawner.SpawnTreasures();
         }
 
+        EditorGUILayout.Space(4);
+        EditorGUILayout.BeginHorizontal();
+        if (GUILayout.Button("Spawn Utilities (Compass, Detector, Ether)", GUILayout.Height(28)))
+        {
+            spawner.SpawnExpeditionUtilities();
+        }
+        if (GUILayout.Button("Spawn Test Chest (Loot Container)", GUILayout.Height(28)))
+        {
+            spawner.SpawnTestContainer();
+        }
+        EditorGUILayout.EndHorizontal();
+
         EditorGUILayout.Space(8);
         if (spawner.CustomItemToSpawn != null)
         {
