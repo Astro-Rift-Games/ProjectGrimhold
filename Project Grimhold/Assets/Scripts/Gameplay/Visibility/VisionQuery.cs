@@ -17,6 +17,7 @@ namespace ProjectGrimhold.Gameplay.Visibility
         private readonly RaycastHit2D[] _hitBuffer;
         private readonly Transform _viewerRoot;
         private readonly VisibilityFadeTimings _fadeTimings;
+        private readonly float _distanceMultiplier;
 
         public VisionQuery(
             Vector2 origin,
@@ -26,7 +27,8 @@ namespace ProjectGrimhold.Gameplay.Visibility
             LayerMask obstacleLayer,
             RaycastHit2D[] hitBuffer,
             Transform viewerRoot,
-            VisibilityFadeTimings fadeTimings)
+            VisibilityFadeTimings fadeTimings,
+            float distanceMultiplier = 1f)
         {
             _origin = origin;
             _facing = facing;
@@ -35,6 +37,7 @@ namespace ProjectGrimhold.Gameplay.Visibility
             _hitBuffer = hitBuffer;
             _viewerRoot = viewerRoot;
             _fadeTimings = fadeTimings;
+            _distanceMultiplier = distanceMultiplier > 0f ? distanceMultiplier : 1f;
             _obstacleFilter = new ContactFilter2D
             {
                 useLayerMask = true,
@@ -54,6 +57,8 @@ namespace ProjectGrimhold.Gameplay.Visibility
         public Transform ViewerRoot => _viewerRoot;
 
         public VisibilityFadeTimings FadeTimings => _fadeTimings;
+
+        public float DistanceMultiplier => _distanceMultiplier > 0f ? _distanceMultiplier : 1f;
 
         /// <summary>
         /// Returns whether no obstacle collider outside <paramref name="targetRoot"/> or the viewer

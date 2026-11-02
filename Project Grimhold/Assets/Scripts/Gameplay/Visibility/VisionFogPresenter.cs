@@ -111,6 +111,7 @@ namespace ProjectGrimhold.Gameplay.Visibility
                 _mask.Render(in query, _facing, coneAngleDegrees, worldRect, width, height, _settings);
             }
 
+            float distanceMultiplier = hasViewer ? query.DistanceMultiplier : 1f;
             _block.SetColor(FogColorId, _settings.FogColor);
             _block.SetFloat(InsideDensityId, _settings.InsideDensity);
             _block.SetFloat(NoiseScaleId, _settings.NoiseScale);
@@ -123,8 +124,8 @@ namespace ProjectGrimhold.Gameplay.Visibility
                 _block.SetTexture(VisionMaskId, _mask.Texture);
             }
             _block.SetFloat(EdgeBreakupId, _settings.EdgeBreakup);
-            _block.SetFloat(FarFogStartId, _settings.FarFogStart);
-            _block.SetFloat(FarFogEndId, _settings.FarFogEnd);
+            _block.SetFloat(FarFogStartId, _settings.FarFogStart * distanceMultiplier);
+            _block.SetFloat(FarFogEndId, _settings.FarFogEnd * distanceMultiplier);
             _block.SetFloat(FarFogDensityId, _settings.FarFogDensity);
             _block.SetVector(VisionOriginId, new Vector4(_origin.x, _origin.y, 0f, 0f));
             _block.SetFloat(VisionClearStrengthId, _clearStrength);

@@ -1,5 +1,6 @@
 using ProjectGrimhold.Gameplay.Visibility;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 /// <summary>
 /// Local-only vision producer for a raid avatar: an unlimited-range facing cone plus a near
@@ -12,8 +13,23 @@ public sealed class LocalVisionSource : MonoBehaviour, IVisionViewer
 {
     private const int HitBufferSize = 8;
 
+    private readonly struct CachedLight2DRadii
+    {
+        public readonly Light2D Light;
+        public readonly float BaseInnerRadius;
+        public readonly float BaseOuterRadius;
+
+        public CachedLight2DRadii(Light2D light, float baseInnerRadius, float baseOuterRadius)
+        {
+            Light = light;
+            BaseInnerRadius = baseInnerRadius;
+            BaseOuterRadius = baseOuterRadius;
+        }
+    }
+
     [SerializeField] private VisibilitySettings _settings;
     [SerializeField] private PlayerMovementNetworkController _movement;
+    [SerializeField] private PlayerInventoryPassiveEffectsController _passiveEffects;
 
     [Tooltip("Vision origin. Defaults to this transform when empty.")]
     [SerializeField] private Transform _origin;
@@ -32,10 +48,25 @@ public sealed class LocalVisionSource : MonoBehaviour, IVisionViewer
     [SerializeField, Min(1f)] private float _gizmoRayLength = 30f;
 
     private readonly RaycastHit2D[] _hitBuffer = new RaycastHit2D[HitBufferSize];
+    private CachedLight2DRadii[] _cachedAvatarLights;
+    private float _lastAppliedLightMultiplier = 1f;
     private bool _hasLoggedMissingDependencies;
+
+    internal bool AllowUnspawnedForTesting { get; set; }
 
     /// <summary>Root of the avatar that owns this viewer; its own colliders and targets are never hidden.</summary>
     public Transform ViewerRoot => _movement != null ? _movement.transform : transform;
+
+    private void Awake()
+    {
+        CachePassiveDependencies();
+        CacheAvatarLights();
+    }
+
+    private void OnDisable()
+    {
+        ApplyAvatarLightMultiplier(1f);
+    }
 
     /// <summary>
     /// Builds this frame's vision query. Fails while dependencies are missing or the avatar
@@ -44,21 +75,115 @@ public sealed class LocalVisionSource : MonoBehaviour, IVisionViewer
     public bool TryBuildQuery(out VisionQuery query)
     {
         query = default;
-        if (!gameObject.activeInHierarchy || !HasValidDependencies() || !IsSpawned())
+        if (!gameObject.activeInHierarchy || !HasValidDependencies() || (!IsSpawned() && !AllowUnspawnedForTesting))
         {
             return false;
         }
 
+        float visionMultiplier = ResolveVisionRadiusMultiplier();
+        ApplyAvatarLightMultiplier(visionMultiplier);
+
         query = new VisionQuery(
             ResolveOrigin(),
             ResolveFacing(),
-            _settings.NearRadius,
+            _settings.NearRadius * visionMultiplier,
             VisionConeRules.CosineOfHalfAngle(_settings.ConeAngleDegrees),
             _settings.ObstacleLayer,
             _hitBuffer,
             ViewerRoot,
-            _settings.FadeTimings);
+            _settings.FadeTimings,
+            visionMultiplier);
         return true;
+    }
+
+    public float ResolveVisionRadiusMultiplier()
+    {
+        if (_passiveEffects == null)
+        {
+            CachePassiveDependencies();
+        }
+
+        if (_passiveEffects != null)
+        {
+            return _passiveEffects.VisionRadiusMultiplier;
+        }
+
+        return 1f;
+    }
+
+    internal void RefreshCachedAvatarLightsForTesting()
+    {
+        _lastAppliedLightMultiplier = 1f;
+        CacheAvatarLights();
+    }
+
+    private void CachePassiveDependencies()
+    {
+        if (_passiveEffects != null)
+        {
+            return;
+        }
+
+        if (_movement != null)
+        {
+            _passiveEffects = _movement.GetComponent<PlayerInventoryPassiveEffectsController>();
+        }
+
+        if (_passiveEffects == null)
+        {
+            _passiveEffects = GetComponentInParent<PlayerInventoryPassiveEffectsController>();
+        }
+    }
+
+    private void CacheAvatarLights()
+    {
+        Transform root = ViewerRoot;
+        if (root == null)
+        {
+            return;
+        }
+
+        Light2D[] lights = root.GetComponentsInChildren<Light2D>(true);
+        if (lights == null || lights.Length == 0)
+        {
+            return;
+        }
+
+        _cachedAvatarLights = new CachedLight2DRadii[lights.Length];
+        for (int i = 0; i < lights.Length; i++)
+        {
+            Light2D light = lights[i];
+            if (light == null)
+            {
+                continue;
+            }
+
+            _cachedAvatarLights[i] = new CachedLight2DRadii(
+                light,
+                light.pointLightInnerRadius,
+                light.pointLightOuterRadius);
+        }
+    }
+
+    private void ApplyAvatarLightMultiplier(float multiplier)
+    {
+        if (_cachedAvatarLights == null || Mathf.Approximately(_lastAppliedLightMultiplier, multiplier))
+        {
+            return;
+        }
+
+        _lastAppliedLightMultiplier = multiplier;
+        for (int i = 0; i < _cachedAvatarLights.Length; i++)
+        {
+            CachedLight2DRadii entry = _cachedAvatarLights[i];
+            if (entry.Light == null)
+            {
+                continue;
+            }
+
+            entry.Light.pointLightInnerRadius = entry.BaseInnerRadius * multiplier;
+            entry.Light.pointLightOuterRadius = entry.BaseOuterRadius * multiplier;
+        }
     }
 
     private bool IsSpawned()
@@ -110,6 +235,8 @@ public sealed class LocalVisionSource : MonoBehaviour, IVisionViewer
         {
             _movement = GetComponentInParent<PlayerMovementNetworkController>();
         }
+
+        CachePassiveDependencies();
     }
 
     private void OnDrawGizmos()
@@ -121,7 +248,7 @@ public sealed class LocalVisionSource : MonoBehaviour, IVisionViewer
 
         Vector2 origin = ResolveOrigin();
         Vector2 facing = ResolveFacing();
-        DrawNearRadius(origin, _settings.NearRadius);
+        DrawNearRadius(origin, _settings.NearRadius * ResolveVisionRadiusMultiplier());
         DrawCone(origin, facing);
     }
 

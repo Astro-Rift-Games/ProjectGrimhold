@@ -114,7 +114,7 @@ decides entity visibility, which stays owned by `EntityVisibilitySystem`.
   `EntityVisibilitySystem.TryBuildActiveQuery`, so it follows the same viewer
   as entity visibility (spectated viewer first, then the local viewer) and the
   same shape (`NearRadius`, `ConeAngleDegrees` from `VisibilitySettings`, exposed
-  on `VisionQuery`). There is one source of truth for the cone.
+  on `VisionQuery`, scaled locally by `VisionRadiusMultiplier` such as `0.75x` while carrying `TRE_WANDERER_EYE`, which `VisionFogPresenter` also applies to `FarFogStart`/`FarFogEnd` without mutating shared `ScriptableObject` assets). There is one source of truth for the cone.
 - **Occlusion-aware clear area.** `VisionFogMask` casts a fan of rays from the
   viewer each frame: dense rays across the facing cone (`ConeRayStepDegrees`,
   long enough to leave the camera view) and sparse near-radius rays around the

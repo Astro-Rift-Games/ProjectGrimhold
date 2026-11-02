@@ -44,6 +44,28 @@ public sealed class PlayerStaminaNetworkController : NetworkBehaviour
     private bool _reportedUnresolvedAttributeSource;
     private float _unresolvedAttributeSourceSeconds;
 
+    /// <summary>
+    /// Effective stamina regeneration rate per second after passive treasure modifiers (Pilgrim's Light).
+    /// </summary>
+    public float EffectiveRegenerationPerSecond
+    {
+        get
+        {
+            if (_playerCharacter == null)
+            {
+                CacheDependencies();
+            }
+
+            float effectiveRegenRate = _regenerationPerSecond;
+            if (_playerCharacter != null && _playerCharacter.PassiveEffectsController != null)
+            {
+                effectiveRegenRate *= _playerCharacter.PassiveEffectsController.StaminaRegenMultiplier;
+            }
+
+            return effectiveRegenRate;
+        }
+    }
+
     private void Awake()
     {
         CacheDependencies();
@@ -99,16 +121,10 @@ public sealed class PlayerStaminaNetworkController : NetworkBehaviour
         if (CurrentStamina < maximumStamina &&
             RegenerationDelay.ExpiredOrNotRunning(Runner))
         {
-            float effectiveRegenRate = _regenerationPerSecond;
-            if (_playerCharacter != null && _playerCharacter.PassiveEffectsController != null)
-            {
-                effectiveRegenRate *= _playerCharacter.PassiveEffectsController.StaminaRegenMultiplier;
-            }
-
             CurrentStamina = StaminaResourceRules.Regenerate(
                 CurrentStamina,
                 maximumStamina,
-                effectiveRegenRate,
+                EffectiveRegenerationPerSecond,
                 Runner.DeltaTime);
         }
 
