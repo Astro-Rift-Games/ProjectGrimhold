@@ -278,8 +278,8 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
                 }
 
                 RuneCompassCooldown = TickTimer.CreateFromSeconds(Runner, 30.0f);
-                CardinalDirection direction = ExecuteRuneCompass();
-                RPC_ReceiveCompassActivation(pending, (byte)direction, CardinalDirectionHelper.DisplayDuration);
+                CardinalDirection direction = ExecuteRuneCompass(out Vector2 sanctuaryPos);
+                RPC_ReceiveCompassActivation(pending, (byte)direction, sanctuaryPos, CardinalDirectionHelper.DisplayDuration);
                 RPC_ReceiveConsumeConfirmation(pending, catalogIndex, true, (int)ConsumableFailureReason.None);
                 return;
             }
@@ -607,11 +607,12 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
         }
     }
 
-    private CardinalDirection ExecuteRuneCompass()
+    private CardinalDirection ExecuteRuneCompass(out Vector2 sanctuaryPosition)
     {
         Vector2 playerPos = (Vector2)transform.position;
         if (_registry != null && _registry.TryGetNearestExtractionSanctuary(playerPos, out _, out Vector2 sanctuaryPos))
         {
+            sanctuaryPosition = sanctuaryPos;
             return CardinalDirectionHelper.GetCardinalDirection(playerPos, sanctuaryPos);
         }
 
@@ -635,10 +636,12 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
             }
             if (found)
             {
+                sanctuaryPosition = nearestPos;
                 return CardinalDirectionHelper.GetCardinalDirection(playerPos, nearestPos);
             }
         }
 
+        sanctuaryPosition = Vector2.zero;
         return CardinalDirection.None;
     }
 
@@ -673,7 +676,7 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]
-    private void RPC_ReceiveCompassActivation(uint sequence, byte directionValue, float duration)
+    private void RPC_ReceiveCompassActivation(uint sequence, byte directionValue, Vector2 sanctuaryPos, float duration)
     {
         var direction = (CardinalDirection)directionValue;
         RuneCompassActivated?.Invoke(direction, duration);
@@ -685,7 +688,7 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
             {
                 pointer = gameObject.AddComponent<RuneCompassPointerEffect>();
             }
-            pointer.Initialize(dirVec, duration);
+            pointer.Initialize(sanctuaryPos, dirVec, duration);
         }
     }
 

@@ -43,6 +43,13 @@ public sealed class PassiveAndUtilityDebugOverlay : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Init()
     {
+#if UNITY_INCLUDE_TESTS
+        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        if (sceneName != "Gameplay")
+        {
+            return;
+        }
+#endif
         if (s_instance != null) return;
         var go = new GameObject("PassiveAndUtilityDebugOverlay");
         s_instance = go.AddComponent<PassiveAndUtilityDebugOverlay>();
@@ -54,6 +61,14 @@ public sealed class PassiveAndUtilityDebugOverlay : MonoBehaviour
         if (_consumableController != null)
         {
             _consumableController.RuneCompassActivated -= OnCompassActivated;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (s_instance == this)
+        {
+            s_instance = null;
         }
     }
 

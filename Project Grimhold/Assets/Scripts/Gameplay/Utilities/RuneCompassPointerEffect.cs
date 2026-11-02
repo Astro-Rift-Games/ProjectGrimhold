@@ -2,99 +2,102 @@ using UnityEngine;
 
 /// <summary>
 /// Componente de presentación para la Brújula Rúnica (Doc 14 UTL_RUNE_COMPASS).
-/// Dibuja un puntero rúnico direccional flotante (flecha dorada/cyan) centrado en el jugador
-/// que apunta hacia el Santuario de Extracción más cercano y emite un repique cristalino.
-/// Se autodestruye suavemente al expirar la duración.
+/// Renderiza un puntero rúnico en forma de Sprite (SpriteRenderer) flotando alrededor del jugador
+/// que rota dinámicamente y se mantiene apuntando en tiempo real hacia el Santuario de Extracción
+/// más cercano mientras permanece visible, emitiendo un repique cristalino.
+/// Se autodestruye suavemente con desvanecimiento al expirar los 5.0 segundos.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class RuneCompassPointerEffect : MonoBehaviour
 {
-    private const int ArrowPointCount = 5;
-    private const float ShaftStartDist = 0.7f;
-    private const float ArrowTipDist = 2.4f;
-    private const float BarbDist = 1.8f;
-    private const float BarbWidth = 0.45f;
+    private const float OrbitRadius = 1.35f;
     private const float FadeDuration = 1.0f;
+    private const int SpriteResolution = 32;
+    private const float SpritePixelsPerUnit = 20f;
 
     private static AudioClip s_provisionalChimeClip;
-    private static Material s_provisionalMaterial;
+    private static Sprite s_provisionalPointerSprite;
+    private static Material s_provisionalUnlitMaterial;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStaticState()
     {
         s_provisionalChimeClip = null;
-        s_provisionalMaterial = null;
+        s_provisionalPointerSprite = null;
+        s_provisionalUnlitMaterial = null;
     }
 
-    private LineRenderer _lineRenderer;
-    private Vector2 _direction = Vector2.up;
-    private Vector2 _perpendicular = Vector2.right;
+    [Header("Optional Custom Pointer Visual")]
+    [SerializeField]
+    [Tooltip("Sprite personalizado para la flecha de la brújula; si es nulo se genera un sprite rúnico nítido procedural.")]
+    private Sprite _customPointerSprite;
+
+    private GameObject _pointerObject;
+    private SpriteRenderer _spriteRenderer;
+    private Vector2 _targetSanctuaryPos;
+    private Vector2 _currentDirection = Vector2.up;
     private float _totalDuration = 5.0f;
     private float _remainingDuration;
-    private readonly Vector3[] _arrowPositions = new Vector3[ArrowPointCount];
 
-    public void Initialize(Vector2 directionVector, float duration)
+    public void Initialize(Vector2 sanctuaryPosition, Vector2 fallbackDirection, float duration)
     {
-        if (directionVector.sqrMagnitude < 0.0001f)
+        _targetSanctuaryPos = sanctuaryPosition;
+        if (fallbackDirection.sqrMagnitude < 0.0001f)
         {
-            directionVector = Vector2.up;
+            fallbackDirection = Vector2.up;
         }
 
-        _direction = directionVector.normalized;
-        _perpendicular = new Vector2(-_direction.y, _direction.x);
+        _currentDirection = fallbackDirection.normalized;
         _totalDuration = Mathf.Max(0.5f, duration);
         _remainingDuration = _totalDuration;
 
-        EnsureLineRenderer();
+        EnsurePointerRenderer();
         PlayChimeAudio();
-        UpdateGeometry(1f);
+        UpdateTrackingAndOrientation(1f);
     }
 
-    private void EnsureLineRenderer()
+    public void Initialize(Vector2 directionVector, float duration)
     {
-        if (_lineRenderer != null)
+        Initialize(Vector2.zero, directionVector, duration);
+    }
+
+    private void EnsurePointerRenderer()
+    {
+        if (_pointerObject != null && _spriteRenderer != null)
         {
-            _lineRenderer.enabled = true;
+            _spriteRenderer.enabled = true;
             return;
         }
 
-        var pointerObj = new GameObject("RuneCompassDirectionPointerVisual");
-        pointerObj.transform.SetParent(transform, false);
-        pointerObj.transform.localPosition = Vector3.zero;
+        _pointerObject = new GameObject("RuneCompassPointerVisual");
+        _pointerObject.transform.SetParent(transform, false);
+        _pointerObject.transform.localPosition = Vector3.zero;
 
-        _lineRenderer = pointerObj.AddComponent<LineRenderer>();
-        _lineRenderer.useWorldSpace = true;
-        _lineRenderer.loop = false;
-        _lineRenderer.positionCount = ArrowPointCount;
-        _lineRenderer.startWidth = 0.14f;
-        _lineRenderer.endWidth = 0.14f;
-        _lineRenderer.numCapVertices = 4;
-        _lineRenderer.numCornerVertices = 4;
-        _lineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        _lineRenderer.receiveShadows = false;
-        _lineRenderer.sortingLayerName = "VFX";
-        _lineRenderer.sortingOrder = 20;
+        _spriteRenderer = _pointerObject.AddComponent<SpriteRenderer>();
+        _spriteRenderer.sprite = _customPointerSprite != null ? _customPointerSprite : GetOrCreatePointerSprite();
+        _spriteRenderer.sortingLayerName = "VFX";
+        _spriteRenderer.sortingOrder = 30;
 
-        if (s_provisionalMaterial == null)
+        if (s_provisionalUnlitMaterial == null)
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit")
-                ?? Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default")
+            Shader shader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default")
+                ?? Shader.Find("Universal Render Pipeline/Particles/Unlit")
                 ?? Shader.Find("Sprites/Default")
                 ?? Shader.Find("Particles/Standard Unlit");
 
             if (shader != null)
             {
-                s_provisionalMaterial = new Material(shader)
+                s_provisionalUnlitMaterial = new Material(shader)
                 {
-                    name = "RuneCompassPointerMaterial",
+                    name = "RuneCompassPointerUnlitMaterial",
                     hideFlags = HideFlags.HideAndDontSave
                 };
             }
         }
 
-        if (s_provisionalMaterial != null)
+        if (s_provisionalUnlitMaterial != null)
         {
-            _lineRenderer.sharedMaterial = s_provisionalMaterial;
+            _spriteRenderer.sharedMaterial = s_provisionalUnlitMaterial;
         }
     }
 
@@ -111,34 +114,132 @@ public sealed class RuneCompassPointerEffect : MonoBehaviour
             ? Mathf.Clamp01(_remainingDuration / FadeDuration)
             : 1.0f;
 
-        UpdateGeometry(alpha);
+        UpdateTrackingAndOrientation(alpha);
     }
 
-    private void UpdateGeometry(float alpha)
+    private void UpdateTrackingAndOrientation(float alpha)
     {
-        if (_lineRenderer == null)
+        if (_pointerObject == null || _spriteRenderer == null)
         {
             return;
         }
 
-        Vector3 center = transform.position;
-        Vector3 shaftStart = center + (Vector3)(_direction * ShaftStartDist);
-        Vector3 tip = center + (Vector3)(_direction * ArrowTipDist);
-        Vector3 leftBarb = center + (Vector3)(_direction * BarbDist + _perpendicular * BarbWidth);
-        Vector3 rightBarb = center + (Vector3)(_direction * BarbDist - _perpendicular * BarbWidth);
+        Vector2 playerPos = (Vector2)transform.position;
 
-        // 5-point continuous path: shaft base -> tip -> left barb -> tip -> right barb
-        _arrowPositions[0] = shaftStart;
-        _arrowPositions[1] = tip;
-        _arrowPositions[2] = leftBarb;
-        _arrowPositions[3] = tip;
-        _arrowPositions[4] = rightBarb;
+        // Si tenemos la posición del santuario, recalculamos el vector objetivo en tiempo real
+        if (_targetSanctuaryPos != Vector2.zero)
+        {
+            Vector2 toSanctuary = _targetSanctuaryPos - playerPos;
+            if (toSanctuary.sqrMagnitude > 0.001f)
+            {
+                _currentDirection = toSanctuary.normalized;
+            }
+        }
 
-        _lineRenderer.SetPositions(_arrowPositions);
+        // Posiciona el puntero orbitando alrededor del jugador hacia el objetivo
+        Vector3 orbitPos = (Vector3)playerPos + (Vector3)(_currentDirection * OrbitRadius);
+        _pointerObject.transform.position = orbitPos;
 
-        var glowColor = new Color(0.35f, 0.95f, 0.85f, alpha * 0.9f);
-        _lineRenderer.startColor = glowColor;
-        _lineRenderer.endColor = glowColor;
+        // Rota el sprite para que su vector UP (+Y) apunte directamente hacia el santuario
+        float angleDegrees = Mathf.Atan2(_currentDirection.y, _currentDirection.x) * Mathf.Rad2Deg - 90f;
+        _pointerObject.transform.rotation = Quaternion.Euler(0f, 0f, angleDegrees);
+
+        // Aplica opacidad con desvanecimiento en el último segundo
+        _spriteRenderer.color = new Color(1f, 1f, 1f, alpha);
+    }
+
+    private static Sprite GetOrCreatePointerSprite()
+    {
+        if (s_provisionalPointerSprite != null)
+        {
+            return s_provisionalPointerSprite;
+        }
+
+        int size = SpriteResolution;
+        var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+        {
+            name = "RuneCompassPointerTex",
+            filterMode = FilterMode.Point,
+            wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.HideAndDontSave
+        };
+
+        var pixels = new Color[size * size];
+        for (int i = 0; i < pixels.Length; i++)
+        {
+            pixels[i] = Color.clear;
+        }
+
+        var outlineColor = new Color(0.04f, 0.18f, 0.28f, 0.95f);     // Contorno azul oscuro rúnico
+        var coreCyan = new Color(0.25f, 0.92f, 0.95f, 0.98f);         // Núcleo cian celestial brillante
+        var centerGlow = new Color(0.92f, 1.0f, 0.98f, 1.0f);         // Brillo blanco cristalino central
+        var runeGold = new Color(1.0f, 0.88f, 0.35f, 0.95f);          // Detalle dorado en la base y muescas
+
+        // Dibuja una flecha/aguja rúnica simétrica orientada hacia arriba (+Y)
+        // Centro X en 15.5f
+        for (int y = 3; y <= 29; y++)
+        {
+            float halfWidth;
+            if (y >= 20)
+            {
+                // Punta de la flecha triangular afilada (de y=20 a y=29)
+                halfWidth = (29 - y) * 0.9f;
+            }
+            else if (y >= 14)
+            {
+                // Guardas laterales / alas rúnicas ensanchadas (de y=14 a y=19)
+                halfWidth = 2.0f + (y - 14) * 0.7f;
+            }
+            else if (y >= 8)
+            {
+                // Eje intermedio con diamante rúnico
+                halfWidth = 1.6f + (y % 2 == 0 ? 0.3f : 0f);
+            }
+            else
+            {
+                // Base rúnica
+                halfWidth = 2.2f;
+            }
+
+            int minX = Mathf.Clamp(Mathf.RoundToInt(15.5f - halfWidth), 0, size - 1);
+            int maxX = Mathf.Clamp(Mathf.RoundToInt(15.5f + halfWidth), 0, size - 1);
+
+            for (int x = minX; x <= maxX; x++)
+            {
+                int index = y * size + x;
+                bool isBorder = (x == minX || x == maxX || y == 3 || y == 29);
+
+                if (isBorder)
+                {
+                    pixels[index] = outlineColor;
+                }
+                else if (Mathf.Abs(x - 15.5f) < 0.8f && y >= 16)
+                {
+                    pixels[index] = centerGlow;
+                }
+                else if (y <= 7 || (y >= 14 && y <= 16 && Mathf.Abs(x - 15.5f) > 2.0f))
+                {
+                    pixels[index] = runeGold;
+                }
+                else
+                {
+                    pixels[index] = coreCyan;
+                }
+            }
+        }
+
+        texture.SetPixels(pixels);
+        texture.Apply(false, true);
+
+        // Pivote centrado en (0.5, 0.5) para que rote armoniosamente orbitando al jugador
+        s_provisionalPointerSprite = Sprite.Create(
+            texture,
+            new Rect(0, 0, size, size),
+            new Vector2(0.5f, 0.5f),
+            SpritePixelsPerUnit);
+        s_provisionalPointerSprite.hideFlags = HideFlags.HideAndDontSave;
+
+        return s_provisionalPointerSprite;
     }
 
     private void PlayChimeAudio()
@@ -195,13 +296,10 @@ public sealed class RuneCompassPointerEffect : MonoBehaviour
 
     private void CleanupAndDestroy()
     {
-        if (_lineRenderer != null)
+        if (_pointerObject != null)
         {
-            _lineRenderer.enabled = false;
-            if (_lineRenderer.gameObject != gameObject)
-            {
-                Destroy(_lineRenderer.gameObject);
-            }
+            Destroy(_pointerObject);
+            _pointerObject = null;
         }
 
         Destroy(this);
