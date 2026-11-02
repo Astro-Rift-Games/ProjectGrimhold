@@ -4,7 +4,7 @@ description: "Trigger: Project Grimhold task, HacknPlan TASK, US implementation.
 license: Apache-2.0
 metadata:
   author: "Astro-Rift-Games"
-  version: "1.0"
+  version: "1.1"
 ---
 
 ## Activation Contract
@@ -23,12 +23,14 @@ Do not load it for backlog creation, Game Design authoring or unrelated reposito
 - Use Unity MCP only when correctness depends on Editor, serialized or runtime Unity state.
 - Never let Engram, uploads or prior chats override current repository/Architecture/live Game Design.
 - Do not expand the task into adjacent systems.
-- Do not automatically create SDD specs/tasks that duplicate a defined HacknPlan task.
+- Execute through the ODD workflow and its native Task Size classification (repository `AGENTS.md`, ODD execution). Subagent delegation is the orchestrator's decision.
+- Never duplicate, split or recreate the HacknPlan item, in HacknPlan or in local proposal/specification records.
 - Minimize validation context: prefer targeted tests, filtered Console output, and concise success summaries; expand details only for failures.
 
-For an existing named HacknPlan TASK/User Story, HacknPlan is the work-tracking
-source of truth. Do not create odd/tasks, SDD task records, local task mirrors,
-or other duplicate tracking artifacts unless explicitly requested.
+For an existing named HacknPlan TASK/User Story, HacknPlan is the scope and
+work-tracking source of truth. A substantial task may use an ODD execution
+tracker (`odd/tasks/<feature>.md`) that links the item and quotes its acceptance
+criteria; it never adds or re-scopes work.
 
 ## Decision Gates
 
@@ -45,7 +47,14 @@ or other duplicate tracking artifacts unless explicitly requested.
 
 ## Execution Steps
 
-Follow the repository workflow and validation rules in the AGENTS files. The order that matters: resolve the TASK's objective, acceptance criteria and exclusions before touching code; establish ownership, authority and affected contracts before planning; plan only for architectural, cross-system or multi-file work; implement the smallest coherent change; then check the full diff and every acceptance criterion.
+Follow the ODD sequence and the validation rules in the AGENTS files:
+
+1. **Scope:** read the HacknPlan item (and parent) and resolve objective, acceptance criteria and exclusions before touching code.
+2. **Explore:** relevant code, callers and tests; owning Architecture; live Game Design when behavior is gameplay-dependent; affected dependencies and versions. Establish ownership, authority and affected contracts.
+3. **Resolve:** report missing design, architecture or approvals as blockers; ask instead of inventing.
+4. **Classify:** apply ODD's native Task Size. Small: implement directly. Substantial: create the ODD tracker before the first write.
+5. **Implement and validate:** smallest coherent change, test-first where applicable, proportionate checks.
+6. **Close:** check the full diff and every acceptance criterion; commits and pushes only with explicit authorization.
 
 When design, architecture or an Inspector assignment is missing, report it as a blocker rather than inventing it.
 

@@ -36,7 +36,7 @@ A child includes its parent's real ID and the specific criterion/result it owns,
 - For runnable deterministic corrections, require observed RED then GREEN and relevant regression checks. Record why RED does not apply for passive art/docs or unavailable meaningful runners.
 - State operational, dependency, schema/data, gameplay and design approvals where they are required; creating a ticket grants none of them.
 - Avoid fake precision: estimate only from evidence or a user/team agreement. Missing dimensions/counts/timing become explicit production decisions, not guessed numbers.
-- Keep operational state in HacknPlan; do not create duplicate local ODD/SDD trackers for an existing work item unless requested.
+- Keep operational state in HacknPlan; ticket design creates no local trackers. ODD execution trackers (`odd/tasks/`) belong to later substantial implementation, not to backlog design.
 
 ## Live metadata and capabilities
 

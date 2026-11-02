@@ -106,15 +106,15 @@ Use Engram only for continuity: previous findings, decisions or investigation st
 
 Never allow Engram to override current repository state, approved Architecture or live Game Design.
 
-## SDD and subagents
+## ODD and subagents
 
-A defined HacknPlan task should normally be executed directly.
+A defined HacknPlan task runs through ODD: explore first, then follow the native Task Size classification. Small tasks are implemented directly; substantial tasks use the `odd/tasks/` execution tracker described in repository `AGENTS.md`.
 
-Use SDD when the feature is not sufficiently specified, needs proposal/spec/design work before implementation, or the user explicitly requests SDD.
+When the item is not sufficiently specified, report the open decision and ask before affected implementation.
 
-Use subagents for bounded independent exploration/review/verification when they reduce context pollution. Give them exact scope, sources, skills and write boundaries. The parent agent reconciles all findings.
+Subagent use is the orchestrator's decision. When delegating, give exact scope, sources, skills and write boundaries; the parent agent reconciles all findings.
 
-### Validation economy
+## Validation economy
 
 Minimize Unity MCP context without reducing verification quality.
 

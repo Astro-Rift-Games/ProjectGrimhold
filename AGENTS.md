@@ -75,9 +75,18 @@ When the user names an existing HacknPlan TASK, User Story or subtask:
 2. Use it as the scope/acceptance contract; do not recreate, split, redesign or update it without an explicit request.
 3. Classify missing work as current-task, follow-up or blocker. Foundational tasks resolve only what their dependents need now.
 
-HacknPlan is the tracking source of truth for a named existing item. Do not create duplicate `odd/tasks`, SDD records or local task mirrors unless explicitly requested. A sufficiently defined item does not need another proposal/specification. If specification/design is unresolved, use Gentle AI SDD when available or a concise ordinary proposal; either requires resolution of open decisions before affected implementation.
+HacknPlan is the scope and work-tracking source of truth for a named existing item; it is not a substitute for technical analysis. Never duplicate, split or recreate the item in HacknPlan or in local proposal/specification records. A substantial implementation may keep an ODD execution tracker (`odd/tasks/<feature>.md`, see ODD execution below) that links the item and quotes its acceptance criteria; it records execution progress and evidence, never new or re-scoped backlog. If specification/design is unresolved, ask the owner for the decision before affected implementation instead of inventing it.
 
 For architectural or cross-system changes, provide a focused plan covering the result, affected contracts/files, exclusions and validation. File count alone does not require a plan.
+
+## ODD execution
+
+Implementation work follows Organic Driven Development (ODD). With Gentle Shell, the native ODD workflow (authorize, explore, resolve uncertainty, classify, track, implement, close) and its native Task Size classification are mandatory; this repository does not override that classification or the orchestrator's subagent delegation decisions. Without Gentle Shell, follow the same sequence manually.
+
+- **Explore before implementing, at any size:** relevant code, callers and tests; owning Architecture contracts; live Game Design for gameplay-dependent behavior; affected dependencies and package versions. A HacknPlan item defines scope, not the technical solution.
+- **Small tasks:** implement directly after that exploration, then run proportionate validation. No tracker is created.
+- **Substantial tasks:** keep recoverable ODD tracking in `odd/tasks/<feature>.md` (plus its Engram mirror when available), linked to the HacknPlan item as described above.
+- ODD tracking does not change delivery authorization: commits, including ODD work-unit commits, and pushes still require explicit authorization per Shared Development Standards.
 
 ## Project workflow and tools
 
@@ -97,7 +106,7 @@ Use the preferred tools when available; their absence changes the access method,
 | HacknPlan MCP | Read the named item and relevant parent before work | Read them through the web UI if accessible, or ask for their current descriptions, acceptance criteria and relevant parent context. Block scope-dependent changes until sufficient evidence is supplied; do not recreate or update the item as a workaround. |
 | `grimhold-docs` | Discover and read the owning live Game Design sections | Read the current source directly in Google Drive if accessible, or ask the owner for the relevant current sections and confirmation of their authority. Unverified exports remain supplemental; block design-dependent changes if authoritative intent is unresolved. |
 | CodeGraph | Map relationships/blast radius, then verify in source | Use targeted text/symbol searches and inspect definitions, callers and tests directly. |
-| Gentle AI | Use applicable project skills and SDD for unresolved design | Read available `SKILL.md` files directly and use ordinary planning, editing and verification tools. If a skill is missing, follow these repository instructions and report the gap. No Gentle AI installation or personal agent configuration is required. |
+| Gentle AI | Use applicable project skills and the native ODD workflow | Read available `SKILL.md` files directly and use ordinary planning, editing and verification tools. If a skill is missing, follow these repository instructions and report the gap. No Gentle AI installation or personal agent configuration is required. |
 | Unity MCP | Inspect Editor/runtime state and execute Unity checks as specified by the nested instructions | Use the Unity Editor and Test Runner directly. If unavailable too, report the unverified state and block changes whose correctness depends on that missing evidence. |
 
 Report unavailable tools and the alternative actually used. Missing tools never authorize inventing requirements or Inspector state, bypassing approved contracts, changing Game Design without approval, or claiming remote updates or checks that were not performed.
