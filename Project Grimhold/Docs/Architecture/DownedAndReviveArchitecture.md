@@ -408,7 +408,10 @@ Data lives on the Downed controller, next to the cycle it belongs to:
 ```
 
 Implemented hooks: `TryInterceptFatalDamage(in DamageRequest)` and
-`TryEnterDowned(EntityId attackerId)`; `TryApplyDownedDamage(..., EntityId attackerId, ...)`.
+`TryEnterDowned(EntityId attackerId, EntityId creditCauserId)` (the one-argument overload uses the
+attacker as credit causer); `TryApplyDownedDamage(..., EntityId attackerId, ...)`.
+`DownedCauserEntityId` always stores the direct source; `IDownedCycleObserver.NotifyDownedEntered`
+receives the credit causer, which differs only for environmental hazard damage (section 11.1).
 
 Rules:
 
@@ -438,6 +441,41 @@ Rules:
   `0` keeps every eligible teammate (GD 19 §6.2 / T03-05, which still reads unlimited — open design
   discrepancy). When the limit applies, the most recent in-window contribution or support before
   Downed wins; a same-tick tie goes to the lowest `RaidParticipantId`.
+
+### 11.1 Knockback into environmental hazards (Implemented, TASK-247)
+
+GD 18 §6.5 and GD 19 §8 separate the direct source of hazard damage (the environment) from the player
+whose knockback caused the exposure. GD 19 §10 leaves the causal register as a technical contract; it is:
+
+* `PlayerHazardExposureCausalityNetworkController` (on `NetworkPlayer`) holds one replicated
+  `HazardExposureCausalityState`, mutated only on State Authority through the pure
+  `HazardExposureCausalityRules`.
+* **Pending push:** after `ReceiveKnockback` returns `Started` or `Replaced`, `DamageResolver` records the
+  attacker when it is a `PlayerCharacter` (ally or enemy). A non-player displacement records `default`,
+  discarding the pending cause it replaced; `KeptActive`, absorbed and ineligible impacts change nothing.
+  The pending push lasts while the knockback is active, plus one tick of ordering grace.
+* **Presence:** an authoritative hazard calls `ReportHazardPresence(hazardId)` every tick the target's
+  damage collider is inside its exposure area, before its same-tick damage. Hazard ids are the hazard's
+  `NetworkObject` raw id.
+* **Link:** presence while a push is pending links `{hazard, pusher, KnockbackSequence}`. A hazard the
+  target already occupied when the push was accepted is not a push toward it. Voluntary entry links nothing.
+* **Continuity and rupture:** the link persists after the knockback ends while that hazard keeps reporting
+  presence (one tick of grace). It breaks with `ExitedHazard` when reports stop, with
+  `IndependentIntervention` when a later push moves the target into a different hazard (which relinks to
+  the new push), and with `TargetLeftActiveState` while Downed or defeated (credit is frozen at entry, so a
+  revived target starts a new register). A later push that leaves the target in the same hazard keeps the
+  original link. Re-entering after an exit never reuses the previous attribution.
+* **Audit (GD 19 §14):** the state keeps the linked hazard, pusher and knockback action, and for the last
+  rupture its hazard, pusher, knockback action, reason and tick.
+* **Credit:** hazard damage carries `DamageRequest.EnvironmentalHazardId` with `AttackerId` = environment.
+  On Downed entry `PlayerCharacter` resolves the still-valid pusher of that hazard as credit causer; the
+  existing PvP credit rules then grant Last Hit only to an eligible enemy. A teammate's push stays recorded
+  but yields no Last Hit, and recent enemy damage does not inherit credit (GD 19 §8.3, T06-04/T06-05).
+  Hazard damage is not direct ally damage, so it can cause Downed or Defeat.
+* **Limits:** one link per target; with overlapping hazards the first one entered during the push wins.
+  Only Downed-entry Last Hit uses the link; Defeat causer, PvE kill credit and Assists are unchanged.
+  `SpikesTrap` is the integrated hazard; projectile hazards (`DartTrap`) and future rifts or lava must
+  report presence and tag their damage to participate.
   CC/debuff and Protective Orb interception are not MVP producers.
 * Each cycle resets **credits**, not contribution history. An effective Active contribution still
   within the configurable window can qualify again after revive in a new cycle (GD 19 §6.1).

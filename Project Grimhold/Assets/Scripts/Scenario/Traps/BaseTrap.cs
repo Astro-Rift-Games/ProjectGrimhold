@@ -41,6 +41,9 @@ public class BaseTrap : NetworkBehaviour
     {
         if (!HasStateAuthority || trapInfo == null) return;
 
+        // Runs before phase effects so same-tick damage observes this tick's exposure.
+        OnAuthorityTick();
+
         switch (State)
         {
             case TrapState.Ready:
@@ -85,6 +88,8 @@ public class BaseTrap : NetworkBehaviour
         PhaseTimer = TickTimer.CreateFromSeconds(Runner, duration);
     }
 
+    /// <summary>State Authority hook invoked every tick, in any phase, before phase transitions.</summary>
+    protected virtual void OnAuthorityTick() { }
     protected virtual void OnEnterTelegraphing() { }
     protected virtual void OnEnterActive() 
     {

@@ -8448,6 +8448,7 @@ GameObject:
   - component: {fileID: 4100000000000000201}
   - component: {fileID: 3851482750751976601}
   - component: {fileID: 4133092321343075297}
+  - component: {fileID: 7941466659736207592}
   m_Layer: 7
   m_Name: NetworkPlayer
   m_TagString: Player
@@ -8906,6 +8907,7 @@ MonoBehaviour:
   - {fileID: 4987159183995520997}
   - {fileID: 3851482750751976601}
   - {fileID: 4133092321343075297}
+  - {fileID: 7941466659736207592}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7201000000000000001
 MonoBehaviour:
@@ -9996,6 +9998,18 @@ MonoBehaviour:
     RawValue: 0
   _PendingGrantMask: 0
   _SupportReceivedTicks: 
+--- !u!114 &7941466659736207592
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a25962024210134888f2a8b7acb85e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerHazardExposureCausalityNetworkController
 --- !u!1 &4550749441162253346
 GameObject:
   m_ObjectHideFlags: 0

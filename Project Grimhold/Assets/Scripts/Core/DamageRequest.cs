@@ -24,6 +24,12 @@ public readonly struct DamageRequest
     /// </summary>
     public float KnockbackForce { get; }
 
+    /// <summary>
+    /// Environmental hazard applying this damage (Doc 19 §8.1); default when not hazard damage. The direct
+    /// source stays the environment; the target resolves any indirect causal pusher from this id.
+    /// </summary>
+    public EntityId EnvironmentalHazardId { get; }
+
     public DamageRequest(
         EntityId attackerId,
         EntityId targetId,
@@ -34,7 +40,8 @@ public readonly struct DamageRequest
         int simulationTick,
         float knockbackForce = 0f,
         bool isAllyDirectDamage = false,
-        RaidParticipantId empowerSourceId = default)
+        RaidParticipantId empowerSourceId = default,
+        EntityId environmentalHazardId = default)
     {
         AttackerId     = attackerId;
         TargetId       = targetId;
@@ -46,5 +53,6 @@ public readonly struct DamageRequest
         SimulationTick = simulationTick;
         EmpowerSourceId = empowerSourceId;
         KnockbackForce = Mathf.Max(0f, knockbackForce);
+        EnvironmentalHazardId = environmentalHazardId;
     }
 }

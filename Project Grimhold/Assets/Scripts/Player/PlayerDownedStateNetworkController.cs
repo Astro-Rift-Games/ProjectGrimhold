@@ -106,7 +106,13 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
     }
 
     /// <summary>Enters Downed with a full reserve. Refused unless authoritative and not already Downed.</summary>
-    public bool TryEnterDowned(EntityId attackerId = default)
+    public bool TryEnterDowned(EntityId attackerId = default) => TryEnterDowned(attackerId, attackerId);
+
+    /// <summary>
+    /// Keeps the direct source in DownedCauserEntityId (environment = default) and notifies the cycle
+    /// observer with the credit causer, which may be an indirect hazard pusher (Doc 19 §8.1).
+    /// </summary>
+    public bool TryEnterDowned(EntityId attackerId, EntityId creditCauserId)
     {
         if (!HasStateAuthority || IsDowned || TestDisableEntry || !_isConfigurationValid ||
             !DownedHealthRules.TryCreateReserve(_initialDownedHealth, out float reserve))
@@ -120,7 +126,7 @@ public sealed class PlayerDownedStateNetworkController : NetworkBehaviour
         IsDowned = true;
         DownedHealth = reserve;
         DownedCycle++;
-        _cycleObserver?.NotifyDownedEntered(DownedCycle, attackerId, Runner.Tick);
+        _cycleObserver?.NotifyDownedEntered(DownedCycle, creditCauserId, Runner.Tick);
         return true;
     }
 

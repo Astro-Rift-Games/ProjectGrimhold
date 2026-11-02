@@ -19,6 +19,7 @@ namespace Tests.PlayMode.Combat
         private const string ParticipantGuid = "c39d451563bae6e43934008a0dadc6d6";
         private const string SlimeGuid = "5deca87613df0fa409d98702aec643d4";
         private const BindingFlags Members = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        private static readonly EntityId HazardId = new EntityId(9001);
         private NetworkRunner _runner;
         private PlayerAbilityRuntimeSimulationDriver _driver;
         private readonly PlayerCharacter[] _players = new PlayerCharacter[4];
@@ -573,6 +574,77 @@ namespace Tests.PlayMode.Combat
             AssertAll();
         }
 
+        [UnityTest]
+        public IEnumerator T06_01_EnemyPushIntoHazard_GrantsCausalLastHitWhileSourceStaysEnvironmental()
+        {
+            yield return Begin();
+            int sequence = 0;
+            yield return InSimulation(() =>
+            {
+                Push(0, 1);
+                Causality(1).ReportHazardPresence(HazardId);
+                sequence = Movement(1).KnockbackSequence;
+                AssertLinked(Causality(1).State.LinkedHazardId, Causality(1).State.LinkedPusherEntityId, 0);
+                Assert.That(Causality(1).State.LinkedKnockbackSequence, Is.EqualTo(sequence));
+                Assert.That(ResolveHazard(1, 10000f).IsApplied, Is.True);
+            });
+            Assert.That(_players[1].IsDowned, Is.True);
+            Assert.That(Credit(1).LastHitParticipantValue, Is.EqualTo(Id(0).Value));
+            Assert.That(Downed(1).DownedCauserEntityId, Is.Zero, "The direct source of hazard damage is the environment.");
+            HazardExposureCausalityState state = Causality(1).State;
+            Assert.That(state.LastBreakReason, Is.EqualTo(HazardCausalityBreakReason.TargetLeftActiveState));
+            AssertLinked(state.LastBrokenHazardId, state.LastBrokenPusherEntityId, 0);
+            Assert.That(state.LastBrokenKnockbackSequence, Is.EqualTo(sequence), "Audit keeps the knockback action.");
+            yield return InSimulation(() => Assert.That(ResolveHazard(1, 10000f).IsFatal, Is.True));
+            yield return WaitTicks(90);
+            AssertAll(killer: 0);
+        }
+
+        [UnityTest]
+        public IEnumerator T06_04_T06_05_AllyPushIntoHazard_DownsWithoutCreditEvenAfterEnemyDamage()
+        {
+            yield return Begin();
+            _players[0].GetComponent<DamageResolver>().FriendlyFireEnabled = () => true;
+            yield return Hit(1, 0, 1f);
+            yield return InSimulation(() =>
+            {
+                Push(2, 0);
+                Causality(0).ReportHazardPresence(HazardId);
+                Assert.That(ResolveHazard(0, 10000f).IsApplied, Is.True);
+            });
+            Assert.That(_players[0].IsDowned, Is.True, "Hazard damage is not direct ally damage.");
+            Assert.That(Credit(0).LastHitParticipantValue, Is.Zero);
+            Assert.That(Credit(0).AssistMask, Is.Zero);
+            AssertLinked(Causality(0).State.LastBrokenHazardId, Causality(0).State.LastBrokenPusherEntityId, 2);
+            yield return InSimulation(() => Assert.That(ResolveHazard(0, 10000f).IsFatal, Is.True));
+            yield return WaitTicks(90);
+            AssertAll();
+        }
+
+        [UnityTest]
+        public IEnumerator T06_09_LeavingHazardAndReturning_DownsWithoutPreviousPusherCredit()
+        {
+            yield return Begin();
+            yield return InSimulation(() =>
+            {
+                Push(0, 1);
+                Causality(1).ReportHazardPresence(HazardId);
+                AssertLinked(Causality(1).State.LinkedHazardId, Causality(1).State.LinkedPusherEntityId, 0);
+            });
+            yield return WaitFor(() => !Movement(1).IsKnockbackActive);
+            yield return WaitTicks(3);
+            Assert.That(Causality(1).State.LinkedHazardId, Is.Zero);
+            Assert.That(Causality(1).State.LastBreakReason, Is.EqualTo(HazardCausalityBreakReason.ExitedHazard));
+            AssertLinked(Causality(1).State.LastBrokenHazardId, Causality(1).State.LastBrokenPusherEntityId, 0);
+            yield return InSimulation(() =>
+            {
+                Causality(1).ReportHazardPresence(HazardId);
+                Assert.That(ResolveHazard(1, 10000f).IsApplied, Is.True);
+            });
+            Assert.That(_players[1].IsDowned, Is.True);
+            Assert.That(Credit(1).LastHitParticipantValue, Is.Zero);
+        }
+
         private IEnumerator Begin()
         {
             var owner = new GameObject("PvpCombatCreditTestRunner");
@@ -629,6 +701,36 @@ namespace Tests.PlayMode.Combat
             _players[target].GetComponent<DamageResolver>().Resolve(new DamageRequest(
                 attacker < 0 ? default : _players[attacker].Id, _players[target].Id, damage, DamageType.TrueDamage,
                 Vector2.right, _players[target].transform.position, _runner.Tick, empowerSourceId: empowerSource));
+
+        private void Push(int attacker, int target)
+        {
+            DamageResult result = _players[target].GetComponent<DamageResolver>().Resolve(new DamageRequest(
+                _players[attacker].Id, _players[target].Id, 1f, DamageType.TrueDamage, Vector2.right,
+                _players[target].transform.position, _runner.Tick, knockbackForce: 50f));
+            Assert.That(result.IsApplied, Is.True);
+            Assert.That(Movement(target).IsKnockbackActive, Is.True, "The push must be an accepted knockback.");
+            Assert.That(Causality(target).State.PendingPusherEntityId, Is.EqualTo(_players[attacker].Id.Value));
+        }
+
+        private DamageResult ResolveHazard(int target, float damage) =>
+            _players[target].GetComponent<DamageResolver>().Resolve(new DamageRequest(
+                default, _players[target].Id, damage, DamageType.TrueDamage, Vector2.up,
+                _players[target].transform.position, _runner.Tick, environmentalHazardId: HazardId));
+
+        private PlayerHazardExposureCausalityNetworkController Causality(int i)
+        {
+            var causality = _players[i].GetComponent<PlayerHazardExposureCausalityNetworkController>();
+            Assert.That(causality, Is.Not.Null, "Parent must compose NetworkPlayer first.");
+            return causality;
+        }
+
+        private void AssertLinked(int hazardId, int pusherEntityId, int pusher)
+        {
+            Assert.That(hazardId, Is.EqualTo(HazardId.Value));
+            Assert.That(pusherEntityId, Is.EqualTo(_players[pusher].Id.Value), "Responsibility names the pusher.");
+        }
+
+        private PlayerMovementNetworkController Movement(int i) => _players[i].GetComponent<PlayerMovementNetworkController>();
 
         private IEnumerator Hit(int attacker, int target, float damage) =>
             InSimulation(() => Assert.That(Resolve(attacker, target, damage).IsApplied, Is.True));

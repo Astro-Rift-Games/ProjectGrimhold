@@ -28,6 +28,7 @@ public sealed class SpikesTrap : BaseTrap
     private Collider2D[] _colliderBuffer;
     private ContactFilter2D _contactFilter;
     private readonly List<EntityId> _processedTargets = new();
+    private bool _reportedMissingArea;
 
     public override void Spawned()
     {
@@ -76,6 +77,31 @@ public sealed class SpikesTrap : BaseTrap
         }
     }
 
+    /// <summary>Identidad estable del peligro para la atribución causal ambiental (Doc 19 §8.2).</summary>
+    private EntityId HazardId => new EntityId(unchecked((int)Object.Id.Raw));
+
+    /// <summary>
+    /// Reporta cada tick la exposición de los jugadores en el área de impacto, en cualquier fase, para que
+    /// un empuje hacia la trampa conserve su causalidad mientras el objetivo permanezca dentro.
+    /// </summary>
+    protected override void OnAuthorityTick()
+    {
+        if (_registry == null || !TryResolveAreaCollider(out Collider2D areaCollider)) return;
+
+        int hitCount = OverlapTargets(areaCollider);
+        EntityId hazardId = HazardId;
+        for (int i = 0; i < hitCount; i++)
+        {
+            if (TryResolveTarget(_colliderBuffer[i], out _, out IDamageable damageable) &&
+                damageable is PlayerCharacter player && player.HazardExposureCausality != null)
+            {
+                player.HazardExposureCausality.ReportHazardPresence(hazardId);
+            }
+        }
+
+        System.Array.Clear(_colliderBuffer, 0, hitCount);
+    }
+
     /// <summary>
     /// Invocado autoritativamente por State Authority cuando la trampa pasa a la fase Active.
     /// Detecta todas las entidades en la zona de impacto e inflige daño a través del DamageResolver.
@@ -94,38 +120,16 @@ public sealed class SpikesTrap : BaseTrap
     {
         if (_damageResolver == null || _registry == null || trapInfo == null) return;
 
-        Collider2D areaCollider = _impactCollider != null ? _impactCollider : GetComponent<Collider2D>();
-        if (areaCollider == null)
-        {
-            Debug.LogWarning($"{nameof(SpikesTrap)}: Falta un Collider2D de impacto en {gameObject.name}.", this);
-            return;
-        }
+        if (!TryResolveAreaCollider(out Collider2D areaCollider)) return;
 
-        _contactFilter.SetLayerMask(_targetLayerMask);
-        int hitCount = areaCollider.Overlap(_contactFilter, _colliderBuffer);
-
-        _processedTargets.Clear();
+        int hitCount = OverlapTargets(areaCollider);
+        EntityId hazardId = HazardId;
 
         for (int i = 0; i < hitCount; i++)
         {
             Collider2D col = _colliderBuffer[i];
-            if (col == null) continue;
-
-            // Obtener el EntityId registrado para evitar búsquedas de componentes lentas en runtime
-            if (!_registry.TryGetEntityId(col, out EntityId targetId)) continue;
-            if (targetId.Value == 0) continue;
-            if (!_registry.IsDamageCollider(targetId, col)) continue;
-
-            // Evitar procesar múltiples colliders de una misma entidad en el mismo pulso
-            if (_processedTargets.Contains(targetId)) continue;
-            _processedTargets.Add(targetId);
-
-            // Obtener el contrato IDamageable registrado
-            if (!_registry.TryGetDamageable(targetId, out IDamageable damageable)) continue;
+            if (!TryResolveTarget(col, out EntityId targetId, out IDamageable damageable)) continue;
             if (!damageable.CanReceiveDamage) continue;
-
-            // Excluir entidades destruidas/muertas
-            if (damageable is ICharacter character && !character.IsAlive) continue;
 
             Vector2 hitPoint = col.ClosestPoint(transform.position);
 
@@ -137,13 +141,54 @@ public sealed class SpikesTrap : BaseTrap
                 trapInfo.DamageType,
                 Vector2.up,
                 hitPoint,
-                Runner.Tick
+                Runner.Tick,
+                environmentalHazardId: hazardId
             );
 
             _damageResolver.Resolve(in request);
         }
 
         System.Array.Clear(_colliderBuffer, 0, hitCount);
+    }
+
+    private bool TryResolveAreaCollider(out Collider2D areaCollider)
+    {
+        areaCollider = _impactCollider != null ? _impactCollider : GetComponent<Collider2D>();
+        if (areaCollider != null) return true;
+
+        if (!_reportedMissingArea)
+        {
+            Debug.LogWarning($"{nameof(SpikesTrap)}: Falta un Collider2D de impacto en {gameObject.name}.", this);
+            _reportedMissingArea = true;
+        }
+        return false;
+    }
+
+    /// <summary>Consulta no asignativa del área; reinicia la desduplicación por EntityId de esta consulta.</summary>
+    private int OverlapTargets(Collider2D areaCollider)
+    {
+        _contactFilter.SetLayerMask(_targetLayerMask);
+        _processedTargets.Clear();
+        return areaCollider.Overlap(_contactFilter, _colliderBuffer);
+    }
+
+    /// <summary>
+    /// Resuelve el hitbox de daño registrado a una entidad viva no procesada en esta consulta, evitando
+    /// búsquedas de componentes en runtime y múltiples colliders de una misma entidad.
+    /// </summary>
+    private bool TryResolveTarget(Collider2D col, out EntityId targetId, out IDamageable damageable)
+    {
+        damageable = null;
+        targetId = default;
+        if (col == null || !_registry.TryGetEntityId(col, out targetId) || targetId.Value == 0 ||
+            !_registry.IsDamageCollider(targetId, col) || _processedTargets.Contains(targetId))
+        {
+            return false;
+        }
+
+        _processedTargets.Add(targetId);
+        return _registry.TryGetDamageable(targetId, out damageable) &&
+            (damageable is not ICharacter character || character.IsAlive);
     }
 
 #if UNITY_EDITOR

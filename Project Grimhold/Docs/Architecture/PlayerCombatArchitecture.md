@@ -686,7 +686,7 @@ DamageRequest ──► IDamageResolver ──► IDamageable (ApplyDamage) ─�
 ```
 
 ### 1. `DamageRequest` & `DamageResult`
-* **`DamageRequest`**: A plain C# struct transporting attacker ID, target ID, effective damage amount, damage type, direction, hit point, and execution tick. For player weapons, Equipment resolves that amount before configuring the attack executor; `DamageResolver` does not calculate weapon scaling.
+* **`DamageRequest`**: A plain C# struct transporting attacker ID, target ID, effective damage amount, damage type, direction, hit point, and execution tick. Environmental hazard damage also carries `EnvironmentalHazardId`; after an accepted knockback `DamageResolver` records a player pusher for causal hazard attribution (`DownedAndReviveArchitecture.md` section 11.1). For player weapons, Equipment resolves that amount before configuring the attack executor; `DamageResolver` does not calculate weapon scaling.
 * **`DamageResult`**: Communicates target ID, execution success, damage amount applied, remaining health, fatal flag, and detailed failure reason.
 
 ### 2. `DamageResolver`

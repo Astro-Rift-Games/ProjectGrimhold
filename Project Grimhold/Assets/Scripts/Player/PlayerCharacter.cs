@@ -25,6 +25,7 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
 
     [SerializeField]
     private PlayerDownedStateNetworkController _downedStateController;
+    private PlayerHazardExposureCausalityNetworkController _hazardExposureCausality;
 
     [SerializeField, Min(0.0001f)]
     private float _defenseMitigationConstant = 100f;
@@ -121,6 +122,9 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
     public NetworkString<_32> ProfileIdString { get; set; }
 
     /// <summary>Indicates whether the player is in the Downed state (Health 0, reserve active).</summary>
+    /// <summary>Optional causal hazard exposure register; null when the avatar does not compose it.</summary>
+    public PlayerHazardExposureCausalityNetworkController HazardExposureCausality => _hazardExposureCausality;
+
     public bool IsDowned => _downedStateController != null &&
                             _downedStateController.Object != null &&
                             _downedStateController.Object.IsValid &&
@@ -339,7 +343,16 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
     protected override bool TryInterceptFatalDamage(in DamageRequest request)
     {
         return _downedStateController != null &&
-            _downedStateController.TryEnterDowned(request.AttackerId);
+            _downedStateController.TryEnterDowned(request.AttackerId, ResolveDownedCreditCauser(request));
+    }
+
+    /// <summary>Direct attackers keep credit; environmental damage credits only a still-valid causal pusher.</summary>
+    private EntityId ResolveDownedCreditCauser(in DamageRequest request)
+    {
+        return request.AttackerId.Value == 0 && _hazardExposureCausality != null &&
+            _hazardExposureCausality.TryResolveHazardCauser(request.EnvironmentalHazardId, out EntityId pusherId)
+                ? pusherId
+                : request.AttackerId;
     }
 
     protected override bool TryApplyAlternateDamage(
@@ -533,6 +546,11 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
         if (_downedStateController == null)
         {
             _downedStateController = GetComponent<PlayerDownedStateNetworkController>();
+        }
+
+        if (_hazardExposureCausality == null)
+        {
+            _hazardExposureCausality = GetComponent<PlayerHazardExposureCausalityNetworkController>();
         }
 
         if (_staminaController == null)

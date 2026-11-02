@@ -34,13 +34,15 @@ All traps transition through a standard four-phase lifecycle defined in `BaseTra
 * **State Authority**: Only State Authority handles state transitions in `FixedUpdateNetwork` using Fusion's `TickTimer`.
 * **Trigger Detection**: Uses `OnTriggerEnter2D` on State Authority to set `_triggerEntered` when an entity enters the detection collider.
 * **Phase Hooks**: Provides virtual lifecycle methods (`OnEnterTelegraphing`, `OnEnterActive`, `UpdateActive`, `OnEnterCooldown`, `OnEnterReady`) for subclasses.
+* **Authority Tick Hook**: `OnAuthorityTick` runs on State Authority every tick, in any phase, before phase transitions, so same-tick damage observes that tick's exposure.
 
 ### 2. Spikes Trap (`SpikesTrap`)
 * **Behavior**: Instant area-of-effect damage upon entering the `Active` phase.
 * **Target Query**: Uses non-allocating `Overlap` queries (`ContactFilter2D`, `_colliderBuffer`) on its dedicated `_impactCollider`.
 * **Target Resolution**: Maps detected colliders to gameplay entities via `EntityRegistry.TryGetEntityId` and `TryGetDamageable`.
 * **Deduplication**: Prevents duplicate hits on the same `EntityId` during a single spike pulse using `_processedTargets`.
-* **Damage Pipeline**: Constructs an authoritative `DamageRequest` with source `EntityId(0)` (environment origin) and passes it directly to `IDamageResolver`.
+* **Damage Pipeline**: Constructs an authoritative `DamageRequest` with source `EntityId(0)` (environment origin) and `EnvironmentalHazardId` set to the trap's `NetworkObject` raw id, and passes it directly to `IDamageResolver`.
+* **Causal Exposure**: In `OnAuthorityTick` it overlaps the same impact area and reports each player inside to `PlayerHazardExposureCausalityNetworkController.ReportHazardPresence`, so a knockback into the trap keeps its causal attribution while the target remains inside (see `DownedAndReviveArchitecture.md` section 11.1).
 
 ### 3. Dart Trap (`DartTrap`)
 * **Behavior**: Ranged hazard firing a sequence of networked projectiles during the `Active` phase.
@@ -64,7 +66,7 @@ Runtime state (`TrapState`, `PhaseTimer`) remains separate in `BaseTrap` network
 
 - **State Authority**: Evaluates trigger collisions, state transitions, `TickTimer` progression, area overlap queries, damage requests, and projectile spawning.
 - **Proxy Clients**: Replicate `State` and `PhaseTimer` for rendering and local audio/visual presentation in `Render()`. Proxies do not execute physics queries or trigger damage logic.
-- **Environment Origin**: Traps specify `EntityId(0)` as the damage origin to signify environmental hazard damage.
+- **Environment Origin**: Traps specify `EntityId(0)` as the damage origin to signify environmental hazard damage. Area hazards also tag `EnvironmentalHazardId` and report presence so an indirect knockback responsible can be resolved; the direct source remains the environment.
 
 ## Presentation Boundary
 

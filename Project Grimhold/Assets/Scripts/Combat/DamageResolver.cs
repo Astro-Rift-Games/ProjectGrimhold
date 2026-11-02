@@ -96,7 +96,7 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
         var resolvedRequest = new DamageRequest(request.AttackerId, request.TargetId,
             FriendlyFireRules.ScaleDamage(request.Amount, isAlly, _allyDamageMultiplier),
             request.DamageType, request.Direction, request.HitPoint, request.SimulationTick,
-            request.KnockbackForce, isAlly, request.EmpowerSourceId);
+            request.KnockbackForce, isAlly, request.EmpowerSourceId, request.EnvironmentalHazardId);
 
         // 3. Verify target can receive damage
         if (!target.CanReceiveDamage)
@@ -127,8 +127,9 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
             request.KnockbackForce > 0f &&
             target is IKnockbackReceiver knockbackReceiver)
         {
-            knockbackReceiver.ReceiveKnockback(new KnockbackRequest(
+            KnockbackDecision decision = knockbackReceiver.ReceiveKnockback(new KnockbackRequest(
                 request.Direction, request.KnockbackForce, knockbackEligibleAtImpact));
+            RecordAcceptedKnockbackCause(request, target, decision);
         }
 
         // 6. Alert enemy targets aggro'd by a player hit.
@@ -179,6 +180,21 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
         TryAwardFatalMissionProgress(request, result);
         TryRecordFatalInstability(request, result);
         return CompleteResolution(request, result);
+    }
+
+    /// <summary>Doc 19 §8: an accepted player push may become the indirect cause of hazard exposure.</summary>
+    private void RecordAcceptedKnockbackCause(in DamageRequest request, IDamageable target, KnockbackDecision decision)
+    {
+        if (!HasStateAuthority || target is not PlayerCharacter player || player.HazardExposureCausality == null ||
+            (decision != KnockbackDecision.Started && decision != KnockbackDecision.Replaced))
+        {
+            return;
+        }
+
+        // Non-player displacements still replace the previous push, so they clear its pending cause.
+        bool isPlayerPush = request.AttackerId.Value != 0 &&
+            _registry.TryGetDamageable(request.AttackerId, out IDamageable source) && source is PlayerCharacter;
+        player.HazardExposureCausality.RecordAcceptedKnockback(isPlayerPush ? request.AttackerId : default);
     }
 
     private void TryAwardFatalAssistExperience(in DamageRequest request, in DamageResult result)
