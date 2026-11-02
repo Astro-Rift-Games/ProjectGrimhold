@@ -177,6 +177,39 @@ public sealed class PathfindingGrid : MonoBehaviour
         return false;
     }
 
+    /// <summary>
+    /// Re-evaluates walkability of every node whose inflated detection box can overlap
+    /// <paramref name="worldBounds"/>. Runtime obstacles such as doors call this after
+    /// toggling their collider; nodes outside the region keep their state. Ignored before
+    /// <see cref="Build"/>.
+    /// </summary>
+    public void RefreshRegion(Bounds worldBounds)
+    {
+        if (!_isBuilt || _config == null)
+        {
+            return;
+        }
+
+        float nodeSize = _config.NodeSize;
+        float halfExtent = nodeSize * 0.5f + _config.AgentRadius;
+        Vector2 boxSize = new Vector2(halfExtent * 2f, halfExtent * 2f);
+        LayerMask obstacleLayer = _config.ObstacleLayer;
+
+        int minX = Mathf.Max(0, Mathf.FloorToInt((worldBounds.min.x - halfExtent - _worldBottomLeft.x) / nodeSize));
+        int minY = Mathf.Max(0, Mathf.FloorToInt((worldBounds.min.y - halfExtent - _worldBottomLeft.y) / nodeSize));
+        int maxX = Mathf.Min(_width - 1, Mathf.CeilToInt((worldBounds.max.x + halfExtent - _worldBottomLeft.x) / nodeSize));
+        int maxY = Mathf.Min(_height - 1, Mathf.CeilToInt((worldBounds.max.y + halfExtent - _worldBottomLeft.y) / nodeSize));
+
+        for (int y = minY; y <= maxY; y++)
+        {
+            for (int x = minX; x <= maxX; x++)
+            {
+                int index = y * _width + x;
+                _nodes[index].IsWalkable = !IsObstacleAt(_nodes[index].WorldPosition, boxSize, obstacleLayer);
+            }
+        }
+    }
+
     /// <summary>Returns whether the node at (x, y) is within bounds and walkable.</summary>
     public bool IsWalkable(int x, int y)
     {
@@ -244,8 +277,7 @@ public sealed class PathfindingGrid : MonoBehaviour
                 Vector2 worldPos = _worldBottomLeft +
                     new Vector2(x * nodeSize, y * nodeSize);
 
-                bool isObstacle = Physics2D.OverlapBox(
-                    worldPos, boxSize, angle: 0f, obstacleLayer) != null;
+                bool isObstacle = IsObstacleAt(worldPos, boxSize, obstacleLayer);
 
                 _nodes[y * _width + x] = new PathNode
                 {
@@ -262,6 +294,11 @@ public sealed class PathfindingGrid : MonoBehaviour
             $"[{nameof(PathfindingGrid)}] Built {_width}x{_height} grid " +
             $"({_width * _height} nodes) from bounds {bounds}.",
             this);
+    }
+
+    private static bool IsObstacleAt(Vector2 worldPos, Vector2 boxSize, LayerMask obstacleLayer)
+    {
+        return Physics2D.OverlapBox(worldPos, boxSize, angle: 0f, obstacleLayer) != null;
     }
 
     private static Bounds CalculateSceneTilemapBounds()

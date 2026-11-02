@@ -24,7 +24,8 @@ public struct PathNode
 
     /// <summary>
     /// Whether this node is navigable by the pathfinding agent.
-    /// Set once during <see cref="PathfindingGrid.Build"/> and never mutated at runtime.
+    /// Set during <see cref="PathfindingGrid.Build"/>; runtime obstacles such as doors update it only
+    /// through <see cref="PathfindingGrid.RefreshRegion"/>.
     /// </summary>
     public bool IsWalkable;
 
