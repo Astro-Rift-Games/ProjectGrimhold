@@ -90,7 +90,7 @@ public sealed class DungeonDoorAnimationTests
     }
 
     [Test]
-    public void SouthOpenFrame_KeepsHingeAnchoredAtWallAndExtendsLeafSevenPixelsSouth_WithoutImportChanges()
+    public void SouthOpenFrame_MatchesNorthEdgeOnStripAnchoredAtWallBase_WithoutImportChanges()
     {
         var north = new Texture2D(2, 2);
         var south = new Texture2D(2, 2);
@@ -101,18 +101,17 @@ public sealed class DungeonDoorAnimationTests
             Color32[] a = north.GetPixels32();
             Color32[] b = south.GetPixels32();
             RectInt closed = OpaqueBounds(a, north.width, cellX: 384);
-            RectInt northOpen = OpaqueBounds(a, north.width, cellX: 0);
             RectInt southOpen = OpaqueBounds(b, south.width, cellX: 0);
 
-            // Texture rows grow upward: yMax is the top edge, yMin the bottom edge.
-            Assert.That(southOpen.xMin, Is.EqualTo(northOpen.xMin), "Hinge column must not move.");
-            Assert.That(southOpen.xMax, Is.EqualTo(northOpen.xMax));
-            Assert.That(southOpen.yMax, Is.EqualTo(closed.yMax), "Hinge top stays anchored at the wall.");
-            Assert.That(southOpen.yMin, Is.EqualTo(closed.yMin - 7), "The leaf extends 7 px toward the camera.");
-            for (int y = southOpen.yMin; y <= southOpen.yMax; y++)
+            // Texture rows grow upward: yMin is the bottom edge, which stays on the wall base.
+            Assert.That(southOpen.yMin, Is.EqualTo(closed.yMin), "The open leaf stays anchored at the wall base.");
+            Assert.That(southOpen.xMin, Is.EqualTo(closed.xMin), "Hinge column must not move.");
+            for (int y = 0; y < 128; y++)
             {
-                Assert.That(RowExistsInNorthStrip(a, north.width, b, south.width, y, northOpen), Is.True,
-                    $"South row {y} must reuse a north edge-on row (no new pixels).");
+                for (int x = 0; x < 128; x++)
+                {
+                    Assert.That(b[y * south.width + x], Is.EqualTo(a[y * north.width + x]), $"({x},{y})");
+                }
             }
             string path = ArtFolder + "Door-Open-South-Sheet.png";
             var importer = (TextureImporter)AssetImporter.GetAtPath(path);
@@ -156,22 +155,4 @@ public sealed class DungeonDoorAnimationTests
         return new RectInt(xMin, yMin, xMax - xMin, yMax - yMin);
     }
 
-    private static bool RowExistsInNorthStrip(Color32[] north, int northWidth, Color32[] south, int southWidth, int southRow, RectInt strip)
-    {
-        for (int y = strip.yMin; y <= strip.yMax; y++)
-        {
-            bool same = true;
-            for (int x = 0; x < 128 && same; x++)
-            {
-                same = north[y * northWidth + x].Equals(south[southRow * southWidth + x]);
-            }
-
-            if (same)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

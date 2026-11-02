@@ -225,9 +225,10 @@ corrected against the same timer. The View Animator uses Normal update, AlwaysAn
 culling and no root motion. `Spawned` validates its controller and all seven states once.
 
 `Door-Open-Sheet.png` opens north. `Door-Open-South-Sheet.png` remains provisional Art:
-frames 1–2 use integer column shifts, frame 3 is unchanged, and frame 0 shifts the north
-edge-on strip 7 pixels down inside its cell so the fully open leaf hangs south of the
-threshold. Art may retouch or replace it. Both sheets use PPU 16, Point, uncompressed,
+frames 1–2 use integer column shifts, frame 3 is unchanged, and frame 0 reuses the north
+edge-on strip so the hinge stays anchored at the wall base in both directions; the
+direction reads from the intermediate frames and the sorting order. Art may retouch or
+replace it. Both sheets use PPU 16, Point, uncompressed,
 four full 128 x 128 cells and custom pivot (0.5, 0.3671875).
 The presenter retains placeholder opening/closing audio through `AudioSource.PlayOneShot`
 on observed transition entry in `Render`, deduplicated by state; spawn/restore and drift
