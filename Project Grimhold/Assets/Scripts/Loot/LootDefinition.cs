@@ -371,7 +371,7 @@ public sealed class LootDefinition : ScriptableObject
             }
         }
 
-        if (_equipmentVisualDefinition != null && !_equipmentVisualDefinition.TryValidate(out string equipError))
+        if (IsArmorCategory(_category) && _equipmentVisualDefinition != null && !_equipmentVisualDefinition.TryValidate(out string equipError))
         {
             error = $"Loot definition '{_id}' has an invalid EquipmentVisualDefinition: {equipError}";
             return false;

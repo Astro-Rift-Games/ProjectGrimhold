@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
 using ProjectGrimhold.Gameplay.Visibility;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
@@ -251,7 +252,10 @@ namespace Tests.EditMode.Editor.Loot
                 settings.NearRadius = 2.0f;
                 settings.ConeAngleDegrees = 90f;
 
-                playerGo.AddComponent<Rigidbody2D>();
+                playerGo.AddComponent<CircleCollider2D>();
+                var rb = playerGo.AddComponent<Rigidbody2D>();
+                rb.bodyType = RigidbodyType2D.Kinematic;
+                rb.gravityScale = 0f;
                 playerGo.AddComponent<Kinematic2DMovementMotor>();
                 var movement = playerGo.AddComponent<PlayerMovementNetworkController>();
                 var passive = playerGo.AddComponent<PlayerInventoryPassiveEffectsController>();
@@ -324,6 +328,26 @@ namespace Tests.EditMode.Editor.Loot
             float mitigatedDamage = incomingDamage * 0.85f;
 
             Assert.That(mitigatedDamage, Is.EqualTo(34f).Within(0.001f));
+        }
+
+        [Test]
+        public void ProductiveLootCatalog_ValidatesCleanly_AndContainsAllPassiveTreasuresAndUtilities()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(
+                "Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset");
+            Assert.That(catalog, Is.Not.Null, "Productive LootDefinitionCatalog must exist.");
+
+            bool isValid = catalog.TryValidate(out string error);
+            Assert.That(isValid, Is.True, $"Productive LootDefinitionCatalog failed validation: {error}");
+
+            Assert.That(catalog.TryGet(PlayerInventoryPassiveEffectsController.ChaosCoinId.Value, out _), Is.True);
+            Assert.That(catalog.TryGet(PlayerInventoryPassiveEffectsController.PilgrimLightId.Value, out _), Is.True);
+            Assert.That(catalog.TryGet(PlayerInventoryPassiveEffectsController.SanctuaryHeartId.Value, out _), Is.True);
+            Assert.That(catalog.TryGet(PlayerInventoryPassiveEffectsController.VoidBellId.Value, out _), Is.True);
+            Assert.That(catalog.TryGet(PlayerInventoryPassiveEffectsController.FamineIdolId.Value, out _), Is.True);
+            Assert.That(catalog.TryGet(PlayerInventoryPassiveEffectsController.WandererEyeId.Value, out _), Is.True);
+            Assert.That(catalog.TryGet(PlayerConsumableNetworkController.RuneCompassId.Value, out _), Is.True);
+            Assert.That(catalog.TryGet(PlayerConsumableNetworkController.ArcaneDetectorId.Value, out _), Is.True);
         }
 
         private static void SetField(object target, string fieldName, object value)

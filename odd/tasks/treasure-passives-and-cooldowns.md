@@ -24,10 +24,12 @@ Exclusions:
 
 Tasks:
 - [x] T1 Authoritative & presentation passive treasure integration (`PlayerInventoryPassiveEffectsController`, `PlayerCharacter`, `PlayerStaminaNetworkController`, `AudioManager`, `VisionQuery`, `LocalVisionSource`, `VisionFogPresenter`).
-- [x] T2 Container utility cooldown retention (`NetworkLootContainer`, `LootTransferTransaction`, `PlayerCorpseGenerationController`, `RaidLootOriginWordCountTests`).
+- [x] T2 Container utility cooldown retention (`NetworkLootContainer`, `LootTransferTransaction`, `PlayerCorpseGenerationController`).
 - [x] T3 EditMode & PlayMode tests (`InventoryPassiveEffectsTests`, `UtilityExpeditionRulesTests`, `UtilityExpeditionPlayModeTests`) + architecture contract sync (`VisibilityArchitecture.md`, `LootInteractionArchitecture.md`).
+- [x] T4 Runtime catalog validation fix (`LootDefinition.TryValidate` gating `_equipmentVisualDefinition` to armor categories so non-armor `CON_*`/`RES_*`/`TRE_*`/`UTL_*` definitions do not break `LootDefinitionCatalog.TryValidate`, drops and container initialization) + EditMode/PlayMode test stabilization; restored locked `RaidLootOriginWordCountTests` budgets per `LootInteractionArchitecture.md`.
 
 Validation & status:
 - `dotnet build "Project Grimhold/Assembly-CSharp.csproj"` -> 0 errors (zero warnings in modified files).
 - `dotnet build "Project Grimhold/Assembly-CSharp-Editor.csproj"` -> 0 errors.
-- Unity MCP is not installed in this environment; Unity Test Runner (EditMode + PlayMode) and Host/Client runtime validation are documented for manual Editor execution.
+- `RaidLootOriginWordCountTests` retains the locked `New-Testing` expectations/ceilings (`LootContainer` and `NetworkEnemy` have a pre-existing documented discrepancy in `LootInteractionArchitecture.md` lines 236–238).
+- Unity MCP is not installed in this environment; re-run `InventoryPassiveEffectsTests` and `UtilityExpeditionPlayModeTests` in the Unity Test Runner plus Host/Client runtime validation.

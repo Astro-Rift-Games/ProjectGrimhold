@@ -122,6 +122,9 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
 
     private bool IsOwnerAlive => AliveOverrideForTesting ?? (_playerCharacter == null || _playerCharacter.IsAlive);
 
+    private bool HasSpawnedLootReceiver =>
+        _lootReceiver != null && _lootReceiver.Object != null && _lootReceiver.Object.IsValid;
+
     public event Action OnVoidBellChime;
 
     private void Awake() => CacheDependencies();
@@ -157,7 +160,7 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
         }
 
         bool currentAlive = IsOwnerAlive;
-        int currentSequence = _lootReceiver != null ? _lootReceiver.LootChangeSequence : -1;
+        int currentSequence = HasSpawnedLootReceiver ? _lootReceiver.LootChangeSequence : -1;
         if (currentSequence != _lastObservedLootSequence || currentAlive != _lastObservedAliveState)
         {
             _lastObservedLootSequence = currentSequence;
@@ -172,7 +175,7 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
     /// </summary>
     public void EvaluatePassiveTreasures()
     {
-        if (_lootReceiver == null || !IsOwnerAlive)
+        if (!HasSpawnedLootReceiver || !IsOwnerAlive)
         {
             _hasChaosCoin = false;
             _hasPilgrimLight = false;

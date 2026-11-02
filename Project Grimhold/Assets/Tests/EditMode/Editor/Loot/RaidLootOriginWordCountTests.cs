@@ -9,11 +9,11 @@ namespace Tests.EditMode.Loot
     public sealed class RaidLootOriginWordCountTests
     {
         // Player's old exact 1884-word layout included the removed packed Inventory.
-        // Container and Enemy layouts include utility cooldown timers (TASK-265) within their approved upper bounds.
+        // Report the actual newly woven layout; retain the approved upper bound, not a guessed total.
         [TestCase("Assets/Prefabs/NetworkPlayer.prefab", 1289, null, 1884)]
-        [TestCase("Assets/Prefabs/LootContainer.prefab", 820, null, 1025)]
-        [TestCase("Assets/Prefabs/Enemies/NetworkEnemy.prefab", 844, null, 1055)]
-        [TestCase("Assets/Prefabs/LootPickup.prefab", 6, null, 192)]
+        [TestCase("Assets/Prefabs/LootContainer.prefab", 820, 983, 1025)]
+        [TestCase("Assets/Prefabs/Enemies/NetworkEnemy.prefab", 844, 1007, 1055)]
+        [TestCase("Assets/Prefabs/LootPickup.prefab", 6, 22, 192)]
         public void ProductivePrefab_UsesMeasuredCompactBudget(
             string prefabPath,
             int baselineWords,
@@ -45,7 +45,7 @@ namespace Tests.EditMode.Loot
                 $"TASK-133.1 {prefabPath}: baseline={baselineWords}, final={actualWords}, delta={actualWords - baselineWords}");
             if (expectedFinalWords.HasValue)
                 Assert.That(actualWords, Is.EqualTo(expectedFinalWords.Value), prefabPath);
-            else if (prefabPath.Contains("NetworkPlayer"))
+            else
                 Assert.That(actualWords, Is.LessThan(1884), "Physical Inventory must remove the old parallel packed-state cost.");
             Assert.That(actualWords, Is.GreaterThan(0), prefabPath);
             Assert.That(actualWords, Is.LessThanOrEqualTo(maximumWords), prefabPath);

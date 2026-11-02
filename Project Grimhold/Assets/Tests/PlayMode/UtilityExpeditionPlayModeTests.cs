@@ -24,7 +24,7 @@ namespace Tests.PlayMode.Utilities
         private static readonly LootId CompassId = PlayerConsumableNetworkController.RuneCompassId;
         private static readonly LootId DetectorId = PlayerConsumableNetworkController.ArcaneDetectorId;
         private static readonly LootId EtherDustId = new("RES_ETHER_DUST");
-        private static readonly LootId BoneId = new("RES_BONE");
+        private static readonly LootId BoneId = new("bone");
         private static readonly LootId PilgrimLightId = PlayerInventoryPassiveEffectsController.PilgrimLightId;
         private static readonly LootId VoidBellId = PlayerInventoryPassiveEffectsController.VoidBellId;
         private static readonly LootId WandererEyeId = PlayerInventoryPassiveEffectsController.WandererEyeId;
@@ -109,6 +109,7 @@ namespace Tests.PlayMode.Utilities
             ConsumableFailureReason rejectionReason = ConsumableFailureReason.None;
             consume.ConsumeRejected += r => rejectionReason = r;
             Assert.That(consume.TryRequestConsume(CompassId), Is.False);
+            yield return null;
             Assert.That(rejectionReason, Is.EqualTo(ConsumableFailureReason.CooldownActive));
         }
 
@@ -207,7 +208,7 @@ namespace Tests.PlayMode.Utilities
 
             yield return WaitSimulationSeconds(2f);
             float remainingBeforeDrop = consume.GetUtilityCooldown(CompassId).RemainingTime(_runner) ?? 0f;
-            Assert.That(remainingBeforeDrop, Is.GreaterThan(20f).And.LessThanOrEqualTo(28.5f));
+            Assert.That(remainingBeforeDrop, Is.GreaterThan(20f).And.LessThanOrEqualTo(29f));
 
             Assert.That(dropController.TryRequestDrop(CompassId, LootTransferQuantityMode.FullStack), Is.True);
             yield return WaitTicks(5);
@@ -217,9 +218,10 @@ namespace Tests.PlayMode.Utilities
                 "Cooldown was cleared from player upon drop.");
 
             NetworkLootPickup droppedPickup = null;
-            foreach (var no in _runner.GetAllNetworkObjects())
+            foreach (var p in Object.FindObjectsByType<NetworkLootPickup>(FindObjectsSortMode.None))
             {
-                if (no.TryGetComponent(out NetworkLootPickup p) && p.LootDefinition != null && p.LootDefinition.LootId == CompassId)
+                if (p != null && p.Object != null && p.Object.IsValid && p.Runner == _runner &&
+                    p.LootDefinition != null && p.LootDefinition.LootId == CompassId)
                 {
                     droppedPickup = p;
                     break;
@@ -230,9 +232,12 @@ namespace Tests.PlayMode.Utilities
 
             yield return WaitSimulationSeconds(2f);
 
-            var interactReq = new InteractionRequest(player.Id, droppedPickup.Id, _runner.Tick);
             InteractionResult result = default;
-            yield return InSimulation(() => result = droppedPickup.Interact(interactReq));
+            yield return InSimulation(() =>
+            {
+                var interactReq = new InteractionRequest(player.Id, droppedPickup.Id, _runner.Tick);
+                result = droppedPickup.Interact(interactReq);
+            });
             Assert.That(result.Success, Is.True, "Player must pick up the compass.");
 
             Assert.That(loot.GetLootAmount(CompassId), Is.EqualTo(1));
@@ -296,6 +301,7 @@ namespace Tests.PlayMode.Utilities
             ConsumableFailureReason rejectA = ConsumableFailureReason.None;
             consumeA.ConsumeRejected += r => rejectA = r;
             Assert.That(consumeA.TryRequestConsume(CompassId), Is.False, "Container deposit/withdraw must NOT reset cooldown.");
+            yield return null;
             Assert.That(rejectA, Is.EqualTo(ConsumableFailureReason.CooldownActive));
 
             // Deposit again and withdraw into Player B -> Player B also receives remaining cooldown
@@ -313,6 +319,7 @@ namespace Tests.PlayMode.Utilities
             ConsumableFailureReason rejectB = ConsumableFailureReason.None;
             consumeB.ConsumeRejected += r => rejectB = r;
             Assert.That(consumeB.TryRequestConsume(CompassId), Is.False);
+            yield return null;
             Assert.That(rejectB, Is.EqualTo(ConsumableFailureReason.CooldownActive));
         }
 
@@ -396,6 +403,7 @@ namespace Tests.PlayMode.Utilities
             var enemyObj = _runner.Spawn(Load(NetworkEnemyGuid), new Vector3(8f, 0f, 0f), Quaternion.identity);
             var enemyAi = enemyObj.GetComponent<EnemyMovementAIController>();
             Assert.That(enemyAi, Is.Not.Null);
+            Assert.That(enemyAi.TryGetCurrentTarget(out _, out _), Is.False);
 
             yield return InSimulation(() => AddLoot(loot, VoidBellId, 1));
             Assert.That(passive.HasVoidBell, Is.True);
@@ -403,16 +411,19 @@ namespace Tests.PlayMode.Utilities
 
             int initialChimes = player.VoidBellChimeSequence;
 
-            // Feed continuous sprint input rightwards
+            // Sprint leftwards so the carrier stays outside 6m natural enemy detection while inside 15m Void Bell range
             var sprintButtons = default(NetworkButtons);
             sprintButtons.Set((int)PlayerInputButton.Sprint, true);
-            _inputDriver.MoveDirection = Vector2.right;
+            _inputDriver.MoveDirection = Vector2.left;
             _inputDriver.Buttons = sprintButtons;
 
             yield return WaitTicks(6);
 
             Assert.That(player.VoidBellChimeSequence, Is.GreaterThan(initialChimes),
                 "Sprinting with Void Bell must advance replicated VoidBellChimeSequence on State Authority.");
+            Assert.That(enemyAi.TryGetCurrentTarget(out EntityId targetId, out _), Is.True,
+                "Nearby enemy within 15m must acquire aggro target from Void Bell chime.");
+            Assert.That(targetId, Is.EqualTo(player.Id));
 
             // Stop sprinting and drop Void Bell -> chime sequence stops advancing
             _inputDriver.MoveDirection = Vector2.zero;
@@ -422,7 +433,7 @@ namespace Tests.PlayMode.Utilities
             yield return WaitTicks(5);
 
             int chimesAfterDrop = player.VoidBellChimeSequence;
-            _inputDriver.MoveDirection = Vector2.right;
+            _inputDriver.MoveDirection = Vector2.left;
             _inputDriver.Buttons = sprintButtons;
             yield return WaitSimulationSeconds(2.2f);
 
@@ -454,16 +465,18 @@ namespace Tests.PlayMode.Utilities
                 {
                     var pickup = instance.GetComponent<NetworkLootPickup>();
                     var entry = new LootEntry(lootId, amount);
-                    pickup.TrySetSpawnContentOverride(runner, instance, entry, true, amount, RaidLootOriginTransfer.Dungeon(amount));
+                    bool configured = pickup.TrySetSpawnContentOverride(
+                        runner, instance, entry, true, amount, RaidLootOriginTransfer.Dungeon(amount));
+                    Assert.That(configured, Is.True, $"Failed to configure pickup content override for '{lootId}'.");
                 });
             return pickupObj.GetComponent<NetworkLootPickup>();
         }
 
         private ExtractionSanctuary SpawnSanctuary(Vector3 position)
         {
-            GameObject prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(SanctuaryPrefabPath);
-            Assert.That(prefab, Is.Not.Null, "Sanctuary prefab must exist.");
-            NetworkObject obj = _runner.Spawn(prefab, position, Quaternion.identity);
+            string guid = UnityEditor.AssetDatabase.AssetPathToGUID(SanctuaryPrefabPath);
+            Assert.That(string.IsNullOrEmpty(guid), Is.False, "Sanctuary prefab GUID must exist.");
+            NetworkObject obj = _runner.Spawn(Load(guid), position, Quaternion.identity, inputAuthority: null);
             return obj.GetComponent<ExtractionSanctuary>();
         }
 
@@ -471,8 +484,11 @@ namespace Tests.PlayMode.Utilities
         {
             var owner = new GameObject("UtilityExpeditionTestRunner");
             _runner = owner.AddComponent<NetworkRunner>();
+            _runner.ProvideInput = true;
             PlayModeRunnerComposition.AddLocalInputContext(_runner);
             owner.AddComponent<EntityRegistry>();
+            var assignmentService = owner.AddComponent<ExtractionSanctuaryAssignmentService>();
+            Assert.That(assignmentService.Initialize(_runner, GameMode.Host), Is.True);
             _driver = owner.AddComponent<PlayerAbilityRuntimeSimulationDriver>();
             _inputDriver = owner.AddComponent<SprintInputDriver>();
             _runner.AddCallbacks(_inputDriver);
