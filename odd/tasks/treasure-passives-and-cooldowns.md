@@ -28,6 +28,7 @@ Tasks:
 - [x] T3 EditMode & PlayMode tests (`InventoryPassiveEffectsTests`, `UtilityExpeditionRulesTests`, `UtilityExpeditionPlayModeTests`) + architecture contract sync (`VisibilityArchitecture.md`, `LootInteractionArchitecture.md`).
 - [x] T4 Runtime catalog validation fix (`LootDefinition.TryValidate` gating `_equipmentVisualDefinition` to armor categories so non-armor `CON_*`/`RES_*`/`TRE_*`/`UTL_*` definitions do not break `LootDefinitionCatalog.TryValidate`, drops and container initialization) + EditMode/PlayMode test stabilization; restored locked `RaidLootOriginWordCountTests` budgets per `LootInteractionArchitecture.md`.
 - [x] T5 Disambiguate `PlayerConsumableNetworkController` from the co-located dormant corpse `NetworkLootContainer` on `NetworkPlayer.prefab` across `LootTransferTransaction`, `PlayerLootDropNetworkController`, `NetworkLootPickup` and `PlayerCorpseGenerationController`, plus concrete `GreenSlime.prefab` and `NetworkBool` assertion fixes in `UtilityExpeditionPlayModeTests`.
+- [x] T6 Rune Compass dynamic sprite pointer & continuous tracking (`RuneCompassPointerEffect`, `PlayerConsumableNetworkController`) + test suite isolation (`PassiveAndUtilityDebugOverlay`).
 
 Validation & status:
 - Unity MCP (`Project Grimhold@9637642f241267cb`, Unity `6000.5.1f1`) compilation: 0 errors.
