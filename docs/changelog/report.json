@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 879,
-  "canonicalEntries": 876,
+  "rawCommits": 890,
+  "canonicalEntries": 887,
   "before": {
+    "Documentation": 77,
+    "Bug Fixes": 84,
+    "Features": 327,
     "Other Changes": 353,
-    "Features": 324,
-    "Bug Fixes": 78,
-    "Documentation": 75,
     "Refactoring": 13,
     "Architecture & Infrastructure": 12,
     "Tests": 24
   },
   "after": {
+    "Documentation": 92,
+    "Bug Fixes": 100,
+    "Features": 464,
     "Other Changes": 163,
-    "Features": 461,
-    "Bug Fixes": 94,
-    "Documentation": 90,
     "Refactoring": 26,
     "Maintenance": 11,
     "Tests": 29,
@@ -23,51 +23,51 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Abilities": 105,
-    "Build & Tooling": 443,
+    "Unassigned": 19,
+    "Abilities": 112,
+    "Inventory & Loot": 325,
+    "Tests": 531,
+    "Extraction": 120,
+    "Art & Animation": 211,
+    "UI": 272,
+    "Audio": 32,
+    "Build & Tooling": 447,
+    "Documentation": 347,
+    "Networking & Sessions": 257,
+    "World & Visibility": 111,
     "Combat": 317,
-    "Documentation": 344,
-    "Tests": 522,
-    "Inventory & Loot": 316,
-    "Networking & Sessions": 256,
-    "UI": 269,
-    "Art & Animation": 210,
     "Movement": 89,
     "Input": 28,
-    "Audio": 30,
-    "World & Visibility": 110,
-    "Persistence & Backend": 185,
-    "Unassigned": 18,
-    "Extraction": 119
+    "Persistence & Backend": 185
   },
   "canonical": {
     "sections": {
+      "Documentation": 92,
+      "Bug Fixes": 99,
+      "Features": 463,
       "Other Changes": 162,
-      "Features": 460,
-      "Bug Fixes": 93,
-      "Documentation": 90,
       "Refactoring": 26,
       "Maintenance": 11,
       "Tests": 29,
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "Abilities": 103,
-      "Build & Tooling": 441,
+      "Unassigned": 19,
+      "Abilities": 110,
+      "Inventory & Loot": 325,
+      "Tests": 529,
+      "Extraction": 120,
+      "Art & Animation": 208,
+      "UI": 271,
+      "Audio": 32,
+      "Build & Tooling": 445,
+      "Documentation": 345,
+      "Networking & Sessions": 257,
+      "World & Visibility": 109,
       "Combat": 315,
-      "Documentation": 342,
-      "Tests": 520,
-      "Inventory & Loot": 316,
-      "Networking & Sessions": 256,
-      "UI": 268,
-      "Art & Animation": 207,
       "Movement": 89,
       "Input": 28,
-      "Audio": 30,
-      "World & Visibility": 108,
-      "Persistence & Backend": 185,
-      "Unassigned": 18,
-      "Extraction": 119
+      "Persistence & Backend": 185
     }
   },
   "unknownEntries": [
@@ -34099,8 +34099,8 @@
       "title": "2026-11 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 7,
-      "canonicalEntries": 7
+      "originalCommits": 18,
+      "canonicalEntries": 18
     },
     {
       "key": "history-2026-10",
@@ -34136,6 +34136,843 @@
     }
   ],
   "commits": [
+    {
+      "sha": "8acc80236d68d6a526ab268b703bb4374c601283",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8acc80236d68d6a526ab268b703bb4374c601283",
+      "subject": "docs(odd): record T7 void bell cadence preservation",
+      "body": "Refs: US-76, TASK-264, #656, #657\n",
+      "date": "2026-11-02T20:38:54-03:00",
+      "files": [
+        "odd/tasks/treasure-passives-and-cooldowns.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "odd",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "unassigned-system",
+          "message": "No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system."
+        }
+      ],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "9c5cf4ae4857ff3957d277f4319744033db7d03d",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9c5cf4ae4857ff3957d277f4319744033db7d03d",
+      "subject": "fix(loot): prevent void bell chime spam by preserving interval cadence",
+      "body": "Preserve the active VoidBellChimeTimer across intermittent sprint key releases instead of clearing it immediately to TickTimer.None, enforcing the authoritative 2.0s chime cadence interval and preventing rapid Shift-tap chime and aggro spam. Add an automated PlayMode assertion ensuring chime sequence stability during rapid sprint restarts.\n\nPlayer-Fixed: Sprinting with the Void Bell no longer repeatedly chimes when pressing and releasing sprint rapidly.\nRefs: US-76, TASK-264, #656, #657\n",
+      "date": "2026-11-02T20:37:57-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs"
+      ],
+      "originalType": "fix",
+      "originalScope": "loot",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Abilities",
+        "Inventory & Loot",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "7ef8f7a27b0b7e964d2239ae071781ab4a99871c",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7ef8f7a27b0b7e964d2239ae071781ab4a99871c",
+      "subject": "docs(odd): record T6 rune compass tracking and test isolation",
+      "body": "Refs: US-76, TASK-265, #656, #658\n",
+      "date": "2026-11-02T20:22:13-03:00",
+      "files": [
+        "odd/tasks/treasure-passives-and-cooldowns.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "odd",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "8480bedab3e96c387caef697f775f23942fa78f2",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8480bedab3e96c387caef697f775f23942fa78f2",
+      "subject": "feat(utilities): render rune compass pointer as dynamic tracking sprite",
+      "body": "Render the Rune Compass visual indicator via a crisp 2D sprite orbiting the player at 1.35m radius, continuously rotating and tracking the nearest Extraction Sanctuary in real-time throughout its 5.0s display duration. Pass sanctuary coordinates through RPC_ReceiveCompassActivation to support dynamic recalculation, and gate PassiveAndUtilityDebugOverlay against automated test runner scenes.\n\nPlayer-Improved: Activating a Rune Compass now projects a dynamic celestial needle sprite that stays pointed toward the nearest Extraction Sanctuary in real time as you move.\nRefs: US-76, TASK-265, #656, #658\n",
+      "date": "2026-11-02T20:21:05-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Gameplay/Debugging/PassiveAndUtilityDebugOverlay.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/Utilities/RuneCompassPointerEffect.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/Utilities/RuneCompassPointerEffect.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs"
+      ],
+      "originalType": "feat",
+      "originalScope": "utilities",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Abilities",
+        "Extraction",
+        "Inventory & Loot",
+        "Art & Animation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/Debugging/PassiveAndUtilityDebugOverlay.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "message-term",
+          "value": "Extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "sprite",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "c79d5e225afbc0c4ab22c22620be96830d0c96fd",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c79d5e225afbc0c4ab22c22620be96830d0c96fd",
+      "subject": "fix(utilities): add rune compass directional visual and prevent notice overwrite",
+      "body": "Prevent RaidHudPresenter from instantly overwriting the compass notice with generic Item used confirmation text. Implement RuneCompassPointerEffect to present a celestial directional arrow and crystal chime on the player pointing toward the nearest sanctuary, and log orientation in F10 overlay and console.\n\nRefs: US-76, TASK-265\n",
+      "date": "2026-11-02T17:59:23-03:00",
+      "files": [
+        "Project Grimhold/Assets/Prefabs/Loot/LootPickup_ArcaneDetector.prefab",
+        "Project Grimhold/Assets/Scripts/Gameplay/Debugging/PassiveAndUtilityDebugOverlay.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/Utilities/CardinalDirectionHelper.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/Utilities/RuneCompassPointerEffect.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidHudPresenter.cs"
+      ],
+      "originalType": "fix",
+      "originalScope": "utilities",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Abilities",
+        "Inventory & Loot",
+        "UI"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/Debugging/PassiveAndUtilityDebugOverlay.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/Loot/LootPickup_ArcaneDetector.prefab",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidHudPresenter.cs",
+          "supports": "UI"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "a1a97759e15381cca528f43576826e9857008abd",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a1a97759e15381cca528f43576826e9857008abd",
+      "subject": "fix(utilities): restore arcane detector pickup prefab and scene instance",
+      "body": "Restore valid YAML hierarchy and component definitions on LootPickup_ArcaneDetector prefab so Unity AssetDatabase imports it cleanly, and instantiate both Rune Compass and Arcane Detector test pickups into the Gameplay scene near Sanctuary 1.\n\nRefs: US-76, TASK-265\n",
+      "date": "2026-11-02T17:24:09-03:00",
+      "files": [
+        "Project Grimhold/Assets/Placeholder/UI/LootIconMissing.png.meta",
+        "Project Grimhold/Assets/Prefabs/Loot/LootPickup_ArcaneDetector.prefab",
+        "Project Grimhold/Assets/Prefabs/Loot/LootPickup_RuneCompass.prefab",
+        "Project Grimhold/Assets/Scenes/Gameplay.unity"
+      ],
+      "originalType": "fix",
+      "originalScope": "utilities",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "UI",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Placeholder/UI/LootIconMissing.png.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/Loot/LootPickup_ArcaneDetector.prefab",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/Loot/LootPickup_RuneCompass.prefab",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "pickup",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Placeholder/UI/LootIconMissing.png.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "6ac67a53ae11b03e80d008fac0a789e38bd6e20b",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6ac67a53ae11b03e80d008fac0a789e38bd6e20b",
+      "subject": "feat(loot): add utility test pickups and passive debug overlay",
+      "body": "- Polish Void Bell chime presentation with world-space pulse ring,\n  domain reload safety, and standalone audio fallback.\n- Provide F10 debug overlay and console logging for passive treasure\n  modifiers and container cooldown retention.\n- Create Rune Compass and Arcane Detector pickup prefabs, wire them to\n  RaidLootTestSpawner, and place them in Gameplay scene.\n\nRefs: US-76, TASK-264, TASK-265, #656, #657, #658\n",
+      "date": "2026-11-02T16:45:57-03:00",
+      "files": [
+        "Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs",
+        "Project Grimhold/Assets/Prefabs/Loot/LootPickup_ArcaneDetector.prefab",
+        "Project Grimhold/Assets/Prefabs/Loot/LootPickup_ArcaneDetector.prefab.meta",
+        "Project Grimhold/Assets/Prefabs/Loot/LootPickup_RuneCompass.prefab",
+        "Project Grimhold/Assets/Prefabs/Loot/LootPickup_RuneCompass.prefab.meta",
+        "Project Grimhold/Assets/Scenes/Gameplay.unity",
+        "Project Grimhold/Assets/Scripts/Gameplay/Debugging/PassiveAndUtilityDebugOverlay.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/Debugging/PassiveAndUtilityDebugOverlay.cs.meta",
+        "Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Abilities",
+        "Inventory & Loot",
+        "Audio",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/Debugging/PassiveAndUtilityDebugOverlay.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/Debugging/PassiveAndUtilityDebugOverlay.cs.meta",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/Loot/LootPickup_ArcaneDetector.prefab",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/Loot/LootPickup_ArcaneDetector.prefab.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/Loot/LootPickup_RuneCompass.prefab",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/Loot/LootPickup_RuneCompass.prefab.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "audio",
+          "supports": "Audio"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerEditor.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "56ddcb8b3519d7b2645ad0119d1a773ab3f0bf5a",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/56ddcb8b3519d7b2645ad0119d1a773ab3f0bf5a",
+      "subject": "fix(utilities): resolve player cooldown owner over corpse container",
+      "body": "NetworkPlayer carries both a dormant corpse NetworkLootContainer and PlayerConsumableNetworkController on the same root GameObject. Once NetworkLootContainer implemented IUtilityCooldownProvider and IUtilityCooldownReceiver, generic sibling interface lookups resolved the co-located corpse container instead of the live player controller during drops, pickups, container transfers, and death conversion.\n\n- Prefer PlayerConsumableNetworkController on sibling endpoint lookups in LootTransferTransaction, PlayerLootDropNetworkController, NetworkLootPickup, and PlayerCorpseGenerationController while preserving direct container-to-container/player cooldown transfers.\n- Spawn concrete GreenSlime melee enemy prefab and cast NetworkBool in UtilityExpeditionPlayModeTests.\n- Record live Unity MCP EditMode (15/15) and PlayMode (8/8) verification in the US-76 ODD tracker.\n\nRefs: US-76, TASK-264, TASK-265\n",
+      "date": "2026-11-02T15:49:10-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Gameplay/LootTransferTransaction.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootDropNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCorpseGenerationController.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs",
+        "odd/tasks/treasure-passives-and-cooldowns.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "utilities",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Abilities",
+        "Inventory & Loot",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/LootTransferTransaction.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootDropNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "pickups",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "5367bc9dbadb5e262480edd2ca581757a89f9d52",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5367bc9dbadb5e262480edd2ca581757a89f9d52",
+      "subject": "fix(loot): gate equipment visual validation and stabilize US-76 tests",
+      "body": "Gate EquipmentVisualDefinition validation in LootDefinition.TryValidate\nto armor categories so non-armor definitions deserialized without sprite\nmappings do not invalidate LootDefinitionCatalog, world drops or loot\ncontainer initialization, and guard unspawned receivers in passive\ntreasure evaluation.\n\n- Gate _equipmentVisualDefinition.TryValidate behind IsArmorCategory in\n  LootDefinition while preserving strict validation on armor items.\n- Guard PlayerInventoryPassiveEffectsController against unspawned\n  PlayerLootReceiver instances before reading networked sequence state.\n- Restore locked New-Testing budgets in RaidLootOriginWordCountTests and\n  document the two container cooldown TickTimer words in\n  LootInteractionArchitecture.md.\n- Update InventoryPassiveEffectsTests and UtilityExpeditionPlayModeTests\n  with productive catalog validation, required motor colliders, deferred\n  Render rejection waits, runner input provision and Sanctuary service\n  registration.\n\nPlayer-Fixed: Dropping items in a Raid and opening loot chests or defeated player containers work properly again.\n",
+      "date": "2026-11-02T15:14:09-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+        "odd/tasks/treasure-passives-and-cooldowns.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "loot",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Abilities",
+        "Inventory & Loot",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "e91525252cac0520492f462594d40387463aacb5",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e91525252cac0520492f462594d40387463aacb5",
+      "subject": "fix(utilities): retain utility cooldowns across container transfers",
+      "body": "Preserve active Rune Compass and Arcane Detector TickTimer cooldowns\nwhen depositing into or withdrawing from world, enemy, or player corpse\ncontainers so cooldowns cannot be bypassed via container transfers.\n\nReviewers must verify:\n- NetworkLootContainer replicates RuneCompassCooldown and\n  ArcaneDetectorCooldown within approved Fusion word budgets and keeps\n  Host Migration restore state intact.\n- LootTransferTransaction transfers active utility cooldowns between\n  source and destination endpoints and clears the source timer once zero\n  units remain.\n- PlayerCorpseGenerationController transfers active utility cooldowns\n  into the defeated player's corpse container upon conversion.\n\nTests updated:\n- UtilityExpeditionRulesTests (container deposit/withdrawal cooldown\n  transfer across players)\n- UtilityExpeditionPlayModeTests (container deposit/withdrawal retention,\n  corpse retention, and treasure passive runtime coverage)\n- RaidLootOriginWordCountTests\n\nDocs updated:\n- LootInteractionArchitecture.md\n- odd/tasks/treasure-passives-and-cooldowns.md\n\nPlayer-Fixed: Storing a Rune Compass or Arcane Detector in a chest or corpse no longer resets its active cooldown.\nRefs: TASK-265, #656, #658\n",
+      "date": "2026-11-02T13:54:16-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Gameplay/LootTransferTransaction.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCorpseGenerationController.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+        "odd/tasks/treasure-passives-and-cooldowns.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "utilities",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Abilities",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/LootTransferTransaction.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "Host Migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/UtilityExpeditionPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "6c6923e8962ce0dce0b0e10e6be973d0b4e25d96",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6c6923e8962ce0dce0b0e10e6be973d0b4e25d96",
+      "subject": "feat(loot): integrate passive treasure effects and chime alerts",
+      "body": "Complete runtime and local presentation integration for MVP passive\ntreasures carried in Raid inventory without stacking duplicates, and\nrevoke active modifiers immediately upon drop, deposit, or death.\n\nReviewers must verify:\n- Pilgrim's Light applies a 1.35x stamina regeneration multiplier.\n- Void Bell applies a 1.15x sprint speed multiplier and advances a\n  tick-driven 2.0s chime on State Authority while sprinting, alerting\n  live IAggroReceiver enemies within 15m and presenting audio plus a\n  provisional ring pulse to observers within 15m.\n- Wanderer's Eye scales local NearRadius, FarFog distances, and avatar\n  Light2D radii by 0.75x without mutating shared ScriptableObjects,\n  while blocking the local minimap.\n\nTests updated:\n- InventoryPassiveEffectsTests (stamina regen, 15m aggro deduplication,\n  15m chime presentation radius, vision and Light2D scaling, death reset)\n\nDocs updated:\n- VisibilityArchitecture.md\n\nPlayer-Added: Pilgrim's Light, Void Bell, and Wanderer's Eye now apply their passive effects while carried in raids.\nRefs: TASK-264, #656, #657\n",
+      "date": "2026-11-02T13:53:54-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Audio/AudioManager.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/Visibility/VisionFogPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/Visibility/VisionQuery.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerStaminaNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/LocalVisionSource.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs",
+        "Project Grimhold/Docs/Architecture/VisibilityArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "UI",
+        "World & Visibility",
+        "Audio",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "minimap",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/Visibility/VisionFogPresenter.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/Visibility/VisionQuery.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/VisibilityArchitecture.md",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Audio/AudioManager.cs",
+          "supports": "Audio"
+        },
+        {
+          "source": "message-term",
+          "value": "audio",
+          "supports": "Audio"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/VisibilityArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "f2062e7cc462fb019b9017ef5e8f52366ded3f63",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f2062e7cc462fb019b9017ef5e8f52366ded3f63",
