@@ -677,6 +677,16 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
     {
         var direction = (CardinalDirection)directionValue;
         RuneCompassActivated?.Invoke(direction, duration);
+
+        if (direction != CardinalDirection.None)
+        {
+            Vector2 dirVec = CardinalDirectionHelper.GetDirectionVector(direction);
+            if (!TryGetComponent(out RuneCompassPointerEffect pointer))
+            {
+                pointer = gameObject.AddComponent<RuneCompassPointerEffect>();
+            }
+            pointer.Initialize(dirVec, duration);
+        }
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]

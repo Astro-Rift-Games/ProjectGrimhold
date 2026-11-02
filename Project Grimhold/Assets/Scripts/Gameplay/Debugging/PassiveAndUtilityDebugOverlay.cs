@@ -36,6 +36,7 @@ public sealed class PassiveAndUtilityDebugOverlay : MonoBehaviour
     private int _lastChimeCount;
     private bool _lastCompassOnCooldown;
     private bool _lastDetectorOnCooldown;
+    private string _lastCompassDirectionText = "Ninguna aún (usa la brújula para orientar)";
 
     private readonly List<NetworkLootContainer> _nearbyContainers = new();
 
@@ -46,6 +47,14 @@ public sealed class PassiveAndUtilityDebugOverlay : MonoBehaviour
         var go = new GameObject("PassiveAndUtilityDebugOverlay");
         s_instance = go.AddComponent<PassiveAndUtilityDebugOverlay>();
         DontDestroyOnLoad(go);
+    }
+
+    private void OnDisable()
+    {
+        if (_consumableController != null)
+        {
+            _consumableController.RuneCompassActivated -= OnCompassActivated;
+        }
     }
 
     private void Update()
@@ -98,7 +107,20 @@ public sealed class PassiveAndUtilityDebugOverlay : MonoBehaviour
             _movementController = _localPlayer.GetComponent<PlayerMovementNetworkController>();
             _lootReceiver = _localPlayer.GetComponent<PlayerLootReceiver>();
             _lastMeasuredStamina = _staminaController != null ? _staminaController.CurrentStamina : 0f;
+            if (_consumableController != null)
+            {
+                _consumableController.RuneCompassActivated -= OnCompassActivated;
+                _consumableController.RuneCompassActivated += OnCompassActivated;
+            }
         }
+    }
+
+    private void OnCompassActivated(CardinalDirection dir, float duration)
+    {
+        string localized = CardinalDirectionHelper.GetLocalizedName(dir);
+        string abbr = CardinalDirectionHelper.GetAbbreviation(dir);
+        _lastCompassDirectionText = $"Santuario hacia el {localized} ({abbr})";
+        Debug.Log($"<color=#33E6B8>[US-76 Debug]</color> ¡Brújula Rúnica Activada! Santuario detectado hacia el <b>{localized} ({abbr})</b>. Duración: {duration:F1}s");
     }
 
     private void FindNearbyContainers()
@@ -324,6 +346,7 @@ public sealed class PassiveAndUtilityDebugOverlay : MonoBehaviour
             string detectorStr = detectorRem.HasValue && detectorRem.Value > 0 ? $"<color=#FF8844>{detectorRem.Value:F1}s restantes</color>" : "<color=#44FF44>LISTO (Sin cooldown)</color>";
 
             GUILayout.Label($"• Brújula Rúnica (Jugador): {compassStr}");
+            GUILayout.Label($"  <color=#75D3B0>→ Orientación:</color> <b>{_lastCompassDirectionText}</b>");
             GUILayout.Label($"• Detector Arcano (Jugador): {detectorStr}");
 
             GUILayout.BeginHorizontal();

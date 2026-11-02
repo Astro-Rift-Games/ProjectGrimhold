@@ -290,7 +290,16 @@ public sealed class RaidHudPresenter : MonoBehaviour
     public void ShowNotice(string message) => _statusFeedbackView?.ShowNotice(message);
     public void ShowInsufficientSprintFeedback() => _view?.PulseInsufficientStamina();
 
-    private void OnConsumeConfirmed(LootId lootId) => ShowNotice("Item used.");
+    private void OnConsumeConfirmed(LootId lootId)
+    {
+        if (lootId == PlayerConsumableNetworkController.RuneCompassId ||
+            lootId == PlayerConsumableNetworkController.ArcaneDetectorId)
+        {
+            return;
+        }
+
+        ShowNotice("Item used.");
+    }
 
     private void OnConsumeRejected(ConsumableFailureReason reason) => ShowNotice(reason switch
     {
