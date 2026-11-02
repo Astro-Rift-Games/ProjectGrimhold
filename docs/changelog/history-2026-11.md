@@ -4,17 +4,18 @@
 
 Release: Unreleased
 
-6 original commits; 6 canonical entries.
+7 original commits; 7 canonical entries.
 
 ## Canonical classification
 
-6 features
+6 features; 1 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Abilities | 0 | 0 | 0 | 0 | 0 | 1 |
 | Art & Animation | 3 | 0 | 0 | 0 | 0 | 0 |
 | Audio | 2 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 6 | 0 | 0 | 0 | 0 | 0 |
+| Build & Tooling | 6 | 0 | 0 | 0 | 0 | 1 |
 | Combat | 5 | 0 | 0 | 0 | 0 | 0 |
 | Documentation | 6 | 0 | 0 | 0 | 0 | 0 |
 | Input | 1 | 0 | 0 | 0 | 0 | 0 |
@@ -26,6 +27,50 @@ Release: Unreleased
 | World & Visibility | 1 | 0 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### f2062e7cc462fb019b9017ef5e8f52366ded3f63
+
+[f2062e7cc462fb019b9017ef5e8f52366ded3f63](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f2062e7cc462fb019b9017ef5e8f52366ded3f63)
+
+Date: 2026-11-02T12:39:44-03:00 · Classification: Other Changes (unknown) · Systems: Abilities, Build & Tooling
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+Align task workflow with ODD execution
+```
+
+#### Original body
+
+```text
+Update repository guidance to use ODD classification and execution trackers for substantial tasks, while preserving HacknPlan as the scope source of truth. Refresh subagent routing and Unity operator model settings.
+```
+
+#### Changed paths
+
+```text
+.agents/skills/grimhold-task-execution/SKILL.md
+.agents/skills/grimhold-task-execution/references/tool-routing.md
+.agents/skills/hacknplan-task-design/references/workflow.md
+.pi/subagents.json
+AGENTS.md
+```
+
+#### Classification evidence
+
+- path → Abilities: .agents/skills/grimhold-task-execution/SKILL.md
+- path → Abilities: .agents/skills/grimhold-task-execution/references/tool-routing.md
+- path → Abilities: .agents/skills/hacknplan-task-design/references/workflow.md
+- path → Build &amp; Tooling: .agents/skills/grimhold-task-execution/SKILL.md
+- path → Build &amp; Tooling: .agents/skills/grimhold-task-execution/references/tool-routing.md
+- path → Build &amp; Tooling: .agents/skills/hacknplan-task-design/references/workflow.md
+- path → Build &amp; Tooling: AGENTS.md
+
+#### Diagnostics
+
+- **ambiguous-kind:** No supported explicit type or anchored historical action. Inspect this commit diff; use an action and object or a Conventional Commit type in future messages.
 
 ### cdd4716869d658b437f2c1c738cefbe2b2809e90
 

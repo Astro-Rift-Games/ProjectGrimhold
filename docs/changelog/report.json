@@ -1,30 +1,31 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 878,
-  "canonicalEntries": 875,
+  "rawCommits": 879,
+  "canonicalEntries": 876,
   "before": {
+    "Other Changes": 353,
     "Features": 324,
     "Bug Fixes": 78,
     "Documentation": 75,
     "Refactoring": 13,
     "Architecture & Infrastructure": 12,
-    "Other Changes": 352,
     "Tests": 24
   },
   "after": {
+    "Other Changes": 163,
     "Features": 461,
     "Bug Fixes": 94,
     "Documentation": 90,
     "Refactoring": 26,
     "Maintenance": 11,
-    "Other Changes": 162,
     "Tests": 29,
     "Architecture & Infrastructure": 5
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Abilities": 105,
+    "Build & Tooling": 443,
     "Combat": 317,
-    "Build & Tooling": 442,
     "Documentation": 344,
     "Tests": 522,
     "Inventory & Loot": 316,
@@ -36,24 +37,24 @@
     "Audio": 30,
     "World & Visibility": 110,
     "Persistence & Backend": 185,
-    "Abilities": 104,
     "Unassigned": 18,
     "Extraction": 119
   },
   "canonical": {
     "sections": {
+      "Other Changes": 162,
       "Features": 460,
       "Bug Fixes": 93,
       "Documentation": 90,
       "Refactoring": 26,
       "Maintenance": 11,
-      "Other Changes": 161,
       "Tests": 29,
       "Architecture & Infrastructure": 5
     },
     "systems": {
+      "Abilities": 103,
+      "Build & Tooling": 441,
       "Combat": 315,
-      "Build & Tooling": 440,
       "Documentation": 342,
       "Tests": 520,
       "Inventory & Loot": 316,
@@ -65,12 +66,81 @@
       "Audio": 30,
       "World & Visibility": 108,
       "Persistence & Backend": 185,
-      "Abilities": 102,
       "Unassigned": 18,
       "Extraction": 119
     }
   },
   "unknownEntries": [
+    {
+      "sha": "f2062e7cc462fb019b9017ef5e8f52366ded3f63",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f2062e7cc462fb019b9017ef5e8f52366ded3f63",
+      "subject": "Align task workflow with ODD execution",
+      "body": "Update repository guidance to use ODD classification and execution trackers for substantial tasks, while preserving HacknPlan as the scope source of truth. Refresh subagent routing and Unity operator model settings.\n",
+      "date": "2026-11-02T12:39:44-03:00",
+      "files": [
+        ".agents/skills/grimhold-task-execution/SKILL.md",
+        ".agents/skills/grimhold-task-execution/references/tool-routing.md",
+        ".agents/skills/hacknplan-task-design/references/workflow.md",
+        ".pi/subagents.json",
+        "AGENTS.md"
+      ],
+      "originalType": null,
+      "originalScope": null,
+      "originalSection": "Other Changes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Other Changes",
+      "confidence": "unknown",
+      "systems": [
+        "Abilities",
+        "Build & Tooling"
+      ],
+      "evidence": [
+        {
+          "source": "path",
+          "value": ".agents/skills/grimhold-task-execution/SKILL.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/grimhold-task-execution/references/tool-routing.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/hacknplan-task-design/references/workflow.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/grimhold-task-execution/SKILL.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/grimhold-task-execution/references/tool-routing.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/hacknplan-task-design/references/workflow.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "AGENTS.md",
+          "supports": "Build & Tooling"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "ambiguous-kind",
+          "message": "No supported explicit type or anchored historical action. Inspect this commit diff; use an action and object or a Conventional Commit type in future messages."
+        }
+      ],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "1142f3ef89f7e8dc3e72d9fb2bcd441e192e67e5",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1142f3ef89f7e8dc3e72d9fb2bcd441e192e67e5",
@@ -34029,8 +34099,8 @@
       "title": "2026-11 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 6,
-      "canonicalEntries": 6
+      "originalCommits": 7,
+      "canonicalEntries": 7
     },
     {
       "key": "history-2026-10",
@@ -34066,6 +34136,76 @@
     }
   ],
   "commits": [
+    {
+      "sha": "f2062e7cc462fb019b9017ef5e8f52366ded3f63",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f2062e7cc462fb019b9017ef5e8f52366ded3f63",
+      "subject": "Align task workflow with ODD execution",
+      "body": "Update repository guidance to use ODD classification and execution trackers for substantial tasks, while preserving HacknPlan as the scope source of truth. Refresh subagent routing and Unity operator model settings.\n",
+      "date": "2026-11-02T12:39:44-03:00",
+      "files": [
+        ".agents/skills/grimhold-task-execution/SKILL.md",
+        ".agents/skills/grimhold-task-execution/references/tool-routing.md",
+        ".agents/skills/hacknplan-task-design/references/workflow.md",
+        ".pi/subagents.json",
+        "AGENTS.md"
+      ],
+      "originalType": null,
+      "originalScope": null,
+      "originalSection": "Other Changes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Other Changes",
+      "confidence": "unknown",
+      "systems": [
+        "Abilities",
+        "Build & Tooling"
+      ],
+      "evidence": [
+        {
+          "source": "path",
+          "value": ".agents/skills/grimhold-task-execution/SKILL.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/grimhold-task-execution/references/tool-routing.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/hacknplan-task-design/references/workflow.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/grimhold-task-execution/SKILL.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/grimhold-task-execution/references/tool-routing.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/hacknplan-task-design/references/workflow.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "AGENTS.md",
+          "supports": "Build & Tooling"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "ambiguous-kind",
+          "message": "No supported explicit type or anchored historical action. Inspect this commit diff; use an action and object or a Conventional Commit type in future messages."
+        }
+      ],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "cdd4716869d658b437f2c1c738cefbe2b2809e90",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/cdd4716869d658b437f2c1c738cefbe2b2809e90",
