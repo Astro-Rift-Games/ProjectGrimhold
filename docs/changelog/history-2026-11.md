@@ -4,28 +4,139 @@
 
 Release: Unreleased
 
-5 original commits; 5 canonical entries.
+6 original commits; 6 canonical entries.
 
 ## Canonical classification
 
-5 features
+6 features
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Art & Animation | 3 | 0 | 0 | 0 | 0 | 0 |
 | Audio | 2 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 5 | 0 | 0 | 0 | 0 | 0 |
-| Combat | 4 | 0 | 0 | 0 | 0 | 0 |
-| Documentation | 5 | 0 | 0 | 0 | 0 | 0 |
+| Build & Tooling | 6 | 0 | 0 | 0 | 0 | 0 |
+| Combat | 5 | 0 | 0 | 0 | 0 | 0 |
+| Documentation | 6 | 0 | 0 | 0 | 0 | 0 |
 | Input | 1 | 0 | 0 | 0 | 0 | 0 |
 | Inventory & Loot | 2 | 0 | 0 | 0 | 0 | 0 |
 | Movement | 1 | 0 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 2 | 0 | 0 | 0 | 0 | 0 |
-| Tests | 5 | 0 | 0 | 0 | 0 | 0 |
+| Tests | 6 | 0 | 0 | 0 | 0 | 0 |
 | UI | 5 | 0 | 0 | 0 | 0 | 0 |
 | World & Visibility | 1 | 0 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### cdd4716869d658b437f2c1c738cefbe2b2809e90
+
+[cdd4716869d658b437f2c1c738cefbe2b2809e90](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/cdd4716869d658b437f2c1c738cefbe2b2809e90)
+
+Date: 2026-11-01T21:38:06-03:00 · Classification: Features (explicit) · Systems: Combat, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(combat): credit knockback pushers for hazard-caused Downed
+```
+
+#### Original body
+
+```text
+Track indirect responsibility when a knockback moves a player into an
+environmental hazard (GD 18 6.5, GD 19 8). If the hazard's damage
+causes Active -> Downed while the causal chain holds, the enemy pusher
+receives the provisional PvP Last Hit; the direct damage source stays
+the environment (DownedCauserEntityId = 0). Ally pushes are recorded but
+never credited, and recent enemy damage does not inherit the credit.
+
+Causal register contract (GD 19 10 left it to implementation):
+- PlayerHazardExposureCausalityNetworkController on NetworkPlayer holds
+  a replicated HazardExposureCausalityState mutated on State Authority
+  through pure HazardExposureCausalityRules.
+- DamageResolver records the player pusher of each Started/Replaced
+  knockback; non-player displacements discard the pending cause.
+- Hazards report presence every authority tick (BaseTrap.OnAuthorityTick,
+  SpikesTrap) and tag damage with DamageRequest.EnvironmentalHazardId.
+- The link persists while exposure continues, with one tick of ordering
+  grace; it breaks on exit, on a later push into another hazard, and
+  while Downed/defeated. Breaks are audited with hazard, pusher,
+  knockback sequence, reason and tick.
+- TryEnterDowned(attackerId, creditCauserId) separates the direct source
+  from the credit causer passed to IDownedCycleObserver.
+
+Tests:
+- HazardExposureCausalityRulesTests: 13 EditMode cases for GD 19 T06
+  continuity, rupture, voluntary entry, overlapping hazards and resets.
+- PvpCombatCreditPlayModeTests: T06-01, T06-04/05 and T06-09 end to end.
+
+Docs: DownedAndReviveArchitecture 11.1, EnvironmentalHazardsArchitecture,
+PlayerCombatArchitecture.
+
+Player-Added: Knocking an enemy into a trap now counts as your knockdown when the trap's damage takes them down.
+Refs: TASK-247
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab
+Project Grimhold/Assets/Scripts/Combat/DamageResolver.cs
+Project Grimhold/Assets/Scripts/Combat/HazardCausality.meta
+Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardCausalityBreakReason.cs
+Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardCausalityBreakReason.cs.meta
+Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardExposureCausalityRules.cs
+Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardExposureCausalityRules.cs.meta
+Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardExposureCausalityState.cs
+Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardExposureCausalityState.cs.meta
+Project Grimhold/Assets/Scripts/Core/DamageRequest.cs
+Project Grimhold/Assets/Scripts/Core/IDownedCycleObserver.cs
+Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs
+Project Grimhold/Assets/Scripts/Player/PlayerDownedStateNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/PlayerHazardExposureCausalityNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/PlayerHazardExposureCausalityNetworkController.cs.meta
+Project Grimhold/Assets/Scripts/Scenario/Traps/BaseTrap.cs
+Project Grimhold/Assets/Scripts/Scenario/Traps/SpikesTrap.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/HazardExposureCausalityRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/HazardExposureCausalityRulesTests.cs.meta
+Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs
+Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md
+Project Grimhold/Docs/Architecture/EnvironmentalHazardsArchitecture.md
+Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/DamageResolver.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/HazardCausality.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardCausalityBreakReason.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardCausalityBreakReason.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardExposureCausalityRules.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardExposureCausalityRules.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardExposureCausalityState.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardExposureCausalityState.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Core/DamageRequest.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/HazardExposureCausalityRulesTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/HazardExposureCausalityRulesTests.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs
+- path → Combat: Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+- scope → Combat: combat
+- message-term → Combat: combat
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/HazardExposureCausalityRulesTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/HazardExposureCausalityRulesTests.cs.meta
+- path → Documentation: Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/EnvironmentalHazardsArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/HazardExposureCausalityRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/HazardExposureCausalityRulesTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 07f13443b31d2faa85f2c3848c926cdb9056a71e
 

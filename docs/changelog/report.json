@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 877,
-  "canonicalEntries": 874,
+  "rawCommits": 878,
+  "canonicalEntries": 875,
   "before": {
-    "Features": 323,
+    "Features": 324,
     "Bug Fixes": 78,
     "Documentation": 75,
     "Refactoring": 13,
@@ -12,7 +12,7 @@
     "Tests": 24
   },
   "after": {
-    "Features": 460,
+    "Features": 461,
     "Bug Fixes": 94,
     "Documentation": 90,
     "Refactoring": 26,
@@ -23,14 +23,14 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Combat": 317,
+    "Build & Tooling": 442,
+    "Documentation": 344,
+    "Tests": 522,
     "Inventory & Loot": 316,
     "Networking & Sessions": 256,
     "UI": 269,
     "Art & Animation": 210,
-    "Build & Tooling": 441,
-    "Documentation": 343,
-    "Tests": 521,
-    "Combat": 316,
     "Movement": 89,
     "Input": 28,
     "Audio": 30,
@@ -42,7 +42,7 @@
   },
   "canonical": {
     "sections": {
-      "Features": 459,
+      "Features": 460,
       "Bug Fixes": 93,
       "Documentation": 90,
       "Refactoring": 26,
@@ -52,14 +52,14 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
+      "Combat": 315,
+      "Build & Tooling": 440,
+      "Documentation": 342,
+      "Tests": 520,
       "Inventory & Loot": 316,
       "Networking & Sessions": 256,
       "UI": 268,
       "Art & Animation": 207,
-      "Build & Tooling": 439,
-      "Documentation": 341,
-      "Tests": 519,
-      "Combat": 314,
       "Movement": 89,
       "Input": 28,
       "Audio": 30,
@@ -34029,8 +34029,8 @@
       "title": "2026-11 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 5,
-      "canonicalEntries": 5
+      "originalCommits": 6,
+      "canonicalEntries": 6
     },
     {
       "key": "history-2026-10",
@@ -34066,6 +34066,181 @@
     }
   ],
   "commits": [
+    {
+      "sha": "cdd4716869d658b437f2c1c738cefbe2b2809e90",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/cdd4716869d658b437f2c1c738cefbe2b2809e90",
+      "subject": "feat(combat): credit knockback pushers for hazard-caused Downed",
+      "body": "Track indirect responsibility when a knockback moves a player into an\nenvironmental hazard (GD 18 6.5, GD 19 8). If the hazard's damage\ncauses Active -> Downed while the causal chain holds, the enemy pusher\nreceives the provisional PvP Last Hit; the direct damage source stays\nthe environment (DownedCauserEntityId = 0). Ally pushes are recorded but\nnever credited, and recent enemy damage does not inherit the credit.\n\nCausal register contract (GD 19 10 left it to implementation):\n- PlayerHazardExposureCausalityNetworkController on NetworkPlayer holds\n  a replicated HazardExposureCausalityState mutated on State Authority\n  through pure HazardExposureCausalityRules.\n- DamageResolver records the player pusher of each Started/Replaced\n  knockback; non-player displacements discard the pending cause.\n- Hazards report presence every authority tick (BaseTrap.OnAuthorityTick,\n  SpikesTrap) and tag damage with DamageRequest.EnvironmentalHazardId.\n- The link persists while exposure continues, with one tick of ordering\n  grace; it breaks on exit, on a later push into another hazard, and\n  while Downed/defeated. Breaks are audited with hazard, pusher,\n  knockback sequence, reason and tick.\n- TryEnterDowned(attackerId, creditCauserId) separates the direct source\n  from the credit causer passed to IDownedCycleObserver.\n\nTests:\n- HazardExposureCausalityRulesTests: 13 EditMode cases for GD 19 T06\n  continuity, rupture, voluntary entry, overlapping hazards and resets.\n- PvpCombatCreditPlayModeTests: T06-01, T06-04/05 and T06-09 end to end.\n\nDocs: DownedAndReviveArchitecture 11.1, EnvironmentalHazardsArchitecture,\nPlayerCombatArchitecture.\n\nPlayer-Added: Knocking an enemy into a trap now counts as your knockdown when the trap's damage takes them down.\nRefs: TASK-247\n",
+      "date": "2026-11-01T21:38:06-03:00",
+      "files": [
+        "Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab",
+        "Project Grimhold/Assets/Scripts/Combat/DamageResolver.cs",
+        "Project Grimhold/Assets/Scripts/Combat/HazardCausality.meta",
+        "Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardCausalityBreakReason.cs",
+        "Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardCausalityBreakReason.cs.meta",
+        "Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardExposureCausalityRules.cs",
+        "Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardExposureCausalityRules.cs.meta",
+        "Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardExposureCausalityState.cs",
+        "Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardExposureCausalityState.cs.meta",
+        "Project Grimhold/Assets/Scripts/Core/DamageRequest.cs",
+        "Project Grimhold/Assets/Scripts/Core/IDownedCycleObserver.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerDownedStateNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerHazardExposureCausalityNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerHazardExposureCausalityNetworkController.cs.meta",
+        "Project Grimhold/Assets/Scripts/Scenario/Traps/BaseTrap.cs",
+        "Project Grimhold/Assets/Scripts/Scenario/Traps/SpikesTrap.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/HazardExposureCausalityRulesTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/HazardExposureCausalityRulesTests.cs.meta",
+        "Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md",
+        "Project Grimhold/Docs/Architecture/EnvironmentalHazardsArchitecture.md",
+        "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "combat",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/DamageResolver.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/HazardCausality.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardCausalityBreakReason.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardCausalityBreakReason.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardExposureCausalityRules.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardExposureCausalityRules.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardExposureCausalityState.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/HazardCausality/HazardExposureCausalityState.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Core/DamageRequest.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/HazardExposureCausalityRulesTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/HazardExposureCausalityRulesTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Combat"
+        },
+        {
+          "source": "scope",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/HazardExposureCausalityRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/HazardExposureCausalityRulesTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/EnvironmentalHazardsArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/HazardExposureCausalityRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/HazardExposureCausalityRulesTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PvpCombatCreditPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "07f13443b31d2faa85f2c3848c926cdb9056a71e",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/07f13443b31d2faa85f2c3848c926cdb9056a71e",
