@@ -425,6 +425,17 @@ namespace Tests.PlayMode.Utilities
                 "Nearby enemy within 15m must acquire aggro target from Void Bell chime.");
             Assert.That(targetId, Is.EqualTo(player.Id));
 
+            // Rapidly stopping and restarting sprint within the 2.0s window must NOT spam additional chimes
+            int chimesAfterFirst = player.VoidBellChimeSequence;
+            _inputDriver.MoveDirection = Vector2.zero;
+            _inputDriver.Buttons = default;
+            yield return WaitTicks(3);
+            _inputDriver.MoveDirection = Vector2.left;
+            _inputDriver.Buttons = sprintButtons;
+            yield return WaitTicks(4);
+            Assert.That(player.VoidBellChimeSequence, Is.EqualTo(chimesAfterFirst),
+                "Rapidly restarting sprint within 2.0s cadence window must not spam additional chimes.");
+
             // Stop sprinting and drop Void Bell -> chime sequence stops advancing
             _inputDriver.MoveDirection = Vector2.zero;
             _inputDriver.Buttons = default;

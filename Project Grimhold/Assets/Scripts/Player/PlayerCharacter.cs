@@ -342,20 +342,14 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
             return;
         }
 
-        if (_passiveEffectsController.IsSprintingWithVoidBell)
+        if (_passiveEffectsController.IsSprintingWithVoidBell &&
+            VoidBellChimeTimer.ExpiredOrNotRunning(Runner))
         {
-            if (VoidBellChimeTimer.ExpiredOrNotRunning(Runner))
-            {
-                VoidBellChimeTimer = TickTimer.CreateFromSeconds(
-                    Runner,
-                    _passiveEffectsController.VoidBellChimeIntervalSeconds);
-                VoidBellChimeSequence++;
-                _passiveEffectsController.ExecuteAuthoritativeVoidBellAlert(Id, transform);
-            }
-        }
-        else
-        {
-            VoidBellChimeTimer = TickTimer.None;
+            VoidBellChimeTimer = TickTimer.CreateFromSeconds(
+                Runner,
+                _passiveEffectsController.VoidBellChimeIntervalSeconds);
+            VoidBellChimeSequence++;
+            _passiveEffectsController.ExecuteAuthoritativeVoidBellAlert(Id, transform);
         }
     }
 
