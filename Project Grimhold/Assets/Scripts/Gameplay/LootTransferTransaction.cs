@@ -1,4 +1,6 @@
 using System;
+using Fusion;
+using UnityEngine;
 
 /// <summary>
 /// Executes an atomic, prevalidated full-stack transfer between two loot capabilities.
@@ -98,7 +100,86 @@ public static class LootTransferTransaction
             source.CommitExtraction(request);
             destination.CommitReceive(request);
         }
+
+        TransferUtilityCooldownIfApplicable(source, destination, in request);
         firstAcquisition = resolvedAcquisition;
         return LootTransferResult.Succeeded(request);
+    }
+
+    private static void TransferUtilityCooldownIfApplicable(
+        ILootExtractor source,
+        ILootReceiver destination,
+        in LootTransferRequest request)
+    {
+        IUtilityCooldownProvider sourceProvider = ResolveUtilityCooldownProvider(source);
+        if (sourceProvider == null)
+        {
+            return;
+        }
+
+        TickTimer cooldown = sourceProvider.GetUtilityCooldown(request.LootId);
+        NetworkRunner runner = ResolveRunner(source, destination);
+        bool hasActiveCooldown = runner != null
+            ? !cooldown.ExpiredOrNotRunning(runner)
+            : cooldown.IsRunning;
+
+        if (hasActiveCooldown)
+        {
+            IUtilityCooldownReceiver destinationReceiver = ResolveUtilityCooldownReceiver(destination);
+            destinationReceiver?.SetUtilityCooldown(request.LootId, cooldown);
+        }
+
+        if (source is ILootQuantityReader quantityReader &&
+            quantityReader.GetLootAmount(request.LootId) <= 0)
+        {
+            sourceProvider.ClearUtilityCooldown(request.LootId);
+        }
+    }
+
+    private static IUtilityCooldownProvider ResolveUtilityCooldownProvider(ILootExtractor source)
+    {
+        if (source is IUtilityCooldownProvider directProvider)
+        {
+            return directProvider;
+        }
+
+        if (source is Component component && component != null &&
+            component.TryGetComponent(out IUtilityCooldownProvider siblingProvider))
+        {
+            return siblingProvider;
+        }
+
+        return null;
+    }
+
+    private static IUtilityCooldownReceiver ResolveUtilityCooldownReceiver(ILootReceiver destination)
+    {
+        if (destination is IUtilityCooldownReceiver directReceiver)
+        {
+            return directReceiver;
+        }
+
+        if (destination is Component component && component != null &&
+            component.TryGetComponent(out IUtilityCooldownReceiver siblingReceiver))
+        {
+            return siblingReceiver;
+        }
+
+        return null;
+    }
+
+    private static NetworkRunner ResolveRunner(ILootExtractor source, ILootReceiver destination)
+    {
+        if (source is NetworkBehaviour sourceBehaviour && sourceBehaviour != null && sourceBehaviour.Runner != null)
+        {
+            return sourceBehaviour.Runner;
+        }
+
+        if (destination is NetworkBehaviour destinationBehaviour && destinationBehaviour != null && destinationBehaviour.Runner != null)
+        {
+            return destinationBehaviour.Runner;
+        }
+
+        return null;
     }
 }
