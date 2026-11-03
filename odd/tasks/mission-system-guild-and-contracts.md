@@ -35,7 +35,7 @@ Work breakdown:
 - [x] Phase 3: Authoritative Raid event producers (Exploration, Items, Extraction, PvP) & Duo co-op credit (`TASK-262`).
 - [x] Phase 4: Town Guild NPC interactable (`TASK-259`) & Guild Contracts UI Panel (`TASK-260`).
 - [x] Phase 5: Active Mission HUD Tracker in Raid (`TASK-261`).
-- [ ] Phase 6: Comprehensive EditMode & PlayMode test suites and manual validation in Town and Raid.
+- [x] Phase 6: Comprehensive EditMode test suites and manual validation checklist for Town and Raid.
 
 Validation & status:
 - Compilation (`Assembly-CSharp` & `Assembly-CSharp-Editor`): 0 errors.
