@@ -181,6 +181,90 @@ MonoBehaviour:
     _weight: 10
     _minimumAmount: 1
     _maximumAmount: 1
+  - _definition: {fileID: 11400000, guid: 9a09f769a1c131431d104ac2bf566c1d, type: 2}
+    _weight: 20
+    _minimumAmount: 1
+    _maximumAmount: 3
+  - _definition: {fileID: 11400000, guid: 4e71f44fc2e7b33d02a2e723b49e9a22, type: 2}
+    _weight: 20
+    _minimumAmount: 1
+    _maximumAmount: 3
+  - _definition: {fileID: 11400000, guid: a93834bfd9df7f007b7f9f5e8e4586bd, type: 2}
+    _weight: 20
+    _minimumAmount: 1
+    _maximumAmount: 3
+  - _definition: {fileID: 11400000, guid: d5dfba0eaa5e95b7cf31a7afaf9a447a, type: 2}
+    _weight: 20
+    _minimumAmount: 1
+    _maximumAmount: 3
+  - _definition: {fileID: 11400000, guid: 1921874d86f37210262d17783261684f, type: 2}
+    _weight: 20
+    _minimumAmount: 1
+    _maximumAmount: 3
+  - _definition: {fileID: 11400000, guid: 1aa299db5bfdfdc352369fb2ef773675, type: 2}
+    _weight: 20
+    _minimumAmount: 1
+    _maximumAmount: 3
+  - _definition: {fileID: 11400000, guid: 0f0ff331a4157418202ef2eaafd61344, type: 2}
+    _weight: 20
+    _minimumAmount: 1
+    _maximumAmount: 3
+  - _definition: {fileID: 11400000, guid: c997572b7088680b0fbe8f2fea67fd07, type: 2}
+    _weight: 20
+    _minimumAmount: 1
+    _maximumAmount: 3
+  - _definition: {fileID: 11400000, guid: 63aed7277f07de8706c7ffd50b57510b, type: 2}
+    _weight: 20
+    _minimumAmount: 1
+    _maximumAmount: 3
+  - _definition: {fileID: 11400000, guid: 2a9ee76ef4965e4d9d88034bf39e0fcf, type: 2}
+    _weight: 20
+    _minimumAmount: 1
+    _maximumAmount: 3
+  - _definition: {fileID: 11400000, guid: 1f3be1e82813c9b1cb6f55c6990fe04f, type: 2}
+    _weight: 10
+    _minimumAmount: 1
+    _maximumAmount: 2
+  - _definition: {fileID: 11400000, guid: 5922863badf07c7079034bdfb1f610bd, type: 2}
+    _weight: 10
+    _minimumAmount: 1
+    _maximumAmount: 2
+  - _definition: {fileID: 11400000, guid: 64d0183dfbe860bc4af0e93da5c36c8e, type: 2}
+    _weight: 10
+    _minimumAmount: 1
+    _maximumAmount: 2
+  - _definition: {fileID: 11400000, guid: fc02dba6d3228da3a08594671f00f84a, type: 2}
+    _weight: 10
+    _minimumAmount: 1
+    _maximumAmount: 2
+  - _definition: {fileID: 11400000, guid: 4f3dd772be1116a2f1d129bb5ec63e5e, type: 2}
+    _weight: 10
+    _minimumAmount: 1
+    _maximumAmount: 2
+  - _definition: {fileID: 11400000, guid: c0a511fcf853804dd80d887fa239f6b8, type: 2}
+    _weight: 10
+    _minimumAmount: 1
+    _maximumAmount: 2
+  - _definition: {fileID: 11400000, guid: 639a5b12f6e8a05564edeced7fa928e2, type: 2}
+    _weight: 10
+    _minimumAmount: 1
+    _maximumAmount: 2
+  - _definition: {fileID: 11400000, guid: e140d40b9a26f29d310ff8bfceac2779, type: 2}
+    _weight: 10
+    _minimumAmount: 1
+    _maximumAmount: 2
+  - _definition: {fileID: 11400000, guid: 39dd186c5f60dec42fc90e161fd5bfc1, type: 2}
+    _weight: 4
+    _minimumAmount: 1
+    _maximumAmount: 1
+  - _definition: {fileID: 11400000, guid: a8446c75cc962743d3093d8f1564073b, type: 2}
+    _weight: 4
+    _minimumAmount: 1
+    _maximumAmount: 1
+  - _definition: {fileID: 11400000, guid: a1aa261e12a045cf2810ff19a2a8352f, type: 2}
+    _weight: 4
+    _minimumAmount: 1
+    _maximumAmount: 1
   _minimumDistinctStacks: 2
   _maximumDistinctStacks: 3
   _allowEmpty: 0
