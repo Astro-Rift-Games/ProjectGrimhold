@@ -90,7 +90,7 @@ public sealed class DungeonDoorAnimationTests
     }
 
     [Test]
-    public void SouthOpenFrame_MatchesNorthEdgeOnStripAnchoredAtWallBase_WithoutImportChanges()
+    public void SouthOpenFrame_IsNorthEdgeOnStripFlippedVerticallyInPlace_WithoutImportChanges()
     {
         var north = new Texture2D(2, 2);
         var south = new Texture2D(2, 2);
@@ -101,16 +101,23 @@ public sealed class DungeonDoorAnimationTests
             Color32[] a = north.GetPixels32();
             Color32[] b = south.GetPixels32();
             RectInt closed = OpaqueBounds(a, north.width, cellX: 384);
+            RectInt northOpen = OpaqueBounds(a, north.width, cellX: 0);
             RectInt southOpen = OpaqueBounds(b, south.width, cellX: 0);
 
-            // Texture rows grow upward: yMin is the bottom edge, which stays on the wall base.
+            // Same footprint as the north pose: the strip stays on the wall base and keeps its hinge column.
+            Assert.That(southOpen, Is.EqualTo(northOpen));
             Assert.That(southOpen.yMin, Is.EqualTo(closed.yMin), "The open leaf stays anchored at the wall base.");
             Assert.That(southOpen.xMin, Is.EqualTo(closed.xMin), "Hinge column must not move.");
+
+            // The tip points south: rows are mirrored inside the strip, everything else stays transparent.
             for (int y = 0; y < 128; y++)
             {
                 for (int x = 0; x < 128; x++)
                 {
-                    Assert.That(b[y * south.width + x], Is.EqualTo(a[y * north.width + x]), $"({x},{y})");
+                    Color32 expected = y >= northOpen.yMin && y <= northOpen.yMax
+                        ? a[(northOpen.yMin + northOpen.yMax - y) * north.width + x]
+                        : new Color32(0, 0, 0, 0);
+                    Assert.That(b[y * south.width + x], Is.EqualTo(expected), $"({x},{y})");
                 }
             }
             string path = ArtFolder + "Door-Open-South-Sheet.png";
