@@ -30,6 +30,15 @@ public sealed class RaidZoneTrigger : MonoBehaviour
         set => _duoProximityRadius = value;
     }
 
+    private void Reset()
+    {
+        var col = GetComponent<Collider2D>();
+        if (col != null)
+        {
+            col.isTrigger = true;
+        }
+    }
+
     private void Awake()
     {
         var col = GetComponent<Collider2D>();

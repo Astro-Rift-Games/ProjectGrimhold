@@ -389,6 +389,11 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         {
             _menuPresenter.Unbind();
         }
+
+        if (_missionTrackerPresenter != null)
+        {
+            _missionTrackerPresenter.Unbind();
+        }
         _isBound = false;
         _missingQuickSlotDependenciesReported = false;
         _missingJoinContextReported = false;

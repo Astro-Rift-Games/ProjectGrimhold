@@ -1,3 +1,4 @@
+using System.Collections;
 using System;
 using System.Collections.Generic;
 using TMPro;
@@ -20,6 +21,8 @@ public sealed class TownMissionGuildView : MonoBehaviour
 {
     private const int OverlaySortingOrder = 110;
 
+    [SerializeField] private GameObject _visualRoot;
+
     [Header("Header")]
     [SerializeField] private TMP_Text _rankText;
     [SerializeField] private TMP_Text _activeSlotsText;
@@ -27,10 +30,13 @@ public sealed class TownMissionGuildView : MonoBehaviour
     [Header("Tabs")]
     [SerializeField] private Button _tabAvailableButton;
     [SerializeField] private Button _tabActiveButton;
+    [SerializeField] private Sprite _tabActiveSprite;
+    [SerializeField] private Sprite _tabInactiveSprite;
 
     [Header("List")]
     [SerializeField] private Transform _entryContainer;
     [SerializeField] private MissionBoardEntryUI _entryPrefab;
+    [SerializeField] private GameObject _emptyStateNotice;
 
     [Header("Details")]
     [SerializeField] private GameObject _detailsRoot;
@@ -42,6 +48,8 @@ public sealed class TownMissionGuildView : MonoBehaviour
     [SerializeField] private Transform _rewardsContainer;
     [SerializeField] private MissionRewardEntryUI _rewardPrefab;
     [SerializeField] private TMP_Text _feedbackText;
+    [SerializeField] private float _feedbackDuration = 3.0f;
+    private Coroutine _feedbackCoroutine;
 
     [Header("Actions")]
     [SerializeField] private Button _acceptButton;
@@ -55,8 +63,20 @@ public sealed class TownMissionGuildView : MonoBehaviour
 
     private MissionDefinition _currentSelected;
     private GuildViewTab _activeTab = GuildViewTab.Available;
+    private bool _isClaimableSelected;
 
-    public bool IsOpen => UiPanelVisibility.IsVisible(gameObject);
+    public bool IsOpen
+    {
+        get
+        {
+            if (!gameObject.activeSelf) return false;
+            if (_visualRoot != null && _visualRoot != gameObject)
+            {
+                return UiPanelVisibility.IsVisible(_visualRoot);
+            }
+            return UiPanelVisibility.IsVisible(gameObject);
+        }
+    }
     public GuildViewTab ActiveTab => _activeTab;
     public MissionDefinition SelectedMission => _currentSelected;
 
@@ -84,13 +104,15 @@ public sealed class TownMissionGuildView : MonoBehaviour
             canvas.sortingOrder = OverlaySortingOrder;
         }
 
-        view.gameObject.SetActive(false);
+        view.gameObject.SetActive(true);
+        view.Close();
         return view;
     }
 
     private void Awake()
     {
         InitializeButtons();
+        UpdateTabVisuals();
     }
 
     private void InitializeButtons()
@@ -112,7 +134,15 @@ public sealed class TownMissionGuildView : MonoBehaviour
             _acceptButton.onClick.RemoveAllListeners();
             _acceptButton.onClick.AddListener(() =>
             {
-                if (_currentSelected != null) AcceptRequested?.Invoke(_currentSelected);
+                if (_currentSelected == null) return;
+                if (_claimButton == null && _isClaimableSelected)
+                {
+                    ClaimRequested?.Invoke(_currentSelected);
+                }
+                else
+                {
+                    AcceptRequested?.Invoke(_currentSelected);
+                }
             });
         }
 
@@ -143,18 +173,72 @@ public sealed class TownMissionGuildView : MonoBehaviour
 
     public void Open()
     {
-        UiPanelVisibility.SetVisible(gameObject, true);
+        if (!gameObject.activeSelf)
+        {
+            gameObject.SetActive(true);
+        }
+
+        UpdateTabVisuals();
+
+        if (_visualRoot != null && _visualRoot != gameObject)
+        {
+            UiPanelVisibility.SetVisible(_visualRoot, true);
+        }
+        else
+        {
+            UiPanelVisibility.SetVisible(gameObject, true);
+        }
     }
 
     public void Close()
     {
-        UiPanelVisibility.SetVisible(gameObject, false);
+        ClearFeedback();
+        if (_visualRoot != null && _visualRoot != gameObject)
+        {
+            UiPanelVisibility.SetVisible(_visualRoot, false);
+        }
+        else
+        {
+            UiPanelVisibility.SetVisible(gameObject, false);
+        }
     }
 
     public void SetTab(GuildViewTab tab)
     {
         _activeTab = tab;
+        UpdateTabVisuals();
         TabChanged?.Invoke(_activeTab);
+    }
+
+    public void UpdateTabVisuals()
+    {
+        if (_tabAvailableButton != null)
+        {
+            var img = _tabAvailableButton.GetComponent<Image>();
+            if (img != null && _tabActiveSprite != null && _tabInactiveSprite != null)
+            {
+                img.sprite = _activeTab == GuildViewTab.Available ? _tabActiveSprite : _tabInactiveSprite;
+            }
+            var txt = _tabAvailableButton.GetComponentInChildren<TMP_Text>();
+            if (txt != null)
+            {
+                txt.color = _activeTab == GuildViewTab.Available ? Color.white : new Color(0.7f, 0.7f, 0.7f, 1f);
+            }
+        }
+
+        if (_tabActiveButton != null)
+        {
+            var img = _tabActiveButton.GetComponent<Image>();
+            if (img != null && _tabActiveSprite != null && _tabInactiveSprite != null)
+            {
+                img.sprite = _activeTab == GuildViewTab.Active ? _tabActiveSprite : _tabInactiveSprite;
+            }
+            var txt = _tabActiveButton.GetComponentInChildren<TMP_Text>();
+            if (txt != null)
+            {
+                txt.color = _activeTab == GuildViewTab.Active ? Color.white : new Color(0.7f, 0.7f, 0.7f, 1f);
+            }
+        }
     }
 
     public void PresentHeader(MissionRank rank, int reputation, int activeCount, int maxSlots)
@@ -180,6 +264,11 @@ public sealed class TownMissionGuildView : MonoBehaviour
         ClearList();
 
         _currentSelected = selected;
+        if (_emptyStateNotice != null)
+        {
+            _emptyStateNotice.SetActive(missions == null || missions.Count == 0);
+        }
+
         if (_entryContainer == null) return;
 
         for (int i = 0; i < missions.Count; i++)
@@ -225,6 +314,7 @@ public sealed class TownMissionGuildView : MonoBehaviour
 
     private void OnMissionEntrySelected(MissionDefinition def)
     {
+        ClearFeedback();
         _currentSelected = def;
         MissionSelected?.Invoke(def);
     }
@@ -313,10 +403,37 @@ public sealed class TownMissionGuildView : MonoBehaviour
         }
 
         // Action buttons state
+        _isClaimableSelected = activeInstance != null && activeInstance.State == MissionState.PendienteDeReclamar;
+
+        if (_claimButton != null)
+        {
+            _claimButton.gameObject.SetActive(_isClaimableSelected);
+            _claimButton.interactable = canClaim;
+        }
+
         if (_acceptButton != null)
         {
-            _acceptButton.gameObject.SetActive(canAccept || activeInstance == null);
-            _acceptButton.interactable = canAccept;
+            var txt = _acceptButton.GetComponentInChildren<TMP_Text>();
+            if (_claimButton == null && _isClaimableSelected)
+            {
+                _acceptButton.gameObject.SetActive(true);
+                _acceptButton.interactable = canClaim;
+                if (txt != null) txt.text = "Reclamar Recompensa";
+            }
+            else
+            {
+                _acceptButton.gameObject.SetActive(canAccept || activeInstance == null);
+                _acceptButton.interactable = canAccept;
+                if (txt != null)
+                {
+                    if (activeInstance != null && activeInstance.State == MissionState.Activa)
+                        txt.text = "En Progreso";
+                    else if (activeInstance != null && activeInstance.State == MissionState.Reclamada)
+                        txt.text = "Completada";
+                    else
+                        txt.text = "Aceptar Contrato";
+                }
+            }
         }
 
         if (_abandonButton != null)
@@ -324,11 +441,33 @@ public sealed class TownMissionGuildView : MonoBehaviour
             _abandonButton.gameObject.SetActive(activeInstance != null && activeInstance.State == MissionState.Activa);
             _abandonButton.interactable = canAbandon;
         }
-
-        if (_claimButton != null)
+        else if (_acceptButton != null && _acceptButton.transform.parent != null)
         {
-            _claimButton.gameObject.SetActive(activeInstance != null && activeInstance.State == MissionState.PendienteDeReclamar);
-            _claimButton.interactable = canClaim;
+            var parent = _acceptButton.transform.parent;
+            var dynAbandon = parent.Find("DynamicAbandonButton");
+            if (activeInstance != null && activeInstance.State == MissionState.Activa)
+            {
+                if (dynAbandon == null)
+                {
+                    var abandonGo = Instantiate(_acceptButton.gameObject, parent);
+                    abandonGo.name = "DynamicAbandonButton";
+                    var btn = abandonGo.GetComponent<Button>();
+                    btn.onClick.RemoveAllListeners();
+                    btn.onClick.AddListener(() =>
+                    {
+                        if (_currentSelected != null) AbandonRequested?.Invoke(_currentSelected);
+                    });
+                    var txt = abandonGo.GetComponentInChildren<TMP_Text>();
+                    if (txt != null) txt.text = "Abandonar";
+                    dynAbandon = abandonGo.transform;
+                }
+                dynAbandon.gameObject.SetActive(true);
+                dynAbandon.GetComponent<Button>().interactable = canAbandon;
+            }
+            else if (dynAbandon != null)
+            {
+                dynAbandon.gameObject.SetActive(false);
+            }
         }
 
         if (!string.IsNullOrEmpty(claimWarning))
@@ -365,13 +504,54 @@ public sealed class TownMissionGuildView : MonoBehaviour
         return false;
     }
 
+    public string FeedbackText => _feedbackText != null ? _feedbackText.text : string.Empty;
+
     public void ShowFeedback(string text, bool isError = false)
     {
+        if (_feedbackCoroutine != null)
+        {
+            StopCoroutine(_feedbackCoroutine);
+            _feedbackCoroutine = null;
+        }
+
         if (_feedbackText != null)
         {
             _feedbackText.text = text ?? string.Empty;
             _feedbackText.color = isError ? new Color(1f, 0.4f, 0.4f, 1f) : new Color(0.4f, 1f, 0.4f, 1f);
         }
+
+        if (!string.IsNullOrEmpty(text) && _feedbackDuration > 0f && gameObject.activeInHierarchy)
+        {
+            _feedbackCoroutine = StartCoroutine(ClearFeedbackRoutine(_feedbackDuration));
+        }
+    }
+
+    public void ClearFeedback()
+    {
+        if (_feedbackCoroutine != null)
+        {
+            StopCoroutine(_feedbackCoroutine);
+            _feedbackCoroutine = null;
+        }
+
+        if (_feedbackText != null)
+        {
+            _feedbackText.text = string.Empty;
+        }
+    }
+
+    private IEnumerator ClearFeedbackRoutine(float duration)
+    {
+        for (float elapsed = 0f; elapsed < duration; elapsed += Time.unscaledDeltaTime)
+        {
+            yield return null;
+        }
+
+        if (_feedbackText != null)
+        {
+            _feedbackText.text = string.Empty;
+        }
+        _feedbackCoroutine = null;
     }
 
     private void ClearList()
@@ -398,8 +578,14 @@ public sealed class TownMissionGuildView : MonoBehaviour
         _instantiatedRewards.Clear();
     }
 
+    private void OnDisable()
+    {
+        ClearFeedback();
+    }
+
     private void OnDestroy()
     {
+        ClearFeedback();
         ClearList();
         ClearObjectivesAndRewards();
     }

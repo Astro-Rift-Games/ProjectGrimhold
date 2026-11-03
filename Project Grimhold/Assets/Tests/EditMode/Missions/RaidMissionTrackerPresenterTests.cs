@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 
@@ -18,6 +19,10 @@ namespace Tests.EditMode.Missions
         private RaidMissionTrackerPresenter _presenter;
         private GameObject _viewGo;
         private RaidMissionTrackerView _view;
+        private GameObject _popupGo;
+        private TextMeshProUGUI _popupHeader;
+        private TextMeshProUGUI _popupTitle;
+        private TextMeshProUGUI _popupDetail;
 
         [SetUp]
         public void SetUp()
@@ -41,6 +46,25 @@ namespace Tests.EditMode.Missions
 
             _viewGo = new GameObject("TestTrackerView");
             _view = _viewGo.AddComponent<RaidMissionTrackerView>();
+
+            _popupGo = new GameObject("PopupRoot");
+            _popupGo.transform.SetParent(_viewGo.transform, false);
+            _popupGo.SetActive(false);
+
+            _popupHeader = new GameObject("Header").AddComponent<TextMeshProUGUI>();
+            _popupHeader.transform.SetParent(_popupGo.transform, false);
+
+            _popupTitle = new GameObject("Title").AddComponent<TextMeshProUGUI>();
+            _popupTitle.transform.SetParent(_popupGo.transform, false);
+
+            _popupDetail = new GameObject("Detail").AddComponent<TextMeshProUGUI>();
+            _popupDetail.transform.SetParent(_popupGo.transform, false);
+
+            var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+            typeof(RaidMissionTrackerView).GetField("_popupRoot", flags)?.SetValue(_view, _popupGo);
+            typeof(RaidMissionTrackerView).GetField("_popupHeaderText", flags)?.SetValue(_view, _popupHeader);
+            typeof(RaidMissionTrackerView).GetField("_popupTitleText", flags)?.SetValue(_view, _popupTitle);
+            typeof(RaidMissionTrackerView).GetField("_popupDetailText", flags)?.SetValue(_view, _popupDetail);
 
             _presenterGo = new GameObject("TestTrackerPresenter");
             _presenter = _presenterGo.AddComponent<RaidMissionTrackerPresenter>();
@@ -99,6 +123,39 @@ namespace Tests.EditMode.Missions
             active = _store.GetActiveMissions();
             Assert.That(active[0].ObjectiveProgress[0].CurrentAmount, Is.EqualTo(3));
             Assert.That(active[0].State, Is.EqualTo(MissionState.PendienteDeReclamar));
+        }
+
+        [Test]
+        public void Tracker_WhenObjectiveAdvances_TriggersProgressPopup()
+        {
+            Assert.That(_catalog.TryGet("CON_E_001", out var m1), Is.True);
+            _store.TryAcceptMission(m1);
+
+            _presenter.Bind(_store, _catalog, _view);
+
+            var ev = new MissionContributionEvent(ObjectiveFamily.EliminacionPvE, 1, _profileId);
+            _store.TryApplyMissionProgress(ev);
+
+            Assert.That(_view.IsPopupActive, Is.True);
+            Assert.That(_popupHeader.text, Does.Contain("PROGRESO"));
+            Assert.That(_popupTitle.text, Is.EqualTo(m1.Title));
+            Assert.That(_popupDetail.text, Does.Contain("1/3"));
+        }
+
+        [Test]
+        public void Tracker_WhenMissionCompleted_TriggersCompletionPopup()
+        {
+            Assert.That(_catalog.TryGet("CON_E_001", out var m1), Is.True);
+            _store.TryAcceptMission(m1);
+
+            _presenter.Bind(_store, _catalog, _view);
+
+            var ev = new MissionContributionEvent(ObjectiveFamily.EliminacionPvE, 3, _profileId);
+            _store.TryApplyMissionProgress(ev);
+
+            Assert.That(_view.IsPopupActive, Is.True);
+            Assert.That(_popupHeader.text, Does.Contain("COMPLETADO"));
+            Assert.That(_popupTitle.text, Is.EqualTo(m1.Title));
         }
 
         [Test]

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -43,7 +44,7 @@ public readonly struct MissionTrackerItemViewModel
 /// <summary>
 /// Passive HUD view that presents active missions during a raid.
 /// Supports collapsible widget state, real-time objective counters,
-/// and visual highlights when objectives advance or complete.
+/// visual highlights, and toast notifications when objectives advance or complete.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class RaidMissionTrackerView : MonoBehaviour
@@ -56,14 +57,29 @@ public sealed class RaidMissionTrackerView : MonoBehaviour
     [SerializeField] private Transform _itemsContainer;
 
     [Header("Styling")]
+    [SerializeField] private TMP_FontAsset _fontAsset;
     [SerializeField] private Color _activeColor = Color.white;
     [SerializeField] private Color _completedColor = new Color(0.95f, 0.8f, 0.2f, 1f);
     [SerializeField] private Color _pulseColor = new Color(0.3f, 1f, 0.4f, 1f);
 
+    [Header("Popup Toast Notification")]
+    [SerializeField] private GameObject _popupRoot;
+    [SerializeField] private CanvasGroup _popupCanvasGroup;
+    [SerializeField] private TMP_Text _popupHeaderText;
+    [SerializeField] private TMP_Text _popupTitleText;
+    [SerializeField] private TMP_Text _popupDetailText;
+    [SerializeField] private Image _popupBorderImage;
+    [SerializeField] private float _popupDuration = 3.0f;
+
     private readonly List<GameObject> _instantiatedItems = new();
     private bool _isCollapsed;
+    private Coroutine _popupCoroutine;
 
     public bool IsCollapsed => _isCollapsed;
+    public bool IsPopupActive => _popupRoot != null && _popupRoot.activeSelf;
+    public TMP_Text PopupHeaderText => _popupHeaderText;
+    public TMP_Text PopupTitleText => _popupTitleText;
+    public TMP_Text PopupDetailText => _popupDetailText;
 
     public event Action CollapseToggled;
 
@@ -73,6 +89,11 @@ public sealed class RaidMissionTrackerView : MonoBehaviour
         {
             _toggleCollapseButton.onClick.RemoveAllListeners();
             _toggleCollapseButton.onClick.AddListener(ToggleCollapse);
+        }
+
+        if (_popupRoot != null)
+        {
+            _popupRoot.SetActive(false);
         }
     }
 
@@ -145,6 +166,7 @@ public sealed class RaidMissionTrackerView : MonoBehaviour
         var titleGo = new GameObject("Title");
         titleGo.transform.SetParent(itemGo.transform, false);
         var titleTxt = titleGo.AddComponent<TextMeshProUGUI>();
+        if (_fontAsset != null) titleTxt.font = _fontAsset;
         titleTxt.fontSize = 13f;
         titleTxt.fontStyle = FontStyles.Bold;
 
@@ -169,6 +191,7 @@ public sealed class RaidMissionTrackerView : MonoBehaviour
                 var objGo = new GameObject($"Objective_{objIdx}");
                 objGo.transform.SetParent(itemGo.transform, false);
                 var objTxt = objGo.AddComponent<TextMeshProUGUI>();
+                if (_fontAsset != null) objTxt.font = _fontAsset;
                 objTxt.fontSize = 11f;
 
                 string checkmark = obj.IsCompleted ? "✔ " : "- ";
@@ -182,6 +205,7 @@ public sealed class RaidMissionTrackerView : MonoBehaviour
             var statusGo = new GameObject("StatusNotice");
             statusGo.transform.SetParent(itemGo.transform, false);
             var statusTxt = statusGo.AddComponent<TextMeshProUGUI>();
+            if (_fontAsset != null) statusTxt.font = _fontAsset;
             statusTxt.fontSize = 11f;
             statusTxt.fontStyle = FontStyles.Italic;
             statusTxt.text = "   ¡Completada! (Reclamar en Pueblo)";
@@ -193,11 +217,101 @@ public sealed class RaidMissionTrackerView : MonoBehaviour
 
     public void PulseMission(MissionId missionId, bool isCompleted)
     {
-        // Highlight feedback on completed or progressed mission
         if (_headerText != null)
         {
             _headerText.color = isCompleted ? _completedColor : _pulseColor;
         }
+    }
+
+    public void ShowProgressPopup(string header, string title, string detail, bool isCompletion)
+    {
+        if (_popupRoot == null) return;
+
+        if (_popupCoroutine != null)
+        {
+            StopCoroutine(_popupCoroutine);
+        }
+
+        if (gameObject.activeInHierarchy)
+        {
+            _popupCoroutine = StartCoroutine(DoShowPopup(header, title, detail, isCompletion));
+        }
+        else
+        {
+            // Immediate sync fallback if GameObject is inactive
+            ApplyPopupData(header, title, detail, isCompletion);
+            _popupRoot.SetActive(true);
+            if (_popupCanvasGroup != null) _popupCanvasGroup.alpha = 1f;
+        }
+    }
+
+    private void ApplyPopupData(string header, string title, string detail, bool isCompletion)
+    {
+        Color highlight = isCompletion ? _completedColor : _pulseColor;
+
+        if (_popupHeaderText != null)
+        {
+            if (_fontAsset != null) _popupHeaderText.font = _fontAsset;
+            _popupHeaderText.text = header;
+            _popupHeaderText.color = highlight;
+        }
+
+        if (_popupTitleText != null)
+        {
+            if (_fontAsset != null) _popupTitleText.font = _fontAsset;
+            _popupTitleText.text = title;
+        }
+
+        if (_popupDetailText != null)
+        {
+            if (_fontAsset != null) _popupDetailText.font = _fontAsset;
+            _popupDetailText.text = detail;
+        }
+
+        if (_popupBorderImage != null)
+        {
+            _popupBorderImage.color = highlight;
+        }
+    }
+
+    private IEnumerator DoShowPopup(string header, string title, string detail, bool isCompletion)
+    {
+        ApplyPopupData(header, title, detail, isCompletion);
+
+        _popupRoot.SetActive(true);
+
+        if (_popupCanvasGroup != null)
+        {
+            _popupCanvasGroup.alpha = 0f;
+            float fadeIn = 0.2f;
+            for (float t = 0f; t < fadeIn; t += Time.unscaledDeltaTime)
+            {
+                _popupCanvasGroup.alpha = Mathf.Clamp01(t / fadeIn);
+                yield return null;
+            }
+            _popupCanvasGroup.alpha = 1f;
+        }
+
+        float elapsed = 0f;
+        while (elapsed < _popupDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        if (_popupCanvasGroup != null)
+        {
+            float fadeOut = 0.35f;
+            for (float t = 0f; t < fadeOut; t += Time.unscaledDeltaTime)
+            {
+                _popupCanvasGroup.alpha = Mathf.Clamp01(1f - (t / fadeOut));
+                yield return null;
+            }
+            _popupCanvasGroup.alpha = 0f;
+        }
+
+        _popupRoot.SetActive(false);
+        _popupCoroutine = null;
     }
 
     private void ClearItems()
@@ -211,6 +325,11 @@ public sealed class RaidMissionTrackerView : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (_popupCoroutine != null)
+        {
+            StopCoroutine(_popupCoroutine);
+            _popupCoroutine = null;
+        }
         ClearItems();
     }
 }

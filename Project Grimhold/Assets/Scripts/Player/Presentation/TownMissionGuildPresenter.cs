@@ -111,6 +111,11 @@ public sealed class TownMissionGuildPresenter : NetworkBehaviour
             return;
         }
 
+        if (_view == null)
+        {
+            _view = FindAnyObjectByType<TownMissionGuildView>(FindObjectsInactive.Include);
+        }
+
         if (_view == null && _viewPrefab != null)
         {
             _view = TownMissionGuildView.Create(transform, _viewPrefab);
@@ -251,6 +256,16 @@ public sealed class TownMissionGuildPresenter : NetworkBehaviour
 
         _openNpc = target;
         _selectedMission = null;
+
+        if (_view == null)
+        {
+            _view = FindAnyObjectByType<TownMissionGuildView>(FindObjectsInactive.Include);
+            if (_view == null && _viewPrefab != null)
+            {
+                _view = TownMissionGuildView.Create(transform, _viewPrefab);
+            }
+            if (_view != null) BindViewEvents();
+        }
 
         if (_view != null)
         {
@@ -402,12 +417,17 @@ public sealed class TownMissionGuildPresenter : NetworkBehaviour
 
     private void OnTabChanged(GuildViewTab tab)
     {
+        _view?.ClearFeedback();
         _selectedMission = null;
         Refresh();
     }
 
     private void OnMissionSelected(MissionDefinition def)
     {
+        if (_selectedMission != def)
+        {
+            _view?.ClearFeedback();
+        }
         _selectedMission = def;
         var activeMissions = _store.GetActiveMissions();
         int activeCount = activeMissions.Count(m => m.State == MissionState.Activa || m.State == MissionState.PendienteDeReclamar);

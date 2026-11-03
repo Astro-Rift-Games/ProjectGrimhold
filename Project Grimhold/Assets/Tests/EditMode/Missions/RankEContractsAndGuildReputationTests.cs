@@ -121,7 +121,7 @@ namespace Tests.EditMode.Missions
             };
 
             string json = LocalProfileSaveCodec.Encode(snapshot);
-            Assert.That(json.Contains("\"guildReputation\":42"), Is.True);
+            Assert.That(json.Contains("\"guildReputation\": 42") || json.Contains("\"guildReputation\":42"), Is.True);
 
             bool success = LocalProfileSaveCodec.TryDecode(json, profileId, lootCatalog, out var decoded, out var status, out string error);
             Assert.That(success, Is.True, error);
@@ -130,7 +130,10 @@ namespace Tests.EditMode.Missions
             Assert.That(decoded.GuildRank, Is.EqualTo(MissionRank.E));
 
             // 2. Backward compatibility with SchemaVersion 9 (without guildReputation field)
-            string legacyJson = json.Replace("\"schemaVersion\":10", "\"schemaVersion\":9")
+            string legacyJson = json.Replace("\"schemaVersion\": 10", "\"schemaVersion\": 9")
+                                    .Replace("\"schemaVersion\":10", "\"schemaVersion\":9")
+                                    .Replace("\"guildReputation\": 42,\n", "")
+                                    .Replace("\"guildReputation\": 42,", "")
                                     .Replace("\"guildReputation\":42,", "");
             bool legacySuccess = LocalProfileSaveCodec.TryDecode(legacyJson, profileId, lootCatalog, out var legacyDecoded, out var legacyStatus, out string legacyError);
             Assert.That(legacySuccess, Is.True, legacyError);

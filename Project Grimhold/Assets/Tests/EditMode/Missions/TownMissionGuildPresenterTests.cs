@@ -45,6 +45,10 @@ namespace Tests.EditMode.Missions
 
             _viewGo = new GameObject("TestView");
             _view = _viewGo.AddComponent<TownMissionGuildView>();
+            var feedbackGo = new GameObject("FeedbackText").AddComponent<TMPro.TextMeshProUGUI>();
+            feedbackGo.transform.SetParent(_viewGo.transform, false);
+            typeof(TownMissionGuildView).GetField("_feedbackText", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                ?.SetValue(_view, feedbackGo);
             _presenter.SetView(_view);
         }
 
@@ -109,12 +113,20 @@ namespace Tests.EditMode.Missions
         public void Presenter_ClaimMission_RejectsAndWarns_WhenStashIsFull_WithoutLosingMission()
         {
             // Setup contract that gives item reward
-            Assert.That(_catalog.TryGet("CON_E_004", out var m4), Is.True);
-            _presenter.OnAcceptRequested(m4);
+            var itemMission = ScriptableObject.CreateInstance<MissionDefinition>();
+            typeof(MissionDefinition).GetField("_id", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                .SetValue(itemMission, "m_item_reward");
+            itemMission.Title = "Item Reward Contract";
+            itemMission.Rewards = new List<RewardDefinition>
+            {
+                new RewardDefinition { Type = RewardDefinition.RewardType.Item, Amount = 1, ReferenceId = "MAT_IRON" }
+            };
 
-            // Complete m4 to PendienteDeReclamar
+            _presenter.OnAcceptRequested(itemMission);
+
+            // Complete mission to PendienteDeReclamar
             var current = _repository.Snapshot.Clone();
-            int idx = current.ActiveMissions.FindIndex(m => m.MissionId == m4.MissionId);
+            int idx = current.ActiveMissions.FindIndex(m => m.MissionId == itemMission.MissionId);
             current.ActiveMissions[idx].State = MissionState.PendienteDeReclamar;
 
             // Fill Stash completely (capacity = 2)
@@ -124,7 +136,7 @@ namespace Tests.EditMode.Missions
             _repository.TrySave(current, out _);
 
             // Claim should fail due to full stash
-            _presenter.OnClaimRequested(m4);
+            _presenter.OnClaimRequested(itemMission);
 
             // Mission must still be PendienteDeReclamar (not lost or consumed)
             var active = _store.GetActiveMissions();
@@ -165,6 +177,32 @@ namespace Tests.EditMode.Missions
             _view.SetTab(GuildViewTab.Available);
             _presenter.Refresh();
             Assert.That(_view.ActiveTab, Is.EqualTo(GuildViewTab.Available));
+        }
+
+        [Test]
+        public void Presenter_AcceptMission_DisplaysFeedback_AndSelectingAnotherMissionClearsIt()
+        {
+            Assert.That(_catalog.TryGet("CON_E_001", out var m1), Is.True);
+            Assert.That(_catalog.TryGet("CON_E_002", out var m2), Is.True);
+
+            _presenter.OnAcceptRequested(m1);
+            Assert.That(_view.FeedbackText, Does.Contain("aceptado"));
+
+            // Selecting another mission clears the feedback
+            var entryMethod = _view.GetType().GetMethod("OnMissionEntrySelected", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            entryMethod?.Invoke(_view, new object[] { m2 });
+
+            Assert.That(_view.FeedbackText, Is.Empty);
+        }
+
+        [Test]
+        public void View_ClearFeedback_ImmediatelyEmptiesFeedbackText()
+        {
+            _view.ShowFeedback("Operación exitosa");
+            Assert.That(_view.FeedbackText, Is.EqualTo("Operación exitosa"));
+
+            _view.ClearFeedback();
+            Assert.That(_view.FeedbackText, Is.Empty);
         }
     }
 }

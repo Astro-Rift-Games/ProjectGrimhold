@@ -37,6 +37,17 @@ public static class MissionProgressEngine
                 continue;
             }
 
+            // Duo Coop Rules: individual progress strictly enforced for Obtencion, PvP, ExtraccionDeObjetos
+            if (contribution.IsCompanionContribution)
+            {
+                if (objective.Family == ObjectiveFamily.Obtencion ||
+                    objective.Family == ObjectiveFamily.PvP ||
+                    objective.Family == ObjectiveFamily.ExtraccionDeObjetos)
+                {
+                    continue;
+                }
+            }
+
             // Target Filter
             if (!string.IsNullOrEmpty(objective.Condition.TargetId) &&
                 !string.Equals(objective.Condition.TargetId, contribution.TargetId, StringComparison.OrdinalIgnoreCase))
