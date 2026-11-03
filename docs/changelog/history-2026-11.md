@@ -4,31 +4,162 @@
 
 Release: Unreleased
 
-28 original commits; 28 canonical entries.
+29 original commits; 29 canonical entries.
 
 ## Canonical classification
 
-14 features; 10 bug fixes; 2 documentation; 1 maintenance; 1 other changes
+15 features; 10 bug fixes; 2 documentation; 1 maintenance; 1 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 2 | 6 | 0 | 0 | 1 | 1 |
 | Art & Animation | 6 | 4 | 0 | 0 | 1 | 0 |
 | Audio | 5 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 11 | 6 | 0 | 0 | 1 | 1 |
-| Combat | 6 | 0 | 0 | 0 | 0 | 0 |
+| Build & Tooling | 12 | 6 | 0 | 0 | 1 | 1 |
+| Combat | 7 | 0 | 0 | 0 | 0 | 0 |
 | Documentation | 10 | 6 | 0 | 0 | 0 | 0 |
 | Extraction | 1 | 0 | 0 | 0 | 0 | 0 |
 | Input | 1 | 0 | 0 | 0 | 0 | 0 |
-| Inventory & Loot | 7 | 10 | 0 | 0 | 0 | 0 |
+| Inventory & Loot | 8 | 10 | 0 | 0 | 0 | 0 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 2 | 1 | 0 | 0 | 0 | 0 |
-| Tests | 13 | 9 | 0 | 0 | 1 | 0 |
-| UI | 7 | 3 | 0 | 0 | 1 | 0 |
+| Persistence & Backend | 1 | 0 | 0 | 0 | 0 | 0 |
+| Tests | 14 | 9 | 0 | 0 | 1 | 0 |
+| UI | 8 | 3 | 0 | 0 | 1 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 1 | 0 |
-| World & Visibility | 6 | 4 | 0 | 0 | 0 | 0 |
+| World & Visibility | 7 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 9727c4f970c91b260ca6e1162ed2a0594ef2f636
+
+[9727c4f970c91b260ca6e1162ed2a0594ef2f636](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9727c4f970c91b260ca6e1162ed2a0594ef2f636)
+
+Date: 2026-11-03T16:32:27-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, UI, World & Visibility, Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(equipment): add weapon gem sockets and Dungeon variant generator
+```
+
+#### Original body
+
+```text
+Extend WeaponInstanceModifiers with 0-2 gem sockets, each empty or
+holding one installed gem LootId, as described in Doc 09 sections 20.2
+and 22. Add a pure, seed-deterministic WeaponInstanceGenerator that
+rolls legal Dungeon variants per Doc 09 section 8.2: the primary scaling
+matches the template's natural attribute, the secondary uses a
+different attribute, and grades range from E to S.
+
+Generation probabilities live in WeaponInstanceGenerationRules (basis
+point chances, E-S grade weights, socket count weights, gem pool). Doc
+09 section 8.1 assigns them to Loot/Balance, so no defaults are
+authored. WeaponInstanceModifiersNetworkData is a blittable
+INetworkStruct that encodes gems as catalog index + 1. It is
+intentionally not replicated: PlayerCombatArchitecture.md section 3
+keeps instance modifiers out of LootEntry, Equipment and persistence
+until unique Item Instances exist end to end.
+
+EquipmentTooltipPresentationBuilder gains an instance overload that
+shows dual scaling grades ("FUE A · VIT D"), socket occupancy
+("Ranuras: 2 (vacías)") and the effective damage from
+WeaponDamageCalculator. The definition-only overload output is unchanged.
+
+Chest integration and inventory/stash display remain blocked by the
+Template/Instance migration.
+
+Tests:
+- WeaponGemSocketTests: socket limits, gems beyond the socket count,
+  network data round trip and rejection paths.
+- WeaponInstanceGeneratorTests: 1,000 weapons per STR/DEX/INT with
+  legal combinations and socket limits, determinism, rules validation.
+- EquipmentTooltipPresentationBuilderTests: dual scaling, socket
+  occupancy, effective damage, invalid and non-weapon instances.
+
+Validation: 104/104 focused EditMode tests pass. Full EditMode suite:
+5516/5541; the 25 failures are in unrelated prefab, atlas, animator,
+catalog and RPC tests. No baseline run without this change was made.
+
+Refs: TASK-280
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemSocket.cs
+Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemSocket.cs.meta
+Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationRules.cs
+Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationRules.cs.meta
+Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerator.cs
+Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerator.cs.meta
+Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiers.cs
+Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiersNetworkData.cs
+Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiersNetworkData.cs.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentationBuilder.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemSocket.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemSocket.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationRules.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationRules.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerator.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerator.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiers.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiersNetworkData.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiersNetworkData.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs.meta
+- message-term → Combat: weapon
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemSocket.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemSocket.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationRules.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationRules.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerator.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerator.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiers.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiersNetworkData.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiersNetworkData.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentationBuilder.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs
+- scope → Inventory &amp; Loot: equipment
+- message-term → Inventory &amp; Loot: equipment
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentationBuilder.cs
+- path → UI: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs
+- message-term → World &amp; Visibility: Dungeon
+- message-term → Persistence &amp; Backend: persistence
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 8acc80236d68d6a526ab268b703bb4374c601283
 

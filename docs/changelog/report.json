@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 900,
-  "canonicalEntries": 897,
+  "rawCommits": 901,
+  "canonicalEntries": 898,
   "before": {
+    "Features": 333,
     "Documentation": 77,
     "Bug Fixes": 88,
-    "Features": 332,
     "Architecture & Infrastructure": 13,
     "Other Changes": 353,
     "Refactoring": 13,
     "Tests": 24
   },
   "after": {
+    "Features": 470,
     "Documentation": 92,
     "Bug Fixes": 104,
-    "Features": 469,
     "Maintenance": 12,
     "Other Changes": 163,
     "Refactoring": 26,
@@ -23,28 +23,28 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Combat": 319,
+    "Inventory & Loot": 332,
+    "UI": 276,
+    "World & Visibility": 120,
+    "Persistence & Backend": 186,
+    "Build & Tooling": 456,
+    "Tests": 540,
     "Unassigned": 19,
     "Abilities": 114,
-    "Inventory & Loot": 331,
-    "Tests": 539,
     "Extraction": 120,
     "Art & Animation": 218,
-    "UI": 275,
     "Audio": 33,
-    "Build & Tooling": 455,
     "Documentation": 354,
     "Networking & Sessions": 257,
-    "World & Visibility": 119,
-    "Combat": 318,
     "Movement": 91,
-    "Input": 28,
-    "Persistence & Backend": 185
+    "Input": 28
   },
   "canonical": {
     "sections": {
+      "Features": 469,
       "Documentation": 92,
       "Bug Fixes": 103,
-      "Features": 468,
       "Maintenance": 12,
       "Other Changes": 162,
       "Refactoring": 26,
@@ -52,22 +52,22 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
+      "Combat": 317,
+      "Inventory & Loot": 332,
+      "UI": 275,
+      "World & Visibility": 118,
+      "Persistence & Backend": 186,
+      "Build & Tooling": 454,
+      "Tests": 538,
       "Unassigned": 19,
       "Abilities": 112,
-      "Inventory & Loot": 331,
-      "Tests": 537,
       "Extraction": 120,
       "Art & Animation": 215,
-      "UI": 274,
       "Audio": 33,
-      "Build & Tooling": 453,
       "Documentation": 352,
       "Networking & Sessions": 257,
-      "World & Visibility": 117,
-      "Combat": 316,
       "Movement": 91,
-      "Input": 28,
-      "Persistence & Backend": 185
+      "Input": 28
     }
   },
   "unknownEntries": [
@@ -34099,8 +34099,8 @@
       "title": "2026-11 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 28,
-      "canonicalEntries": 28
+      "originalCommits": 29,
+      "canonicalEntries": 29
     },
     {
       "key": "history-2026-10",
@@ -34136,6 +34136,286 @@
     }
   ],
   "commits": [
+    {
+      "sha": "9727c4f970c91b260ca6e1162ed2a0594ef2f636",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9727c4f970c91b260ca6e1162ed2a0594ef2f636",
+      "subject": "feat(equipment): add weapon gem sockets and Dungeon variant generator",
+      "body": "Extend WeaponInstanceModifiers with 0-2 gem sockets, each empty or\nholding one installed gem LootId, as described in Doc 09 sections 20.2\nand 22. Add a pure, seed-deterministic WeaponInstanceGenerator that\nrolls legal Dungeon variants per Doc 09 section 8.2: the primary scaling\nmatches the template's natural attribute, the secondary uses a\ndifferent attribute, and grades range from E to S.\n\nGeneration probabilities live in WeaponInstanceGenerationRules (basis\npoint chances, E-S grade weights, socket count weights, gem pool). Doc\n09 section 8.1 assigns them to Loot/Balance, so no defaults are\nauthored. WeaponInstanceModifiersNetworkData is a blittable\nINetworkStruct that encodes gems as catalog index + 1. It is\nintentionally not replicated: PlayerCombatArchitecture.md section 3\nkeeps instance modifiers out of LootEntry, Equipment and persistence\nuntil unique Item Instances exist end to end.\n\nEquipmentTooltipPresentationBuilder gains an instance overload that\nshows dual scaling grades (\"FUE A · VIT D\"), socket occupancy\n(\"Ranuras: 2 (vacías)\") and the effective damage from\nWeaponDamageCalculator. The definition-only overload output is unchanged.\n\nChest integration and inventory/stash display remain blocked by the\nTemplate/Instance migration.\n\nTests:\n- WeaponGemSocketTests: socket limits, gems beyond the socket count,\n  network data round trip and rejection paths.\n- WeaponInstanceGeneratorTests: 1,000 weapons per STR/DEX/INT with\n  legal combinations and socket limits, determinism, rules validation.\n- EquipmentTooltipPresentationBuilderTests: dual scaling, socket\n  occupancy, effective damage, invalid and non-weapon instances.\n\nValidation: 104/104 focused EditMode tests pass. Full EditMode suite:\n5516/5541; the 25 failures are in unrelated prefab, atlas, animator,\ncatalog and RPC tests. No baseline run without this change was made.\n\nRefs: TASK-280\n",
+      "date": "2026-11-03T16:32:27-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemSocket.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemSocket.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationRules.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationRules.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerator.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerator.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiers.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiersNetworkData.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiersNetworkData.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentationBuilder.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs"
+      ],
+      "originalType": "feat",
+      "originalScope": "equipment",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "UI",
+        "World & Visibility",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemSocket.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemSocket.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationRules.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationRules.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerator.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerator.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiers.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiersNetworkData.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiersNetworkData.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemSocket.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemSocket.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationRules.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationRules.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerator.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerator.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiers.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiersNetworkData.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiersNetworkData.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentationBuilder.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentationBuilder.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "Dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "persistence",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponInstanceGeneratorTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "8acc80236d68d6a526ab268b703bb4374c601283",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8acc80236d68d6a526ab268b703bb4374c601283",
