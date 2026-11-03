@@ -1,71 +1,71 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 890,
-  "canonicalEntries": 887,
+  "rawCommits": 900,
+  "canonicalEntries": 897,
   "before": {
     "Documentation": 77,
-    "Bug Fixes": 84,
-    "Features": 327,
+    "Bug Fixes": 88,
+    "Features": 332,
+    "Architecture & Infrastructure": 13,
     "Other Changes": 353,
     "Refactoring": 13,
-    "Architecture & Infrastructure": 12,
     "Tests": 24
   },
   "after": {
     "Documentation": 92,
-    "Bug Fixes": 100,
-    "Features": 464,
+    "Bug Fixes": 104,
+    "Features": 469,
+    "Maintenance": 12,
     "Other Changes": 163,
     "Refactoring": 26,
-    "Maintenance": 11,
     "Tests": 29,
     "Architecture & Infrastructure": 5
   },
   "systemCountsOverlap": true,
   "systems": {
     "Unassigned": 19,
-    "Abilities": 112,
-    "Inventory & Loot": 325,
-    "Tests": 531,
+    "Abilities": 114,
+    "Inventory & Loot": 331,
+    "Tests": 539,
     "Extraction": 120,
-    "Art & Animation": 211,
-    "UI": 272,
-    "Audio": 32,
-    "Build & Tooling": 447,
-    "Documentation": 347,
+    "Art & Animation": 218,
+    "UI": 275,
+    "Audio": 33,
+    "Build & Tooling": 455,
+    "Documentation": 354,
     "Networking & Sessions": 257,
-    "World & Visibility": 111,
-    "Combat": 317,
-    "Movement": 89,
+    "World & Visibility": 119,
+    "Combat": 318,
+    "Movement": 91,
     "Input": 28,
     "Persistence & Backend": 185
   },
   "canonical": {
     "sections": {
       "Documentation": 92,
-      "Bug Fixes": 99,
-      "Features": 463,
+      "Bug Fixes": 103,
+      "Features": 468,
+      "Maintenance": 12,
       "Other Changes": 162,
       "Refactoring": 26,
-      "Maintenance": 11,
       "Tests": 29,
       "Architecture & Infrastructure": 5
     },
     "systems": {
       "Unassigned": 19,
-      "Abilities": 110,
-      "Inventory & Loot": 325,
-      "Tests": 529,
+      "Abilities": 112,
+      "Inventory & Loot": 331,
+      "Tests": 537,
       "Extraction": 120,
-      "Art & Animation": 208,
-      "UI": 271,
-      "Audio": 32,
-      "Build & Tooling": 445,
-      "Documentation": 345,
+      "Art & Animation": 215,
+      "UI": 274,
+      "Audio": 33,
+      "Build & Tooling": 453,
+      "Documentation": 352,
       "Networking & Sessions": 257,
-      "World & Visibility": 109,
-      "Combat": 315,
-      "Movement": 89,
+      "World & Visibility": 117,
+      "Combat": 316,
+      "Movement": 91,
       "Input": 28,
       "Persistence & Backend": 185
     }
@@ -34099,8 +34099,8 @@
       "title": "2026-11 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 18,
-      "canonicalEntries": 18
+      "originalCommits": 28,
+      "canonicalEntries": 28
     },
     {
       "key": "history-2026-10",
@@ -34961,6 +34961,1376 @@
         {
           "source": "path",
           "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "177ac662f35edbb3712ecec5dcc239678c023f31",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/177ac662f35edbb3712ecec5dcc239678c023f31",
+      "subject": "fix(doors): finalize north-only flow and add inventory drafts",
+      "body": "Use the approved edge-on artwork and a single north opening animation.\nRemove obsolete south clips and states while retaining source sheets.\n\nAllow closing from either side at boundary contact, but reject real\ndoorway occupancy. Share availability with prompt selection so blocked\nclosing is not advertised. Preserve replicated state and timing.\n\nAdd three standalone Charcoal inventory layout prototypes, their\ntradeoff and provenance documentation, and a design manifest. Record the\ngame-asset, game UI/UX and uGUI skill sources in the lock file. These\nprototypes are illustrative and are not integrated with gameplay.\n\nValidation:\n- 113 relevant Unity EditMode tests passed.\n- 31 door and vision PlayMode tests passed.\n- Prototype JSON parsed; three inline scripts passed node --check.\nNo fresh browser, Host/Client, migration or player build validation.\n\nPlayer-Improved: Doors now open consistently toward the north.\nPlayer-Fixed: Doors close from either side when the doorway is clear.\nPlayer-Improved: The close prompt appears only when closing is available.\n",
+      "date": "2026-11-03T14:54:39-03:00",
+      "files": [
+        "Project Grimhold/Assets/Animations/Doors/Door_Closing_South.anim",
+        "Project Grimhold/Assets/Animations/Doors/Door_Closing_South.anim.meta",
+        "Project Grimhold/Assets/Animations/Doors/Door_Open_South.anim",
+        "Project Grimhold/Assets/Animations/Doors/Door_Open_South.anim.meta",
+        "Project Grimhold/Assets/Animations/Doors/Door_Opening_South.anim",
+        "Project Grimhold/Assets/Animations/Doors/Door_Opening_South.anim.meta",
+        "Project Grimhold/Assets/Animations/Doors/DungeonDoor.controller",
+        "Project Grimhold/Assets/Art/Props/Doors/Door-Open-Sheet.png",
+        "Project Grimhold/Assets/Art/Props/Doors/Door-Open-South-Sheet.png",
+        "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Scenario/Doors/NetworkDoor.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/DungeonDoorPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+        "skills-lock.json"
+      ],
+      "originalType": "fix",
+      "originalScope": "doors",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Abilities",
+        "Inventory & Loot",
+        "UI",
+        "World & Visibility",
+        "Art & Animation",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "skills-lock.json",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "UI",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/DungeonDoor.controller",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorPresenter.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/DungeonDoorPlayModeTests.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Closing_South.anim",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Closing_South.anim.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Open_South.anim",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Open_South.anim.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Opening_South.anim",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Opening_South.anim.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/DungeonDoor.controller",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Doors/Door-Open-Sheet.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Doors/Door-Open-South-Sheet.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "message-term",
+          "value": "animation",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "skills-lock.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "message-term",
+          "value": "documentation",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/DungeonDoorPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "136f0f48c582b77881ba017a5ce0d7db0aa485da",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/136f0f48c582b77881ba017a5ce0d7db0aa485da",
+      "subject": "chore: add game UI/UX and Unity uGUI skills",
+      "body": "",
+      "date": "2026-11-03T11:50:53-03:00",
+      "files": [
+        ".agents/skills/create-game-assets/SKILL.md",
+        ".agents/skills/create-game-assets/agents/openai.yaml",
+        ".agents/skills/create-game-assets/assets/art-direction-brief.md",
+        ".agents/skills/create-game-assets/assets/asset-manifest.json",
+        ".agents/skills/create-game-assets/references/art-direction.md",
+        ".agents/skills/create-game-assets/references/provenance.md",
+        ".agents/skills/create-game-assets/references/raster-pipeline.md",
+        ".agents/skills/create-game-assets/references/three-d-pipeline.md",
+        ".agents/skills/create-game-assets/scripts/asset_report.py",
+        ".agents/skills/create-game-assets/scripts/build_preview_sheet.py",
+        ".agents/skills/create-game-assets/scripts/requirements.txt",
+        ".agents/skills/game-ui-ux/SKILL.md",
+        ".agents/skills/game-ui-ux/references/layout-and-flow.md",
+        ".agents/skills/ui-ugui/SKILL.md",
+        ".agents/skills/ui-ugui/references/scrollview-setup.md"
+      ],
+      "originalType": "chore",
+      "originalScope": null,
+      "originalSection": "Architecture & Infrastructure",
+      "breaking": false,
+      "reverts": null,
+      "section": "Maintenance",
+      "confidence": "explicit",
+      "systems": [
+        "Abilities",
+        "UI",
+        "Art & Animation",
+        "Build & Tooling"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "chore",
+          "supports": "Maintenance"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/SKILL.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/agents/openai.yaml",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/assets/art-direction-brief.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/assets/asset-manifest.json",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/art-direction.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/provenance.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/raster-pipeline.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/three-d-pipeline.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/scripts/asset_report.py",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/scripts/build_preview_sheet.py",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/scripts/requirements.txt",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/game-ui-ux/SKILL.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/game-ui-ux/references/layout-and-flow.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/ui-ugui/SKILL.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/ui-ugui/references/scrollview-setup.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/game-ui-ux/SKILL.md",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/game-ui-ux/references/layout-and-flow.md",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/ui-ugui/SKILL.md",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/ui-ugui/references/scrollview-setup.md",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "UI",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/assets/art-direction-brief.md",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/art-direction.md",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/SKILL.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/agents/openai.yaml",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/assets/art-direction-brief.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/assets/asset-manifest.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/art-direction.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/provenance.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/raster-pipeline.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/three-d-pipeline.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/scripts/asset_report.py",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/scripts/build_preview_sheet.py",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/scripts/requirements.txt",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/game-ui-ux/SKILL.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/game-ui-ux/references/layout-and-flow.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/ui-ugui/SKILL.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/ui-ugui/references/scrollview-setup.md",
+          "supports": "Build & Tooling"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "0b4131a1a38043f4da8f8f5a3cd685a3d8ad41d7",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0b4131a1a38043f4da8f8f5a3cd685a3d8ad41d7",
+      "subject": "feat(doors): use hand-drawn south swing frames",
+      "body": "Replaces the generated intermediate frames of the south-opening door\nwith hand-drawn ones: the leaf now swings smoothly toward the camera\nfrom a fixed hinge instead of showing the column-shift steps. The\nclosed and fully open frames, sprite rects, pivots and clips are\nunchanged, so the existing South clips pick the new frames up by\nsprite reference.\n\nDocs: PlayerInteractionArchitecture.md door sheet description.\n\nPlayer-Improved: Doors opening toward you now swing smoothly from their hinge.\nRefs: TASK-276\n",
+      "date": "2026-11-02T22:33:57-03:00",
+      "files": [
+        "Project Grimhold/Assets/Art/Props/Doors/Door-Open-South-Sheet.png",
+        "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+        "odd/tasks/dungeon-doors.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "doors",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "World & Visibility",
+        "Art & Animation",
+        "Documentation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/dungeon-doors.md",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Doors/Door-Open-South-Sheet.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "message-term",
+          "value": "sprite",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "3391260959169b5d6dc9d80ad819e28124a19bbc",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3391260959169b5d6dc9d80ad819e28124a19bbc",
+      "subject": "fix(doors): hang the fully open south door from its hinge",
+      "body": "The previous south frame flipped the edge-on strip within its own rows,\nso the leaf stayed north of the wall line with only its tip turned. The\nsouth frame 0 is now the north edge-on strip mirrored around the hinge\nrow at the wall base: the north leaf rises from the hinge and the south\nleaf hangs from it toward the camera with the same length.\n\nTests:\n- DungeonDoorAnimationTests: south open frame is the north strip\n  mirrored around the wall-base hinge row.\n\nDocs: PlayerInteractionArchitecture.md provisional south sheet note.\n\nPlayer-Fixed: Doors opened from the north now hang open toward the south from their hinge.\nRefs: TASK-276\n",
+      "date": "2026-11-02T21:32:49-03:00",
+      "files": [
+        "Project Grimhold/Assets/Art/Props/Doors/Door-Open-South-Sheet.png",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+        "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+        "odd/tasks/dungeon-doors.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "doors",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "World & Visibility",
+        "Art & Animation",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/dungeon-doors.md",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Doors/Door-Open-South-Sheet.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "93bfc02f7feb11599245c4e80e24f61ccf444ef1",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/93bfc02f7feb11599245c4e80e24f61ccf444ef1",
+      "subject": "fix(doors): point the fully open south door toward the south",
+      "body": "The fully open south frame was identical to the north one, so doors\nlooked like they always opened to the same side. The south sheet's\nframe 0 is now the north edge-on strip flipped vertically within its\nown rows: the tip points south while the strip keeps the same\nfootprint on the wall base and the same hinge column.\n\nTests:\n- DungeonDoorAnimationTests: south open frame equals the vertically\n  mirrored north strip with an identical footprint.\n\nDocs: PlayerInteractionArchitecture.md provisional south sheet note.\n\nPlayer-Fixed: Doors opened from the north now visibly end open toward the south.\nRefs: TASK-276\n",
+      "date": "2026-11-02T21:12:33-03:00",
+      "files": [
+        "Project Grimhold/Assets/Art/Props/Doors/Door-Open-South-Sheet.png",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+        "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+        "odd/tasks/dungeon-doors.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "doors",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "World & Visibility",
+        "Art & Animation",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/dungeon-doors.md",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Doors/Door-Open-South-Sheet.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "60008f1041b10bfb05cdf60267f852c2cbb87a48",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/60008f1041b10bfb05cdf60267f852c2cbb87a48",
+      "subject": "fix(doors): keep the south-open door hinged at the wall",
+      "body": "The fully open south frame shifted the edge-on strip below the wall\nbase, so the door looked like it slid down instead of turning on its\nhinge. The south sheet now reuses the north edge-on strip for frame 0,\nkeeping the hinge on the wall base in both directions; the opening\ndirection still reads from the intermediate frames and the sorting\norder.\n\nTests:\n- DungeonDoorAnimationTests: south open frame matches the north strip\n  and stays anchored at the wall base.\n\nDocs: PlayerInteractionArchitecture.md provisional south sheet note.\n\nPlayer-Fixed: Doors opening toward you now swing from their hinge instead of sliding down.\nRefs: TASK-276\n",
+      "date": "2026-11-02T15:34:47-03:00",
+      "files": [
+        "Project Grimhold/Assets/Art/Props/Doors/Door-Open-South-Sheet.png",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+        "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+        "odd/tasks/dungeon-doors.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "doors",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "World & Visibility",
+        "Art & Animation",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/dungeon-doors.md",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Doors/Door-Open-South-Sheet.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "320c1cd3027e190dfc81eed063e67be512638444",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/320c1cd3027e190dfc81eed063e67be512638444",
+      "subject": "feat(level): place a test door in the Gameplay dungeon",
+      "body": "Places one DungeonDoor scene instance in the southern passage of the\nsouthwest spawn room so doors can be validated in a real raid. The\npassage was 3 u wide, so two Walls cells narrow only that opening to\n2 u for the native-size door; final door placement belongs to Level\nDesign.\n\n- Gameplay.unity: Dungeon_Graybox/Walls cells (-12,-16) and (-11,-16);\n  DungeonDoor at (-9.02, -24.86). The large diff is tilemap and\n  collider cache reindexing.\n- DungeonGrayboxMinimapLayout.asset re-baked from the updated walls.\n- odd/tasks/dungeon-doors.md: ODD execution tracker for TASK-276.\n\nRefs: TASK-276\n",
+      "date": "2026-11-02T15:18:07-03:00",
+      "files": [
+        "Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset",
+        "Project Grimhold/Assets/Scenes/Gameplay.unity",
+        "odd/tasks/dungeon-doors.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "level",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "UI",
+        "World & Visibility",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/dungeon-doors.md",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "74792e41ac23c03c157d8a5a40256e9761a4a316",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/74792e41ac23c03c157d8a5a40256e9761a4a316",
+      "subject": "feat(rendering): Y-sort characters against doors",
+      "body": "Characters and doors now sort by world Y instead of characters always\ndrawing over the door: a character north of a door base is drawn behind\nit and one south of it in front.\n\n- Renderer2D transparency sort mode: Custom Axis (0, 1, 0).\n- Root SortingGroup (Characters/0, sortAtRoot off) on NetworkPlayer and\n  NetworkEnemy (inherited by enemy variants); their particle children\n  keep their own layers through sortAtRoot groups.\n- TrainingDummy moves to Characters/0 with pivot sorting.\n- The door SortAnchor is raised by the player root-to-feet offset\n  (0.6875 u). Enemies with other root offsets keep small approximate\n  bands (base 0.6875 u, ranged 0.25 u, slimes 0.1875 u). Walls are\n  unchanged (Default/1).\n\nTests:\n- DungeonDoorSortingTests: renderer sort axis, character groups,\n  door anchor calibration against the measured player feet, door\n  geometry and two-sided trigger reach.\n\nDocs: VisibilityArchitecture.md rendering section (also corrects the\nwalls' sorting layer to Default/1).\n\nPlayer-Improved: Characters now appear behind or in front of doors depending on where they stand.\nRefs: TASK-276\n",
+      "date": "2026-11-02T15:17:57-03:00",
+      "files": [
+        "Project Grimhold/Assets/Prefabs/Enemies/NetworkEnemy.prefab",
+        "Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab",
+        "Project Grimhold/Assets/Prefabs/Sandbox/TrainingDummy.prefab",
+        "Project Grimhold/Assets/Settings/Renderer2D.asset",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/DungeonDoorSortingTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/DungeonDoorSortingTests.cs.meta",
+        "Project Grimhold/Docs/Architecture/VisibilityArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "rendering",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "World & Visibility",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/DungeonDoorSortingTests.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/DungeonDoorSortingTests.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/VisibilityArchitecture.md",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/DungeonDoorSortingTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/DungeonDoorSortingTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/VisibilityArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/DungeonDoorSortingTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/DungeonDoorSortingTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "9187b3537b3e31bdb1a31cfbbc3ff6197b0f5d13",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9187b3537b3e31bdb1a31cfbbc3ff6197b0f5d13",
+      "subject": "feat(doors): add networked dungeon doors",
+      "body": "Adds the TASK-276 Dungeon door: a State Authority NetworkDoor that\nplayers open and close with the contextual interaction, animated from\nthe delivered Catacumbas door sheet and blocking movement, projectiles,\nvision and enemy navigation while closed.\n\n- NetworkDoor (IInteractable): replicated State (Closed, Opening, Open,\n  Closing), TransitionTimer (0.4 s) and OpenDirection. Only stable\n  states accept interaction; presses during transitions are ignored and\n  closing is rejected while a Character/Enemies body overlaps the\n  doorway. The door opens away from the interactor (interactor north of\n  the door -> South). Restore spawns keep the copied state.\n- One non-trigger blocker on WorldCollision (2.125 x 1.0 u, same depth\n  as the adjacent walls) drives movement, projectile and vision\n  occlusion and refreshes the pathfinding region on State Authority.\n  Only the dedicated Interactable trigger is registered in the\n  EntityRegistry.\n- Prompts \"[F] Abrir puerta\" / \"[F] Cerrar puerta\" through a door branch\n  in LocalInteractionCandidateSource.\n- DungeonDoorPresenter maps the replicated state to DungeonDoor.controller\n  (7 sprite clips, transitions 0.4 s) in Render only, adopting the timer\n  progress on late join/restore, and plays placeholder open/close audio.\n- Door sprites imported at PPU 16, Point, uncompressed, shared pivot at\n  the door base. Door-Open-South-Sheet.png is a provisional south-opening\n  variant derived from the north sheet (hinge anchored at the wall) for\n  Art to retouch.\n- DungeonDoor.prefab: NetworkObject, Blocker, InteractionTrigger and a\n  SortAnchor SortingGroup raised by the player root-to-feet offset.\n\nTests:\n- DungeonDoorStateRulesTests, DungeonDoorOpenDirectionRulesTests,\n  DungeonDoorAnimationTests (EditMode).\n- DungeonDoorPlayModeTests: passage, projectile and vision occlusion,\n  transitions, occupied-doorway rejection, navigation refresh,\n  direction and Animator states.\n\nDocs: PlayerInteractionArchitecture.md TASK-276 section.\n\nPlayer-Added: Dungeon doors can be opened and closed with F; closed doors block movement, attacks and sight, and open away from you.\nRefs: TASK-276\n",
+      "date": "2026-11-02T15:17:47-03:00",
+      "files": [
+        "Project Grimhold/Assets/Animations/Doors.meta",
+        "Project Grimhold/Assets/Animations/Doors/Door_Closed.anim",
+        "Project Grimhold/Assets/Animations/Doors/Door_Closed.anim.meta",
+        "Project Grimhold/Assets/Animations/Doors/Door_Closing_North.anim",
+        "Project Grimhold/Assets/Animations/Doors/Door_Closing_North.anim.meta",
+        "Project Grimhold/Assets/Animations/Doors/Door_Closing_South.anim",
+        "Project Grimhold/Assets/Animations/Doors/Door_Closing_South.anim.meta",
+        "Project Grimhold/Assets/Animations/Doors/Door_Open_North.anim",
+        "Project Grimhold/Assets/Animations/Doors/Door_Open_North.anim.meta",
+        "Project Grimhold/Assets/Animations/Doors/Door_Open_South.anim",
+        "Project Grimhold/Assets/Animations/Doors/Door_Open_South.anim.meta",
+        "Project Grimhold/Assets/Animations/Doors/Door_Opening_North.anim",
+        "Project Grimhold/Assets/Animations/Doors/Door_Opening_North.anim.meta",
+        "Project Grimhold/Assets/Animations/Doors/Door_Opening_South.anim",
+        "Project Grimhold/Assets/Animations/Doors/Door_Opening_South.anim.meta",
+        "Project Grimhold/Assets/Animations/Doors/DungeonDoor.controller",
+        "Project Grimhold/Assets/Animations/Doors/DungeonDoor.controller.meta",
+        "Project Grimhold/Assets/Art/Props/Doors.meta",
+        "Project Grimhold/Assets/Art/Props/Doors/Door-Open-Sheet.png",
+        "Project Grimhold/Assets/Art/Props/Doors/Door-Open-Sheet.png.meta",
+        "Project Grimhold/Assets/Art/Props/Doors/Door-Open-South-Sheet.png",
+        "Project Grimhold/Assets/Art/Props/Doors/Door-Open-South-Sheet.png.meta",
+        "Project Grimhold/Assets/Art/Props/Doors/Door-Side.png",
+        "Project Grimhold/Assets/Art/Props/Doors/Door-Side.png.meta",
+        "Project Grimhold/Assets/Prefabs/Doors.meta",
+        "Project Grimhold/Assets/Prefabs/Doors/DungeonDoor.prefab",
+        "Project Grimhold/Assets/Prefabs/Doors/DungeonDoor.prefab.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/LocalInteractionCandidateSource.cs",
+        "Project Grimhold/Assets/Scripts/Scenario/Doors.meta",
+        "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorOpenDirection.cs",
+        "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorOpenDirection.cs.meta",
+        "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorPresenter.cs.meta",
+        "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorState.cs",
+        "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorState.cs.meta",
+        "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorStateRules.cs",
+        "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorStateRules.cs.meta",
+        "Project Grimhold/Assets/Scripts/Scenario/Doors/NetworkDoor.cs",
+        "Project Grimhold/Assets/Scripts/Scenario/Doors/NetworkDoor.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorOpenDirectionRulesTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorOpenDirectionRulesTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorStateRulesTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorStateRulesTests.cs.meta",
+        "Project Grimhold/Assets/Tests/PlayMode/DungeonDoorPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/DungeonDoorPlayModeTests.cs.meta",
+        "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "doors",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Movement",
+        "Inventory & Loot",
+        "World & Visibility",
+        "Audio",
+        "Art & Animation",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "message-term",
+          "value": "projectiles",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "movement",
+          "supports": "Movement"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/LocalInteractionCandidateSource.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "interaction",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/DungeonDoor.controller",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/DungeonDoor.controller.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/Doors/DungeonDoor.prefab",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/Doors/DungeonDoor.prefab.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorOpenDirection.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorOpenDirection.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorPresenter.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorPresenter.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorState.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorState.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorStateRules.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Scenario/Doors/DungeonDoorStateRules.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorOpenDirectionRulesTests.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorOpenDirectionRulesTests.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorStateRulesTests.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorStateRulesTests.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/DungeonDoorPlayModeTests.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/DungeonDoorPlayModeTests.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "audio",
+          "supports": "Audio"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Closed.anim",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Closed.anim.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Closing_North.anim",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Closing_North.anim.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Closing_South.anim",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Closing_South.anim.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Open_North.anim",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Open_North.anim.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Open_South.anim",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Open_South.anim.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Opening_North.anim",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Opening_North.anim.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Opening_South.anim",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/Door_Opening_South.anim.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/DungeonDoor.controller",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Doors/DungeonDoor.controller.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Doors.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Doors/Door-Open-Sheet.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Doors/Door-Open-Sheet.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Doors/Door-Open-South-Sheet.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Doors/Door-Open-South-Sheet.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Doors/Door-Side.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Doors/Door-Side.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "message-term",
+          "value": "sprite",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorOpenDirectionRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorOpenDirectionRulesTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorStateRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorStateRulesTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerInteractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorAnimationTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorOpenDirectionRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorOpenDirectionRulesTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorStateRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/DungeonDoorStateRulesTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/DungeonDoorPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/DungeonDoorPlayModeTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "31617bcabdf0c089f83dee1a1af1f902447dce00",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/31617bcabdf0c089f83dee1a1af1f902447dce00",
+      "subject": "feat(pathfinding): refresh navigation grid regions at runtime",
+      "body": "Runtime obstacles such as doors toggle their colliders after the grid\nis built, so enemies kept pathing through closed doorways. The grid can\nnow re-evaluate only the nodes whose inflated detection box overlaps a\ngiven world region, reusing the build-time obstacle query.\n\n- PathfindingGrid.RefreshRegion(Bounds) is ignored before Build and\n  leaves nodes outside the region untouched.\n- PathNode.IsWalkable doc updated: Build or RefreshRegion only.\n\nTests:\n- PathfindingGridRefreshRegionTests (disable/re-enable blocker,\n  outside-region nodes untouched, ignored before build).\n",
+      "date": "2026-11-02T15:17:32-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Pathfinding/PathNode.cs",
+        "Project Grimhold/Assets/Scripts/Pathfinding/PathfindingGrid.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Movement/PathfindingGridRefreshRegionTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Movement/PathfindingGridRefreshRegionTests.cs.meta"
+      ],
+      "originalType": "feat",
+      "originalScope": "pathfinding",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Movement",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Movement/PathfindingGridRefreshRegionTests.cs",
+          "supports": "Movement"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Movement/PathfindingGridRefreshRegionTests.cs.meta",
+          "supports": "Movement"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Movement/PathfindingGridRefreshRegionTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Movement/PathfindingGridRefreshRegionTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Movement/PathfindingGridRefreshRegionTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Movement/PathfindingGridRefreshRegionTests.cs.meta",
           "supports": "Tests"
         },
         {
