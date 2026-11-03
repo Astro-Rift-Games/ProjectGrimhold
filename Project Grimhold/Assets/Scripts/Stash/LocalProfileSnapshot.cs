@@ -76,7 +76,7 @@ public sealed class LocalProfileSnapshot
             };
             foreach (var kvp in mission.ObjectiveProgress)
             {
-                clonedMission.ObjectiveProgress.Add(kvp.Key, new ObjectiveProgressState(kvp.Value.CurrentAmount));
+                clonedMission.ObjectiveProgress.Add(kvp.Key, new ObjectiveProgressState(kvp.Value.CurrentAmount, kvp.Value.ExpeditionId));
             }
             clone.ActiveMissions.Add(clonedMission);
         }

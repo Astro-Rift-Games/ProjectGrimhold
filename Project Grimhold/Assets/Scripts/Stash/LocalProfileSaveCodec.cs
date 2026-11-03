@@ -138,6 +138,7 @@ public static class LocalProfileSaveCodec
     {
         public int index;
         public int currentAmount;
+        public string expeditionId;
     }
 
     public static string Encode(LocalProfileSnapshot snapshot)
@@ -574,7 +575,7 @@ public static class LocalProfileSaveCodec
                 {
                     foreach (var objData in missionData.objectiveProgress)
                     {
-                        mission.ObjectiveProgress[objData.index] = new ObjectiveProgressState(objData.currentAmount);
+                        mission.ObjectiveProgress[objData.index] = new ObjectiveProgressState(objData.currentAmount, objData.expeditionId);
                     }
                 }
                 candidate.ActiveMissions.Add(mission);
@@ -969,7 +970,7 @@ public static class LocalProfileSaveCodec
             int pIdx = 0;
             foreach (var kvp in mission.ObjectiveProgress)
             {
-                progressArray[pIdx++] = new ObjectiveProgressStateData { index = kvp.Key, currentAmount = kvp.Value.CurrentAmount };
+                progressArray[pIdx++] = new ObjectiveProgressStateData { index = kvp.Key, currentAmount = kvp.Value.CurrentAmount, expeditionId = kvp.Value.ExpeditionId };
             }
 
             result[i] = new MissionInstanceStateData
