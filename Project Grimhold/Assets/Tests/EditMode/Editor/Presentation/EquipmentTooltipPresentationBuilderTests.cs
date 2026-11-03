@@ -151,6 +151,176 @@ namespace Tests.EditMode.Presentation
             Assert.That(presentation.Title, Is.Empty);
         }
 
+        [Test]
+        public void BuildInstance_ShowsDualScalingGemSocketsAndEffectiveDamage()
+        {
+            LootDefinition loot = CreateWeaponLoot("Espada", 0f);
+            WeaponInstanceModifiers instance = CreateInstance(
+                CharacterAttribute.Strength,
+                WeaponScalingGrade.A,
+                CharacterAttribute.Vitality,
+                WeaponScalingGrade.D,
+                2,
+                default,
+                default);
+
+            EquipmentTooltipPresentation presentation =
+                EquipmentTooltipPresentationBuilder.Build(loot, instance, CreateAttributes(strength: 20, vitality: 10));
+
+            Assert.That(presentation.Status, Is.EqualTo(EquipmentTooltipPresentationStatus.FunctionalStatistics));
+            Assert.That(presentation.Title, Is.EqualTo("Espada"));
+            Assert.That(presentation.Body, Does.Contain("Daño base: 30 (Físico)"));
+            Assert.That(
+                presentation.Body,
+                Does.Contain(
+                    $"Escalado: FUE A · VIT D{System.Environment.NewLine}" +
+                    $"Ranuras: 2 (vacías){System.Environment.NewLine}" +
+                    "Daño efectivo: 36"));
+        }
+
+        [Test]
+        public void BuildInstance_WithoutModifiers_UsesBaseDamageAndIgnoresLegacyScaling()
+        {
+            LootDefinition loot = CreateWeaponLoot("Espada", 0.70f);
+            WeaponInstanceModifiers instance = CreateInstance(
+                CharacterAttribute.Strength,
+                WeaponScalingGrade.None,
+                CharacterAttribute.Strength,
+                WeaponScalingGrade.None,
+                0,
+                default,
+                default);
+
+            EquipmentTooltipPresentation presentation =
+                EquipmentTooltipPresentationBuilder.Build(loot, instance, CreateAttributes(strength: 30, vitality: 0));
+
+            Assert.That(presentation.Body, Does.Contain("Escalado: Sin escalado"));
+            Assert.That(presentation.Body, Does.Contain("Ranuras: 0"));
+            Assert.That(presentation.Body, Does.Contain("Daño efectivo: 30"));
+            Assert.That(presentation.Body, Does.Not.Contain("FUE B"));
+        }
+
+        [TestCase(1, true, false, "Ranuras: 1 (ocupada)")]
+        [TestCase(1, false, false, "Ranuras: 1 (vacía)")]
+        [TestCase(2, true, false, "Ranuras: 2 (1 ocupada, 1 vacía)")]
+        [TestCase(2, true, true, "Ranuras: 2 (ocupadas)")]
+        public void BuildInstance_ShowsGemSocketOccupancy(
+            int socketCount,
+            bool firstOccupied,
+            bool secondOccupied,
+            string expected)
+        {
+            LootDefinition loot = CreateWeaponLoot("Espada", 0f);
+            WeaponInstanceModifiers instance = CreateInstance(
+                CharacterAttribute.Strength,
+                WeaponScalingGrade.C,
+                CharacterAttribute.Strength,
+                WeaponScalingGrade.None,
+                socketCount,
+                firstOccupied ? CreateGemSocket() : default,
+                secondOccupied ? CreateGemSocket() : default);
+
+            EquipmentTooltipPresentation presentation =
+                EquipmentTooltipPresentationBuilder.Build(loot, instance, CreateAttributes(strength: 0, vitality: 0));
+
+            Assert.That(presentation.Body, Does.Contain(expected));
+        }
+
+        [Test]
+        public void BuildInstance_WithPrimaryOutsideNaturalAttribute_ReportsInvalidConfiguration()
+        {
+            LootDefinition loot = CreateWeaponLoot("Espada", 0f);
+            WeaponInstanceModifiers instance = CreateInstance(
+                CharacterAttribute.Dexterity,
+                WeaponScalingGrade.B,
+                CharacterAttribute.Dexterity,
+                WeaponScalingGrade.None,
+                0,
+                default,
+                default);
+
+            EquipmentTooltipPresentation presentation =
+                EquipmentTooltipPresentationBuilder.Build(loot, instance, CreateAttributes(strength: 10, vitality: 0));
+
+            Assert.That(presentation.Title, Is.EqualTo("Espada"));
+            Assert.That(presentation.Status, Is.EqualTo(EquipmentTooltipPresentationStatus.InvalidEquipmentConfiguration));
+            Assert.That(presentation.Body, Is.EqualTo("Estadísticas no disponibles por configuración inválida"));
+        }
+
+        [Test]
+        public void BuildInstance_NonWeaponDefinition_MatchesDefinitionOnlyPresentation()
+        {
+            LootDefinition loot = CreateLoot("Mineral", LootCategory.Resource);
+
+            EquipmentTooltipPresentation presentation =
+                EquipmentTooltipPresentationBuilder.Build(loot, default, CreateAttributes(strength: 0, vitality: 0));
+
+            Assert.That(presentation.Status, Is.EqualTo(EquipmentTooltipPresentationStatus.NoEquipmentStatistics));
+            Assert.That(presentation.Body, Is.EqualTo("Sin estadísticas de equipamiento"));
+        }
+
+        [Test]
+        public void BuildInstance_NullDefinition_CannotShowTooltip()
+        {
+            EquipmentTooltipPresentation presentation =
+                EquipmentTooltipPresentationBuilder.Build(null, default, CreateAttributes(strength: 0, vitality: 0));
+
+            Assert.That(presentation.Status, Is.EqualTo(EquipmentTooltipPresentationStatus.UnresolvedDefinition));
+        }
+
+        private static WeaponInstanceModifiers CreateInstance(
+            CharacterAttribute primaryAttribute,
+            WeaponScalingGrade primaryGrade,
+            CharacterAttribute secondaryAttribute,
+            WeaponScalingGrade secondaryGrade,
+            int socketCount,
+            WeaponGemSocket first,
+            WeaponGemSocket second)
+        {
+            WeaponScalingModifier primary = default;
+            WeaponScalingModifier secondary = default;
+            if (primaryGrade != WeaponScalingGrade.None)
+            {
+                Assert.That(WeaponScalingModifier.TryCreate(primaryAttribute, primaryGrade, out primary, out _), Is.True);
+            }
+
+            if (secondaryGrade != WeaponScalingGrade.None)
+            {
+                Assert.That(WeaponScalingModifier.TryCreate(secondaryAttribute, secondaryGrade, out secondary, out _), Is.True);
+            }
+
+            Assert.That(
+                WeaponInstanceModifiers.TryCreate(
+                    primary,
+                    secondary,
+                    primaryAttribute,
+                    socketCount,
+                    first,
+                    second,
+                    out WeaponInstanceModifiers modifiers,
+                    out string error),
+                Is.True,
+                error);
+            return modifiers;
+        }
+
+        private static WeaponGemSocket CreateGemSocket()
+        {
+            Assert.That(
+                WeaponGemSocket.TryCreateOccupied(new LootId("RES_ATTUNEMENT_GEM"), out WeaponGemSocket socket, out string error),
+                Is.True,
+                error);
+            return socket;
+        }
+
+        private static CharacterAttributeState CreateAttributes(int strength, int vitality)
+        {
+            Assert.That(
+                CharacterAttributeState.TryCreate(vitality, 0, strength, 0, 0, 0, 0, out CharacterAttributeState state),
+                Is.True);
+            return state;
+        }
+
         private LootDefinition CreateWeaponLoot(string displayName, float coefficient)
         {
             MeleeAttackConfig attack = Create<MeleeAttackConfig>();

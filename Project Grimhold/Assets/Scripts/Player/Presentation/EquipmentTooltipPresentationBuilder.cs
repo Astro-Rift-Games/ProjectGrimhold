@@ -2,7 +2,7 @@ using System;
 using System.Globalization;
 using System.Text;
 
-/// <summary>Builds definition-only equipment information for inventory presentation.</summary>
+/// <summary>Builds definition and weapon instance equipment information for inventory presentation.</summary>
 public static class EquipmentTooltipPresentationBuilder
 {
     private const string InvalidConfigurationMessage =
@@ -20,9 +20,7 @@ public static class EquipmentTooltipPresentationBuilder
                 string.Empty);
         }
 
-        string title = string.IsNullOrWhiteSpace(definition.DisplayName)
-            ? definition.name
-            : definition.DisplayName;
+        string title = ResolveTitle(definition);
 
         if (definition.Category == LootCategory.Weapon)
         {
@@ -45,6 +43,48 @@ public static class EquipmentTooltipPresentationBuilder
             NoStatisticsMessage);
     }
 
+    /// <summary>
+    /// Builds a weapon instance tooltip with its own scaling, gem sockets and the effective damage
+    /// for the supplied attributes. Non-weapon definitions use the definition-only presentation.
+    /// </summary>
+    public static EquipmentTooltipPresentation Build(
+        LootDefinition definition,
+        in WeaponInstanceModifiers instance,
+        in CharacterAttributeState attributes)
+    {
+        if (definition == null || definition.Category != LootCategory.Weapon)
+        {
+            return Build(definition);
+        }
+
+        string title = ResolveTitle(definition);
+        WeaponDefinition weapon = definition.WeaponDefinition;
+        if (weapon == null || !weapon.TryValidate(out _) ||
+            !WeaponScalingContributionsResolver.TryResolve(
+                instance,
+                weapon.NaturalScalingAttribute,
+                out WeaponScalingContributions contributions) ||
+            !WeaponDamageCalculator.TryCalculate(
+                weapon.BaseDamage,
+                attributes,
+                contributions,
+                out float effectiveDamage))
+        {
+            return Invalid(title);
+        }
+
+        StringBuilder body = BuildWeaponBaseStatistics(weapon);
+        body.Append("Escalado: ");
+        body.Append(FormatScaling(instance));
+        AppendLine(body, FormatGemSockets(instance));
+        AppendLine(body, $"Daño efectivo: {FormatNumber(effectiveDamage)}");
+
+        return new EquipmentTooltipPresentation(
+            EquipmentTooltipPresentationStatus.FunctionalStatistics,
+            title,
+            body.ToString());
+    }
+
     private static EquipmentTooltipPresentation BuildWeapon(string title, WeaponDefinition weapon)
     {
         if (weapon == null || !weapon.TryValidate(out _))
@@ -52,6 +92,18 @@ public static class EquipmentTooltipPresentationBuilder
             return Invalid(title);
         }
 
+        StringBuilder body = BuildWeaponBaseStatistics(weapon);
+        body.Append("Escalado: ");
+        body.Append(FormatScaling(weapon.OffensiveScaling));
+
+        return new EquipmentTooltipPresentation(
+            EquipmentTooltipPresentationStatus.FunctionalStatistics,
+            title,
+            body.ToString());
+    }
+
+    private static StringBuilder BuildWeaponBaseStatistics(WeaponDefinition weapon)
+    {
         var body = new StringBuilder(160);
         AppendLine(body, $"Daño base: {FormatNumber(weapon.BaseDamage)} ({FormatDamageType(weapon.DamageType)})");
         AppendLine(body, $"Intervalo: {FormatNumber(weapon.AttackIntervalSeconds)} s");
@@ -60,13 +112,7 @@ public static class EquipmentTooltipPresentationBuilder
         AppendLine(body, weapon.Handedness == WeaponHandedness.TwoHanded ? "Manos: 2" : "Manos: 1");
         AppendLine(body, $"Requisito: {FormatRequirements(weapon.AttributeRequirements)}");
         body.AppendLine();
-        body.Append("Escalado: ");
-        body.Append(FormatScaling(weapon.OffensiveScaling));
-
-        return new EquipmentTooltipPresentation(
-            EquipmentTooltipPresentationStatus.FunctionalStatistics,
-            title,
-            body.ToString());
+        return body;
     }
 
     private static EquipmentTooltipPresentation BuildArmor(string title, ArmorDefinition armor)
@@ -103,6 +149,9 @@ public static class EquipmentTooltipPresentationBuilder
             title,
             body.ToString());
     }
+
+    private static string ResolveTitle(LootDefinition definition) =>
+        string.IsNullOrWhiteSpace(definition.DisplayName) ? definition.name : definition.DisplayName;
 
     private static EquipmentTooltipPresentation Invalid(string title) =>
         new(
@@ -150,6 +199,52 @@ public static class EquipmentTooltipPresentationBuilder
         }
 
         return $"{attribute} ×{FormatNumber(scaling.Coefficient)}";
+    }
+
+    private static string FormatScaling(in WeaponInstanceModifiers instance)
+    {
+        if (!instance.HasPrimary)
+        {
+            return "Sin escalado";
+        }
+
+        string primary = FormatModifier(instance.Primary);
+        return instance.HasSecondary ? $"{primary} · {FormatModifier(instance.Secondary)}" : primary;
+    }
+
+    private static string FormatModifier(in WeaponScalingModifier modifier) =>
+        $"{FormatAttribute(modifier.Attribute)} {modifier.Grade}";
+
+    private static string FormatGemSockets(in WeaponInstanceModifiers instance)
+    {
+        int socketCount = instance.GemSocketCount;
+        if (socketCount == 0)
+        {
+            return "Ranuras: 0";
+        }
+
+        int occupied = 0;
+        for (int index = 0; index < socketCount; index++)
+        {
+            if (instance.TryGetGemSocket(index, out WeaponGemSocket socket) && socket.IsOccupied)
+            {
+                occupied++;
+            }
+        }
+
+        int empty = socketCount - occupied;
+        string plural = socketCount > 1 ? "s" : string.Empty;
+        if (occupied == 0)
+        {
+            return $"Ranuras: {socketCount} (vacía{plural})";
+        }
+
+        if (empty == 0)
+        {
+            return $"Ranuras: {socketCount} (ocupada{plural})";
+        }
+
+        return $"Ranuras: {socketCount} ({occupied} ocupada, {empty} vacía)";
     }
 
     private static bool TryGetExactGrade(float coefficient, out WeaponScalingGrade grade)
