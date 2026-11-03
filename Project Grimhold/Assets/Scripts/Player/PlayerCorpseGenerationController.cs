@@ -142,6 +142,7 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
                 return false;
             }
 
+            TransferActiveUtilityCooldownsToCorpse(snapshot);
             PublishLostResultsSummary(ownershipSnapshot);
             _lootContainer.SetAvailability(true);
             State = GenerationState.Completed;
@@ -152,6 +153,27 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
             Debug.LogException(exception, this);
             FailAndCompensate(contentLoaded, snapshot, originSnapshot, simulationTick, "Unexpected inventory conversion exception.");
             return false;
+        }
+    }
+
+    private void TransferActiveUtilityCooldownsToCorpse(IReadOnlyList<LootEntry> snapshot)
+    {
+        if (snapshot == null || _lootContainer == null ||
+            !TryGetComponent(out PlayerConsumableNetworkController cooldownProvider))
+        {
+            return;
+        }
+
+        for (int i = 0; i < snapshot.Count; i++)
+        {
+            LootId lootId = snapshot[i].LootId;
+            TickTimer timer = cooldownProvider.GetUtilityCooldown(lootId);
+            if (Runner != null ? !timer.ExpiredOrNotRunning(Runner) : timer.IsRunning)
+            {
+                _lootContainer.SetUtilityCooldown(lootId, timer);
+            }
+
+            cooldownProvider.ClearUtilityCooldown(lootId);
         }
     }
 

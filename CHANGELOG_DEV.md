@@ -14,9 +14,9 @@ No release baseline exists yet. The monthly history below is initial development
 
 ### [2026-11 — before the first release](docs/changelog/history-2026-11.md)
 
+- **Inventory & Loot** — Added utility test pickups and passive debug overlay, with related fixes. ([6ac67a5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6ac67a53ae11b03e80d008fac0a789e38bd6e20b), [9c5cf4a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9c5cf4ae4857ff3957d277f4319744033db7d03d), [56ddcb8](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/56ddcb8b3519d7b2645ad0119d1a773ab3f0bf5a)).
+- **Abilities / Inventory & Loot** — **utilities:** Render rune compass pointer as dynamic tracking sprite, with related fixes. ([8480bed](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8480bedab3e96c387caef697f775f23942fa78f2), [c79d5e2](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c79d5e225afbc0c4ab22c22620be96830d0c96fd), [a1a9775](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a1a97759e15381cca528f43576826e9857008abd)).
 - **Combat** — **presentation:** Added peripheral low-health blur and color split. ([0200410](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0200410152cc382ff8f2fc92db3fc0af77c3c813), [21c13f9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/21c13f917a6eb230ab66ffb438ad439e2be3938d)).
-- **Inventory & Loot** — **loot:** Added lockpicking and locked chest spawns. ([07f1344](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/07f13443b31d2faa85f2c3848c926cdb9056a71e)).
-- **UI** — **presentation:** Fade the local view to black and white while Downed. ([735417b](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/735417b34141b2eb9b37e8bb5c5eb0a87cdc3f3c)).
 
 [Full period history](docs/changelog/history-2026-11.md)
 

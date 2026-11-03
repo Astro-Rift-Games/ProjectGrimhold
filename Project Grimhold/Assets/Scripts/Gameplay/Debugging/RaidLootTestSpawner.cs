@@ -37,6 +37,12 @@ public sealed class RaidLootTestSpawner : MonoBehaviour
     [SerializeField] private LootDefinition _famineIdol;
     [SerializeField] private LootDefinition _wandererEye;
 
+    [Header("Test Expedition Utilities (TASK-265)")]
+    [SerializeField] private LootDefinition _runeCompass;
+    [SerializeField] private LootDefinition _arcaneDetector;
+    [SerializeField] private LootDefinition _etherDust;
+    [SerializeField] private NetworkObject _lootContainerPrefab;
+
     [Header("Custom Spawn Slot")]
     public LootDefinition CustomItemToSpawn;
     public int CustomItemAmount = 1;
@@ -52,6 +58,9 @@ public sealed class RaidLootTestSpawner : MonoBehaviour
             if (_explosiveBomb == null) _lootCatalog.TryGet("CON_EXPLOSIVE_BOMB", out _explosiveBomb);
             if (_smokeBomb == null) _lootCatalog.TryGet("CON_SMOKE_BOMB", out _smokeBomb);
             if (_throwingDagger == null) _lootCatalog.TryGet("CON_THROWING_DAGGER", out _throwingDagger);
+            if (_runeCompass == null) _lootCatalog.TryGet("UTL_RUNE_COMPASS", out _runeCompass);
+            if (_arcaneDetector == null) _lootCatalog.TryGet("UTL_ARCANE_DETECTOR", out _arcaneDetector);
+            if (_etherDust == null) _lootCatalog.TryGet("RES_ETHER_DUST", out _etherDust);
         }
     }
 
@@ -90,7 +99,10 @@ public sealed class RaidLootTestSpawner : MonoBehaviour
             (_sanctuaryHeart, 1),
             (_voidBell, 1),
             (_famineIdol, 1),
-            (_wandererEye, 1)
+            (_wandererEye, 1),
+            (_runeCompass, 1),
+            (_arcaneDetector, 1),
+            (_etherDust, 3)
         };
 
         float spacing = 1.0f;
@@ -140,6 +152,42 @@ public sealed class RaidLootTestSpawner : MonoBehaviour
                 Vector3 pos = origin + new Vector3((i - 2.5f) * 0.9f, -1.2f, 0f);
                 SpawnLootAt(runner, treasures[i], 1, pos);
             }
+        }
+    }
+
+    public void SpawnExpeditionUtilities()
+    {
+        var runner = FindActiveRunner();
+        if (runner == null || !runner.IsServer) return;
+        Vector3 origin = GetPlayerSpawnAnchor();
+        if (_runeCompass != null) SpawnLootAt(runner, _runeCompass, 1, origin + new Vector3(-1.0f, -1.2f, 0f));
+        if (_arcaneDetector != null) SpawnLootAt(runner, _arcaneDetector, 1, origin + new Vector3(0f, -1.2f, 0f));
+        if (_etherDust != null) SpawnLootAt(runner, _etherDust, 3, origin + new Vector3(1.0f, -1.2f, 0f));
+    }
+
+    public void SpawnTestContainer()
+    {
+        var runner = FindActiveRunner();
+        if (runner == null || !runner.IsServer) return;
+        if (_lootContainerPrefab == null)
+        {
+            _lootContainerPrefab = Resources.Load<NetworkObject>("Prefabs/LootContainer");
+        }
+        if (_lootContainerPrefab == null)
+        {
+            Debug.LogWarning("[LootTestSpawner] Cannot spawn test container: _lootContainerPrefab is null.");
+            return;
+        }
+
+        Vector3 spawnPos = GetPlayerSpawnAnchor() + new Vector3(1.5f, 0f, 0f);
+        try
+        {
+            runner.Spawn(_lootContainerPrefab, spawnPos, Quaternion.identity);
+            Debug.Log($"[LootTestSpawner] Spawned test container at {spawnPos}.");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[LootTestSpawner] Failed to spawn container: {ex.Message}");
         }
     }
 

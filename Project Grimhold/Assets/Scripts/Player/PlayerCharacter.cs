@@ -44,6 +44,13 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
     private PlayerLootReceiver _lootReceiver;
 
     private int _clampedLootRevision = int.MinValue;
+    private int _lastObservedVoidBellChimeSequence;
+
+    [Networked]
+    private TickTimer VoidBellChimeTimer { get; set; }
+
+    [Networked]
+    public int VoidBellChimeSequence { get; private set; }
 
     public PlayerInventoryPassiveEffectsController PassiveEffectsController => _passiveEffectsController;
     public float VisionRadiusMultiplier => _passiveEffectsController != null ? _passiveEffectsController.VisionRadiusMultiplier : 1f;
@@ -121,10 +128,10 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
     [Networked]
     public NetworkString<_32> ProfileIdString { get; set; }
 
-    /// <summary>Indicates whether the player is in the Downed state (Health 0, reserve active).</summary>
     /// <summary>Optional causal hazard exposure register; null when the avatar does not compose it.</summary>
     public PlayerHazardExposureCausalityNetworkController HazardExposureCausality => _hazardExposureCausality;
 
+    /// <summary>Indicates whether the player is in the Downed state (Health 0, reserve active).</summary>
     public bool IsDowned => _downedStateController != null &&
                             _downedStateController.Object != null &&
                             _downedStateController.Object.IsValid &&
@@ -195,6 +202,20 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
         CacheDependencies();
     }
 
+    public override void Spawned()
+    {
+        base.Spawned();
+        CacheDependencies();
+
+        if (HasStateAuthority && !HostMigrationRestoreUtility.IsRestoreSpawn(this))
+        {
+            VoidBellChimeTimer = TickTimer.None;
+            VoidBellChimeSequence = 0;
+        }
+
+        _lastObservedVoidBellChimeSequence = VoidBellChimeSequence;
+    }
+
     /// <summary>
     /// Derives the participant's effective maximum Health from Raid attributes and Equipment.
     /// A temporarily unresolved participant link keeps the prefab fallback available without
@@ -262,6 +283,8 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
 
     public override void FixedUpdateNetwork()
     {
+        SimulateVoidBellAuthoritativeTick();
+
         if (!HasStateAuthority || _participantLink == null ||
             !_participantLink.TryGetCharacterAttributeRevision(out int revision) ||
             _equipmentController == null)
@@ -282,6 +305,52 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
         _clampedAttributeRevision = revision;
         _clampedEquipmentRevision = equipmentRevision;
         _clampedLootRevision = lootRevision;
+    }
+
+    public override void Render()
+    {
+        base.Render();
+        if (Object == null || !Object.IsValid)
+        {
+            return;
+        }
+
+        int currentSequence = VoidBellChimeSequence;
+        if (currentSequence != _lastObservedVoidBellChimeSequence)
+        {
+            bool shouldPresent = currentSequence > _lastObservedVoidBellChimeSequence;
+            _lastObservedVoidBellChimeSequence = currentSequence;
+            if (shouldPresent)
+            {
+                _passiveEffectsController?.PresentVoidBellChime(Runner);
+            }
+        }
+    }
+
+    private void SimulateVoidBellAuthoritativeTick()
+    {
+        if (!HasStateAuthority || Runner == null || !Runner.IsForward || _passiveEffectsController == null)
+        {
+            return;
+        }
+
+        _passiveEffectsController.UpdatePassivesIfNeeded();
+
+        if (!IsAlive || IsDowned || !_passiveEffectsController.HasVoidBell)
+        {
+            VoidBellChimeTimer = TickTimer.None;
+            return;
+        }
+
+        if (_passiveEffectsController.IsSprintingWithVoidBell &&
+            VoidBellChimeTimer.ExpiredOrNotRunning(Runner))
+        {
+            VoidBellChimeTimer = TickTimer.CreateFromSeconds(
+                Runner,
+                _passiveEffectsController.VoidBellChimeIntervalSeconds);
+            VoidBellChimeSequence++;
+            _passiveEffectsController.ExecuteAuthoritativeVoidBellAlert(Id, transform);
+        }
     }
 
     protected override float CalculateMitigatedDamage(in DamageRequest request)
@@ -496,6 +565,9 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
             return;
         }
 
+        VoidBellChimeTimer = TickTimer.None;
+        _passiveEffectsController?.UpdatePassivesIfNeeded();
+
         if (_corpseGenerationController == null)
         {
             Debug.LogError(
@@ -509,6 +581,8 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
         {
             _participantLink?.NotifyCorpseConversionCompleted();
         }
+
+        _passiveEffectsController?.UpdatePassivesIfNeeded();
 
         var spawnManager = Runner.GetComponent<NetworkSpawnManager>();
         spawnManager?.NotifyPendingReconnectCharacterDefeated(Object);

@@ -395,8 +395,14 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
 
         if (!CooldownExpiration.ExpiredOrNotRunning(Runner))
         {
-            if (receiver is Component receiverComp &&
-                receiverComp.TryGetComponent<IUtilityCooldownReceiver>(out var cooldownReceiver))
+            IUtilityCooldownReceiver cooldownReceiver = receiver as IUtilityCooldownReceiver;
+            if (cooldownReceiver == null && receiver is Component receiverComp &&
+                receiverComp.TryGetComponent(out PlayerConsumableNetworkController playerConsumables))
+            {
+                cooldownReceiver = playerConsumables;
+            }
+            if (cooldownReceiver != null)
+
             {
                 cooldownReceiver.SetUtilityCooldown(_resolvedLootDefinition.LootId, CooldownExpiration);
             }

@@ -108,15 +108,15 @@ public sealed class AudioManager : MonoBehaviour, IAudioVolumeControl
     /// <summary>
     /// Reproduce un clip SFX individual utilizando un AudioSource del pool.
     /// </summary>
-    public void PlaySfx(AudioClip clip, Vector3 worldPosition = default)
+    public void PlaySfx(AudioClip clip, Vector3 worldPosition = default, float volume = 1f, float pitch = 1f)
     {
         if (clip == null) return;
 
         AudioSource source = GetNextSfxSource();
         source.transform.position = worldPosition;
         source.clip = clip;
-        source.volume = 1f;
-        source.pitch = 1f;
+        source.volume = Mathf.Clamp01(volume);
+        source.pitch = pitch;
         source.spatialBlend = 0f;
         source.loop = false;
         source.Play();

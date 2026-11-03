@@ -17,7 +17,9 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     ILootContentReader,
     ILootSlotCapacityReader,
     IRaidLootOriginSource,
-    IRaidLootOriginReceiver
+    IRaidLootOriginReceiver,
+    IUtilityCooldownProvider,
+    IUtilityCooldownReceiver
 {
     public const int DefaultWorldSlotCapacity = 6;
 
@@ -77,6 +79,12 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 
     [Networked]
     private int AdditionalLootChanceBasisPoints { get; set; }
+
+    [Networked]
+    private TickTimer RuneCompassCooldown { get; set; }
+
+    [Networked]
+    private TickTimer ArcaneDetectorCooldown { get; set; }
 
     private Collider2D[] _cachedColliders;
     private ContainerRaidLootOriginState _raidOriginState;
@@ -192,6 +200,8 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             IsInitialized = true;
             IsAvailable = false;
             IsLocked = _startsLocked;
+            RuneCompassCooldown = TickTimer.None;
+            ArcaneDetectorCooldown = TickTimer.None;
         }
 
         _registry = Runner.GetComponent<EntityRegistry>();
@@ -1038,6 +1048,8 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 
         LootInventory.Clear();
         FirstAcquisitionEligibleInventory.Clear();
+        RuneCompassCooldown = TickTimer.None;
+        ArcaneDetectorCooldown = TickTimer.None;
         LootChangeSequence++;
         return true;
     }
@@ -1174,6 +1186,66 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         _slotCapacity = Mathf.Clamp(_slotCapacity, 1, MaximumConfiguredSlotCapacity);
     }
 #endif
+
+    public TickTimer GetUtilityCooldown(LootId lootId)
+    {
+        if (Object == null || !Object.IsValid)
+        {
+            return default;
+        }
+
+        if (lootId == PlayerConsumableNetworkController.RuneCompassId)
+        {
+            return RuneCompassCooldown;
+        }
+
+        if (lootId == PlayerConsumableNetworkController.ArcaneDetectorId)
+        {
+            return ArcaneDetectorCooldown;
+        }
+
+        return default;
+    }
+
+    public void ClearUtilityCooldown(LootId lootId)
+    {
+        if (Object == null || !Object.IsValid || !HasStateAuthority)
+        {
+            return;
+        }
+
+        if (lootId == PlayerConsumableNetworkController.RuneCompassId)
+        {
+            RuneCompassCooldown = TickTimer.None;
+        }
+        else if (lootId == PlayerConsumableNetworkController.ArcaneDetectorId)
+        {
+            ArcaneDetectorCooldown = TickTimer.None;
+        }
+    }
+
+    public void SetUtilityCooldown(LootId lootId, TickTimer timer)
+    {
+        if (Object == null || !Object.IsValid || !HasStateAuthority)
+        {
+            return;
+        }
+
+        if (lootId == PlayerConsumableNetworkController.RuneCompassId)
+        {
+            if (RuneCompassCooldown.ExpiredOrNotRunning(Runner) || timer.TargetTick > RuneCompassCooldown.TargetTick)
+            {
+                RuneCompassCooldown = timer;
+            }
+        }
+        else if (lootId == PlayerConsumableNetworkController.ArcaneDetectorId)
+        {
+            if (ArcaneDetectorCooldown.ExpiredOrNotRunning(Runner) || timer.TargetTick > ArcaneDetectorCooldown.TargetTick)
+            {
+                ArcaneDetectorCooldown = timer;
+            }
+        }
+    }
 
     private int MaximumConfiguredSlotCapacity =>
         _supportsFullPlayerInventory ? MaxDistinctLootTypes : DefaultWorldSlotCapacity;

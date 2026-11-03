@@ -77,4 +77,20 @@ public static class CardinalDirectionHelper
         CardinalDirection.NorthWest => "NW",
         _ => "?"
     };
+
+    /// <summary>
+    /// Retorna el vector unitario 2D correspondiente a la orientación cardinal.
+    /// </summary>
+    public static Vector2 GetDirectionVector(CardinalDirection direction) => direction switch
+    {
+        CardinalDirection.North => Vector2.up,
+        CardinalDirection.NorthEast => new Vector2(0.70710678f, 0.70710678f),
+        CardinalDirection.East => Vector2.right,
+        CardinalDirection.SouthEast => new Vector2(0.70710678f, -0.70710678f),
+        CardinalDirection.South => Vector2.down,
+        CardinalDirection.SouthWest => new Vector2(-0.70710678f, -0.70710678f),
+        CardinalDirection.West => Vector2.left,
+        CardinalDirection.NorthWest => new Vector2(-0.70710678f, 0.70710678f),
+        _ => Vector2.zero
+    };
 }

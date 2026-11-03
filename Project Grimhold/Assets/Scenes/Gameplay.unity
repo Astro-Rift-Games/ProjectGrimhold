@@ -609,6 +609,72 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: b61f5078e414a558bc42d04a51dbbec9, type: 3}
+--- !u!1001 &81000010
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 520719758994245238, guid: caec32de0973163dec5d29e7d2490801, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -19.73
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: caec32de0973163dec5d29e7d2490801, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -20.84
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: caec32de0973163dec5d29e7d2490801, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 647995032513395088, guid: caec32de0973163dec5d29e7d2490801, type: 3}
+      propertyPath: SortKey
+      value: 3499854891
+      objectReference: {fileID: 0}
+    - target: {fileID: 9071512846565298490, guid: caec32de0973163dec5d29e7d2490801, type: 3}
+      propertyPath: m_Name
+      value: TestPickup_RuneCompass
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: caec32de0973163dec5d29e7d2490801, type: 3}
+--- !u!1001 &81000011
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 520719758994245238, guid: 2dab6115653dd92ce00289a6f6fcb301, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -18.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: 2dab6115653dd92ce00289a6f6fcb301, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -20.84
+      objectReference: {fileID: 0}
+    - target: {fileID: 520719758994245238, guid: 2dab6115653dd92ce00289a6f6fcb301, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 647995032513395088, guid: 2dab6115653dd92ce00289a6f6fcb301, type: 3}
+      propertyPath: SortKey
+      value: 1722154445
+      objectReference: {fileID: 0}
+    - target: {fileID: 9071512846565298490, guid: 2dab6115653dd92ce00289a6f6fcb301, type: 3}
+      propertyPath: m_Name
+      value: TestPickup_ArcaneDetector
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 2dab6115653dd92ce00289a6f6fcb301, type: 3}
 --- !u!1 &82000001
 GameObject:
   m_ObjectHideFlags: 0
@@ -668,6 +734,10 @@ MonoBehaviour:
   _voidBell: {fileID: 11400000, guid: 2fce397122f2860402217adc54a92b1d, type: 2}
   _famineIdol: {fileID: 11400000, guid: 553b67fbcc6cf7b653c618c9f57e46db, type: 2}
   _wandererEye: {fileID: 11400000, guid: 4b5c132fb871b6efb6cd8e51b3a3a150, type: 2}
+  _runeCompass: {fileID: 11400000, guid: caec32de0973163dec5d29e7d249085e, type: 2}
+  _arcaneDetector: {fileID: 11400000, guid: 2dab6115653dd92ce00289a6f6fcb3f4, type: 2}
+  _etherDust: {fileID: 11400000, guid: d5dfba0eaa5e95b7cf31a7afaf9a447a, type: 2}
+  _lootContainerPrefab: {fileID: 647995032513395088, guid: 2c19a78647c64b84a765ff0280706b7d, type: 3}
   CustomItemToSpawn: {fileID: 0}
   CustomItemAmount: 1
 --- !u!1001 &104836955
@@ -124088,3 +124158,5 @@ SceneRoots:
   - {fileID: 7254680747422540523}
   - {fileID: 1712597452}
   - {fileID: 930300651}
+  - {fileID: 81000010}
+  - {fileID: 81000011}
