@@ -348,13 +348,24 @@ public static class RaidLoadoutRules
             return false;
         }
 
+        int physicalSlotsUsed = 0;
         for (int index = 0; index < entries.Count; index++)
         {
-            if (!catalog.TryGet(entries[index].LootId.Value, out _))
+            if (!catalog.TryGet(entries[index].LootId.Value, out LootDefinition definition) || definition == null)
             {
                 error = $"Loadout references unknown loot '{entries[index].LootId.Value}'.";
                 return false;
             }
+
+            int stackMax = definition.StackMax > 0 ? definition.StackMax : 1;
+            int slotsForEntry = (entries[index].Amount + stackMax - 1) / stackMax;
+            physicalSlotsUsed += slotsForEntry;
+        }
+
+        if (physicalSlotsUsed > slotCapacity)
+        {
+            error = "Loadout exceeds physical stack capacity or item transport limits.";
+            return false;
         }
 
         return true;

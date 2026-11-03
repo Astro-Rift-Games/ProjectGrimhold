@@ -511,10 +511,23 @@ public sealed class LocalProfileStore : IMissionClaimService
         var current = _repository.Snapshot;
         if (!IsAvailable || current == null) return StashOperationResult.InvalidInventory;
 
-        foreach (var active in current.ActiveMissions)
+        int abandonedIndex = -1;
+        for (int i = 0; i < current.ActiveMissions.Count; i++)
         {
+            var active = current.ActiveMissions[i];
             if (active.MissionId == mission.MissionId)
-                return StashOperationResult.AlreadyApplied;
+            {
+                if (active.State == MissionState.Activa || active.State == MissionState.PendienteDeReclamar)
+                    return StashOperationResult.AlreadyApplied;
+
+                if (active.State == MissionState.Reclamada)
+                    return StashOperationResult.AlreadyApplied;
+
+                if (active.State == MissionState.Abandonada)
+                {
+                    abandonedIndex = i;
+                }
+            }
         }
 
         if (mission.RankRequired > current.GuildRank)
@@ -540,7 +553,14 @@ public sealed class LocalProfileStore : IMissionClaimService
         }
 
         var next = current.Clone();
-        next.ActiveMissions.Add(new MissionInstanceState(mission.MissionId, MissionState.Activa));
+        if (abandonedIndex >= 0)
+        {
+            next.ActiveMissions[abandonedIndex] = new MissionInstanceState(mission.MissionId, MissionState.Activa);
+        }
+        else
+        {
+            next.ActiveMissions.Add(new MissionInstanceState(mission.MissionId, MissionState.Activa));
+        }
         return Commit(next);
     }
 
@@ -1825,6 +1845,13 @@ public sealed class LocalProfileStore : IMissionClaimService
             return StashOperationResult.InventoryFull;
         }
 
+        int totalPhysicalSlots = CalculatePhysicalSlots(current.Loadout, current.PreparedEquipment, _lootCatalog);
+        if (totalPhysicalSlots > LocalProfileSnapshot.MaxLoadoutSlots)
+        {
+            Debug.LogError($"[LocalProfileStore] TryCreateLoadoutReservation failed. Physical slots required ({totalPhysicalSlots}) exceeds MaxLoadoutSlots ({LocalProfileSnapshot.MaxLoadoutSlots}).");
+            return StashOperationResult.InventoryFull;
+        }
+
         if (!PreparedEquipmentLoadout.TryValidate(
                 current.PreparedEquipment,
                 _lootCatalog,
@@ -2078,6 +2105,59 @@ public sealed class LocalProfileStore : IMissionClaimService
         foreach (StashItem item in items)
             if (!item.IsValid || !seen.Add(item.LootId)) return false;
         return true;
+    }
+
+    private static int CalculatePhysicalSlots(
+        IReadOnlyList<StashItem> loadout,
+        PreparedEquipmentLoadout equipment,
+        LootDefinitionCatalog catalog)
+    {
+        if (catalog == null)
+        {
+            return loadout != null ? loadout.Count : 0;
+        }
+
+        var counts = new Dictionary<LootId, int>();
+        if (loadout != null)
+        {
+            for (int i = 0; i < loadout.Count; i++)
+            {
+                StashItem item = loadout[i];
+                if (item.LootId.IsValid && item.Amount > 0)
+                {
+                    counts[item.LootId] = counts.TryGetValue(item.LootId, out int existing)
+                        ? existing + item.Amount
+                        : item.Amount;
+                }
+            }
+        }
+
+        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
+        for (int i = 0; i < slots.Length; i++)
+        {
+            LootId eqId = equipment.Get(slots[i]);
+            if (eqId.IsValid)
+            {
+                counts[eqId] = counts.TryGetValue(eqId, out int existing)
+                    ? existing + 1
+                    : 1;
+            }
+        }
+
+        int totalSlots = 0;
+        foreach (KeyValuePair<LootId, int> pair in counts)
+        {
+            if (catalog.TryGet(pair.Key.Value, out LootDefinition def) && def != null && def.StackMax > 0)
+            {
+                totalSlots += (pair.Value + def.StackMax - 1) / def.StackMax;
+            }
+            else
+            {
+                totalSlots += pair.Value;
+            }
+        }
+
+        return totalSlots;
     }
 
 }
