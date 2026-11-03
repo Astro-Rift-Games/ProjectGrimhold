@@ -22,6 +22,9 @@ public sealed class TownInventoryBinder : NetworkBehaviour
     private TownAbilityVendorPresenter _abilityVendorPresenter;
 
     [SerializeField]
+    private TownMissionGuildPresenter _missionGuildPresenter;
+
+    [SerializeField]
     private TownPlayerMenuPresenter _menuPresenter;
 
     [SerializeField]
@@ -109,8 +112,13 @@ public sealed class TownInventoryBinder : NetworkBehaviour
         _inputContext.ReaderChanged += OnInputReaderChanged;
         _isLifecycleBound = true;
         OnInputReaderChanged(_inputContext.Reader);
+        if (_missionGuildPresenter == null)
+        {
+            _missionGuildPresenter = GetComponent<TownMissionGuildPresenter>();
+        }
         BindMerchantProfile();
         BindAbilityVendorProfile();
+        BindMissionGuildProfile();
     }
 
     private void BindMerchantProfile()
@@ -149,6 +157,22 @@ public sealed class TownInventoryBinder : NetworkBehaviour
         }
 
         _abilityVendorPresenter.BindProfile(_profileContext.Store, _profileContext.AbilityPurchaseService);
+    }
+
+    private void BindMissionGuildProfile()
+    {
+        if (_missionGuildPresenter == null)
+        {
+            return;
+        }
+
+        if (_profileContext.Store == null)
+        {
+            Debug.LogError($"{nameof(TownInventoryBinder)} could not bind the mission guild: the profile has no store.", this);
+            return;
+        }
+
+        _missionGuildPresenter.BindProfile(_profileContext.Store);
     }
 
     private void OnInputReaderChanged(PlayerInputReader inputReader)
@@ -249,6 +273,11 @@ public sealed class TownInventoryBinder : NetworkBehaviour
         if (_abilityVendorPresenter != null)
         {
             _abilityVendorPresenter.UnbindProfile();
+        }
+
+        if (_missionGuildPresenter != null)
+        {
+            _missionGuildPresenter.UnbindProfile();
         }
 
         _quickSlots?.Dispose();
