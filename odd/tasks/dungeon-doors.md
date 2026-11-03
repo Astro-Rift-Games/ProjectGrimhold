@@ -51,6 +51,7 @@ Out of scope (task, verbatim): "Mecánicas de cerraduras con llaves, ganzúas o 
 - [x] T16 [S16] South open frame identical to the north edge-on strip, anchored at the wall base (user choice after in-game captures) — inline — evidence: EditMode 98/98, PlayMode 26/26, console 0 errors
 - [x] T17 [S15, S16] South open frame = north edge-on strip flipped vertically within its rows (tip points south, same footprint on the wall base) — inline — evidence: EditMode 98/98, PlayMode 26/26, console 0 errors
 - [x] T18 [S15, S16] South open frame = north edge-on strip mirrored around the hinge row at the wall base (rows 79..113: flat end at the wall, tip south); user's uncommitted pivot edits (0.375, 0.375) in the three door metas restored to the committed pivot as the user intended — inline — evidence: EditMode 98/98, PlayMode 26/26, console 0 errors
+- [x] T19 [S15, S16] User-drawn south swing frames 1-2 integrated (same cells/import; clips pick them up by sprite ID) — inline — evidence: hinge column x48 rows 56-79 fixed in frames 3-1 of both sheets; import PPU16/Point/Uncompressed pivot (64,47); EditMode 98/98, PlayMode 26/26, console 0 errors
 
 ## Log
 
@@ -73,4 +74,5 @@ Out of scope (task, verbatim): "Mecánicas de cerraduras con llaves, ganzúas o 
 - L18 (user, verbatim): "ok pero la puerta tiene que girar desde un mismo punto, hacia el norte lo hace bien pero hacia el sur no". In-game captures 153002/153007/153014/153019 showed the south open strip ending below the wall line (hinge detached). Decision: "Apoyada exacto en la base" — south frame 0 reuses the north strip; direction reads from frames 1-2 and sorting.
 - L19 (user, verbatim): "se abre siempre para el mismo lado" / "el problema es el frame final que deberia estar al reves. Hay que invertirlo de alguna manera usando el mismo asset pero con la punta mirando hacia el sur". Cause: T16 made the south final frame identical to the north one; direction logic itself is covered by PlayMode tests (Animator plays the South states when opened from the north).
 - L20 (user, verbatim): "ok reverti los cambios en el pivot que hice. sigue estando mal el ultimo frame". Evidence: the three door .meta files still had pivot (0.375, 0.375) on disk; T17 had flipped the strip within its own rows, so it stayed north of the wall line.
+- L21 (user, verbatim): "subi la animacion y los sprites nuevos, a ver si ahora se puede hacer". Evidence: only `Door-Open-South-Sheet.png` frames 1-2 changed (hand-drawn swing toward the camera); frames 0 and 3 and the clip contents equal the committed ones.
 - L9 (user decision, verbatim choice): "Angostar el vano de prueba (Recomendado)" — native-size prefab; narrow only the test passage with wall tiles/collision to ~2 u.

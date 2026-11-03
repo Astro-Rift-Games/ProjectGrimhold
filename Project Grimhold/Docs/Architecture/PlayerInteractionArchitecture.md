@@ -224,11 +224,12 @@ timer's normalized progress (idle at 0). Transition drift beyond half a sprite-f
 corrected against the same timer. The View Animator uses Normal update, AlwaysAnimate
 culling and no root motion. `Spawned` validates its controller and all seven states once.
 
-`Door-Open-Sheet.png` opens north. `Door-Open-South-Sheet.png` remains provisional Art:
-frames 1–2 use integer column shifts, frame 3 is unchanged, and frame 0 is the north
-edge-on strip mirrored around the hinge row at the wall base, so the north leaf rises from
-the hinge and the south leaf hangs from it toward the camera with the same length. Art may retouch or replace it. Both sheets use PPU 16, Point, uncompressed,
-four full 128 x 128 cells and custom pivot (0.5, 0.3671875).
+`Door-Open-Sheet.png` opens north and `Door-Open-South-Sheet.png` opens south. Both keep
+the hinge column fixed at the wall in every frame: frame 3 is the shared closed door,
+frames 1–2 are hand-drawn swings (the south leaf descends toward the camera), and frame 0
+is the edge-on leaf, rising from the hinge row at the wall base in the north sheet and
+hanging from it with the same length in the south sheet. Both sheets use PPU 16, Point,
+uncompressed, four full 128 x 128 cells and custom pivot (0.5, 0.3671875).
 The presenter retains placeholder opening/closing audio through `AudioSource.PlayOneShot`
 on observed transition entry in `Render`, deduplicated by state; spawn/restore and drift
 corrections do not replay audio. Neither Animator nor clip completion advances door state,
