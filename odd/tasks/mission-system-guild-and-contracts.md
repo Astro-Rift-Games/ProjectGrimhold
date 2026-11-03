@@ -32,7 +32,7 @@ Exclusions:
 Work breakdown:
 - [x] Phase 1: Canonical Rank E contracts (`TASK-270`) & Guild reputation model + persistence (`TASK-263`).
 - [x] Phase 2: Dynamic inventory resource counting, single expedition validation & atomic claim deduction (`TASK-271`).
-- [ ] Phase 3: Authoritative Raid event producers (Exploration, Items, Extraction, PvP) & Duo co-op credit (`TASK-262`).
+- [x] Phase 3: Authoritative Raid event producers (Exploration, Items, Extraction, PvP) & Duo co-op credit (`TASK-262`).
 - [ ] Phase 4: Town Guild NPC interactable (`TASK-259`) & Guild Contracts UI Panel (`TASK-260`).
 - [ ] Phase 5: Active Mission HUD Tracker in Raid (`TASK-261`).
 - [ ] Phase 6: Comprehensive EditMode & PlayMode test suites and manual validation in Town and Raid.
@@ -41,3 +41,4 @@ Validation & status:
 - Compilation (`Assembly-CSharp` & `Assembly-CSharp-Editor`): 0 errors.
 - Unit tests (`RankEContractsAndGuildReputationTests.cs`): Productive catalog validation, 6 canonical Rank E definitions, GuildRank transitions (0..99 -> E, 100+ -> D), savegame codec SchemaVersion 10 migration & backward compatibility, atomic claim reputation accumulation, and rank-gated mission acceptance.
 - Unit tests (`RankEResourceRulesTests.cs`): 8 domain tests covering acceptance criteria E05-01 to E05-03, E06-01 to E06-03, MAT-01 and MAT-02 (dynamic Loadout possession counter rising and falling, rejection of unrelated loot IDs, claim rejection when items are in Stash instead of Loadout, single-expedition extraction validation and rejection of minerals from different expeditions, expedition ID tracking and serialization, immediate satisfaction recalculation on concurrent missions, and atomic claim transactions with rollback).
+- Unit tests (`RaidMissionEventProducersTests.cs`): Validation of all 5 objective families dispatching and recording to active missions (PvE, Specific Elimination, Exploration trigger, Loot Pickup, PvP kill), Duo co-op rules (PvE and Chest interaction granted to teammate within 35m proximity; Loot pickup, Extraction, and PvP kills remaining strictly individual).

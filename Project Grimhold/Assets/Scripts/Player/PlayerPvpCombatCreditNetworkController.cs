@@ -253,6 +253,17 @@ public sealed class PlayerPvpCombatCreditNetworkController : NetworkBehaviour, I
             {
                 // Ledger acceptance precedes consumption, synchronously in the same authoritative tick.
                 PendingGrantMask &= ~bit;
+
+                if (isLastHit)
+                {
+                    var missionLedger = participant.GetComponent<PlayerMissionContributionLedger>();
+                    missionLedger?.RecordContribution(
+                        ObjectiveFamily.PvP,
+                        1,
+                        null,
+                        null,
+                        isCompanionContribution: false);
+                }
             }
         }
         GrantRetryTimer = PendingGrantMask == 0 ? TickTimer.None : TickTimer.CreateFromSeconds(Runner, GrantRetryIntervalSeconds);
