@@ -90,7 +90,7 @@ public sealed class DungeonDoorAnimationTests
     }
 
     [Test]
-    public void SouthOpenFrame_IsNorthEdgeOnStripFlippedVerticallyInPlace_WithoutImportChanges()
+    public void SouthOpenFrame_IsNorthEdgeOnStripMirroredAroundHingeAtWallBase_WithoutImportChanges()
     {
         var north = new Texture2D(2, 2);
         var south = new Texture2D(2, 2);
@@ -104,18 +104,22 @@ public sealed class DungeonDoorAnimationTests
             RectInt northOpen = OpaqueBounds(a, north.width, cellX: 0);
             RectInt southOpen = OpaqueBounds(b, south.width, cellX: 0);
 
-            // Same footprint as the north pose: the strip stays on the wall base and keeps its hinge column.
-            Assert.That(southOpen, Is.EqualTo(northOpen));
-            Assert.That(southOpen.yMin, Is.EqualTo(closed.yMin), "The open leaf stays anchored at the wall base.");
+            // Texture rows grow upward. The hinge row is the wall base (closed.yMin): the north leaf
+            // rises from it and the south leaf hangs from it by the same length.
+            int hingeRow = closed.yMin;
+            Assert.That(northOpen.yMin, Is.EqualTo(hingeRow));
+            Assert.That(southOpen.yMax, Is.EqualTo(hingeRow), "The south leaf starts at the wall base.");
+            Assert.That(southOpen.yMin, Is.EqualTo(2 * hingeRow - northOpen.yMax), "The south leaf has the north length.");
             Assert.That(southOpen.xMin, Is.EqualTo(closed.xMin), "Hinge column must not move.");
+            Assert.That(southOpen.xMax, Is.EqualTo(northOpen.xMax));
 
-            // The tip points south: rows are mirrored inside the strip, everything else stays transparent.
             for (int y = 0; y < 128; y++)
             {
+                int mirroredRow = 2 * hingeRow - y;
                 for (int x = 0; x < 128; x++)
                 {
-                    Color32 expected = y >= northOpen.yMin && y <= northOpen.yMax
-                        ? a[(northOpen.yMin + northOpen.yMax - y) * north.width + x]
+                    Color32 expected = mirroredRow >= northOpen.yMin && mirroredRow <= northOpen.yMax
+                        ? a[mirroredRow * north.width + x]
                         : new Color32(0, 0, 0, 0);
                     Assert.That(b[y * south.width + x], Is.EqualTo(expected), $"({x},{y})");
                 }

@@ -226,8 +226,8 @@ culling and no root motion. `Spawned` validates its controller and all seven sta
 
 `Door-Open-Sheet.png` opens north. `Door-Open-South-Sheet.png` remains provisional Art:
 frames 1–2 use integer column shifts, frame 3 is unchanged, and frame 0 is the north
-edge-on strip flipped vertically within its own rows, so the tip points south while the
-strip keeps the north footprint on the wall base. Art may retouch or replace it. Both sheets use PPU 16, Point, uncompressed,
+edge-on strip mirrored around the hinge row at the wall base, so the north leaf rises from
+the hinge and the south leaf hangs from it toward the camera with the same length. Art may retouch or replace it. Both sheets use PPU 16, Point, uncompressed,
 four full 128 x 128 cells and custom pivot (0.5, 0.3671875).
 The presenter retains placeholder opening/closing audio through `AudioSource.PlayOneShot`
 on observed transition entry in `Render`, deduplicated by state; spawn/restore and drift
