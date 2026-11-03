@@ -501,6 +501,9 @@ public sealed class LocalProfileStore
                 : AbilityPreparationResult.PersistenceFailed;
         }
     }
+    public int GuildReputation => _repository.Snapshot?.GuildReputation ?? 0;
+    public MissionRank GuildRank => _repository.Snapshot?.GuildRank ?? MissionRank.E;
+
     public StashOperationResult TryAcceptMission(MissionDefinition mission)
     {
         if (mission == null || !mission.MissionId.IsValid) return StashOperationResult.InvalidInventory;
@@ -511,6 +514,12 @@ public sealed class LocalProfileStore
         {
             if (active.MissionId == mission.MissionId)
                 return StashOperationResult.AlreadyApplied;
+        }
+
+        if (mission.RankRequired > current.GuildRank)
+        {
+            Debug.LogWarning($"[MissionBoard] Rango insuficiente para aceptar '{mission.Title}'. Requerido: {mission.RankRequired}, Actual: {current.GuildRank}.");
+            return StashOperationResult.InvalidInventory;
         }
 
         if (_missionCatalog != null)
@@ -578,6 +587,14 @@ public sealed class LocalProfileStore
                     if (next.Currency > long.MaxValue - reward.Amount) return StashOperationResult.InvalidInventory;
                     next.Currency += reward.Amount;
                     Debug.Log($"[MissionBoard] Recompensa reclamada: {reward.Amount} Oro. (Total: {next.Currency})");
+                }
+                else if (reward.Type == RewardDefinition.RewardType.GuildReputation)
+                {
+                    if (reward.Amount > 0)
+                    {
+                        next.GuildReputation += reward.Amount;
+                        Debug.Log($"[MissionBoard] Recompensa reclamada: {reward.Amount} Reputación. (Total: {next.GuildReputation}, Rango: {next.GuildRank})");
+                    }
                 }
                 else if (reward.Type == RewardDefinition.RewardType.Experience)
                 {

@@ -12,19 +12,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 95e78370bc118bf40baebe3b64c51dc2, type: 3}
   m_Name: Mission_RankE_06
   m_EditorClassIdentifier: Assembly-CSharp::MissionDefinition
-  _id: contract_e_06
-  Title: Contrato Rango E - 6
-  Description: "Descripci\xF3n del contrato 6 de rango E."
+  _id: CON_E_006
+  Title: Recuperación de hierro negro
+  Description: "Extrae con éxito 2 minerales de hierro negro en una misma expedición."
   Type: 0
   RankRequired: 0
   Phases:
   - Objectives:
-    - Family: 3
+    - Family: 5
       Condition:
-        TargetId: 
+        TargetId: RES_BLACK_IRON
         ZoneId: 
-        RequiredAmount: 5
+        RequiredAmount: 2
   Rewards:
   - Type: 0
-    Amount: 100
+    Amount: 80
+    ReferenceId: 
+  - Type: 2
+    Amount: 35
+    ReferenceId: 
+  - Type: 1
+    Amount: 8
     ReferenceId: 

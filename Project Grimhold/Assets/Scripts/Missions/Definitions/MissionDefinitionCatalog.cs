@@ -96,6 +96,36 @@ public sealed class MissionDefinitionCatalog : ScriptableObject
         return true;
     }
 
+    /// <summary>
+    /// Exposes all mission definitions registered in the catalog sorted by ID.
+    /// </summary>
+    public IReadOnlyList<MissionDefinition> Definitions
+    {
+        get
+        {
+            EnsureCache();
+            return _sortedDefinitions;
+        }
+    }
+
+    /// <summary>
+    /// Devuelve las misiones disponibles cuyo rango requerido sea menor o igual al rango provisto.
+    /// </summary>
+    public IReadOnlyList<MissionDefinition> GetAvailableDefinitionsForRank(MissionRank maxRank)
+    {
+        EnsureCache();
+        var result = new List<MissionDefinition>();
+        for (int i = 0; i < _sortedDefinitions.Count; i++)
+        {
+            var def = _sortedDefinitions[i];
+            if (def != null && def.RankRequired <= maxRank)
+            {
+                result.Add(def);
+            }
+        }
+        return result;
+    }
+
     private void EnsureCache()
     {
         if (_isCacheDirty || _definitionsById == null || _sortedDefinitions == null || _indicesById == null)

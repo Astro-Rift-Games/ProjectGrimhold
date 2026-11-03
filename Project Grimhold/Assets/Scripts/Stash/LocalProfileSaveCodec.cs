@@ -13,6 +13,7 @@ public static class LocalProfileSaveCodec
         public int schemaVersion;
         public string profileId;
         public long currency;
+        public int guildReputation;
         public int level;
         public long currentExperience;
         public int lastAppliedProgressionResultSequence;
@@ -146,6 +147,7 @@ public static class LocalProfileSaveCodec
             schemaVersion = LocalProfileSnapshot.CurrentSchemaVersion,
             profileId = snapshot.ProfileId.Value,
             currency = snapshot.Currency,
+            guildReputation = snapshot.GuildReputation,
             level = snapshot.Level,
             currentExperience = snapshot.CurrentExperience,
             lastAppliedProgressionResultSequence = snapshot.LastAppliedProgressionResultSequence,
@@ -362,6 +364,19 @@ public static class LocalProfileSaveCodec
             return false;
         }
         candidate.Currency = data.currency;
+        if (data.schemaVersion >= 10)
+        {
+            if (data.guildReputation < 0)
+            {
+                error = "Profile guild reputation is negative.";
+                return false;
+            }
+            candidate.GuildReputation = data.guildReputation;
+        }
+        else
+        {
+            candidate.GuildReputation = 0;
+        }
 
         if (data.schemaVersion == 1)
         {
