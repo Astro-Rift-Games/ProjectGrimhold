@@ -34,7 +34,7 @@ Work breakdown:
 - [x] Phase 2: Dynamic inventory resource counting, single expedition validation & atomic claim deduction (`TASK-271`).
 - [x] Phase 3: Authoritative Raid event producers (Exploration, Items, Extraction, PvP) & Duo co-op credit (`TASK-262`).
 - [x] Phase 4: Town Guild NPC interactable (`TASK-259`) & Guild Contracts UI Panel (`TASK-260`).
-- [ ] Phase 5: Active Mission HUD Tracker in Raid (`TASK-261`).
+- [x] Phase 5: Active Mission HUD Tracker in Raid (`TASK-261`).
 - [ ] Phase 6: Comprehensive EditMode & PlayMode test suites and manual validation in Town and Raid.
 
 Validation & status:
@@ -43,3 +43,4 @@ Validation & status:
 - Unit tests (`RankEResourceRulesTests.cs`): 8 domain tests covering acceptance criteria E05-01 to E05-03, E06-01 to E06-03, MAT-01 and MAT-02 (dynamic Loadout possession counter rising and falling, rejection of unrelated loot IDs, claim rejection when items are in Stash instead of Loadout, single-expedition extraction validation and rejection of minerals from different expeditions, expedition ID tracking and serialization, immediate satisfaction recalculation on concurrent missions, and atomic claim transactions with rollback).
 - Unit tests (`RaidMissionEventProducersTests.cs`): Validation of all 5 objective families dispatching and recording to active missions (PvE, Specific Elimination, Exploration trigger, Loot Pickup, PvP kill), Duo co-op rules (PvE and Chest interaction granted to teammate within 35m proximity; Loot pickup, Extraction, and PvP kills remaining strictly individual).
 - Unit tests (`TownMissionGuildPresenterTests.cs`): Presenter and View interactions (Available and Active tabs filtering, strict 3 active contracts cap enforcement, contract abandonment transitioning cleanly to Abandonada, Stash full rejection warning retaining completed mission intact without loss, and atomic claim with space in Stash transferring rewards and marking mission Reclamada).
+- Unit tests (`RaidMissionTrackerPresenterTests.cs`): Raid HUD Tracker reactive presentation (empty when no active contracts, presents active contracts in raid, reactively updates objective counters upon contribution events without polling, triggers pulse notification and updates status to 'Completada (Reclamar en Pueblo)' when phase completes, and collapsible toggle state handling).

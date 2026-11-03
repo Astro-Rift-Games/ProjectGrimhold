@@ -18,6 +18,7 @@ public sealed class LocalProfileStore : IMissionClaimService
 
     public event Action<ProfileId> ProfileCommitted;
     public event Action<ProfileId, ExperienceApplicationResult> ProgressionCommitted;
+    public event Action<MissionId, MissionState> MissionProgressChanged;
 
     public ProfileId ProfileId => _profileId;
     public LocalProfilePersistenceStatus Status => _repository.Status;
@@ -841,6 +842,7 @@ public sealed class LocalProfileStore : IMissionClaimService
 
         var next = current.Clone();
         bool changed = false;
+        List<(MissionId id, MissionState state)> changedMissions = null;
 
         for (int i = 0; i < next.ActiveMissions.Count; i++)
         {
@@ -852,13 +854,23 @@ public sealed class LocalProfileStore : IMissionClaimService
                 if (MissionProgressEngine.TryApplyProgress(instance, definition, contribution))
                 {
                     changed = true;
+                    if (changedMissions == null) changedMissions = new List<(MissionId, MissionState)>();
+                    changedMissions.Add((instance.MissionId, instance.State));
                 }
             }
         }
 
         if (changed)
         {
-            return Commit(next);
+            var commitResult = Commit(next);
+            if (commitResult == StashOperationResult.Success && changedMissions != null)
+            {
+                for (int m = 0; m < changedMissions.Count; m++)
+                {
+                    MissionProgressChanged?.Invoke(changedMissions[m].id, changedMissions[m].state);
+                }
+            }
+            return commitResult;
         }
 
         return StashOperationResult.Success;
