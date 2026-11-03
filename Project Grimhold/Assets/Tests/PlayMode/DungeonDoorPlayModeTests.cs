@@ -112,6 +112,66 @@ namespace Tests.PlayMode.Scenario
         }
 
         [UnityTest]
+        public IEnumerator Closing_FromSouthAtContact_WithRealPlayerBody_Succeeds()
+        {
+            SpawnDoor();
+            BoxCollider2D body = CreatePlayerBodyAtDoorFace(south: true);
+            Assert.That(body.bounds.max.y, Is.EqualTo(_doorwayBounds.min.y).Within(0.00001f),
+                "Standing against the south face must not count as standing inside the doorway.");
+
+            yield return OpenDoor();
+            yield return Execute(() =>
+            {
+                Assert.That(_interactable.CanInteract(Request()), Is.True);
+                AssertSucceeded(_interactable.Interact(Request()));
+                AssertDoorState(DungeonDoorState.Closing, blocksPassage: true, prompt: null);
+                AssertTransitionDuration();
+            });
+            yield return WaitForStableState(DungeonDoorState.Closed);
+            AssertDoorState(DungeonDoorState.Closed, blocksPassage: true, "Abrir puerta");
+            Assert.That(body.bounds.max.y, Is.EqualTo(_doorwayBounds.min.y).Within(0.00001f));
+            AssertAnimationState("Door_Closed");
+        }
+
+        [UnityTest]
+        public IEnumerator Closing_FromNorthAtContact_WithRealPlayerBody_Succeeds()
+        {
+            SpawnDoor();
+            BoxCollider2D body = CreatePlayerBodyAtDoorFace(south: false);
+            Assert.That(body.bounds.min.y, Is.EqualTo(_doorwayBounds.max.y).Within(0.00001f));
+            yield return OpenDoor();
+            yield return Execute(() =>
+            {
+                AssertSucceeded(_interactable.Interact(Request()));
+                AssertDoorState(DungeonDoorState.Closing, blocksPassage: true, prompt: null);
+                AssertTransitionDuration();
+            });
+            yield return WaitForStableState(DungeonDoorState.Closed);
+            AssertDoorState(DungeonDoorState.Closed, blocksPassage: true, "Abrir puerta");
+            Assert.That(body.bounds.min.y, Is.EqualTo(_doorwayBounds.max.y).Within(0.00001f));
+        }
+
+        [UnityTest]
+        public IEnumerator Closing_WithBoundaryContactAndAnotherBodyInside_RejectsWithoutMutation()
+        {
+            SpawnDoor();
+            CreatePlayerBodyAtDoorFace(south: true);
+            BoxCollider2D occupant = CreateCharacter("OccupiedDoorway", _doorwayBounds.center);
+            Physics2D.SyncTransforms();
+            Assert.That(occupant.bounds.Intersects(_doorwayBounds), Is.True);
+            yield return OpenDoor();
+            yield return Execute(() =>
+            {
+                TickTimer before = _door.TransitionTimer;
+                DungeonDoorOpenDirection direction = _door.OpenDirection;
+                AssertRejected(_interactable.Interact(Request()));
+                AssertDoorState(DungeonDoorState.Open, blocksPassage: false, "Cerrar puerta");
+                Assert.That(_door.TransitionTimer, Is.EqualTo(before));
+                Assert.That(_door.OpenDirection, Is.EqualTo(direction));
+            });
+        }
+
+        [UnityTest]
         public IEnumerator Closing_RestoresBlockerImmediately_IgnoresRepeatedPresses_ThenOffersOpenPrompt()
         {
             SpawnDoor();
@@ -135,6 +195,18 @@ namespace Tests.PlayMode.Scenario
         }
 
         [UnityTest]
+        public IEnumerator ClosingPrompt_FromSouth_HidesWhileOccupied_AndReturnsAtClearance()
+        {
+            yield return AssertClosingPromptAvailability(south: true);
+        }
+
+        [UnityTest]
+        public IEnumerator ClosingPrompt_FromNorth_HidesWhileOccupied_AndReturnsAtClearance()
+        {
+            yield return AssertClosingPromptAvailability(south: false);
+        }
+
+        [UnityTest]
         public IEnumerator Open_WithCharacterInDoorway_RejectsClosingWithoutMutation_UntilCharacterLeaves()
         {
             SpawnDoor();
@@ -147,6 +219,7 @@ namespace Tests.PlayMode.Scenario
             yield return Execute(() =>
             {
                 TickTimer before = _door.TransitionTimer;
+                Assert.That(_interactable.CanInteract(Request()), Is.False, "An occupied door must not advertise closing.");
                 for (int press = 0; press < 3; press++)
                 {
                     AssertRejected(_interactable.Interact(Request()));
@@ -312,7 +385,7 @@ namespace Tests.PlayMode.Scenario
             _interactor.transform.position = DoorPosition + Vector3.up * side;
             yield return BeginOpening();
             Assert.That(_door.OpenDirection, Is.EqualTo(expected));
-            AssertAnimationState($"Door_Opening_{expected}");
+            AssertAnimationState("Door_Opening_North");
             yield return Execute(() =>
             {
                 AssertRepeatedPressesIgnored(DungeonDoorState.Opening, _door.TransitionTimer);
@@ -320,7 +393,7 @@ namespace Tests.PlayMode.Scenario
             });
             yield return WaitForStableState(DungeonDoorState.Open);
             Assert.That(_door.OpenDirection, Is.EqualTo(expected));
-            AssertPresentation(expected, 0);
+            AssertPresentation(0);
             // Closing from the opposite side must not choose a new direction.
             _interactor.transform.position = DoorPosition - Vector3.up * side;
             yield return Execute(() =>
@@ -331,23 +404,21 @@ namespace Tests.PlayMode.Scenario
                 Assert.That(_door.OpenDirection, Is.EqualTo(expected));
                 AssertRepeatedPressesIgnored(DungeonDoorState.Closing, _door.TransitionTimer);
             });
-            AssertAnimationState($"Door_Closing_{expected}");
+            AssertAnimationState("Door_Closing_North");
             yield return WaitForStableState(DungeonDoorState.Closed);
             Assert.That(_door.OpenDirection, Is.EqualTo(expected));
-            AssertPresentation(expected, 3);
+            AssertPresentation(3);
             // A new opening chooses again, rather than retaining the previous direction.
             yield return BeginOpening();
             Assert.That(_door.OpenDirection, Is.EqualTo(expected == DungeonDoorOpenDirection.North
                 ? DungeonDoorOpenDirection.South : DungeonDoorOpenDirection.North));
         }
 
-        private void AssertPresentation(DungeonDoorOpenDirection direction, int frame)
+        private void AssertPresentation(int frame)
         {
-            AssertAnimationState(frame == 3 ? "Door_Closed" : $"Door_Open_{direction}");
-            string sheet = direction == DungeonDoorOpenDirection.South ? "Door-Open-South-Sheet" : "Door-Open-Sheet";
-            if (frame == 3) sheet = "Door-Open-Sheet"; // One shared Closed idle.
-
-            Assert.That(_door.GetComponentInChildren<SpriteRenderer>().sprite.name, Is.EqualTo($"{sheet}_{frame}"));
+            AssertAnimationState(frame == 3 ? "Door_Closed" : "Door_Open_North");
+            Assert.That(_door.GetComponentInChildren<SpriteRenderer>().sprite.name,
+                Is.EqualTo($"Door-Open-Sheet_{frame}"));
         }
 
         private void AssertAnimationState(string name)
@@ -507,6 +578,103 @@ namespace Tests.PlayMode.Scenario
             Assert.That(result.IsConsumed, Is.False);
             Assert.That(result.FailureReason, Is.EqualTo(InteractionFailureReason.TargetUnavailable));
             Assert.That(result.LootFailureReason, Is.EqualTo(LootTransferFailureReason.None));
+        }
+
+        private IEnumerator AssertClosingPromptAvailability(bool south)
+        {
+            SpawnDoor();
+            BoxCollider2D body = CreatePlayerBodyAtDoorFace(south);
+            Vector3 clearPosition = body.transform.position;
+            var queryObject = new GameObject("DoorPromptQuery");
+            queryObject.transform.SetParent(_runner.transform, false);
+            var query = queryObject.AddComponent<Physics2DInteractionTargetQuery>();
+            SetField(query, "_registry", _runner.GetComponent<EntityRegistry>());
+            var config = UnityEditor.AssetDatabase.LoadAssetAtPath<PlayerInteractionConfig>(
+                "Assets/Scriptable Objects/PlayerInteractionConfig.asset");
+            Assert.That(config, Is.Not.Null);
+            yield return OpenDoor();
+            AssertDoorCandidateAvailability(query, config, expected: true);
+
+            // A body still crossing the face is in range, but closing is not yet available.
+            body.transform.position = clearPosition + Vector3.up * (south ? 0.01f : -0.01f);
+            _interactor.transform.position = body.transform.position;
+            Physics2D.SyncTransforms();
+            yield return Execute(() =>
+            {
+                TickTimer timer = _door.TransitionTimer;
+                DungeonDoorOpenDirection direction = _door.OpenDirection;
+                AssertDoorCandidateAvailability(query, config, expected: false);
+                Assert.That(_interactable.CanInteract(Request()), Is.False);
+                var targetQuery = new InteractionTargetQuery(InteractorId, _interactor.transform.position,
+                    config.MaximumDistance, config.TargetLayerMask);
+                Assert.That(InteractionResolver.TryResolve(InteractorId, _runner.Tick.Raw, config.MaximumDistance,
+                    query.FindTargets(targetQuery), _runner.GetComponent<EntityRegistry>().TryGetInteractionHandler,
+                    out _, out _), Is.False, "Gameplay must not select a target the HUD cannot advertise.");
+                AssertRejected(_interactable.Interact(Request()));
+                AssertDoorState(DungeonDoorState.Open, blocksPassage: false, "Cerrar puerta");
+                Assert.That(_door.TransitionTimer, Is.EqualTo(timer));
+                Assert.That(_door.OpenDirection, Is.EqualTo(direction));
+            });
+
+            body.transform.position = clearPosition;
+            _interactor.transform.position = clearPosition;
+            Physics2D.SyncTransforms();
+            yield return Execute(() =>
+            {
+                AssertDoorCandidateAvailability(query, config, expected: true);
+                Assert.That(_interactable.CanInteract(Request()), Is.True);
+                var targetQuery = new InteractionTargetQuery(InteractorId, _interactor.transform.position,
+                    config.MaximumDistance, config.TargetLayerMask);
+                Assert.That(InteractionResolver.TryResolve(InteractorId, _runner.Tick.Raw, config.MaximumDistance,
+                    query.FindTargets(targetQuery), _runner.GetComponent<EntityRegistry>().TryGetInteractionHandler,
+                    out _, out InteractionResult result), Is.True);
+                AssertSucceeded(result);
+                AssertDoorState(DungeonDoorState.Closing, blocksPassage: true, prompt: null);
+                AssertTransitionDuration();
+            });
+            yield return WaitForStableState(DungeonDoorState.Closed);
+            AssertDoorState(DungeonDoorState.Closed, blocksPassage: true, "Abrir puerta");
+        }
+
+        private void AssertDoorCandidateAvailability(Physics2DInteractionTargetQuery query,
+            PlayerInteractionConfig config, bool expected)
+        {
+            var targetQuery = new InteractionTargetQuery(InteractorId, _interactor.transform.position,
+                config.MaximumDistance, config.TargetLayerMask);
+            var candidates = query.FindTargets(targetQuery);
+            Assert.That(candidates.Count, Is.EqualTo(1), "The door remains within interaction range.");
+            Assert.That(candidates[0].TargetId, Is.EqualTo(_door.Id));
+            bool selected = InteractionResolver.TrySelect(InteractorId, _runner.Tick.Raw, config.MaximumDistance,
+                candidates, _runner.GetComponent<EntityRegistry>().TryGetInteractionHandler,
+                out InteractionTarget target, out _, out IInteractable interactable);
+            Assert.That(selected, Is.EqualTo(expected), "The HUD uses this selection result for HasCandidate.");
+            if (expected)
+            {
+                Assert.That(target.TargetId, Is.EqualTo(_door.Id));
+                Assert.That(interactable, Is.SameAs(_interactable));
+                Assert.That(_door.PromptText, Is.EqualTo("Cerrar puerta"));
+            }
+            else
+            {
+                Assert.That(target.TargetId.Value, Is.Zero);
+                Assert.That(interactable, Is.Null);
+            }
+        }
+
+        private BoxCollider2D CreatePlayerBodyAtDoorFace(bool south)
+        {
+            BoxCollider2D reference = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Prefabs/NetworkPlayer.prefab").GetComponent<BoxCollider2D>();
+            Assert.That(reference, Is.Not.Null, "Use the production player body, not a centered test square.");
+            BoxCollider2D body = CreateCharacter("ClosingInteractor", DoorPosition);
+            body.size = reference.size;
+            body.offset = reference.offset;
+            float face = south ? _doorwayBounds.min.y - reference.size.y * 0.5f
+                : _doorwayBounds.max.y + reference.size.y * 0.5f;
+            body.transform.position = new Vector3(DoorPosition.x, face - reference.offset.y, DoorPosition.z);
+            _interactor.transform.position = body.transform.position;
+            Physics2D.SyncTransforms();
+            return body;
         }
 
         private BoxCollider2D CreateCharacter(string name, Vector2 position)

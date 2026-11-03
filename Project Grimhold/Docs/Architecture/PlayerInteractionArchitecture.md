@@ -182,7 +182,11 @@ replicated `DungeonDoorState` (`Closed`, `Opening`, `Open`, `Closing`) and `Tran
 The existing interaction controller invokes it during `FixedUpdateNetwork`; only stable
 states accept a toggle. Repeated presses during transitions are ignored without changing
 door state or the timer. Closing is rejected with `TargetUnavailable` while a non-trigger
-body on the `Character` or `Enemies` layer overlaps the doorway blocker bounds.
+body on the `Character` or `Enemies` layer penetrates the doorway blocker bounds.
+Merely touching a doorway face does not prevent closing from either side: the physics
+overlap query includes edge contacts, so closing requires positive overlap on both axes
+(greater than 0.0001 units to tolerate float noise). All hits are checked so a boundary
+contact cannot hide another body inside the doorway. The interactor is not exempt.
 `NetworkDoor.FixedUpdateNetwork` completes transitions when the timer expires.
 
 On `Closed` → `Opening`, State Authority resolves the interactor through the runner's
@@ -190,10 +194,16 @@ On `Closed` → `Opening`, State Authority resolves the interactor through the r
 strictly above the door pivot opens `South`; below or equal opens `North`. An unresolved
 interactor rejects with `InteractorUnavailable` without changing state, direction or timer.
 Direction persists through `Open` and `Closing` and is chosen again only on the next opening.
+This replicated value is retained for snapshot compatibility; the current approved visual
+always opens north, independently of the interactor's side.
 
-The `LocalInteractionCandidateSource` door branch reads `NetworkDoor.PromptText` during
-`Render`, producing `[F] Abrir puerta` when closed and `[F] Cerrar puerta` when open.
-Transitioning doors are not eligible candidates and have no prompt. Only the dedicated
+The `LocalInteractionCandidateSource` selects eligible doors through `NetworkDoor.CanInteract`
+and reads `NetworkDoor.PromptText` during `Render`, producing `[F] Abrir puerta` when closed
+and `[F] Cerrar puerta` only when open and the doorway is clear. Selection and authoritative
+execution share the same availability check; clearing the body restores the prompt on the
+next presentation update without an additional distance requirement. Transitioning doors
+and open doors with an occupied doorway are not eligible candidates and have no HUD prompt.
+The label itself remains contextual by state; eligibility controls prompt visibility. Only the dedicated
 `Interactable` trigger is registered with the door in `EntityRegistry`, never the blocker;
 expected-instance unregistration releases it on despawn or destruction.
 
@@ -213,23 +223,24 @@ must preserve copied state, timer and opening direction. Fresh spawns alone init
 direction to `North` under the same guard.
 
 `DungeonDoorPresenter` drives `Assets/Animations/Doors/DungeonDoor.controller` only in
-`Render`. Its seven explicit states each own an editable sprite-only AnimationClip:
-`Door_Closed` (frame 3), `Door_Open_North`, `Door_Opening_North`, `Door_Closing_North`,
-`Door_Open_South`, `Door_Opening_South`, `Door_Closing_South` (frame 0 fully open).
+`Render`. It uses four explicit states with editable sprite-only AnimationClips:
+`Door_Closed` (frame 3), `Door_Open_North`, `Door_Opening_North`, `Door_Closing_North`
+(frame 0 fully open). No south animation states or clips remain.
 Opening plays 3→2→1→0 and closing 0→1→2→3, at 10 fps for exactly 0.4 seconds;
 transition clips do not loop and the single-pose idle clips loop. The controller has no
-automatic transitions or gameplay events. On replicated state/direction changes or first
-Render after spawn/restore, `Animator.Play` selects the matching state at the replicated
+automatic transitions or gameplay events. On replicated state changes or first
+Render after spawn/restore, `Animator.Play` selects the north lifecycle state at the replicated
 timer's normalized progress (idle at 0). Transition drift beyond half a sprite-frame is
 corrected against the same timer. The View Animator uses Normal update, AlwaysAnimate
-culling and no root motion. `Spawned` validates its controller and all seven states once.
+culling and no root motion. `Spawned` validates its controller and the four required states once.
 
-`Door-Open-Sheet.png` opens north and `Door-Open-South-Sheet.png` opens south. Both keep
-the hinge column fixed at the wall in every frame: frame 3 is the shared closed door,
-frames 1–2 are hand-drawn swings (the south leaf descends toward the camera), and frame 0
-is the edge-on leaf, rising from the hinge row at the wall base in the north sheet and
-hanging from it with the same length in the south sheet. Both sheets use PPU 16, Point,
-uncompressed, four full 128 x 128 cells and custom pivot (0.5, 0.3671875).
+`Door-Open-Sheet.png` contains the approved v2 north artwork: frame 3 is closed,
+frames 1–2 are the original hand-drawn swing and frame 0 is completely edge-on, with
+the small exposed hinge details. Active clips use the imported sheet sprites directly,
+without custom mesh deformation or the rejected fixed-strip artwork. Import settings
+remain PPU 16, Point, uncompressed, four full 128 x 128 cells and custom pivot (0.5, 0.3671875).
+The unused south source sheet is preserved as art input; the south clips and earlier
+generated mesh experiments have been removed.
 The presenter retains placeholder opening/closing audio through `AudioSource.PlayOneShot`
 on observed transition entry in `Render`, deduplicated by state; spawn/restore and drift
 corrections do not replay audio. Neither Animator nor clip completion advances door state,
@@ -252,7 +263,7 @@ Level Design. Required validation is EditMode `DungeonDoorStateRulesTests`,
 `DungeonDoorOpenDirectionRulesTests`, `DungeonDoorAnimationTests`, `DungeonDoorSortingTests`,
 `PathfindingGridRefreshRegionTests` and `VisibilityPrefabCoverageTests`, plus PlayMode
 `DungeonDoorPlayModeTests` and `VisionOcclusionPlayModeTests` for passage, north-side body
-stopping depth, projectile/vision occlusion, opposite-side Animator states and sprites,
+stopping depth, projectile/vision occlusion, the same north Animator states and sprites from either side,
 direction retention, presentation re-adoption/drift correction and rejection without
 mutation for an unresolved opening interactor. Manual Host/Client validation of state, collision,
 frames and prompts is still required; automated checks do not prove multiplayer behavior.

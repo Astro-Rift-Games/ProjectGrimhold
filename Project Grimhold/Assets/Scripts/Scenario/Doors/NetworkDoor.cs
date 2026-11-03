@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Fusion;
 using UnityEngine;
 
@@ -12,6 +13,7 @@ public sealed class NetworkDoor : NetworkBehaviour, IInteractable
     private const int WorldCollisionLayer = 6;
     private const int InteractableLayer = 8;
     private const int CharacterAndEnemyMask = (1 << 7) | (1 << 10);
+    private const float MinimumOccupantPenetration = 0.0001f;
 
     [SerializeField]
     private Collider2D _blocker;
@@ -29,8 +31,8 @@ public sealed class NetworkDoor : NetworkBehaviour, IInteractable
     [Networked] public DungeonDoorOpenDirection OpenDirection { get; private set; }
     [Networked] public TickTimer TransitionTimer { get; private set; }
 
-    // A single hit is sufficient: every matching non-trigger body blocks closing.
-    private readonly Collider2D[] _occupants = new Collider2D[1];
+    // Keep all hits: a boundary contact must not hide another body inside the doorway.
+    private readonly List<Collider2D> _occupants = new List<Collider2D>(8);
     private ContactFilter2D _occupantFilter;
     private EntityRegistry _registry;
     private EntityId _registeredId;
@@ -93,19 +95,12 @@ public sealed class NetworkDoor : NetworkBehaviour, IInteractable
 
     public bool CanInteract(in InteractionRequest request)
     {
-        return IsReady && request.TargetId == Id && DungeonDoorStateRules.IsStable(State);
+        return TryGetAvailableTransition(request, out _);
     }
 
     public InteractionResult Interact(in InteractionRequest request)
     {
-        if (!IsReady || !HasStateAuthority || !CanInteract(request))
-        {
-            return InteractionResult.Rejected(InteractionFailureReason.TargetUnavailable);
-        }
-
-        bool occupied = State == DungeonDoorState.Open && Physics2D.OverlapBox(
-            _blockerBounds.center, _blockerBounds.size, 0f, _occupantFilter, _occupants) > 0;
-        if (!DungeonDoorStateRules.TryBeginToggle(State, occupied, out DungeonDoorState next))
+        if (!IsReady || !HasStateAuthority || !TryGetAvailableTransition(request, out DungeonDoorState next))
         {
             return InteractionResult.Rejected(InteractionFailureReason.TargetUnavailable);
         }
@@ -150,6 +145,38 @@ public sealed class NetworkDoor : NetworkBehaviour, IInteractable
     public override void Despawned(NetworkRunner runner, bool hasState) => Unregister();
 
     private void OnDestroy() => Unregister();
+
+    private bool TryGetAvailableTransition(in InteractionRequest request, out DungeonDoorState next)
+    {
+        next = default;
+        if (!IsReady || request.TargetId != Id)
+        {
+            return false;
+        }
+
+        // Selection and execution share availability; the HUD must not advertise blocked closing.
+        bool occupied = State == DungeonDoorState.Open && IsDoorwayOccupied();
+        return DungeonDoorStateRules.TryBeginToggle(State, occupied, out next);
+    }
+
+    private bool IsDoorwayOccupied()
+    {
+        int count = Physics2D.OverlapBox(
+            _blockerBounds.center, _blockerBounds.size, 0f, _occupantFilter, _occupants);
+        for (int i = 0; i < count; i++)
+        {
+            Bounds body = _occupants[i].bounds;
+            float overlapX = Mathf.Min(_blockerBounds.max.x, body.max.x) - Mathf.Max(_blockerBounds.min.x, body.min.x);
+            float overlapY = Mathf.Min(_blockerBounds.max.y, body.max.y) - Mathf.Max(_blockerBounds.min.y, body.min.y);
+            // OverlapBox also reports touching edges. Only positive penetration blocks closing.
+            if (overlapX > MinimumOccupantPenetration && overlapY > MinimumOccupantPenetration)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private void ApplyBlockerState()
     {

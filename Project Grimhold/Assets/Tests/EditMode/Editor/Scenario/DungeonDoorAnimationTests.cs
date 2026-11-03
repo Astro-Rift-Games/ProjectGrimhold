@@ -1,4 +1,6 @@
 using System.Linq;
+using System.Reflection;
+using System.Security.Cryptography;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -11,7 +13,7 @@ public sealed class DungeonDoorAnimationTests
     private const string PrefabPath = "Assets/Prefabs/Doors/DungeonDoor.prefab";
 
     [Test]
-    public void Controller_HasExactlySevenExplicitStates_WithoutGameplayTransitions()
+    public void Controller_HasExactlyFourExplicitStates_WithoutGameplayTransitions()
     {
         AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(AnimationFolder + "DungeonDoor.controller");
         Assert.That(controller, Is.Not.Null);
@@ -20,8 +22,7 @@ public sealed class DungeonDoorAnimationTests
         AnimatorStateMachine machine = controller.layers[0].stateMachine;
         Assert.That(machine.states.Select(s => s.state.name), Is.EquivalentTo(new[]
         {
-            "Door_Closed", "Door_Open_North", "Door_Opening_North", "Door_Closing_North",
-            "Door_Open_South", "Door_Opening_South", "Door_Closing_South"
+            "Door_Closed", "Door_Open_North", "Door_Opening_North", "Door_Closing_North"
         }));
         Assert.That(machine.defaultState.name, Is.EqualTo("Door_Closed"));
         Assert.That(machine.anyStateTransitions, Is.Empty);
@@ -35,15 +36,12 @@ public sealed class DungeonDoorAnimationTests
         }
     }
 
-    [TestCase("Door_Closed", false, false, 3)]
-    [TestCase("Door_Open_North", false, false, 0)]
-    [TestCase("Door_Opening_North", false, true, 3)]
-    [TestCase("Door_Closing_North", false, true, 0)]
-    [TestCase("Door_Open_South", true, false, 0)]
-    [TestCase("Door_Opening_South", true, true, 3)]
-    [TestCase("Door_Closing_South", true, true, 0)]
+    [TestCase("Door_Closed", false, 3)]
+    [TestCase("Door_Open_North", false, 0)]
+    [TestCase("Door_Opening_North", true, 3)]
+    [TestCase("Door_Closing_North", true, 0)]
     public void Clip_ContainsOnlyOrderedSpriteFrames_WithExactDurationAndLoopPolicy(
-        string name, bool south, bool transition, int firstFrame)
+        string name, bool transition, int firstFrame)
     {
         AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(AnimationFolder + name + ".anim");
         Assert.That(clip, Is.Not.Null, name);
@@ -61,13 +59,15 @@ public sealed class DungeonDoorAnimationTests
         ObjectReferenceKeyframe[] keys = AnimationUtility.GetObjectReferenceCurve(clip, bindings[0]);
         // Unity holds the last sprite key for one sample, ending at 0.4s.
         Assert.That(keys, Has.Length.EqualTo(transition ? 4 : 2));
-        string sheet = south ? "Door-Open-South-Sheet" : "Door-Open-Sheet";
+        const string sheet = "Door-Open-Sheet";
         Sprite[] sprites = AssetDatabase.LoadAllAssetsAtPath(ArtFolder + sheet + ".png").OfType<Sprite>().ToArray();
         for (int i = 0; i < keys.Length; i++)
         {
             int frame = transition ? (firstFrame == 3 ? 3 - Mathf.Min(i, 3) : Mathf.Min(i, 3)) : firstFrame;
             Assert.That(keys[i].time, Is.EqualTo(transition ? i * 0.1f : i * 0.3f).Within(0.00001f));
-            Assert.That(keys[i].value, Is.SameAs(sprites.Single(s => s.name == sheet + "_" + frame)));
+            Sprite expected = sprites.Single(s => s.name == sheet + "_" + frame);
+            Assert.That(expected, Is.Not.Null);
+            Assert.That(keys[i].value, Is.SameAs(expected));
         }
     }
 
@@ -89,81 +89,61 @@ public sealed class DungeonDoorAnimationTests
             .FindProperty("_transitionDuration").floatValue, Is.EqualTo(0.4f));
     }
 
+    [TestCase(DungeonDoorState.Closed, "Door_Closed")]
+    [TestCase(DungeonDoorState.Opening, "Door_Opening_North")]
+    [TestCase(DungeonDoorState.Open, "Door_Open_North")]
+    [TestCase(DungeonDoorState.Closing, "Door_Closing_North")]
+    public void Presenter_MapsLifecycleToNorthAnimation(DungeonDoorState state, string expectedState)
+    {
+        MethodInfo resolve = typeof(DungeonDoorPresenter).GetMethod("ResolveAnimationState",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.That(resolve, Is.Not.Null);
+        Assert.That(resolve.Invoke(null, new object[] { state }),
+            Is.EqualTo(Animator.StringToHash("Base Layer." + expectedState)));
+    }
+
     [Test]
-    public void SouthOpenFrame_IsNorthEdgeOnStripMirroredAroundHingeAtWallBase_WithoutImportChanges()
+    public void DiscardedDoorVariants_AndMeshGenerator_AreRemoved()
     {
-        var north = new Texture2D(2, 2);
-        var south = new Texture2D(2, 2);
-        try
+        string[] discarded =
         {
-            Assert.That(ImageConversion.LoadImage(north, System.IO.File.ReadAllBytes(ArtFolder + "Door-Open-Sheet.png")), Is.True);
-            Assert.That(ImageConversion.LoadImage(south, System.IO.File.ReadAllBytes(ArtFolder + "Door-Open-South-Sheet.png")), Is.True);
-            Color32[] a = north.GetPixels32();
-            Color32[] b = south.GetPixels32();
-            RectInt closed = OpaqueBounds(a, north.width, cellX: 384);
-            RectInt northOpen = OpaqueBounds(a, north.width, cellX: 0);
-            RectInt southOpen = OpaqueBounds(b, south.width, cellX: 0);
-
-            // Texture rows grow upward. The hinge row is the wall base (closed.yMin): the north leaf
-            // rises from it and the south leaf hangs from it by the same length.
-            int hingeRow = closed.yMin;
-            Assert.That(northOpen.yMin, Is.EqualTo(hingeRow));
-            Assert.That(southOpen.yMax, Is.EqualTo(hingeRow), "The south leaf starts at the wall base.");
-            Assert.That(southOpen.yMin, Is.EqualTo(2 * hingeRow - northOpen.yMax), "The south leaf has the north length.");
-            Assert.That(southOpen.xMin, Is.EqualTo(closed.xMin), "Hinge column must not move.");
-            Assert.That(southOpen.xMax, Is.EqualTo(northOpen.xMax));
-
-            for (int y = 0; y < 128; y++)
-            {
-                int mirroredRow = 2 * hingeRow - y;
-                for (int x = 0; x < 128; x++)
-                {
-                    Color32 expected = mirroredRow >= northOpen.yMin && mirroredRow <= northOpen.yMax
-                        ? a[mirroredRow * north.width + x]
-                        : new Color32(0, 0, 0, 0);
-                    Assert.That(b[y * south.width + x], Is.EqualTo(expected), $"({x},{y})");
-                }
-            }
-            string path = ArtFolder + "Door-Open-South-Sheet.png";
-            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
-            Assert.That(AssetDatabase.AssetPathToGUID(path), Is.EqualTo("5b3833bbd70339549a79829c7c08054b"));
-            Assert.That(importer.spritePixelsPerUnit, Is.EqualTo(16));
-            Assert.That(importer.filterMode, Is.EqualTo(FilterMode.Point));
-            Assert.That(importer.textureCompression, Is.EqualTo(TextureImporterCompression.Uncompressed));
-            foreach (Sprite sprite in AssetDatabase.LoadAllAssetsAtPath(path).OfType<Sprite>())
-            {
-                Assert.That(sprite.pivot, Is.EqualTo(new Vector2(64, 47)));
-                Assert.That(sprite.rect.size, Is.EqualTo(new Vector2(128, 128)));
-            }
-        }
-        finally
+            ArtFolder + "Door-Open-North-Anchored.asset",
+            ArtFolder + "Door-Open-South-Anchored.asset",
+            "Assets/Editor/DungeonDoorSpriteMeshBuilder.cs",
+            AnimationFolder + "Door_Open_South.anim",
+            AnimationFolder + "Door_Opening_South.anim",
+            AnimationFolder + "Door_Closing_South.anim"
+        };
+        foreach (string path in discarded)
         {
-            Object.DestroyImmediate(north);
-            Object.DestroyImmediate(south);
+            Assert.That(System.IO.File.Exists(path), Is.False, path);
+            Assert.That(System.IO.File.Exists(path + ".meta"), Is.False, path + ".meta");
         }
     }
 
-    private static RectInt OpaqueBounds(Color32[] pixels, int width, int cellX)
+    [Test]
+    public void NorthArtwork_MatchesApprovedV2_WithoutImportChanges()
     {
-        int xMin = int.MaxValue, yMin = int.MaxValue, xMax = int.MinValue, yMax = int.MinValue;
-        for (int y = 0; y < 128; y++)
+        string path = ArtFolder + "Door-Open-Sheet.png";
+        using (SHA256 hash = SHA256.Create())
         {
-            for (int x = cellX; x < cellX + 128; x++)
-            {
-                if (pixels[y * width + x].a == 0)
-                {
-                    continue;
-                }
-
-                xMin = Mathf.Min(xMin, x - cellX);
-                xMax = Mathf.Max(xMax, x - cellX);
-                yMin = Mathf.Min(yMin, y);
-                yMax = Mathf.Max(yMax, y);
-            }
+            string actual = System.BitConverter.ToString(hash.ComputeHash(System.IO.File.ReadAllBytes(path)))
+                .Replace("-", string.Empty);
+            Assert.That(actual, Is.EqualTo("AAC39ABF2B80157B86691BFE96808B54E14127C88610D303AC5627D03F5E8C36"),
+                "Keep the exact approved v2 artwork, without the rejected fixed-strip fold or mesh deformation.");
         }
 
-        Assert.That(xMax, Is.GreaterThanOrEqualTo(xMin), $"Cell at x={cellX} is empty.");
-        return new RectInt(xMin, yMin, xMax - xMin, yMax - yMin);
+        var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+        Assert.That(AssetDatabase.AssetPathToGUID(path), Is.EqualTo("d3dfd902744cafb41b2514ed1620e588"));
+        Assert.That(importer.spritePixelsPerUnit, Is.EqualTo(16));
+        Assert.That(importer.filterMode, Is.EqualTo(FilterMode.Point));
+        Assert.That(importer.textureCompression, Is.EqualTo(TextureImporterCompression.Uncompressed));
+        Sprite[] sprites = AssetDatabase.LoadAllAssetsAtPath(path).OfType<Sprite>().ToArray();
+        Assert.That(sprites, Has.Length.EqualTo(4));
+        foreach (Sprite sprite in sprites)
+        {
+            Assert.That(sprite.pivot, Is.EqualTo(new Vector2(64, 47)));
+            Assert.That(sprite.rect.size, Is.EqualTo(new Vector2(128, 128)));
+        }
     }
-
 }
