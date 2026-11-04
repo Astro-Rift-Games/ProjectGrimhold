@@ -284,7 +284,7 @@ test('InventoryService', async (t) => {
     assert.strictEqual(result.pendingReservation, null);
   });
 
-  await t.test('getInventory() - migrates aliases, merges stacks, slots, and reservation idempotently', async () => {
+  await t.test('getInventory() - preserves legacy aliases and duplicate entries without saving', async () => {
     const mockChar = makeCharacter();
     let saveCount = 0;
     mockChar.save = async function () { saveCount += 1; return this; };
@@ -307,39 +307,34 @@ test('InventoryService', async (t) => {
     };
     setupMocks(mockChar);
 
+    const before = JSON.stringify(mockChar);
     const first = await InventoryService.getInventory('acc123');
-    assert.deepStrictEqual(first.stash, [
-      { lootId: 'arming_sword', amount: 6 },
-      { lootId: 'long_sword', amount: 1 }
-    ]);
-    assert.deepStrictEqual(first.loadout, [{ lootId: 'magic_wand', amount: 3 }]);
-    assert.strictEqual(first.preparedEquipment.weaponSlot1, 'arming_sword');
-    assert.strictEqual(first.preparedEquipment.weaponSlot2, 'magic_staff');
-    assert.deepStrictEqual(first.pendingReservation.items, [
-      { lootId: 'shield', amount: 1 },
-      { lootId: 'magic_wand', amount: 1 }
-    ]);
-    assert.strictEqual(first.pendingReservation.preparedEquipment.weaponSlot1, 'long_sword');
-    assert.strictEqual(first.pendingReservation.preparedEquipment.weaponSlot2, 'magic_wand');
-    assert.strictEqual(saveCount, 1);
+    assert.deepStrictEqual(first.stash, mockChar.inventory.stash);
+    assert.deepStrictEqual(first.loadout, mockChar.inventory.loadout);
+    assert.strictEqual(first.preparedEquipment.weaponSlot1, 'longsword');
+    assert.strictEqual(first.preparedEquipment.weaponSlot2, 'staff');
+    assert.deepStrictEqual(first.pendingReservation.items, mockChar.inventory.pendingReservation.items);
+    assert.strictEqual(first.pendingReservation.preparedEquipment.weaponSlot1, 'greatsword');
+    assert.strictEqual(first.pendingReservation.preparedEquipment.weaponSlot2, 'spellbook');
+    assert.strictEqual(saveCount, 0);
 
     const second = await InventoryService.getInventory('acc123');
     assert.deepStrictEqual(second, first);
-    assert.strictEqual(saveCount, 1);
+    assert.strictEqual(saveCount, 0);
+    assert.strictEqual(JSON.stringify(mockChar), before);
   });
 
-  await t.test('moveToLoadout() - accepts a canonical id after persisted aliases are migrated', async () => {
+  await t.test('moveToLoadout() - rejects duplicate canonical legacy IDs instead of migrating them', async () => {
     const mockChar = makeCharacter();
     mockChar.inventory.stash = [makeItem('recovery_sword', 1), makeItem('training_sword', 2)];
     setupMocks(mockChar);
-
-    const result = await InventoryService.moveToLoadout('acc123', 'arming_sword', 2, 0);
-
-    assert.deepStrictEqual(result.stash, [{ lootId: 'arming_sword', amount: 1 }]);
-    assert.deepStrictEqual(result.loadout, [{ lootId: 'arming_sword', amount: 2 }]);
+    const before = JSON.stringify(mockChar);
+    await assert.rejects(() => InventoryService.moveToLoadout('acc123', 'arming_sword', 2, 0),
+      err => err.statusCode === 409 && err.errorCode === 'INVENTORY_MIGRATION_REQUIRED');
+    assert.strictEqual(JSON.stringify(mockChar), before);
   });
 
-  await t.test('updatePreparedEquipment() - canonicalizes persisted and requested aliases', async () => {
+  await t.test('updatePreparedEquipment() - matches an owned legacy alias without reorganizing lists', async () => {
     const mockChar = makeCharacter();
     mockChar.inventory.loadout = [makeItem('training_sword', 1)];
     setupMocks(mockChar);

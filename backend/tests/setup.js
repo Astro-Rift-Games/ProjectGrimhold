@@ -8,6 +8,7 @@ Object.assign(process.env, {
   JWT_SECRET: 'synthetic-test-jwt-secret-not-for-deployment',
   WEBHOOK_SECRET: 'synthetic-test-webhook-secret-not-for-deployment',
   TRUST_PROXY: '',
+  INVENTORY_PROTOCOL_GATE: 'false',
   AUTH_RATE_LIMIT_WINDOW_MS: '900000',
   AUTH_RATE_LIMIT_IP_MAX: '30',
   AUTH_RATE_LIMIT_USER_MAX: '5'

@@ -74,6 +74,12 @@ module.exports = {
   nodeEnv: nodeEnv,
   webhookSecret: webhookSecret,
   allowDevWebhookSecret: allowDevWebhookSecret,
+  get inventoryProtocolGate() {
+    return process.env.INVENTORY_PROTOCOL_GATE === 'true';
+  },
+  get inventorySplitEnabled() {
+    return process.env.INVENTORY_SPLIT_ENABLED === 'true';
+  },
   get enableDebugRoutes() {
     return this.nodeEnv !== 'production' && process.env.ENABLE_DEV_DEBUG_ROUTES === 'true';
   },

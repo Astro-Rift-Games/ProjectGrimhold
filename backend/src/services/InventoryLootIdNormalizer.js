@@ -20,6 +20,8 @@ function normalizeLootId(lootId) {
   return LOOT_ID_ALIASES[lootId] || lootId;
 }
 
+// Only aggregate boundary payloads (Raid rewards/admission), never persisted
+// Town lists. Stored inventory is migrated explicitly, not repaired at runtime.
 function normalizeItems(items) {
   const merged = [];
   const indices = new Map();
@@ -50,56 +52,4 @@ function normalizePreparedEquipment(equipment) {
   return equipment;
 }
 
-function normalizeCharacterInventory(character) {
-  const inventory = character && character.inventory;
-  if (!inventory) return false;
-
-  const before = JSON.stringify({
-    stash: inventory.stash,
-    loadout: inventory.loadout,
-    preparedEquipment: inventory.preparedEquipment,
-    pendingReservation: inventory.pendingReservation
-  });
-
-  inventory.stash = normalizeItems(inventory.stash);
-  inventory.loadout = normalizeItems(inventory.loadout);
-  normalizePreparedEquipment(inventory.preparedEquipment);
-
-  if (inventory.pendingReservation) {
-    inventory.pendingReservation.items = normalizeItems(inventory.pendingReservation.items);
-    normalizePreparedEquipment(inventory.pendingReservation.preparedEquipment);
-  }
-
-  // Legacy migration: ensure all 8 slots exist (documents created with 6 slots)
-  for (const slot of EQUIPMENT_SLOTS) {
-    if (inventory.preparedEquipment && inventory.preparedEquipment[slot] === undefined) {
-      inventory.preparedEquipment[slot] = '';
-    }
-    if (inventory.pendingReservation?.preparedEquipment &&
-        inventory.pendingReservation.preparedEquipment[slot] === undefined) {
-      inventory.pendingReservation.preparedEquipment[slot] = '';
-    }
-  }
-
-  const after = JSON.stringify({
-    stash: inventory.stash,
-    loadout: inventory.loadout,
-    preparedEquipment: inventory.preparedEquipment,
-    pendingReservation: inventory.pendingReservation
-  });
-
-  if (before === after) return false;
-
-  character.markModified('inventory.stash');
-  character.markModified('inventory.loadout');
-  character.markModified('inventory.preparedEquipment');
-  character.markModified('inventory.pendingReservation');
-  return true;
-}
-
-module.exports = {
-  normalizeCharacterInventory,
-  normalizeItems,
-  normalizeLootId,
-  normalizePreparedEquipment
-};
+module.exports = { normalizeItems, normalizeLootId, normalizePreparedEquipment };

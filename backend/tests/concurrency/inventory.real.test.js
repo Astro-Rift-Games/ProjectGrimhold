@@ -79,6 +79,42 @@ test('InventoryService - Concurrency and Revision', async (t) => {
     assert.strictEqual(dbChar.inventory.loadout[0].amount, 1);
   });
 
+  await t.test('v2 concurrent slot moves cannot consume the same physical source twice', async () => {
+    const accountId = new mongoose.Types.ObjectId();
+    await Character.create({ accountId, name: 'Slots', inventory: { inventorySchemaVersion: 2,
+      stash: [{ slot: 9, lootId: 'bone', amount: 5 }, { slot: 3, lootId: 'bone', amount: 2 }] } });
+    const results = await Promise.allSettled([
+      InventoryService.moveSlot(accountId, 'stash', 9, 'loadout', 0, 'bone', 0),
+      InventoryService.moveSlot(accountId, 'stash', 9, 'loadout', 1, 'bone', 0)
+    ]);
+    assert.strictEqual(results.filter(r => r.status === 'fulfilled').length, 1);
+    const rejected = results.find(r => r.status === 'rejected');
+    assert.strictEqual(rejected.reason.statusCode, 409);
+    assert.strictEqual(rejected.reason.errorCode, 'REVISION_CONFLICT');
+    const after = await InventoryService.getInventory(accountId);
+    assert.strictEqual(after.revision, 1);
+    assert.deepStrictEqual(after.stash, [{ slot: 3, lootId: 'bone', amount: 2 }]);
+    assert.strictEqual(after.loadout.length, 1); assert.strictEqual(after.loadout[0].amount, 5);
+  });
+
+  await t.test('v2 concurrent purchases for the last slot debit and place exactly once', async () => {
+    const accountId = new mongoose.Types.ObjectId();
+    const loadout = Array.from({ length: 29 }, (_, slot) => ({ slot: slot + 1, lootId: `item_${slot}`, amount: 1 }));
+    await Character.create({ accountId, name: 'LastSlot', inventory: { inventorySchemaVersion: 2, loadout, currency: 100 } });
+    const results = await Promise.allSettled([
+      InventoryService.shopBuy(accountId, 'bone', 1, 0, 0, 'buy-bone'),
+      InventoryService.shopBuy(accountId, 'healthpotion', 1, 0, 0, 'buy-potion')
+    ]);
+    assert.strictEqual(results.filter(r => r.status === 'fulfilled').length, 1);
+    assert.strictEqual(results.find(r => r.status === 'rejected').reason.errorCode, 'REVISION_CONFLICT');
+    const after = await InventoryService.getInventory(accountId);
+    assert.strictEqual(after.revision, 1); assert.strictEqual(after.loadout.length, 30);
+    const bought = after.loadout[0];
+    assert.strictEqual(bought.slot, 0); assert.strictEqual(bought.amount, 1);
+    assert.strictEqual(after.currency, bought.lootId === 'bone' ? 95 : 80);
+    assert.deepStrictEqual(after.loadout.slice(1), loadout);
+  });
+
   await t.test('Move concurrent during savePendingReservation does not lose items', async () => {
     const accountId = new mongoose.Types.ObjectId();
     const char = new Character({

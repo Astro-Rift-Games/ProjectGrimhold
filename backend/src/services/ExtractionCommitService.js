@@ -12,11 +12,11 @@
 const Character = require('../models/Character');
 const AuthoritativeExtractionResult = require('../models/AuthoritativeExtractionResult');
 const {
-  normalizeCharacterInventory,
   normalizeItems,
   normalizePreparedEquipment
 } = require('./InventoryLootIdNormalizer');
 const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
+const { serializeItems, requireMigratedInventory, inventoryVersion, receiveItem } = require('./InventoryEntries');
 const {
   computeLevelAndExperience,
   computeAttributePointsGranted,
@@ -65,9 +65,7 @@ class ExtractionCommitService {
       };
     }
 
-    if (normalizeCharacterInventory(character)) {
-      await character.save();
-    }
+    requireMigratedInventory(character);
 
     const extractionReceipts = character.inventory.appliedExtractionReceipts || [];
     const exactReceiptMatch = extractionReceipts.some(
@@ -110,6 +108,14 @@ class ExtractionCommitService {
         errorCode:  'LOADOUT_NOT_EMPTY',
         message:    'Cannot commit extraction while loadout is not empty.',
       };
+    }
+
+    // Validate and place rewards before claiming the result: capacity rejection
+    // must leave both the character and authoritative consumption state intact.
+    const newLoadout = [];
+    const version = inventoryVersion(character);
+    for (const item of normalizeItems(authResult.items)) {
+      receiveItem(newLoadout, 'loadout', item, version);
     }
 
     // ------------------------------------------------------------------
@@ -159,20 +165,6 @@ class ExtractionCommitService {
     // 4. Compute new states in memory
     // ------------------------------------------------------------------
     
-    // Loot
-    const newLoadout = [];
-    const normalizedItems = normalizeItems(authResult.items);
-    if (normalizedItems.length > 0) {
-      for (const item of normalizedItems) {
-        const existing = newLoadout.find(i => i.lootId === item.lootId);
-        if (existing) {
-          existing.amount += item.amount;
-        } else {
-          newLoadout.push({ lootId: item.lootId, amount: item.amount });
-        }
-      }
-    }
-
     // Progression
     const computed = computeLevelAndExperience(
       character.level,
@@ -288,10 +280,6 @@ class ExtractionCommitService {
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
-
-function serializeItems(items) {
-  return (items || []).map(i => ({ lootId: i.lootId, amount: i.amount }));
-}
 
 function serializeAttributes(attrs) {
   if (!attrs) {

@@ -2,6 +2,14 @@ const mongoose = require('mongoose');
 
 // Embedded schema for a single item slot (stash or loadout entry).
 const itemSchema = new mongoose.Schema({
+  slot: {
+    type: Number,
+    min: 0,
+    validate: {
+      validator: value => value === undefined || Number.isInteger(value),
+      message: 'slot must be a non-negative integer.'
+    }
+  },
   lootId: { type: String, required: true },
   amount: { type: Number, required: true, min: 1 }
 }, { _id: false });
@@ -79,6 +87,7 @@ const shopReceiptSchema = new mongoose.Schema({
   transactionId: { type: String, required: true },
   type:          { type: String, enum: ['buy', 'sell', 'buyback', 'ability_purchase'], required: true },
   entryId:       { type: String },
+  sourceSlot:    { type: Number, min: 0 },
   lootId:        { type: String },
   abilityId:     { type: String, default: '' },
   amount:        { type: Number },
@@ -110,6 +119,7 @@ const characterSchema = new mongoose.Schema({
   preparedAbilities:                    { type: preparedAbilitiesSchema,       default: () => ({}) },
   unlockedAbilities:                    { type: [String],                      default: [] },
   inventory: {
+    inventorySchemaVersion: { type: Number, default: 1 },
     buyback: { type: buybackSchema, default: () => ({}) },
     currency:           { type: Number, default: 0 },
     stash:              { type: [itemSchema],             default: [] },

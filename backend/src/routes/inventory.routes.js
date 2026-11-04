@@ -6,8 +6,12 @@ const ExtractionCommitService = require('../services/ExtractionCommitService');
 const env = require('../config/env');
 const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
 const authenticate = require('../middleware/authenticate');
+const inventoryProtocol = require('../middleware/inventoryProtocol');
+const { requireSplitEnabled } = require('../services/InventoryEntries');
 const {
   inventoryOrderValidator,
+  slotMoveValidator,
+  slotSplitValidator,
   moveItemValidator,
   preparedEquipmentValidator,
   pendingReservationValidator,
@@ -25,7 +29,7 @@ router.use(authenticate);
 // GET /character/me/inventory
 // Returns the full inventory snapshot (stash, loadout, preparedEquipment, pendingReservation).
 // Called at login to hydrate the local Unity state.
-router.get('/me/inventory', async (req, res, next) => {
+router.get('/me/inventory', inventoryProtocol, async (req, res, next) => {
   try {
     const inventory = await InventoryService.getInventory(req.accountId);
     res.json(inventory);
@@ -35,24 +39,50 @@ router.get('/me/inventory', async (req, res, next) => {
 });
 
 // PUT /character/me/inventory/order
-// Body: { list: 'stash' | 'loadout', lootIds: string[], expectedRevision }
-router.put('/me/inventory/order', inventoryOrderValidator, async (req, res, next) => {
+// Body v1: { list, lootIds, expectedRevision }; v2: { list, slotOrder, expectedRevision }
+router.put('/me/inventory/order', inventoryProtocol, inventoryOrderValidator, async (req, res, next) => {
   try {
-    const { list, lootIds, expectedRevision } = req.body;
-    const result = await InventoryService.updateOrder(req.accountId, list, lootIds, expectedRevision);
+    const { list, lootIds, slotOrder, expectedRevision } = req.body;
+    const result = await InventoryService.updateOrder(req.accountId, list, lootIds, expectedRevision, slotOrder);
     res.json(result);
   } catch (err) {
     next(err);
   }
 });
 
-// POST /character/me/inventory/stash/move-to-loadout
-// Moves amount units of lootId from the stash to the loadout.
-// Body: { lootId: string, amount: number }
-router.post('/me/inventory/stash/move-to-loadout', moveItemValidator, async (req, res, next) => {
+// POST /character/me/inventory/slots/move (v2 only)
+// Body: { fromList, fromSlot, toList, toSlot, lootId, expectedRevision }
+router.post('/me/inventory/slots/move', inventoryProtocol, slotMoveValidator, async (req, res, next) => {
   try {
-    const { lootId, amount, expectedRevision } = req.body;
-    const result = await InventoryService.moveToLoadout(req.accountId, lootId, amount, expectedRevision);
+    const { fromList, fromSlot, toList, toSlot, lootId, expectedRevision } = req.body;
+    res.json(await InventoryService.moveSlot(req.accountId, fromList, fromSlot, toList, toSlot, lootId, expectedRevision));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /character/me/inventory/slots/split (v2 only, feature flag defaults off)
+// Body: { list, sourceSlot, amount, destinationSlot, lootId, expectedRevision }
+router.post('/me/inventory/slots/split', (req, res, next) => {
+  // Check before protocol middleware, which may read the character.
+  requireSplitEnabled();
+  next();
+}, inventoryProtocol, slotSplitValidator, async (req, res, next) => {
+  try {
+    const { list, sourceSlot, amount, destinationSlot, lootId, expectedRevision } = req.body;
+    res.json(await InventoryService.splitSlot(req.accountId, list, sourceSlot, amount, destinationSlot, lootId, expectedRevision));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /character/me/inventory/stash/move-to-loadout
+// Moves amount units from the guarded source (sourceSlot required for v2).
+// Body: { lootId, amount, expectedRevision, sourceSlot? }
+router.post('/me/inventory/stash/move-to-loadout', inventoryProtocol, moveItemValidator, async (req, res, next) => {
+  try {
+    const { lootId, amount, expectedRevision, sourceSlot } = req.body;
+    const result = await InventoryService.moveToLoadout(req.accountId, lootId, amount, expectedRevision, sourceSlot);
     res.json(result);
   } catch (err) {
     next(err);
@@ -60,12 +90,12 @@ router.post('/me/inventory/stash/move-to-loadout', moveItemValidator, async (req
 });
 
 // POST /character/me/inventory/loadout/move-to-stash
-// Moves amount units of lootId from the loadout to the stash.
-// Body: { lootId: string, amount: number }
-router.post('/me/inventory/loadout/move-to-stash', moveItemValidator, async (req, res, next) => {
+// Moves amount units from the guarded source (sourceSlot required for v2).
+// Body: { lootId, amount, expectedRevision, sourceSlot? }
+router.post('/me/inventory/loadout/move-to-stash', inventoryProtocol, moveItemValidator, async (req, res, next) => {
   try {
-    const { lootId, amount, expectedRevision } = req.body;
-    const result = await InventoryService.moveToStash(req.accountId, lootId, amount, expectedRevision);
+    const { lootId, amount, expectedRevision, sourceSlot } = req.body;
+    const result = await InventoryService.moveToStash(req.accountId, lootId, amount, expectedRevision, sourceSlot);
     res.json(result);
   } catch (err) {
     next(err);
@@ -74,11 +104,11 @@ router.post('/me/inventory/loadout/move-to-stash', moveItemValidator, async (req
 
 // POST /character/me/inventory/shop/sell
 // Sells an item from the loadout, awarding authoritative currency from shop catalog.
-// Body: { transactionId, lootId, amount, expectedRevision, declaredSellValue? }
-router.post('/me/inventory/shop/sell', shopSellValidator, async (req, res, next) => {
+// Body: { transactionId, lootId, amount, expectedRevision, sourceSlot? (required v2), declaredSellValue? }
+router.post('/me/inventory/shop/sell', inventoryProtocol, shopSellValidator, async (req, res, next) => {
   try {
-    const { transactionId, lootId, amount, declaredSellValue, expectedRevision } = req.body;
-    const result = await InventoryService.shopSell(req.accountId, lootId, amount, declaredSellValue, expectedRevision, transactionId);
+    const { transactionId, lootId, amount, declaredSellValue, expectedRevision, sourceSlot } = req.body;
+    const result = await InventoryService.shopSell(req.accountId, lootId, amount, declaredSellValue, expectedRevision, transactionId, sourceSlot);
     res.json(result);
   } catch (err) {
     next(err);
@@ -88,7 +118,7 @@ router.post('/me/inventory/shop/sell', shopSellValidator, async (req, res, next)
 // POST /character/me/inventory/shop/buy
 // Buys an item into the loadout, deducting authoritative currency from shop catalog.
 // Body: { transactionId, lootId, amount, expectedRevision, declaredPrice? }
-router.post('/me/inventory/shop/buy', shopBuyValidator, async (req, res, next) => {
+router.post('/me/inventory/shop/buy', inventoryProtocol, shopBuyValidator, async (req, res, next) => {
   try {
     const { transactionId, lootId, amount, declaredPrice, expectedRevision } = req.body;
     const result = await InventoryService.shopBuy(req.accountId, lootId, amount, declaredPrice, expectedRevision, transactionId);
@@ -100,7 +130,7 @@ router.post('/me/inventory/shop/buy', shopBuyValidator, async (req, res, next) =
 
 // POST /character/me/inventory/shop/buyback
 // Body: { transactionId, entryId, amount, expectedRevision }
-router.post('/me/inventory/shop/buyback', shopBuybackValidator, async (req, res, next) => {
+router.post('/me/inventory/shop/buyback', inventoryProtocol, shopBuybackValidator, async (req, res, next) => {
   try {
     const { transactionId, entryId, amount, expectedRevision } = req.body;
     res.json(await InventoryService.shopBuyback(req.accountId, entryId, amount, expectedRevision, transactionId));
@@ -112,7 +142,7 @@ router.post('/me/inventory/shop/buyback', shopBuybackValidator, async (req, res,
 // PUT /character/me/inventory/prepared-equipment
 // Replaces all six equipment slot assignments atomically.
 // Body: { weaponSlot1?, weaponSlot2?, helmet?, armor?, gloves?, boots? }
-router.put('/me/inventory/prepared-equipment', preparedEquipmentValidator, async (req, res, next) => {
+router.put('/me/inventory/prepared-equipment', inventoryProtocol, preparedEquipmentValidator, async (req, res, next) => {
   try {
     // Build the slots object from EQUIPMENT_SLOTS so new slots are covered automatically.
     const slots = {};
@@ -130,7 +160,7 @@ router.put('/me/inventory/prepared-equipment', preparedEquipmentValidator, async
 // POST /character/me/inventory/reservation
 // Persists a raid reservation snapshot to survive disconnection.
 // Body: { reservationId: string, preparedAbilities?: { slot1?: string, slot2?: string } }
-router.post('/me/inventory/reservation', pendingReservationValidator, async (req, res, next) => {
+router.post('/me/inventory/reservation', inventoryProtocol, pendingReservationValidator, async (req, res, next) => {
   try {
     const { reservationId, preparedAbilities } = req.body;
     const result = await InventoryService.savePendingReservation(
@@ -146,7 +176,7 @@ router.post('/me/inventory/reservation', pendingReservationValidator, async (req
 // Body: { reservationId: string }. Retains reserved ownership until the Raid outcome.
 // Returns { pendingReservation, revision }; repeated admission of the same id is unchanged.
 // Missing/mismatched reservation: 422 NO_ACTIVE_RESERVATION.
-router.post('/me/inventory/reservation/admit', admitReservationValidator, async (req, res, next) => {
+router.post('/me/inventory/reservation/admit', inventoryProtocol, admitReservationValidator, async (req, res, next) => {
   try {
     const result = await InventoryService.admitPendingReservation(req.accountId, req.body.reservationId);
     res.json(result);
@@ -160,7 +190,7 @@ router.post('/me/inventory/reservation/admit', admitReservationValidator, async 
 // only pre-admission reservations (409 RESERVATION_ADMITTED otherwise). Loss clear or
 // replacement of an admitted reservation rejects with 409 EXTRACTION_RESULT_PENDING
 // while an unconsumed authoritative result targets this character.
-router.delete('/me/inventory/reservation', async (req, res, next) => {
+router.delete('/me/inventory/reservation', inventoryProtocol, async (req, res, next) => {
   try {
     const rollback = req.query.rollback === 'true' || req.body?.rollback === true;
     const result = await InventoryService.clearPendingReservation(req.accountId, { rollback });
@@ -174,11 +204,11 @@ router.delete('/me/inventory/reservation', async (req, res, next) => {
 // Persists the loot obtained from a successful raid extraction.
 // Idempotent: replaying the same (raidId, resultSequence) pair returns { alreadySecured: true }.
 // Body: { raidId: string, resultSequence: number, items: [{ lootId, amount }] }
-router.post('/me/inventory/extraction', commitExtractionValidator, async (req, res, next) => {
+router.post('/me/inventory/extraction', (req, res, next) => {
+  if (!env.enableLegacyExtraction) return res.status(404).json({ error: 'NOT_FOUND', message: 'Legacy extraction endpoint is disabled or not found.' });
+  next();
+}, inventoryProtocol, commitExtractionValidator, async (req, res, next) => {
   try {
-    if (env.nodeEnv === 'production' || !env.enableLegacyExtraction) {
-      return res.status(404).json({ error: 'NOT_FOUND', message: 'Legacy extraction endpoint is disabled or not found.' });
-    }
     const { raidId, resultSequence, items } = req.body;
     const result = await InventoryService.commitExtraction(
       req.accountId,
@@ -201,7 +231,7 @@ router.post('/me/inventory/extraction', commitExtractionValidator, async (req, r
 //   items?:         [{ lootId, amount }],
 //   progression?:   { consolidatedExperience: number, resultingLevel: number }
 // }
-router.post('/me/extraction/commit', commitExtractionUnifiedValidator, async (req, res, next) => {
+router.post('/me/extraction/commit', inventoryProtocol, commitExtractionUnifiedValidator, async (req, res, next) => {
   try {
     const result = await ExtractionCommitService.commit(req.accountId, req.body);
     res.status(result.alreadySecured ? 200 : 201).json(result);
@@ -216,11 +246,11 @@ router.post('/me/extraction/commit', commitExtractionUnifiedValidator, async (re
 // ------------------------------------------------------------------
 const AuthoritativeExtractionResult = require('../models/AuthoritativeExtractionResult');
 
-router.post('/debug/mock-fusion-result', async (req, res, next) => {
+router.post('/debug/mock-fusion-result', (req, res, next) => {
+  if (!env.enableDebugRoutes) return res.status(404).json({ error: 'NOT_FOUND', message: 'Mock endpoint is disabled or not found.' });
+  next();
+}, inventoryProtocol, async (req, res, next) => {
   try {
-    if (env.nodeEnv === 'production' || !env.enableDebugRoutes) {
-      return res.status(404).json({ error: 'NOT_FOUND', message: 'Mock endpoint is disabled or not found.' });
-    }
     const { raidId, items, experienceGranted, preparedEquipment } = req.body;
     
     await AuthoritativeExtractionResult.findOneAndUpdate(

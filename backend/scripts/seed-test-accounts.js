@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const Account = require('../src/models/Account');
 const Character = require('../src/models/Character');
+const env = require('../src/config/env');
 
 const DB_URI = process.env.MONGODB_URI;
 if (!DB_URI) {
@@ -37,7 +38,8 @@ async function runSeed() {
       // 2. Upsert Character (Idempotente)
       const character = await Character.findOneAndUpdate(
         { accountId: account._id },
-        { $setOnInsert: { name: data.charName } }, // Solo setear nombre en creación
+        { $setOnInsert: { name: data.charName,
+          'inventory.inventorySchemaVersion': env.inventoryProtocolGate ? 2 : 1 } }, // Existing inventory is never replaced
         { upsert: true, returnDocument: 'after' }
       );
       console.log(`[Seed] Character '${character.name}' listo.`);

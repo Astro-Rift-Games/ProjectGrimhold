@@ -8,6 +8,7 @@ const Character = require('../models/Character');
 const { buildCanonicalResultString } = require('../utils/raidResultCanonicalizer');
 const { normalizeItems, normalizePreparedEquipment } = require('./InventoryLootIdNormalizer');
 const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
+const { requireMigratedInventory } = require('./InventoryEntries');
 
 const MAX_EXTRACTION_ITEMS = 30;
 const MAX_RAID_EXPERIENCE_BUDGET = 5000;
@@ -175,6 +176,10 @@ class RaidResultService {
       }
     }
 
+    // The target may differ from the authenticated host. Gate both documents,
+    // including signed dedicated-server publications, before accepting rewards.
+    if (recipientChar) requireMigratedInventory(recipientChar);
+
     // Under Bounded Player-Host Authority (TASK-223 / SEC-223):
     if (!isDedicatedServerVerified) {
       // 1. Caller identity
@@ -194,6 +199,8 @@ class RaidResultService {
           message: 'Host caller character not found.',
         };
       }
+
+      requireMigratedInventory(callerChar);
 
       // 2. Active reservation on target character (must have entered a raid)
       if (!recipientChar || !recipientChar.inventory || !recipientChar.inventory.pendingReservation) {

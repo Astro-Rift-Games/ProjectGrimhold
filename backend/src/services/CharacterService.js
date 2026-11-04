@@ -1,5 +1,6 @@
 ﻿// src/services/CharacterService.js
 const Character = require('../models/Character');
+const env = require('../config/env');
 
 class CharacterService {
   /**
@@ -19,6 +20,7 @@ class CharacterService {
     const character = new Character({
       accountId,
       name,
+      inventory: { inventorySchemaVersion: env.inventoryProtocolGate ? 2 : 1 },
       profile: {
         lastSeen: null,
         customNote: ''

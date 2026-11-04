@@ -3,6 +3,10 @@ const express = require('express');
 const router = express.Router();
 const CharacterService = require('../services/CharacterService');
 const authenticate = require('../middleware/authenticate');
+const inventoryProtocol = require('../middleware/inventoryProtocol');
+const Character = require('../models/Character');
+const env = require('../config/env');
+const { requireMigratedInventory } = require('../services/InventoryEntries');
 const { updateProfileValidator } = require('../validators/profile.validators');
 const { createCharacterValidator } = require('../validators/character.validators');
 
@@ -11,7 +15,7 @@ router.use(authenticate);
 
 
 // POST /character/me
-router.post('/me', createCharacterValidator, async (req, res, next) => {
+router.post('/me', inventoryProtocol, createCharacterValidator, async (req, res, next) => {
   try {
     const { name } = req.body;
     const result = await CharacterService.createForAccount(req.accountId, name);
@@ -91,7 +95,7 @@ router.post('/verify-session-ticket', async (req, res, next) => {
 // POST /character/me/raid/admission-ticket
 // Issues an Authoritative Raid Admission Ticket for the active reservation.
 // Body: { raidCode: string, reservationId: string }
-router.post('/me/raid/admission-ticket', async (req, res, next) => {
+router.post('/me/raid/admission-ticket', inventoryProtocol, async (req, res, next) => {
   try {
     const { raidCode, reservationId } = req.body;
     const result = await SessionTicketService.issueRaidAdmissionTicket(req.accountId, raidCode, reservationId);
@@ -104,12 +108,17 @@ router.post('/me/raid/admission-ticket', async (req, res, next) => {
 // POST /character/raid/verify-admission
 // Verifies an Authoritative Raid Admission Ticket against expected raidCode.
 // Body: { ticket: string, raidCode: string }
-router.post('/raid/verify-admission', async (req, res, next) => {
+router.post('/raid/verify-admission', inventoryProtocol, async (req, res, next) => {
   try {
     const { ticket, raidCode } = req.body;
     const result = SessionTicketService.verifyRaidAdmissionTicket(ticket, raidCode);
     if (!result.valid) {
       return res.status(401).json(result);
+    }
+    if (env.inventoryProtocolGate) {
+      const participant = await Character.findById(result.characterId);
+      if (!participant) throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'Ticket character not found.' };
+      requireMigratedInventory(participant);
     }
     res.json(result);
   } catch (err) {

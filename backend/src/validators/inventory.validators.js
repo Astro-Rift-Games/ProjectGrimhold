@@ -18,19 +18,44 @@ function handleValidationErrors(req, res, next) {
 
 const inventoryOrderValidator = [
   body('list').isIn(['stash', 'loadout']).withMessage('must be stash or loadout'),
-  body('lootIds').isArray().withMessage('must be an array'),
+  body('lootIds').if((value, { req }) => Object.hasOwn(req.body, 'lootIds') || !Object.hasOwn(req.body, 'slotOrder'))
+    .isArray().withMessage('must be an array'),
   body('lootIds.*')
     .isString().withMessage('must be a string')
     .bail()
     .trim()
     .notEmpty().withMessage('must not be empty'),
+  body('slotOrder').optional().isArray().withMessage('must be an array'),
+  body('slotOrder.*').custom(value => Number.isSafeInteger(value) && value >= 0).withMessage('must be a non-negative integer'),
   body('expectedRevision')
     .isInt({ min: 0 }).withMessage('must be a non-negative integer'),
   handleValidationErrors
 ];
 
+const sourceSlotValidator = () => body('sourceSlot').optional()
+  .custom(value => Number.isSafeInteger(value) && value >= 0).withMessage('must be a non-negative integer');
+
+const slotMoveValidator = [
+  body('fromList').isIn(['stash', 'loadout']),
+  body('toList').isIn(['stash', 'loadout']),
+  ...['fromSlot', 'toSlot'].map(key => body(key).custom(value => Number.isSafeInteger(value) && value >= 0)),
+  body('lootId').isString().bail().trim().notEmpty(),
+  body('expectedRevision').isInt({ min: 0 }),
+  handleValidationErrors
+];
+
+const slotSplitValidator = [
+  body('list').isIn(['stash', 'loadout']),
+  ...['sourceSlot', 'destinationSlot'].map(key => body(key).custom(value => Number.isSafeInteger(value) && value >= 0)),
+  body('lootId').isString().bail().trim().notEmpty(),
+  body('expectedRevision').custom(value => Number.isSafeInteger(value) && value >= 0),
+  // Quantity (including type) is validated against the guarded source by the service.
+  handleValidationErrors
+];
+
 // Validates the body for move-to-loadout and move-to-stash operations.
 const moveItemValidator = [
+  sourceSlotValidator(),
   body('lootId')
     .isString().withMessage('must be a string')
     .trim()
@@ -97,6 +122,7 @@ const { MAX_TRANSACTION_AMOUNT } = require('../config/shopCatalog');
 
 // Validates the body for shop sale operations.
 const shopSellValidator = [
+  sourceSlotValidator(),
   body('transactionId')
     .isString().withMessage('must be a string')
     .trim()
@@ -143,4 +169,4 @@ const shopBuybackValidator = [
   handleValidationErrors
 ];
 
-module.exports = { shopBuybackValidator, inventoryOrderValidator, moveItemValidator, preparedEquipmentValidator, pendingReservationValidator, admitReservationValidator, commitExtractionValidator, shopSellValidator, shopBuyValidator };
+module.exports = { slotSplitValidator, slotMoveValidator, shopBuybackValidator, inventoryOrderValidator, moveItemValidator, preparedEquipmentValidator, pendingReservationValidator, admitReservationValidator, commitExtractionValidator, shopSellValidator, shopBuyValidator };
