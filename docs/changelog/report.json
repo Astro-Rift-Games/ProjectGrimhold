@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 911,
-  "canonicalEntries": 908,
+  "rawCommits": 912,
+  "canonicalEntries": 909,
   "before": {
+    "Features": 339,
     "Documentation": 79,
     "Refactoring": 14,
     "Bug Fixes": 90,
-    "Features": 338,
     "Architecture & Infrastructure": 13,
     "Other Changes": 353,
     "Tests": 24
   },
   "after": {
+    "Features": 476,
     "Documentation": 94,
     "Refactoring": 27,
     "Bug Fixes": 106,
-    "Features": 475,
     "Maintenance": 12,
     "Other Changes": 163,
     "Tests": 29,
@@ -23,15 +23,15 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "UI": 282,
-    "Art & Animation": 223,
-    "Tests": 549,
+    "Combat": 323,
+    "Inventory & Loot": 341,
+    "UI": 283,
+    "Persistence & Backend": 191,
+    "Art & Animation": 224,
+    "Build & Tooling": 462,
+    "Tests": 550,
     "Abilities": 116,
-    "Inventory & Loot": 340,
-    "Build & Tooling": 461,
-    "Combat": 322,
     "Extraction": 122,
-    "Persistence & Backend": 190,
     "Documentation": 355,
     "Networking & Sessions": 259,
     "World & Visibility": 120,
@@ -42,25 +42,25 @@
   },
   "canonical": {
     "sections": {
+      "Features": 475,
       "Documentation": 94,
       "Refactoring": 27,
       "Bug Fixes": 105,
-      "Features": 474,
       "Maintenance": 12,
       "Other Changes": 162,
       "Tests": 29,
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "UI": 281,
-      "Art & Animation": 220,
-      "Tests": 547,
+      "Combat": 321,
+      "Inventory & Loot": 341,
+      "UI": 282,
+      "Persistence & Backend": 191,
+      "Art & Animation": 221,
+      "Build & Tooling": 460,
+      "Tests": 548,
       "Abilities": 114,
-      "Inventory & Loot": 340,
-      "Build & Tooling": 459,
-      "Combat": 320,
       "Extraction": 122,
-      "Persistence & Backend": 190,
       "Documentation": 353,
       "Networking & Sessions": 259,
       "World & Visibility": 118,
@@ -34099,8 +34099,8 @@
       "title": "2026-11 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 39,
-      "canonicalEntries": 39
+      "originalCommits": 40,
+      "canonicalEntries": 40
     },
     {
       "key": "history-2026-10",
@@ -34136,6 +34136,361 @@
     }
   ],
   "commits": [
+    {
+      "sha": "bada9b0a4fac2f79a9ad338a591a7efb14f33051",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/bada9b0a4fac2f79a9ad338a591a7efb14f33051",
+      "subject": "feat(equipment): add provisional gems and weapon gem installation",
+      "body": "Add the pure part of TASK-283: gems that can be installed in weapon\ninstance sockets, their flat damage bonus and its presentation. Inventory\ndrag and drop, stack consumption, persistence, replication and runtime\ncombat use remain blocked: weapon instances are not yet carried by\nInventory, Stash, Equipment or the backend (PlayerCombatArchitecture\nsection 3), so WeaponInstanceModifiers is still not an active runtime\nsource.\n\n- GemDefinition holds a positive DamageBonus. LootDefinition gains an\n  optional GemDefinition, valid only on Resource loot.\n- WeaponInstanceModifiers.TryInstallGem fills the lowest empty socket\n  permanently. It rejects null or non-gem loot, weapons without sockets\n  and full weapons with a WeaponGemInstallFailure, leaving the weapon\n  unchanged.\n- WeaponGemDamageBonusResolver sums installed gems through the loot\n  catalog and fails on gems the catalog cannot resolve.\n- WeaponDamageCalculator adds the gem bonus to base damage before\n  scaling: floor((Base + Gems) * (1 + sum of contributions)). The\n  existing overload delegates with a zero bonus.\n- The instance tooltip overload now takes the loot catalog, lists\n  installed gem names per socket (\"Ranuras: 2 (Ruby Gem, vacía)\"), shows\n  \"Bono de gemas: +N\" and reports invalid configuration for unresolvable\n  gems.\n\nProvisional content until GD-25: GEM_ATTUNEMENT, GEM_RUBY and\nGEM_SAPPHIRE each grant +5 damage regardless of damage type.\nRES_ATTUNEMENT_GEM references its gem; new RES_RUBY_GEM and\nRES_SAPPHIRE_GEM copy its values and sprite and are registered in\nLootDefinitionCatalog and RaidLootValueCatalog (placeholder 100). Saving\nRES_ATTUNEMENT_GEM also reserialized its stale _equipmentVisualDefinition\nand _defenseSprites fields to the current schema.\n\nTests: WeaponGemInstallationTests (new); gem cases in\nWeaponDamageCalculatorTests, LootDefinitionTests, MvpItemCatalogTests\nand EquipmentTooltipPresentationBuilderTests, including a check that the\ntooltip damage equals the calculator result.\n\nRefs: TASK-283\n",
+      "date": "2026-11-04T14:32:58-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ATTUNEMENT_GEM.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_RUBY_GEM.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_RUBY_GEM.asset.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SAPPHIRE_GEM.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SAPPHIRE_GEM.asset.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Gems.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_ATTUNEMENT.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_ATTUNEMENT.asset.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_RUBY.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_RUBY.asset.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_SAPPHIRE.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_SAPPHIRE.asset.meta",
+        "Project Grimhold/Assets/Scriptable Objects/RaidLootValueCatalog.asset",
+        "Project Grimhold/Assets/Scripts/Combat/WeaponDamageCalculator.cs",
+        "Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/GemDefinition.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/GemDefinition.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemDamageBonusResolver.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemDamageBonusResolver.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemInstallFailure.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemInstallFailure.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiers.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentationBuilder.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponDamageCalculatorTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs"
+      ],
+      "originalType": "feat",
+      "originalScope": "equipment",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "UI",
+        "Persistence & Backend",
+        "Art & Animation",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/WeaponDamageCalculator.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemDamageBonusResolver.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemDamageBonusResolver.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemInstallFailure.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemInstallFailure.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiers.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponDamageCalculatorTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ATTUNEMENT_GEM.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_RUBY_GEM.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_RUBY_GEM.asset.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SAPPHIRE_GEM.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SAPPHIRE_GEM.asset.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Gems.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_ATTUNEMENT.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_ATTUNEMENT.asset.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_RUBY.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_RUBY.asset.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_SAPPHIRE.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_SAPPHIRE.asset.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/RaidLootValueCatalog.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/GemDefinition.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/GemDefinition.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemDamageBonusResolver.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemDamageBonusResolver.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemInstallFailure.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemInstallFailure.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiers.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentationBuilder.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentationBuilder.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "tooltip",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "persistence",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "sprite",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponDamageCalculatorTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponDamageCalculatorTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "0c88bc81ab092de384b7c394c433ee4569f08c47",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0c88bc81ab092de384b7c394c433ee4569f08c47",

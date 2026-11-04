@@ -4,32 +4,190 @@
 
 Release: Unreleased
 
-39 original commits; 39 canonical entries.
+40 original commits; 40 canonical entries.
 
 ## Canonical classification
 
-20 features; 12 bug fixes; 1 refactoring; 4 documentation; 1 maintenance; 1 other changes
+21 features; 12 bug fixes; 1 refactoring; 4 documentation; 1 maintenance; 1 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 3 | 6 | 1 | 0 | 1 | 1 |
-| Art & Animation | 7 | 6 | 1 | 0 | 2 | 0 |
+| Art & Animation | 8 | 6 | 1 | 0 | 2 | 0 |
 | Audio | 5 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 15 | 7 | 1 | 0 | 1 | 1 |
-| Combat | 9 | 1 | 0 | 0 | 0 | 0 |
+| Build & Tooling | 16 | 7 | 1 | 0 | 1 | 1 |
+| Combat | 10 | 1 | 0 | 0 | 0 | 0 |
 | Documentation | 10 | 6 | 0 | 0 | 1 | 0 |
 | Extraction | 2 | 0 | 0 | 0 | 1 | 0 |
 | Input | 1 | 0 | 0 | 0 | 0 | 0 |
-| Inventory & Loot | 13 | 11 | 1 | 0 | 1 | 0 |
+| Inventory & Loot | 14 | 11 | 1 | 0 | 1 | 0 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 4 | 1 | 0 | 0 | 0 | 0 |
-| Persistence & Backend | 4 | 0 | 0 | 0 | 1 | 0 |
-| Tests | 19 | 11 | 1 | 0 | 2 | 0 |
-| UI | 11 | 3 | 1 | 0 | 3 | 0 |
+| Persistence & Backend | 5 | 0 | 0 | 0 | 1 | 0 |
+| Tests | 20 | 11 | 1 | 0 | 2 | 0 |
+| UI | 12 | 3 | 1 | 0 | 3 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 1 | 0 |
 | World & Visibility | 7 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### bada9b0a4fac2f79a9ad338a591a7efb14f33051
+
+[bada9b0a4fac2f79a9ad338a591a7efb14f33051](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/bada9b0a4fac2f79a9ad338a591a7efb14f33051)
+
+Date: 2026-11-04T14:32:58-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, UI, Persistence & Backend, Art & Animation, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(equipment): add provisional gems and weapon gem installation
+```
+
+#### Original body
+
+```text
+Add the pure part of TASK-283: gems that can be installed in weapon
+instance sockets, their flat damage bonus and its presentation. Inventory
+drag and drop, stack consumption, persistence, replication and runtime
+combat use remain blocked: weapon instances are not yet carried by
+Inventory, Stash, Equipment or the backend (PlayerCombatArchitecture
+section 3), so WeaponInstanceModifiers is still not an active runtime
+source.
+
+- GemDefinition holds a positive DamageBonus. LootDefinition gains an
+  optional GemDefinition, valid only on Resource loot.
+- WeaponInstanceModifiers.TryInstallGem fills the lowest empty socket
+  permanently. It rejects null or non-gem loot, weapons without sockets
+  and full weapons with a WeaponGemInstallFailure, leaving the weapon
+  unchanged.
+- WeaponGemDamageBonusResolver sums installed gems through the loot
+  catalog and fails on gems the catalog cannot resolve.
+- WeaponDamageCalculator adds the gem bonus to base damage before
+  scaling: floor((Base + Gems) * (1 + sum of contributions)). The
+  existing overload delegates with a zero bonus.
+- The instance tooltip overload now takes the loot catalog, lists
+  installed gem names per socket ("Ranuras: 2 (Ruby Gem, vacía)"), shows
+  "Bono de gemas: +N" and reports invalid configuration for unresolvable
+  gems.
+
+Provisional content until GD-25: GEM_ATTUNEMENT, GEM_RUBY and
+GEM_SAPPHIRE each grant +5 damage regardless of damage type.
+RES_ATTUNEMENT_GEM references its gem; new RES_RUBY_GEM and
+RES_SAPPHIRE_GEM copy its values and sprite and are registered in
+LootDefinitionCatalog and RaidLootValueCatalog (placeholder 100). Saving
+RES_ATTUNEMENT_GEM also reserialized its stale _equipmentVisualDefinition
+and _defenseSprites fields to the current schema.
+
+Tests: WeaponGemInstallationTests (new); gem cases in
+WeaponDamageCalculatorTests, LootDefinitionTests, MvpItemCatalogTests
+and EquipmentTooltipPresentationBuilderTests, including a check that the
+tooltip damage equals the calculator result.
+
+Refs: TASK-283
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_ATTUNEMENT_GEM.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_RUBY_GEM.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_RUBY_GEM.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SAPPHIRE_GEM.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES_SAPPHIRE_GEM.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Gems.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_ATTUNEMENT.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_ATTUNEMENT.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_RUBY.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_RUBY.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_SAPPHIRE.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM_SAPPHIRE.asset.meta
+Project Grimhold/Assets/Scriptable Objects/RaidLootValueCatalog.asset
+Project Grimhold/Assets/Scripts/Combat/WeaponDamageCalculator.cs
+Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs
+Project Grimhold/Assets/Scripts/Player/Equipment/GemDefinition.cs
+Project Grimhold/Assets/Scripts/Player/Equipment/GemDefinition.cs.meta
+Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemDamageBonusResolver.cs
+Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemDamageBonusResolver.cs.meta
+Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemInstallFailure.cs
+Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemInstallFailure.cs.meta
+Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiers.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentationBuilder.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponDamageCalculatorTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/WeaponDamageCalculator.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemDamageBonusResolver.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemDamageBonusResolver.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemInstallFailure.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemInstallFailure.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiers.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponDamageCalculatorTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs.meta
+- message-term → Combat: weapon
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_ATTUNEMENT\_GEM.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_RUBY\_GEM.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_RUBY\_GEM.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SAPPHIRE\_GEM.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/RES\_SAPPHIRE\_GEM.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Gems.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM\_ATTUNEMENT.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM\_ATTUNEMENT.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM\_RUBY.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM\_RUBY.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM\_SAPPHIRE.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Gems/GEM\_SAPPHIRE.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/RaidLootValueCatalog.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Equipment/GemDefinition.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Equipment/GemDefinition.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemDamageBonusResolver.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemDamageBonusResolver.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemInstallFailure.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemInstallFailure.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiers.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentationBuilder.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs
+- scope → Inventory &amp; Loot: equipment
+- message-term → Inventory &amp; Loot: equipment
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentationBuilder.cs
+- path → UI: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs
+- message-term → UI: tooltip
+- message-term → Persistence &amp; Backend: persistence
+- message-term → Art &amp; Animation: sprite
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponDamageCalculatorTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponDamageCalculatorTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemInstallationTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 0c88bc81ab092de384b7c394c433ee4569f08c47
 
