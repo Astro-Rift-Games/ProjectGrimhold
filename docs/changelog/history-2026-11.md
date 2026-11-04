@@ -4,32 +4,482 @@
 
 Release: Unreleased
 
-34 original commits; 34 canonical entries.
+39 original commits; 39 canonical entries.
 
 ## Canonical classification
 
-19 features; 10 bug fixes; 3 documentation; 1 maintenance; 1 other changes
+20 features; 12 bug fixes; 1 refactoring; 4 documentation; 1 maintenance; 1 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Abilities | 2 | 6 | 0 | 0 | 1 | 1 |
-| Art & Animation | 6 | 4 | 0 | 0 | 1 | 0 |
+| Abilities | 3 | 6 | 1 | 0 | 1 | 1 |
+| Art & Animation | 7 | 6 | 1 | 0 | 2 | 0 |
 | Audio | 5 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 14 | 6 | 0 | 0 | 1 | 1 |
-| Combat | 8 | 0 | 0 | 0 | 0 | 0 |
+| Build & Tooling | 15 | 7 | 1 | 0 | 1 | 1 |
+| Combat | 9 | 1 | 0 | 0 | 0 | 0 |
 | Documentation | 10 | 6 | 0 | 0 | 1 | 0 |
 | Extraction | 2 | 0 | 0 | 0 | 1 | 0 |
 | Input | 1 | 0 | 0 | 0 | 0 | 0 |
-| Inventory & Loot | 12 | 10 | 0 | 0 | 1 | 0 |
+| Inventory & Loot | 13 | 11 | 1 | 0 | 1 | 0 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 4 | 1 | 0 | 0 | 0 | 0 |
 | Persistence & Backend | 4 | 0 | 0 | 0 | 1 | 0 |
-| Tests | 18 | 9 | 0 | 0 | 1 | 0 |
-| UI | 10 | 3 | 0 | 0 | 2 | 0 |
+| Tests | 19 | 11 | 1 | 0 | 2 | 0 |
+| UI | 11 | 3 | 1 | 0 | 3 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 1 | 0 |
 | World & Visibility | 7 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 0c88bc81ab092de384b7c394c433ee4569f08c47
+
+[0c88bc81ab092de384b7c394c433ee4569f08c47](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0c88bc81ab092de384b7c394c433ee4569f08c47)
+
+Date: 2026-11-04T02:43:38-03:00 · Classification: Documentation (explicit) · Systems: UI, Art & Animation, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(odd): record sprite integration and pending Editor checks
+```
+
+#### Original body
+
+```text
+Record the four retained work units and conflict-free New-Testing merge.
+Preserve the owner stash and intentional minimap cache exclusion.
+
+Distinguish passing pre-merge tests from unavailable post-merge Unity
+checks; the Editor session must be reconnected to complete those checks.
+```
+
+#### Changed paths
+
+```text
+odd/tasks/consumables-utilities-delivery.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+- message-term → UI: minimap
+- message-term → Art &amp; Animation: sprite
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 50a6daa375aead0fbf6e71b18715eba75959fe60
+
+[50a6daa375aead0fbf6e71b18715eba75959fe60](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/50a6daa375aead0fbf6e71b18715eba75959fe60)
+
+Date: 2026-11-04T02:32:33-03:00 · Classification: Refactoring (explicit) · Systems: Abilities, Inventory & Loot, UI, Art & Animation, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+refactor(ui): consolidate player HUD and retain inventory corrections
+```
+
+#### Original body
+
+```text
+Preserve the authored migration of downed, ability and quick-slot
+presentation into the nested local HUD, with player references updated
+together. Retain the inventory icon and label layout corrections and
+the selected generated font glyph cache.
+
+Resolve HUD geometry in a temporary Canvas before checking the driven
+minimap size and compass separation. Keep all assertions and cover both
+1920x1080 and 1440x1080 layouts. The expanded relevant EditMode selection
+passes all seventy-nine cases.
+
+Player-Improved: Inventory item icons and labels are easier to read.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset
+Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab
+Project Grimhold/Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab
+Project Grimhold/Assets/Prefabs/UI/RaidInventorySlot.prefab
+Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidHudStylePassPrefabTests.cs
+```
+
+#### Classification evidence
+
+- type → Refactoring: refactor
+- message-term → Abilities: ability
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/UI/RaidInventorySlot.prefab
+- message-term → Inventory &amp; Loot: inventory
+- path → UI: Project Grimhold/Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab
+- path → UI: Project Grimhold/Assets/Prefabs/UI/RaidInventorySlot.prefab
+- path → UI: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidHudStylePassPrefabTests.cs
+- scope → UI: ui
+- message-term → UI: ui
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidHudStylePassPrefabTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidHudStylePassPrefabTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### dd878762fb7ce202579c8691d27fc79501704f04
+
+[dd878762fb7ce202579c8691d27fc79501704f04](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/dd878762fb7ce202579c8691d27fc79501704f04)
+
+Date: 2026-11-04T02:32:33-03:00 · Classification: Bug Fixes (explicit) · Systems: Combat, Art & Animation, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(consumables): align the throwing dagger tip with its flight
+```
+
+#### Original body
+
+```text
+Adjust only the projectile visual basis from -90 to -45 degrees for
+the supplied diagonal artwork. Preserve its existing sprite selection,
+physics root and trajectory.
+
+Add eight directional prefab alignment cases. The owner confirmed the
+result in game; all cases pass in Unity.
+
+Player-Fixed: The throwing dagger points toward its direction of travel.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Prefabs/Consumables/ThrowingDaggerProjectile.prefab
+Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowingDaggerProjectilePrefabTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowingDaggerProjectilePrefabTests.cs.meta
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Combat: Project Grimhold/Assets/Prefabs/Consumables/ThrowingDaggerProjectile.prefab
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowingDaggerProjectilePrefabTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowingDaggerProjectilePrefabTests.cs.meta
+- message-term → Combat: projectile
+- message-term → Art &amp; Animation: sprite
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowingDaggerProjectilePrefabTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowingDaggerProjectilePrefabTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowingDaggerProjectilePrefabTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Consumables/ThrowingDaggerProjectilePrefabTests.cs.meta
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 9a1c35cf7def67ab73e8b3223259fd1617efc0b8
+
+[9a1c35cf7def67ab73e8b3223259fd1617efc0b8](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9a1c35cf7def67ab73e8b3223259fd1617efc0b8)
+
+Date: 2026-11-04T02:32:33-03:00 · Classification: Bug Fixes (explicit) · Systems: Inventory & Loot, Art & Animation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(loot): synchronize cached pickup world sprites
+```
+
+#### Original body
+
+```text
+Refresh a resolved pickup when its renderer still shows a different
+sprite. Cached definition identity alone no longer skips presentation.
+
+Add a real Fusion spawn regression for preset and overridden content,
+including quantity, provenance and sorting preservation. All seven
+focused pickup PlayMode cases pass after the observed sprite failure.
+
+Player-Fixed: Dropped items display their correct world sprite instead of the prefab placeholder.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs
+Project Grimhold/Assets/Tests/PlayMode/NetworkLootPickupPartialPickupPlayModeTests.cs
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/NetworkLootPickupPartialPickupPlayModeTests.cs
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- message-term → Art &amp; Animation: sprites
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/NetworkLootPickupPartialPickupPlayModeTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### fd1e2a4093e44d515e322a9e6d874cfd08029e55
+
+[fd1e2a4093e44d515e322a9e6d874cfd08029e55](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/fd1e2a4093e44d515e322a9e6d874cfd08029e55)
+
+Date: 2026-11-04T02:32:33-03:00 · Classification: Features (explicit) · Systems: Combat, Abilities, Inventory & Loot, UI, Art & Animation, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(art): integrate consumable and utility sprites
+```
+
+#### Original body
+
+```text
+Import all thirty supplied variants with 16 PPU, Point filtering and
+no compression. Bind the ten existing item definitions to their world
+sprites and UI icons, and update the explosive bomb visual.
+
+Add ten asset cases for exact references, import settings and catalog
+registration. The serialized ally damage multiplier matches its existing
+default of one. Interactable variants are imported, not behavior-wired.
+
+Player-Improved: Consumables and utilities have distinct world sprites and inventory icons.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Art/Consumables & Utilities.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ArcaneDetector.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ArcaneDetector/ArcaneDetector.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ArcaneDetector/ArcaneDetector/UTL_ARCANE_DETECTOR-Base.png
+Project Grimhold/Assets/Art/Consumables & Utilities/ArcaneDetector/ArcaneDetector/UTL_ARCANE_DETECTOR-Base.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ArcaneDetector/ArcaneDetector/UTL_ARCANE_DETECTOR-Icon.png
+Project Grimhold/Assets/Art/Consumables & Utilities/ArcaneDetector/ArcaneDetector/UTL_ARCANE_DETECTOR-Icon.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ArcaneDetector/ArcaneDetector/UTL_ARCANE_DETECTOR-Interactable.png
+Project Grimhold/Assets/Art/Consumables & Utilities/ArcaneDetector/ArcaneDetector/UTL_ARCANE_DETECTOR-Interactable.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ExplosiveBomb.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ExplosiveBomb/ExplosiveBomb.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ExplosiveBomb/ExplosiveBomb/CON_EXPLOSIVE_BOMB-Base.png
+Project Grimhold/Assets/Art/Consumables & Utilities/ExplosiveBomb/ExplosiveBomb/CON_EXPLOSIVE_BOMB-Base.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ExplosiveBomb/ExplosiveBomb/CON_EXPLOSIVE_BOMB-Icon.png
+Project Grimhold/Assets/Art/Consumables & Utilities/ExplosiveBomb/ExplosiveBomb/CON_EXPLOSIVE_BOMB-Icon.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ExplosiveBomb/ExplosiveBomb/CON_EXPLOSIVE_BOMB-Interactable.png
+Project Grimhold/Assets/Art/Consumables & Utilities/ExplosiveBomb/ExplosiveBomb/CON_EXPLOSIVE_BOMB-Interactable.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/HealthPotion.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/HealthPotion/HealthPotion.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/HealthPotion/HealthPotion/CON_HEALTH_POTION-Base.png
+Project Grimhold/Assets/Art/Consumables & Utilities/HealthPotion/HealthPotion/CON_HEALTH_POTION-Base.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/HealthPotion/HealthPotion/CON_HEALTH_POTION-Icon.png
+Project Grimhold/Assets/Art/Consumables & Utilities/HealthPotion/HealthPotion/CON_HEALTH_POTION-Icon.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/HealthPotion/HealthPotion/CON_HEALTH_POTION-Interactable.png
+Project Grimhold/Assets/Art/Consumables & Utilities/HealthPotion/HealthPotion/CON_HEALTH_POTION-Interactable.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/Lockpick.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/Lockpick/Lockpick.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/Lockpick/Lockpick/CON_LOCKPICK-Base.png
+Project Grimhold/Assets/Art/Consumables & Utilities/Lockpick/Lockpick/CON_LOCKPICK-Base.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/Lockpick/Lockpick/CON_LOCKPICK-Icon.png
+Project Grimhold/Assets/Art/Consumables & Utilities/Lockpick/Lockpick/CON_LOCKPICK-Icon.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/Lockpick/Lockpick/CON_LOCKPICK-Interactable.png
+Project Grimhold/Assets/Art/Consumables & Utilities/Lockpick/Lockpick/CON_LOCKPICK-Interactable.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ManaFragment.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ManaFragment/ManaFragment.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ManaFragment/ManaFragment/CON_MANA_FRAGMENT-Base.png
+Project Grimhold/Assets/Art/Consumables & Utilities/ManaFragment/ManaFragment/CON_MANA_FRAGMENT-Base.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ManaFragment/ManaFragment/CON_MANA_FRAGMENT-Icon.png
+Project Grimhold/Assets/Art/Consumables & Utilities/ManaFragment/ManaFragment/CON_MANA_FRAGMENT-Icon.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ManaFragment/ManaFragment/CON_MANA_FRAGMENT-Interactable.png
+Project Grimhold/Assets/Art/Consumables & Utilities/ManaFragment/ManaFragment/CON_MANA_FRAGMENT-Interactable.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ManaPotion.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ManaPotion/ManaPotion.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ManaPotion/ManaPotion/CON_MANA_POTION-Base.png
+Project Grimhold/Assets/Art/Consumables & Utilities/ManaPotion/ManaPotion/CON_MANA_POTION-Base.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ManaPotion/ManaPotion/CON_MANA_POTION-Icon.png
+Project Grimhold/Assets/Art/Consumables & Utilities/ManaPotion/ManaPotion/CON_MANA_POTION-Icon.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ManaPotion/ManaPotion/CON_MANA_POTION-Interactable.png
+Project Grimhold/Assets/Art/Consumables & Utilities/ManaPotion/ManaPotion/CON_MANA_POTION-Interactable.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/RuneCompass.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/RuneCompass/RuneCompass.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/RuneCompass/RuneCompass/UTL_RUNE_COMPASS-Base.png
+Project Grimhold/Assets/Art/Consumables & Utilities/RuneCompass/RuneCompass/UTL_RUNE_COMPASS-Base.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/RuneCompass/RuneCompass/UTL_RUNE_COMPASS-Icon.png
+Project Grimhold/Assets/Art/Consumables & Utilities/RuneCompass/RuneCompass/UTL_RUNE_COMPASS-Icon.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/RuneCompass/RuneCompass/UTL_RUNE_COMPASS-Interactable.png
+Project Grimhold/Assets/Art/Consumables & Utilities/RuneCompass/RuneCompass/UTL_RUNE_COMPASS-Interactable.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/SelfRevive.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/SelfRevive/SelfRevive.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/SelfRevive/SelfRevive/CON_SELF_REVIVE-Base.png
+Project Grimhold/Assets/Art/Consumables & Utilities/SelfRevive/SelfRevive/CON_SELF_REVIVE-Base.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/SelfRevive/SelfRevive/CON_SELF_REVIVE-Icon.png
+Project Grimhold/Assets/Art/Consumables & Utilities/SelfRevive/SelfRevive/CON_SELF_REVIVE-Icon.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/SelfRevive/SelfRevive/CON_SELF_REVIVE-Interactable.png
+Project Grimhold/Assets/Art/Consumables & Utilities/SelfRevive/SelfRevive/CON_SELF_REVIVE-Interactable.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/SmokeBomb.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/SmokeBomb/SmokeBomb.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/SmokeBomb/SmokeBomb/CON_SMOKE_BOMB-Base.png
+Project Grimhold/Assets/Art/Consumables & Utilities/SmokeBomb/SmokeBomb/CON_SMOKE_BOMB-Base.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/SmokeBomb/SmokeBomb/CON_SMOKE_BOMB-Icon.png
+Project Grimhold/Assets/Art/Consumables & Utilities/SmokeBomb/SmokeBomb/CON_SMOKE_BOMB-Icon.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/SmokeBomb/SmokeBomb/CON_SMOKE_BOMB-Interactable.png
+Project Grimhold/Assets/Art/Consumables & Utilities/SmokeBomb/SmokeBomb/CON_SMOKE_BOMB-Interactable.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ThrowingDagger.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ThrowingDagger/ThrowingDagger.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ThrowingDagger/ThrowingDagger/CON_THROWING_DAGGER-Base.png
+Project Grimhold/Assets/Art/Consumables & Utilities/ThrowingDagger/ThrowingDagger/CON_THROWING_DAGGER-Base.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ThrowingDagger/ThrowingDagger/CON_THROWING_DAGGER-Icon.png
+Project Grimhold/Assets/Art/Consumables & Utilities/ThrowingDagger/ThrowingDagger/CON_THROWING_DAGGER-Icon.png.meta
+Project Grimhold/Assets/Art/Consumables & Utilities/ThrowingDagger/ThrowingDagger/CON_THROWING_DAGGER-Interactable.png
+Project Grimhold/Assets/Art/Consumables & Utilities/ThrowingDagger/ThrowingDagger/CON_THROWING_DAGGER-Interactable.png.meta
+Project Grimhold/Assets/Prefabs/Consumables/ExplosiveBomb.prefab
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_EXPLOSIVE_BOMB.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_HEALTH_POTION.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_LOCKPICK.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_MANA_FRAGMENT.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_MANA_POTION.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_SELF_REVIVE.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_SMOKE_BOMB.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON_THROWING_DAGGER.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_ARCANE_DETECTOR.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL_RUNE_COMPASS.asset
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs.meta
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Art/Consumables &amp; Utilities/HealthPotion.meta
+- path → Combat: Project Grimhold/Assets/Art/Consumables &amp; Utilities/HealthPotion/HealthPotion.meta
+- path → Combat: Project Grimhold/Assets/Art/Consumables &amp; Utilities/HealthPotion/HealthPotion/CON\_HEALTH\_POTION-Base.png
+- path → Combat: Project Grimhold/Assets/Art/Consumables &amp; Utilities/HealthPotion/HealthPotion/CON\_HEALTH\_POTION-Base.png.meta
+- path → Combat: Project Grimhold/Assets/Art/Consumables &amp; Utilities/HealthPotion/HealthPotion/CON\_HEALTH\_POTION-Icon.png
+- path → Combat: Project Grimhold/Assets/Art/Consumables &amp; Utilities/HealthPotion/HealthPotion/CON\_HEALTH\_POTION-Icon.png.meta
+- path → Combat: Project Grimhold/Assets/Art/Consumables &amp; Utilities/HealthPotion/HealthPotion/CON\_HEALTH\_POTION-Interactable.png
+- path → Combat: Project Grimhold/Assets/Art/Consumables &amp; Utilities/HealthPotion/HealthPotion/CON\_HEALTH\_POTION-Interactable.png.meta
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_HEALTH\_POTION.asset
+- message-term → Combat: damage
+- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_EXPLOSIVE\_BOMB.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_HEALTH\_POTION.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_LOCKPICK.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_MANA\_FRAGMENT.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_MANA\_POTION.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_SELF\_REVIVE.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_SMOKE\_BOMB.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/CON\_THROWING\_DAGGER.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_ARCANE\_DETECTOR.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/UTL\_RUNE\_COMPASS.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs.meta
+- message-term → Inventory &amp; Loot: inventory
+- message-term → UI: UI
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ArcaneDetector.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ArcaneDetector/ArcaneDetector.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ArcaneDetector/ArcaneDetector/UTL\_ARCANE\_DETECTOR-Base.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ArcaneDetector/ArcaneDetector/UTL\_ARCANE\_DETECTOR-Base.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ArcaneDetector/ArcaneDetector/UTL\_ARCANE\_DETECTOR-Icon.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ArcaneDetector/ArcaneDetector/UTL\_ARCANE\_DETECTOR-Icon.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ArcaneDetector/ArcaneDetector/UTL\_ARCANE\_DETECTOR-Interactable.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ArcaneDetector/ArcaneDetector/UTL\_ARCANE\_DETECTOR-Interactable.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ExplosiveBomb.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ExplosiveBomb/ExplosiveBomb.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ExplosiveBomb/ExplosiveBomb/CON\_EXPLOSIVE\_BOMB-Base.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ExplosiveBomb/ExplosiveBomb/CON\_EXPLOSIVE\_BOMB-Base.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ExplosiveBomb/ExplosiveBomb/CON\_EXPLOSIVE\_BOMB-Icon.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ExplosiveBomb/ExplosiveBomb/CON\_EXPLOSIVE\_BOMB-Icon.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ExplosiveBomb/ExplosiveBomb/CON\_EXPLOSIVE\_BOMB-Interactable.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ExplosiveBomb/ExplosiveBomb/CON\_EXPLOSIVE\_BOMB-Interactable.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/HealthPotion.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/HealthPotion/HealthPotion.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/HealthPotion/HealthPotion/CON\_HEALTH\_POTION-Base.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/HealthPotion/HealthPotion/CON\_HEALTH\_POTION-Base.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/HealthPotion/HealthPotion/CON\_HEALTH\_POTION-Icon.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/HealthPotion/HealthPotion/CON\_HEALTH\_POTION-Icon.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/HealthPotion/HealthPotion/CON\_HEALTH\_POTION-Interactable.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/HealthPotion/HealthPotion/CON\_HEALTH\_POTION-Interactable.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/Lockpick.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/Lockpick/Lockpick.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/Lockpick/Lockpick/CON\_LOCKPICK-Base.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/Lockpick/Lockpick/CON\_LOCKPICK-Base.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/Lockpick/Lockpick/CON\_LOCKPICK-Icon.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/Lockpick/Lockpick/CON\_LOCKPICK-Icon.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/Lockpick/Lockpick/CON\_LOCKPICK-Interactable.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/Lockpick/Lockpick/CON\_LOCKPICK-Interactable.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ManaFragment.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ManaFragment/ManaFragment.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ManaFragment/ManaFragment/CON\_MANA\_FRAGMENT-Base.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ManaFragment/ManaFragment/CON\_MANA\_FRAGMENT-Base.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ManaFragment/ManaFragment/CON\_MANA\_FRAGMENT-Icon.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ManaFragment/ManaFragment/CON\_MANA\_FRAGMENT-Icon.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ManaFragment/ManaFragment/CON\_MANA\_FRAGMENT-Interactable.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ManaFragment/ManaFragment/CON\_MANA\_FRAGMENT-Interactable.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ManaPotion.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ManaPotion/ManaPotion.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ManaPotion/ManaPotion/CON\_MANA\_POTION-Base.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ManaPotion/ManaPotion/CON\_MANA\_POTION-Base.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ManaPotion/ManaPotion/CON\_MANA\_POTION-Icon.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ManaPotion/ManaPotion/CON\_MANA\_POTION-Icon.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ManaPotion/ManaPotion/CON\_MANA\_POTION-Interactable.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ManaPotion/ManaPotion/CON\_MANA\_POTION-Interactable.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/RuneCompass.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/RuneCompass/RuneCompass.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/RuneCompass/RuneCompass/UTL\_RUNE\_COMPASS-Base.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/RuneCompass/RuneCompass/UTL\_RUNE\_COMPASS-Base.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/RuneCompass/RuneCompass/UTL\_RUNE\_COMPASS-Icon.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/RuneCompass/RuneCompass/UTL\_RUNE\_COMPASS-Icon.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/RuneCompass/RuneCompass/UTL\_RUNE\_COMPASS-Interactable.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/RuneCompass/RuneCompass/UTL\_RUNE\_COMPASS-Interactable.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/SelfRevive.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/SelfRevive/SelfRevive.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/SelfRevive/SelfRevive/CON\_SELF\_REVIVE-Base.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/SelfRevive/SelfRevive/CON\_SELF\_REVIVE-Base.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/SelfRevive/SelfRevive/CON\_SELF\_REVIVE-Icon.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/SelfRevive/SelfRevive/CON\_SELF\_REVIVE-Icon.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/SelfRevive/SelfRevive/CON\_SELF\_REVIVE-Interactable.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/SelfRevive/SelfRevive/CON\_SELF\_REVIVE-Interactable.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/SmokeBomb.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/SmokeBomb/SmokeBomb.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/SmokeBomb/SmokeBomb/CON\_SMOKE\_BOMB-Base.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/SmokeBomb/SmokeBomb/CON\_SMOKE\_BOMB-Base.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/SmokeBomb/SmokeBomb/CON\_SMOKE\_BOMB-Icon.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/SmokeBomb/SmokeBomb/CON\_SMOKE\_BOMB-Icon.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/SmokeBomb/SmokeBomb/CON\_SMOKE\_BOMB-Interactable.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/SmokeBomb/SmokeBomb/CON\_SMOKE\_BOMB-Interactable.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ThrowingDagger.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ThrowingDagger/ThrowingDagger.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ThrowingDagger/ThrowingDagger/CON\_THROWING\_DAGGER-Base.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ThrowingDagger/ThrowingDagger/CON\_THROWING\_DAGGER-Base.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ThrowingDagger/ThrowingDagger/CON\_THROWING\_DAGGER-Icon.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ThrowingDagger/ThrowingDagger/CON\_THROWING\_DAGGER-Icon.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ThrowingDagger/ThrowingDagger/CON\_THROWING\_DAGGER-Interactable.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Consumables &amp; Utilities/ThrowingDagger/ThrowingDagger/CON\_THROWING\_DAGGER-Interactable.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Art &amp; Animation: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs.meta
+- scope → Art &amp; Animation: art
+- message-term → Art &amp; Animation: sprites
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs.meta
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### b4dfeabab36f58accbd4eb9b5efe8e5b686cf65c
 
