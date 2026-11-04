@@ -418,6 +418,72 @@ namespace Tests.EditMode.Loot
             }
         }
 
+        [Test]
+        public void ResourceCategory_WithValidGemDefinition_PassesValidationAndExposesIt()
+        {
+            GemDefinition gem = CreateGemDefinition(5);
+            try
+            {
+                SetValidDefaults();
+                SetField("_category", LootCategory.Resource);
+                SetField("_gemDefinition", gem);
+
+                Assert.That(_loot.TryValidate(out string error), Is.True, error);
+                Assert.That(_loot.GemDefinition, Is.SameAs(gem));
+                Assert.That(gem.DamageBonus, Is.EqualTo(5));
+            }
+            finally
+            {
+                Object.DestroyImmediate(gem);
+            }
+        }
+
+        [Test]
+        public void NonResourceCategory_WithGemDefinition_FailsValidation()
+        {
+            GemDefinition gem = CreateGemDefinition(5);
+            try
+            {
+                SetValidDefaults();
+                SetField("_category", LootCategory.Valuable);
+                SetField("_gemDefinition", gem);
+
+                Assert.That(_loot.TryValidate(out string error), Is.False);
+                Assert.That(error, Does.Contain("GemDefinition"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(gem);
+            }
+        }
+
+        [TestCase(0)]
+        [TestCase(-5)]
+        public void GemDefinition_WithNonPositiveDamageBonus_FailsValidation(int damageBonus)
+        {
+            GemDefinition gem = CreateGemDefinition(damageBonus);
+            try
+            {
+                SetValidDefaults();
+                SetField("_category", LootCategory.Resource);
+                SetField("_gemDefinition", gem);
+
+                Assert.That(_loot.TryValidate(out string error), Is.False);
+                Assert.That(error, Does.Contain("invalid GemDefinition"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(gem);
+            }
+        }
+
+        private static GemDefinition CreateGemDefinition(int damageBonus)
+        {
+            GemDefinition gem = ScriptableObject.CreateInstance<GemDefinition>();
+            SetPrivateField(gem, "_damageBonus", damageBonus);
+            return gem;
+        }
+
         private static ArmorDefinition CreateValidArmorDefinition()
         {
             ArmorDefinition armor = ScriptableObject.CreateInstance<ArmorDefinition>();

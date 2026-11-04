@@ -42,10 +42,10 @@ MonoBehaviour:
   _weaponDefinition: {fileID: 0}
   _shieldDefinition: {fileID: 0}
   _armorDefinition: {fileID: 0}
-  _equipmentVisualDefinition: {fileID: 0}
-  _defenseSprites:
-    _up: {fileID: 0}
-    _down: {fileID: 0}
-    _left: {fileID: 0}
-    _right: {fileID: 0}
+  _gemDefinition: {fileID: 11400000, guid: 7f19a34eb83dc6a4dad8d19c97b84209, type: 2}
+  _equipmentVisualDefinition:
+    _usesBaseSpritesAsPlaceholder: 1
+    _tint: {r: 1, g: 1, b: 1, a: 1}
+    _spriteMappings: []
+  _defenseSprites: {fileID: 0}
   _quickSlotCompatible: 0

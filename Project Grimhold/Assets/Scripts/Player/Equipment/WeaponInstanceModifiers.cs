@@ -83,6 +83,47 @@ public struct WeaponInstanceModifiers
         return true;
     }
 
+    /// <summary>
+    /// Installs a gem permanently in the lowest empty socket. A rejection leaves the instance
+    /// unchanged and returns it as <paramref name="installed"/>.
+    /// </summary>
+    public bool TryInstallGem(
+        LootDefinition gem,
+        out WeaponInstanceModifiers installed,
+        out WeaponGemInstallFailure failure)
+    {
+        installed = this;
+        if (gem == null || gem.GemDefinition == null || !gem.LootId.IsValid)
+        {
+            failure = WeaponGemInstallFailure.NotAGem;
+            return false;
+        }
+
+        if (_gemSocketCount <= 0)
+        {
+            failure = WeaponGemInstallFailure.NoGemSockets;
+            return false;
+        }
+
+        WeaponGemSocket.TryCreateOccupied(gem.LootId, out WeaponGemSocket occupied, out _);
+        if (!_firstGemSocket.IsOccupied)
+        {
+            installed._firstGemSocket = occupied;
+        }
+        else if (_gemSocketCount > 1 && !_secondGemSocket.IsOccupied)
+        {
+            installed._secondGemSocket = occupied;
+        }
+        else
+        {
+            failure = WeaponGemInstallFailure.NoEmptyGemSocket;
+            return false;
+        }
+
+        failure = WeaponGemInstallFailure.None;
+        return true;
+    }
+
     public bool TryValidate(CharacterAttribute naturalAttribute, out string error)
     {
         return TryValidateScaling(naturalAttribute, out error) && TryValidateGemSockets(out error);

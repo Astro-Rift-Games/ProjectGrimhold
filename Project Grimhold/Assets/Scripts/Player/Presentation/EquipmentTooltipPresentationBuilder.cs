@@ -44,13 +44,16 @@ public static class EquipmentTooltipPresentationBuilder
     }
 
     /// <summary>
-    /// Builds a weapon instance tooltip with its own scaling, gem sockets and the effective damage
-    /// for the supplied attributes. Non-weapon definitions use the definition-only presentation.
+    /// Builds a weapon instance tooltip with its own scaling, installed gems and the effective damage
+    /// for the supplied attributes. Installed gems resolve their name and bonus from
+    /// <paramref name="catalog"/>, which may be null only when no gem is installed.
+    /// Non-weapon definitions use the definition-only presentation.
     /// </summary>
     public static EquipmentTooltipPresentation Build(
         LootDefinition definition,
         in WeaponInstanceModifiers instance,
-        in CharacterAttributeState attributes)
+        in CharacterAttributeState attributes,
+        LootDefinitionCatalog catalog)
     {
         if (definition == null || definition.Category != LootCategory.Weapon)
         {
@@ -64,8 +67,10 @@ public static class EquipmentTooltipPresentationBuilder
                 instance,
                 weapon.NaturalScalingAttribute,
                 out WeaponScalingContributions contributions) ||
+            !WeaponGemDamageBonusResolver.TryResolve(instance, catalog, out int gemDamageBonus) ||
             !WeaponDamageCalculator.TryCalculate(
                 weapon.BaseDamage,
+                gemDamageBonus,
                 attributes,
                 contributions,
                 out float effectiveDamage))
@@ -76,7 +81,12 @@ public static class EquipmentTooltipPresentationBuilder
         StringBuilder body = BuildWeaponBaseStatistics(weapon);
         body.Append("Escalado: ");
         body.Append(FormatScaling(instance));
-        AppendLine(body, FormatGemSockets(instance));
+        AppendLine(body, FormatGemSockets(instance, catalog));
+        if (gemDamageBonus > 0)
+        {
+            AppendLine(body, $"Bono de gemas: +{gemDamageBonus}");
+        }
+
         AppendLine(body, $"Daño efectivo: {FormatNumber(effectiveDamage)}");
 
         return new EquipmentTooltipPresentation(
@@ -215,7 +225,8 @@ public static class EquipmentTooltipPresentationBuilder
     private static string FormatModifier(in WeaponScalingModifier modifier) =>
         $"{FormatAttribute(modifier.Attribute)} {modifier.Grade}";
 
-    private static string FormatGemSockets(in WeaponInstanceModifiers instance)
+    /// <summary>Lists each socket in order: the installed gem's name, or "vacía" when empty.</summary>
+    private static string FormatGemSockets(in WeaponInstanceModifiers instance, LootDefinitionCatalog catalog)
     {
         int socketCount = instance.GemSocketCount;
         if (socketCount == 0)
@@ -223,28 +234,33 @@ public static class EquipmentTooltipPresentationBuilder
             return "Ranuras: 0";
         }
 
-        int occupied = 0;
+        var sockets = new StringBuilder(48);
+        bool anyOccupied = false;
         for (int index = 0; index < socketCount; index++)
         {
-            if (instance.TryGetGemSocket(index, out WeaponGemSocket socket) && socket.IsOccupied)
+            if (index > 0)
             {
-                occupied++;
+                sockets.Append(", ");
+            }
+
+            if (instance.TryGetGemSocket(index, out WeaponGemSocket socket) && socket.IsOccupied &&
+                WeaponGemDamageBonusResolver.TryGetGemLoot(socket.GemLootId, catalog, out LootDefinition gem))
+            {
+                anyOccupied = true;
+                sockets.Append(ResolveTitle(gem));
+            }
+            else
+            {
+                sockets.Append("vacía");
             }
         }
 
-        int empty = socketCount - occupied;
-        string plural = socketCount > 1 ? "s" : string.Empty;
-        if (occupied == 0)
+        if (!anyOccupied)
         {
-            return $"Ranuras: {socketCount} (vacía{plural})";
+            return socketCount > 1 ? $"Ranuras: {socketCount} (vacías)" : "Ranuras: 1 (vacía)";
         }
 
-        if (empty == 0)
-        {
-            return $"Ranuras: {socketCount} (ocupada{plural})";
-        }
-
-        return $"Ranuras: {socketCount} ({occupied} ocupada, {empty} vacía)";
+        return $"Ranuras: {socketCount} ({sockets})";
     }
 
     private static bool TryGetExactGrade(float coefficient, out WeaponScalingGrade grade)

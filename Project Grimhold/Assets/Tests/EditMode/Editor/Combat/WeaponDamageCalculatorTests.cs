@@ -51,6 +51,49 @@ namespace Tests.EditMode.Combat
             Assert.That(result, Is.EqualTo(118f));
         }
 
+        [TestCase(30f, 10, 20, 0.85f, 46f)]
+        [TestCase(30f, 5, 0, 0.85f, 35f)]
+        [TestCase(17.5f, 5, 0, 0f, 22f)]
+        public void TryCalculate_AddsGemDamageBonusToBaseBeforeScaling(
+            float baseDamage,
+            int gemDamageBonus,
+            int strength,
+            float scalingCoefficient,
+            float expected)
+        {
+            CharacterAttributeState attributes = CreateAttributes(CharacterAttribute.Strength, strength);
+            WeaponScalingContributions contributions = scalingCoefficient > 0f
+                ? CreateContributions(CharacterAttribute.Strength, scalingCoefficient)
+                : default;
+
+            Assert.That(WeaponDamageCalculator.TryCalculate(
+                baseDamage, gemDamageBonus, attributes, contributions, out float result), Is.True);
+            Assert.That(result, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void TryCalculate_WithZeroGemBonus_MatchesTheOverloadWithoutGems()
+        {
+            CharacterAttributeState attributes = CreateAttributes(CharacterAttribute.Strength, 20);
+            WeaponScalingContributions contributions = CreateContributions(CharacterAttribute.Strength, 0.7f);
+
+            Assert.That(WeaponDamageCalculator.TryCalculate(
+                100f, 0, attributes, contributions, out float withGems), Is.True);
+            Assert.That(WeaponDamageCalculator.TryCalculate(
+                100f, attributes, contributions, out float withoutGems), Is.True);
+            Assert.That(withGems, Is.EqualTo(withoutGems));
+        }
+
+        [Test]
+        public void TryCalculate_NegativeGemBonus_IsRejected()
+        {
+            CharacterAttributeState attributes = CreateAttributes(CharacterAttribute.Strength, 20);
+
+            Assert.That(WeaponDamageCalculator.TryCalculate(
+                30f, -1, attributes, default, out float result), Is.False);
+            Assert.That(result, Is.EqualTo(0f));
+        }
+
         [TestCase(float.NaN)]
         [TestCase(float.PositiveInfinity)]
         [TestCase(-1f)]

@@ -114,6 +114,10 @@ public sealed class LootDefinition : ScriptableObject
     private ArmorDefinition _armorDefinition;
 
     [SerializeField]
+    [Tooltip("Optional effect when this loot is a gem that can be installed in a weapon gem socket.")]
+    private GemDefinition _gemDefinition;
+
+    [SerializeField]
     [Tooltip("Opcional. Configuración visual cuando este loot es una armadura o equipo visualizable.")]
     private EquipmentVisualDefinition _equipmentVisualDefinition;
 
@@ -154,6 +158,7 @@ public sealed class LootDefinition : ScriptableObject
     public WeaponDefinition WeaponDefinition => _weaponDefinition;
     public ShieldDefinition ShieldDefinition => _shieldDefinition;
     public ArmorDefinition ArmorDefinition => _armorDefinition;
+    public GemDefinition GemDefinition => _gemDefinition;
     public EquipmentVisualDefinition EquipmentVisualDefinition => _equipmentVisualDefinition;
     public DirectionalShieldSpriteSet DefenseSprites => _defenseSprites;
     public bool QuickSlotCompatible => _quickSlotCompatible;
@@ -354,6 +359,21 @@ public sealed class LootDefinition : ScriptableObject
         {
             error = $"Loot definition '{_id}' has an ArmorDefinition but its category is {_category}.";
             return false;
+        }
+
+        if (_gemDefinition != null)
+        {
+            if (_category != LootCategory.Resource)
+            {
+                error = $"Loot definition '{_id}' has a GemDefinition but its category is {_category}.";
+                return false;
+            }
+
+            if (!_gemDefinition.TryValidate(out string gemError))
+            {
+                error = $"Loot definition '{_id}' has an invalid GemDefinition: {gemError}";
+                return false;
+            }
         }
 
         if (_defenseSprites != null)

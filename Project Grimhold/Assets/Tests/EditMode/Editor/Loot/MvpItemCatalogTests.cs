@@ -187,5 +187,18 @@ namespace Tests.EditMode.Loot
             Assert.That(healthPotion.ConsumableDefinition, Is.Not.Null);
             Assert.That(healthPotion.ConsumableDefinition.ConsumptionDurationSeconds, Is.EqualTo(2.5f));
         }
+
+        // TASK-283 provisional MVP gems: each grants +5 flat weapon damage until GD-25 defines the catalog.
+        [TestCase("RES_ATTUNEMENT_GEM")]
+        [TestCase("RES_RUBY_GEM")]
+        [TestCase("RES_SAPPHIRE_GEM")]
+        public void ProvisionalGems_AreValidResourcesGrantingFiveDamage(string id)
+        {
+            Assert.That(_catalog.TryGet(id, out LootDefinition gem), Is.True, id);
+            Assert.That(gem.TryValidate(out string error), Is.True, error);
+            Assert.That(gem.Category, Is.EqualTo(LootCategory.Resource));
+            Assert.That(gem.GemDefinition, Is.Not.Null, $"{id} has no GemDefinition.");
+            Assert.That(gem.GemDefinition.DamageBonus, Is.EqualTo(5));
+        }
     }
 }

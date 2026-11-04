@@ -7,17 +7,29 @@ public static class WeaponDamageCalculator
         float baseDamage,
         in CharacterAttributeState attributes,
         in WeaponScalingContributions contributions,
+        out float effectiveDamage) =>
+        TryCalculate(baseDamage, 0, attributes, contributions, out effectiveDamage);
+
+    /// <summary>
+    /// Adds the flat installed-gem bonus to the base damage before scaling:
+    /// floor((BaseDamage + GemDamageBonus) * (1 + sum of contributions)).
+    /// </summary>
+    public static bool TryCalculate(
+        float baseDamage,
+        int gemDamageBonus,
+        in CharacterAttributeState attributes,
+        in WeaponScalingContributions contributions,
         out float effectiveDamage)
     {
         effectiveDamage = 0f;
-        if (!IsFinite(baseDamage) || baseDamage < 0f ||
+        if (!IsFinite(baseDamage) || baseDamage < 0f || gemDamageBonus < 0 ||
             !TryCalculateContribution(attributes, contributions.Primary, out float primary) ||
             !TryCalculateContribution(attributes, contributions.Secondary, out float secondary))
         {
             return false;
         }
 
-        float unroundedDamage = baseDamage * (1f + primary + secondary);
+        float unroundedDamage = (baseDamage + gemDamageBonus) * (1f + primary + secondary);
         if (!IsFinite(unroundedDamage))
         {
             return false;

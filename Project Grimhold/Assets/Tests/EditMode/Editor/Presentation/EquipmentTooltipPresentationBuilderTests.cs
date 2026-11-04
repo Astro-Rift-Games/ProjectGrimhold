@@ -165,7 +165,7 @@ namespace Tests.EditMode.Presentation
                 default);
 
             EquipmentTooltipPresentation presentation =
-                EquipmentTooltipPresentationBuilder.Build(loot, instance, CreateAttributes(strength: 20, vitality: 10));
+                EquipmentTooltipPresentationBuilder.Build(loot, instance, CreateAttributes(strength: 20, vitality: 10), null);
 
             Assert.That(presentation.Status, Is.EqualTo(EquipmentTooltipPresentationStatus.FunctionalStatistics));
             Assert.That(presentation.Title, Is.EqualTo("Espada"));
@@ -192,18 +192,20 @@ namespace Tests.EditMode.Presentation
                 default);
 
             EquipmentTooltipPresentation presentation =
-                EquipmentTooltipPresentationBuilder.Build(loot, instance, CreateAttributes(strength: 30, vitality: 0));
+                EquipmentTooltipPresentationBuilder.Build(loot, instance, CreateAttributes(strength: 30, vitality: 0), null);
 
             Assert.That(presentation.Body, Does.Contain("Escalado: Sin escalado"));
             Assert.That(presentation.Body, Does.Contain("Ranuras: 0"));
             Assert.That(presentation.Body, Does.Contain("Daño efectivo: 30"));
             Assert.That(presentation.Body, Does.Not.Contain("FUE B"));
+            Assert.That(presentation.Body, Does.Not.Contain("Bono de gemas"));
         }
 
-        [TestCase(1, true, false, "Ranuras: 1 (ocupada)")]
+        [TestCase(1, true, false, "Ranuras: 1 (Attunement Gem)")]
         [TestCase(1, false, false, "Ranuras: 1 (vacía)")]
-        [TestCase(2, true, false, "Ranuras: 2 (1 ocupada, 1 vacía)")]
-        [TestCase(2, true, true, "Ranuras: 2 (ocupadas)")]
+        [TestCase(2, false, false, "Ranuras: 2 (vacías)")]
+        [TestCase(2, true, false, "Ranuras: 2 (Attunement Gem, vacía)")]
+        [TestCase(2, true, true, "Ranuras: 2 (Attunement Gem, Attunement Gem)")]
         public void BuildInstance_ShowsGemSocketOccupancy(
             int socketCount,
             bool firstOccupied,
@@ -221,9 +223,75 @@ namespace Tests.EditMode.Presentation
                 secondOccupied ? CreateGemSocket() : default);
 
             EquipmentTooltipPresentation presentation =
-                EquipmentTooltipPresentationBuilder.Build(loot, instance, CreateAttributes(strength: 0, vitality: 0));
+                EquipmentTooltipPresentationBuilder.Build(
+                    loot,
+                    instance,
+                    CreateAttributes(strength: 0, vitality: 0),
+                    CreateCatalog(CreateGemLoot("RES_ATTUNEMENT_GEM", "Attunement Gem", 5)));
 
+            Assert.That(presentation.Status, Is.EqualTo(EquipmentTooltipPresentationStatus.FunctionalStatistics));
             Assert.That(presentation.Body, Does.Contain(expected));
+        }
+
+        [Test]
+        public void BuildInstance_WithInstalledGems_ShowsGemNamesAndAddsBonusToEffectiveDamage()
+        {
+            LootDefinition loot = CreateWeaponLoot("Espada", 0f);
+            WeaponInstanceModifiers instance = CreateInstance(
+                CharacterAttribute.Strength,
+                WeaponScalingGrade.A,
+                CharacterAttribute.Strength,
+                WeaponScalingGrade.None,
+                2,
+                CreateGemSocket("RES_RUBY_GEM"),
+                CreateGemSocket("RES_SAPPHIRE_GEM"));
+            LootDefinitionCatalog catalog = CreateCatalog(
+                CreateGemLoot("RES_RUBY_GEM", "Ruby Gem", 5),
+                CreateGemLoot("RES_SAPPHIRE_GEM", "Sapphire Gem", 5));
+            CharacterAttributeState attributes = CreateAttributes(strength: 20, vitality: 0);
+
+            EquipmentTooltipPresentation presentation =
+                EquipmentTooltipPresentationBuilder.Build(loot, instance, attributes, catalog);
+
+            Assert.That(presentation.Status, Is.EqualTo(EquipmentTooltipPresentationStatus.FunctionalStatistics));
+            Assert.That(
+                presentation.Body,
+                Does.Contain(
+                    $"Escalado: FUE A{System.Environment.NewLine}" +
+                    $"Ranuras: 2 (Ruby Gem, Sapphire Gem){System.Environment.NewLine}" +
+                    $"Bono de gemas: +10{System.Environment.NewLine}" +
+                    "Daño efectivo: 46"));
+
+            Assert.That(WeaponGemDamageBonusResolver.TryResolve(instance, catalog, out int bonus), Is.True);
+            Assert.That(
+                WeaponScalingContributionsResolver.TryResolve(
+                    instance, CharacterAttribute.Strength, out WeaponScalingContributions contributions),
+                Is.True);
+            Assert.That(
+                WeaponDamageCalculator.TryCalculate(30f, bonus, attributes, contributions, out float combatDamage),
+                Is.True);
+            Assert.That(presentation.Body, Does.Contain($"Daño efectivo: {combatDamage}"));
+        }
+
+        [Test]
+        public void BuildInstance_WithUnresolvableInstalledGem_ReportsInvalidConfiguration()
+        {
+            LootDefinition loot = CreateWeaponLoot("Espada", 0f);
+            WeaponInstanceModifiers instance = CreateInstance(
+                CharacterAttribute.Strength,
+                WeaponScalingGrade.None,
+                CharacterAttribute.Strength,
+                WeaponScalingGrade.None,
+                1,
+                CreateGemSocket("RES_RUBY_GEM"),
+                default);
+
+            EquipmentTooltipPresentation presentation =
+                EquipmentTooltipPresentationBuilder.Build(
+                    loot, instance, CreateAttributes(strength: 0, vitality: 0), null);
+
+            Assert.That(presentation.Status, Is.EqualTo(EquipmentTooltipPresentationStatus.InvalidEquipmentConfiguration));
+            Assert.That(presentation.Body, Is.EqualTo("Estadísticas no disponibles por configuración inválida"));
         }
 
         [Test]
@@ -240,7 +308,7 @@ namespace Tests.EditMode.Presentation
                 default);
 
             EquipmentTooltipPresentation presentation =
-                EquipmentTooltipPresentationBuilder.Build(loot, instance, CreateAttributes(strength: 10, vitality: 0));
+                EquipmentTooltipPresentationBuilder.Build(loot, instance, CreateAttributes(strength: 10, vitality: 0), null);
 
             Assert.That(presentation.Title, Is.EqualTo("Espada"));
             Assert.That(presentation.Status, Is.EqualTo(EquipmentTooltipPresentationStatus.InvalidEquipmentConfiguration));
@@ -253,7 +321,7 @@ namespace Tests.EditMode.Presentation
             LootDefinition loot = CreateLoot("Mineral", LootCategory.Resource);
 
             EquipmentTooltipPresentation presentation =
-                EquipmentTooltipPresentationBuilder.Build(loot, default, CreateAttributes(strength: 0, vitality: 0));
+                EquipmentTooltipPresentationBuilder.Build(loot, default, CreateAttributes(strength: 0, vitality: 0), null);
 
             Assert.That(presentation.Status, Is.EqualTo(EquipmentTooltipPresentationStatus.NoEquipmentStatistics));
             Assert.That(presentation.Body, Is.EqualTo("Sin estadísticas de equipamiento"));
@@ -263,7 +331,7 @@ namespace Tests.EditMode.Presentation
         public void BuildInstance_NullDefinition_CannotShowTooltip()
         {
             EquipmentTooltipPresentation presentation =
-                EquipmentTooltipPresentationBuilder.Build(null, default, CreateAttributes(strength: 0, vitality: 0));
+                EquipmentTooltipPresentationBuilder.Build(null, default, CreateAttributes(strength: 0, vitality: 0), null);
 
             Assert.That(presentation.Status, Is.EqualTo(EquipmentTooltipPresentationStatus.UnresolvedDefinition));
         }
@@ -304,13 +372,32 @@ namespace Tests.EditMode.Presentation
             return modifiers;
         }
 
-        private static WeaponGemSocket CreateGemSocket()
+        private static WeaponGemSocket CreateGemSocket(string gemId = "RES_ATTUNEMENT_GEM")
         {
             Assert.That(
-                WeaponGemSocket.TryCreateOccupied(new LootId("RES_ATTUNEMENT_GEM"), out WeaponGemSocket socket, out string error),
+                WeaponGemSocket.TryCreateOccupied(new LootId(gemId), out WeaponGemSocket socket, out string error),
                 Is.True,
                 error);
             return socket;
+        }
+
+        private LootDefinition CreateGemLoot(string id, string displayName, int damageBonus)
+        {
+            GemDefinition gem = Create<GemDefinition>();
+            SetPrivateField(gem, "_damageBonus", damageBonus);
+
+            LootDefinition loot = CreateLoot(displayName, LootCategory.Resource);
+            SetPrivateField(loot, "_id", id);
+            SetPrivateField(loot, "_gemDefinition", gem);
+            return loot;
+        }
+
+        private LootDefinitionCatalog CreateCatalog(params LootDefinition[] definitions)
+        {
+            LootDefinitionCatalog catalog = Create<LootDefinitionCatalog>();
+            SetPrivateField(catalog, "_definitions", new List<LootDefinition>(definitions));
+            SetPrivateField(catalog, "_isCacheDirty", true);
+            return catalog;
         }
 
         private static CharacterAttributeState CreateAttributes(int strength, int vitality)
