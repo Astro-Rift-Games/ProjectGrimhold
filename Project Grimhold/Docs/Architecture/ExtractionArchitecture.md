@@ -108,6 +108,22 @@ Automated coverage should include configuration and geometry boundaries, progres
 
 When a participant becomes `Extracted`, State Authority's `PlayerExtractionLootSaver` retains the authoritative ownership snapshot while the commit remains unconfirmed. Inventory, Equipment, logical Raid participant origins and every bucket stay in Fusion state until Input Authority ACKs the idempotent persistent commit. The local durable snapshot is only a verified projection. A valid aggregate may contain up to 38 distinct entries: thirty Inventory types plus eight Equipment slots, while every catalog index remains valid in the independent `0..63` range.
 
+Town placement uses the [persistent physical-slot model](LocalPlayerPersistenceArchitecture.md#stash-capacity-admission),
+not Raid addresses. `AuthoritativeExtractionResult.items`, the RPC payload and
+`PendingExtractionCommit` remain aggregate by `lootId`; Equipment remains separate. For a new
+commit, `ExtractionCommitService` rejects a non-empty Loadout (`409 LOADOUT_NOT_EMPTY`), folds
+payload duplicates by `lootId` and applies v2 reception: lowest matching in-capacity stack,
+otherwise lowest free slot below the 30-slot capacity. Starting empty therefore produces slots
+`0..n-1`, without restoring Raid holes or provenance and without changing Stash. A payload needing
+more than 30 distinct slots rejects `409 INVENTORY_FULL` **before claiming the authoritative
+result**, leaving the result unconsumed and the character unchanged; it is never truncated.
+Producer ingest separately caps item entries at 30 (`422 EXCEEDS_INVENTORY_CAPACITY`).
+`LocalProfileStore.TryCommitExtraction` also requires an empty Loadout, rejects more than 30 input
+entries and folds duplicates via `ProfileInventoryRules.TryMerge` before its candidate commit.
+These bounds assume Town `StackMax` remains deferred; adding capped Town stacks requires renewed
+amount/capacity validation. Pending aggregate results remain usable across the explicit inventory
+migration; only Town destination entries acquire slots.
+
 On Host Migration restore, Fusion `CopyStateFrom` restores `RaidParticipantId` values, bucket identities and quantities together. `Spawned()` recaptures the pending projection from that restored authoritative state when the participant is still `Extracted` and unconfirmed; it does not rebuild or reassign identities.
 
 Before sending the persistent payload, State Authority projects initial affiliation, eligibility,

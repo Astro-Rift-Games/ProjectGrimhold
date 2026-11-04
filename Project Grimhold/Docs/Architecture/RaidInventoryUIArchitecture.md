@@ -283,46 +283,60 @@ evaluators (`IPlayerLoadoutService.EvaluateTransfer*`), so one the Store would r
 into a full Inventory (`StashOperationResult.InventoryFull`), never reaches the backend; it then keeps
 the remote-first order and reconciles the profile with the backend when a remote call fails or the
 local profile cannot apply a transfer the backend accepted. Take All / Leave All are not one indivisible
-batch (GD 07, section 16): the coordinator snapshots all source IDs in Stash-screen display order, including stacks
-outside the visible slot pool, and runs each as an independent full-stack transfer with the same
-pre-check, remote call and local apply before the next stack. The screen refreshes per commit through
+batch (GD 07, section 16): the coordinator snapshots all source `(slot, lootId)` entries in ascending
+physical-slot order, including duplicate IDs and stacks outside the visible pool, and runs each as
+an independent addressed full-stack transfer with the same pre-check, remote call and local apply
+before the next stack. The screen refreshes per commit through
 `ProfileCommitted`. Ordinary refusals and remote failures with successful reconciliation are skipped;
 there are no mutation retries or inferences of destination ownership. Failed reconciliation after a
 remote error or local divergence stops further calls and returns `RecoveryFailed`, preserving the
 original remote code/message or local rule separately from `RECONCILIATION_FAILED`. Bulk summaries
-count confirmed successful attempts (`Completed`) versus unconfirmed/not-attempted source IDs
-(`Failed`), never actual moved/not-moved stacks. IDs whose source ownership disappears after
-reconciliation and IDs remaining when recovery stops are explicitly counted in `Failed`. Unless
+count confirmed successful attempts (`Completed`) versus unconfirmed/not-attempted source entries
+(`Failed`), never actual moved/not-moved stacks. Addresses whose guarded source ownership disappears
+after reconciliation and entries remaining when recovery stops are explicitly counted in `Failed`. Unless
 recovery failed, a sequence with both confirmed and unconfirmed outcomes returns `Partial`; when no
 attempt succeeded, it retains the first failure's status and details with the full sequence counts. Equipment changes use the same Ready gate
 as the Town Inventory screen (`TownEquipmentMutationGate`, supplied by `TownStashPresenter` through
 `LobbyStashPresenter.SetEquipmentGate`). Stash alone paginates over its 16 authored slots;
 no slots are instantiated. Serialized previous/next buttons and a TMP page label belong to the
-actual Stash prefab. Implemented (TASK-218; Host/Client validation pending): both panels display stored order without automatic sorting;
-Stash pages over that order using its 16 authored slots. Each panel has its own Sort button, changing
-only that panel's persistent list through the shared comparer and transaction described below.
-Take All / Leave All snapshot the complete source in stored (displayed) order inside the existing
-queue, never just the visible page and never a `StashDisplayOrder` projection. The Town personal
-Inventory screen also exposes Sort for the same persistent Loadout list. The presenter supplies its
-bound catalog and retains the queue across reopen with unchanged bindings. `RaidInventorySlotData.WithDisplayName` copies all
-metadata for this screen's blank-name fallback without changing the shared `Create` factory.
-Page count covers the larger of configured capacity and accepted item count,
-so accepted remote excess is reachable. The last page hides unused authored slots beyond that
-extent, rather than inventing capacity. Refresh preserves/clamps the current page; reopening resets
-to page one. Rebinding dismisses tooltip/context and cancels an active drag, so interactions always
-carry the displayed item's LootId, never a stale page index. The presenter forwards capacity from
-its context's Store, without a global configuration lookup. Loadout presentation and its existing
-overflow behavior remain unchanged; Loadout pagination is not part of this contract.
+actual Stash prefab. D1 physical-slot persistence supersedes the TASK-218 compact exception:
+`LobbyStashPresenter.MapToPresentation` indexes entries by `StashItem.Slot` and emits empty cells
+for holes, never a compact occupied-item projection. Both panels retain duplicate `lootId` stacks.
+Each panel's Sort button changes only its own persistent list through the transaction below;
+there is no automatic Sort on open or refresh. The personal Town Inventory also exposes Sort for
+that same Loadout list. `RaidInventorySlotData.WithDisplayName` preserves metadata for blank-name
+fallback; Town cell addresses are tracked separately from Raid address/revision/origin metadata.
+
+Stash pages cover physical ranges `0..15`, `16..31`, etc., not batches of occupied entries.
+The extent is `max(configured capacity, highest occupied slot + 1)`, so holes and accepted overflow
+remain reachable. The last page hides authored cells beyond that extent rather than inventing
+capacity. Occupied cells at `slot >= capacity` use the invalid-drop highlight as an overflow marker;
+this is presentation, not a capacity exemption. Refresh preserves/clamps the page; reopen resets to
+page one. Page rebind/refresh dismisses tooltip/context and cancels drag. Context transfers capture
+`(sourceSlot, lootId)`; cell-to-cell drag/drop captures both list/slot addresses and calls
+`StashTransferCoordinator.MoveAsync` for move, total merge or swap, including within a list.
+Empty targets keep their real addresses. No quantity dialog or split UI is included (TASK-282).
+Take All / Leave All still traverse the complete source inside the shared queue, never just a page.
+Capacity comes from the context's Store, not a global lookup.
+
+Owner decision: Town Inventory (Loadout) has **exactly 30 slots (`0..29`), all visible, with no
+pagination and no prefab change**. Normal operations must never exceed those 30 slots. Loadout
+addresses >= 30 are legacy over-capacity data, not additional gameplay slots or a UI requirement.
+All accounts are test accounts: after the migration dry run, correct affected test data by moving
+excess to Stash or resetting the character, not by adding overflow UI. The existing view reports
+out-of-range physical extent without discarding stored entries; this defensive behavior is not an
+overflow-management flow. Stash keeps its existing slot-range paging described above.
 
 The Stash equipment panel authors the same eight slots as the Raid screen and drives them with the
 same `RaidInventorySlotView.PresentEquipmentSlot`. Both panels are `TransferWithContextMenu`, so a
-right click on an owned stack opens the contextual menu. `LobbyStashUI` emits the LootId,
-EquipmentSlot and explicit Stash-source flag; `LobbyStashPresenter` preserves that source into the
-coordinator. Stash-only units can be equipped directly: the Store projects final ownership without
-mutation, the coordinator moves one unit remotely then submits projected eight-slot Equipment,
+right click on an owned stack opens the contextual menu. Transfers preserve the captured source
+slot. Equip still emits LootId, EquipmentSlot and the Stash-source flag rather than a selected stack
+address; the coordinator resolves the lowest-slot matching source. `LobbyStashPresenter` preserves
+that list source into the coordinator. Stash-only units can be equipped directly: the Store projects
+final ownership without mutation, the coordinator moves one unit remotely then submits projected eight-slot Equipment,
 and only after both successes applies one atomic local Stash-to-Equipment transaction. Displaced
 units return to Loadout, including both hands and same-ID replacements. Capacity is checked against
-the final distinct-ID Loadout, not the intermediate remote move. The remote pair is nontransactional:
+the final occupied-slot Loadout, not the intermediate remote move. The remote pair is nontransactional:
 failure or an unknown result reconciles once and stops without compensation/retry; the first move
 may remain committed. Copied preflight Stash/Loadout/Equipment ownership is checked after each
 successful await; drift reconciles once and stops before the next endpoint or local equip. Metadata
@@ -343,31 +357,38 @@ or hides it; it never adds components or configures the Canvas at runtime.
 
 ## Player-controlled order and Sort (TASK-218)
 
-TASK-218 Town behavior remains unchanged: Stash and Town Loadout never sort automatically and
-reorder only on an explicit Sort press. TASK-227/#613 disables Raid Sort entirely; Raid addresses
-and holes remain in physical order. `StashDisplayOrder` becomes the shared Sort
-comparer, not a display projection: category rank Valuable, Material, Quest, Miscellaneous, Weapon,
+D1 replaces TASK-218's compact one-entry-per-ID representation, retaining its explicit-only Sort
+policy. Stash and Town Loadout persist physical slots with holes and duplicate IDs. Removal leaves
+a hole; reception fills the lowest matching in-capacity stack or lowest free in-capacity slot under
+the [persistence rules](LocalPlayerPersistenceArchitecture.md#stash-capacity-admission). Addressed
+cell moves/merges/swaps may change positions without compacting other entries. Only Sort compacts.
+TASK-227/#613 disables Raid Sort entirely; Raid addresses and holes remain in physical order.
+`StashDisplayOrder` is the shared Sort comparer, not a display projection: category rank Valuable, Material, Quest, Miscellaneous, Weapon,
 Helmet, Armor, Gloves, Boots, Shield, then None/unresolved/unrecognized at one last rank; display
-name ordinal-ignore-case next, then raw `LootId` ordinal. Blank names fall back to `LootId`;
-missing icons do not alter a resolved category. Sort never changes identity, amount or `Origin`,
-merges stacks or reorders fixed Equipment slots. Town lists have one entry per ID and no holes: removing
-an entry shifts the rest up, a new ID appends, and a merge preserves the existing position.
+name ordinal-ignore-case next, then raw `LootId` ordinal and original slot as the final tie-breaker.
+Blank names fall back to `LootId`; missing icons do not alter a resolved category. Sort preserves
+identity and amount, never merges stacks and never reorders fixed Equipment slots. Town entries
+carry no Origin. The slot permutation assigns selected entries to contiguous slots `0..n-1`.
 
 Town Sort persists through the Store, cache and backend, using the order
 transaction and authenticated backend write in `LocalPlayerPersistenceArchitecture.md`, through the
 same application-owned `StashTransferCoordinator` serialized queue as transfers. The Town binder
 injects it with a reservation-only Sort capability (Ready remains allowed); the shared view exposes
 one optional `_sortButton` and `SortRequested`. Backend write precedes local apply;
-remote failure or local divergence reconciles once and stops without retry. A pending Loadout
-reservation rejects Sort with `ReservationPending`; Ready does not block it because ownership is
-unchanged. Stash and Loadout buttons affect only their own lists.
+remote failure or local divergence reconciles once and stops without retry. The v2 DTO is
+`{ list, slotOrder, expectedRevision }`, an exact permutation of occupied source slots, not LootIds.
+Backend Sort refuses occupied count above capacity rather than compacting into overflow. A pending
+Loadout reservation rejects Sort with `ReservationPending`; Ready does not block it because ownership
+is unchanged. The Unity coordinator makes mutations unavailable on v1 inventories until migration;
+Stash and Loadout buttons affect only their own lists.
 
 Raid no longer seeds, reconciles or sorts a personal `LootId` display permutation. Its player panel
 reads the receiver's thirty physical slots directly, preserving duplicate IDs, origins and holes.
 The shared Sort control is disabled for every Raid mode, including after Downed recovery. There is
 no new sorting RPC or authoritative rearrangement. Town's comparer, persistent Sort queue and Ready/
-reservation gates remain unchanged. Container panels have no Sort button; extraction persistence
-and append behavior are unchanged.
+reservation gates remain unchanged. Container panels have no Sort button. Admission/extraction
+stay aggregate at the Raid boundary; extraction placement uses fresh physical Town Loadout slots,
+not Raid positions or an append to a compact Town list.
 
 ## Equipment presentation and Downed read-only (TASK-218)
 
@@ -420,11 +441,13 @@ Broader suites are not all green: outstanding failures concern damage fixture co
 endpoint word budget, the six-authored-view/thirty-required container pool, a runnerless ritual
 authority fixture and an old Take All test with incompatible stack expectations. Strict container
 shortage logs remain unsuppressed. Previously recorded core/receiver/gear passes are separate
-evidence, not new UI verification. Backend and local exact-position persistence remain out of scope.
+evidence, not new UI verification. Exact-position persistence was outside that Raid UI work unit;
+Town persistence is now implemented under D1 as described above, not proven by those earlier runs.
 
-Implemented (TASK-218; Host/Client validation pending): pure tests cover Sort's exact permutation and amount/`Origin` invariance, plus
-order maintenance on add, merge and remove. PlayMode tests cover the panel-specific Sort buttons,
-reserved Off Hand behavior, both-slot active/inactive Set visuals and the reversible Downed block.
+TASK-218's explicit-Sort policy is retained under D1: current pure tests cover slot permutations,
+amount invariance, duplicate stacks, holes and physical-slot receive/remove behavior. PlayMode tests
+cover the panel-specific Sort buttons, reserved Off Hand behavior, both-slot active/inactive Set
+visuals and the reversible Downed block.
 Manual Host/Client checks cover Downed entry/recovery and Set swap on a remote client.
 
 Pure tests cover projection order/capacity, slot fallback and tooltip data, selection reconciliation, quantity resolution, bidirectional request identity and registry composition. Input tests cover continuous restoration, discrete rearming, nested suppression and the local toggle. Play Mode view tests cover both mouse buttons, both panels, stable slot reuse, clearing, empty capacity, tooltip hover/clamping/lifecycle and direction-aware transfer feedback. Focused Single Runner tests activate occupied slots in both panels for generated chests, defeated enemies and defeated players; they also verify in-flight click blocking, authoritative capacity feedback and that a defeated-player deposit reaches its container rather than its co-located inventory. Exact Host/Client interaction confirmation, replication races, competing clients, distance, despawn and local-HUD isolation remain manual multiplayer validation because the project has no automated multi-runner harness.
