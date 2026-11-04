@@ -104,27 +104,44 @@ Automated coverage should include configuration and geometry boundaries, progres
 
 ## Extraction ownership snapshot
 
-`PlayerExpeditionLootSnapshot` captures Inventory, each of the eight Equipment slots, their persistent aggregate by `LootId`, Inventory origin buckets, each Equipment origin and the aggregate origin buckets. It validates duplicate buckets, positive quantities, overflow and exact per-LootId equality before exposing a snapshot. The persistent RPC and Loadout commit continue to carry only catalog indices and quantities; Raid provenance never enters stash or backend storage.
+`PlayerExpeditionLootSnapshot` captures Inventory, each of the eight Equipment slots, per-unit
+weapon modifiers, Inventory origin buckets, each Equipment origin and aggregate quantity/origin
+projections. It validates duplicate buckets, positive quantities, overflow and exact per-LootId
+equality before exposing a snapshot; equipment units must not collapse into a template aggregate.
+Raid Inventory, Equipment, pickups, containers and corpses preserve modifiers, never backend
+instance IDs ([Item Instances §6.3](ItemInstanceArchitecture.md#63-raid-transport)). Persistent result
+items are `{ lootId, amount, modifiers? }`, with `amount = 1` for equipment. Raid provenance never
+enters stash or backend storage: the persisted instances carry no provenance
+([Item Instances §§2, 7](ItemInstanceArchitecture.md#7-extraction-and-reservation)).
 
-When a participant becomes `Extracted`, State Authority's `PlayerExtractionLootSaver` retains the authoritative ownership snapshot while the commit remains unconfirmed. Inventory, Equipment, logical Raid participant origins and every bucket stay in Fusion state until Input Authority ACKs the idempotent persistent commit. The local durable snapshot is only a verified projection. A valid aggregate may contain up to 38 distinct entries: thirty Inventory types plus eight Equipment slots, while every catalog index remains valid in the independent `0..63` range.
+When a participant becomes `Extracted`, State Authority's `PlayerExtractionLootSaver` retains the
+authoritative ownership snapshot while the commit remains unconfirmed. Inventory, Equipment,
+weapon modifiers, logical Raid participant origins and every bucket stay in Fusion state until
+Input Authority ACKs the idempotent persistent commit. The local durable snapshot is only a
+verified projection. A snapshot may contain up to 38 entries: thirty Inventory slots plus eight
+Equipment slots; the catalog's index range is independent of this ownership bound.
 
 Town placement uses the [persistent physical-slot model](LocalPlayerPersistenceArchitecture.md#stash-capacity-admission),
 not Raid addresses. `AuthoritativeExtractionResult.items`, the RPC payload and
-`PendingExtractionCommit` remain aggregate by `lootId`; Equipment remains separate. For a new
-commit, `ExtractionCommitService` rejects a non-empty Loadout (`409 LOADOUT_NOT_EMPTY`), folds
-payload duplicates by `lootId` and applies v2 reception: lowest matching in-capacity stack,
-otherwise lowest free slot below the 30-slot capacity. Starting empty therefore produces slots
-`0..n-1`, without restoring Raid holes or provenance and without changing Stash. A payload needing
-more than 30 distinct slots rejects `409 INVENTORY_FULL` **before claiming the authoritative
-result**, leaving the result unconsumed and the character unchanged; it is never truncated.
-Producer ingest separately caps item entries at 30 (`422 EXCEEDS_INVENTORY_CAPACITY`).
-`LocalProfileStore.TryCommitExtraction` also requires an empty Loadout, rejects more than 30 input
-entries and folds duplicates via `ProfileInventoryRules.TryMerge` before its candidate commit.
-These bounds assume Town `StackMax` remains deferred; adding capped Town stacks requires renewed
-amount/capacity validation. Pending aggregate results remain usable across the explicit inventory
-migration; only Town destination entries acquire slots.
+`PendingExtractionCommit` retain each equipment unit's modifiers; only non-equipment aggregates
+by `lootId`. Equipment remains separate. The backend validates modifiers against the template
+rules and catalog gem set, never regenerates seeds, and issues a new backend instance ID for
+every equipment unit on commit ([Item Instances §7](ItemInstanceArchitecture.md#7-extraction-and-reservation)).
+For a new commit, `ExtractionCommitService` rejects a non-empty Loadout (`409 LOADOUT_NOT_EMPTY`)
+and applies v3 reception: equipment takes one free slot per unit and never merges; non-equipment
+uses the lowest matching in-capacity stack, otherwise the lowest free slot below capacity.
+Starting empty therefore produces slots `0..n-1`, without restoring Raid holes, provenance or old
+instance IDs and without changing Stash. A payload needing more than 30 occupied Loadout slots
+rejects `409 INVENTORY_FULL` **before claiming the authoritative result**, leaving the result
+unconsumed and the character unchanged; it is never truncated. Producer ingest separately caps
+item entries at 30 (`422 EXCEEDS_INVENTORY_CAPACITY`).
+`LocalProfileStore.TryCommitExtraction` also requires an empty Loadout and validates final capacity
+without merging equipment. Town `StackMax` remains deferred only for non-equipment; adding capped
+Town stacks requires renewed amount/capacity validation. Stored extraction results migrate under
+[Item Instances §4.2](ItemInstanceArchitecture.md#42-migration-v2--v3); only Town destination entries
+acquire persistent slots and IDs.
 
-On Host Migration restore, Fusion `CopyStateFrom` restores `RaidParticipantId` values, bucket identities and quantities together. `Spawned()` recaptures the pending projection from that restored authoritative state when the participant is still `Extracted` and unconfirmed; it does not rebuild or reassign identities.
+On Host Migration restore, Fusion `CopyStateFrom` restores weapon modifiers, `RaidParticipantId` values, bucket identities and quantities together ([Item Instances §6.3](ItemInstanceArchitecture.md#63-raid-transport)). `Spawned()` recaptures the pending projection from that restored authoritative state when the participant is still `Extracted` and unconfirmed; it does not rebuild or reassign identities.
 
 Before sending the persistent payload, State Authority projects initial affiliation, eligibility,
 eligible Value and candidate extracted-Loot Experience from the retained snapshot. The participant
@@ -356,12 +373,19 @@ Constraints and team workflow:
    - **Bounded Player-Host Authority (MVP)**: In player-hosted Fusion sessions, the host submits extraction results via authenticated JWT without a shared secret. The backend validates:
      - Recipient character possesses an active `pendingReservation` for the raid (`422 NO_ACTIVE_RESERVATION`). Admission marks that reservation `admittedAt` instead of deleting it; only the extraction commit or a loss clear consumes it ([reservation lifetime](LocalPlayerPersistenceArchitecture.md#backend-reservation-lifetime)).
      - Host is an active participant in that raid (`403 HOST_NOT_IN_RAID`).
-     - Item loadout capacity is capped at 30 slots (`422 EXCEEDS_INVENTORY_CAPACITY`) with valid loot identifiers and bounded amounts (`422 INVALID_ITEM_SPECIFICATION`).
+     - Item loadout capacity is capped at 30 slots (`422 EXCEEDS_INVENTORY_CAPACITY`) with valid loot identifiers and bounded amounts (`422 INVALID_ITEM_SPECIFICATION`). Equipment result entries are `{ lootId, amount: 1, modifiers? }`; modifiers must obey the template rules and catalog gem set ([Item Instances §§2, 7](ItemInstanceArchitecture.md#7-extraction-and-reservation)). Seeds are not regenerated; this retains today's trusted-host model.
      - Experience granted is capped at the maximum raid budget of 5,000 XP (`422 EXCEEDS_EXPERIENCE_BUDGET`).
      - Forged signatures or tampered payloads presenting invalid keys are rejected (`401 INVALID_HOST_SIGNATURE`).
 3. **Dedicated Server Target Architecture**: Full simulation authority isolation remains scheduled for Dedicated Server migration (#400). Bounded Player-Host Authority contains item and experience minting within legitimate gameplay parameters during the MVP.
 
 ### Canonical Result Contract
+
+The legacy signature encoding below does not specify how per-unit modifiers enter `sortedItems`
+or `sortedEquipment`. [Item Instances §7](ItemInstanceArchitecture.md#7-extraction-and-reservation)
+approves modifier rule validation for today's trusted-host path but does not resolve that signed
+encoding. It must not be treated as a defined modifier-integrity contract; signed-result encoding
+remains unresolved here.
+
 The HMAC-SHA256 signature is evaluated over a deterministic canonical pipe-delimited string (`RaidResultCanonicalizer` in Unity, `raidResultCanonicalizer.js` in Backend):
 ```text
 raidId|resultId|targetIdentifier|sortedItems|sortedEquipment|experienceGranted|issuedAt
