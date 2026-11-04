@@ -134,7 +134,7 @@ namespace Tests.EditMode.Equipment
             {
                 Assert.That(result, Is.Not.EqualTo(StashOperationResult.Success));
                 Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(RecoverySword));
-                Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 2) }));
+                Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 2, 0) }));
                 Assert.That(store.GetLoadout(), Is.EqualTo(before));
                 Assert.That(commits, Is.Zero);
                 return;
@@ -142,9 +142,9 @@ namespace Tests.EditMode.Equipment
 
             Assert.That(result, Is.EqualTo(StashOperationResult.Success));
             Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(Sword));
-            Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 1) }));
+            Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 1, 0) }));
             Assert.That(store.GetLoadout(), Has.Count.EqualTo(30));
-            if (existingId) Assert.That(store.GetLoadout(), Has.Some.EqualTo(new StashItem(RecoverySword, 2)));
+            if (existingId) Assert.That(store.GetLoadout(), Has.Some.EqualTo(new StashItem(RecoverySword, 2, 0)));
             else Assert.That(store.GetLoadout(), Is.EqualTo(before));
             Assert.That(commits, Is.EqualTo(1));
         }
@@ -170,9 +170,9 @@ namespace Tests.EditMode.Equipment
             Assert.That(store.GetPreparedEquipment().WeaponSetBMainHand, Is.EqualTo(RecoverySword));
             Assert.That(store.GetLoadout(), Is.EquivalentTo(new[]
             {
-                new StashItem(Sword, 1), new StashItem(TrainingShield, 1)
+                new StashItem(Sword, 1, 0), new StashItem(TrainingShield, 1, 1)
             }));
-            Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(Greatsword, 1) }));
+            Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(Greatsword, 1, 0) }));
             Assert.That(commits, Is.EqualTo(1));
         }
 
@@ -200,7 +200,7 @@ namespace Tests.EditMode.Equipment
                 ? StashOperationResult.InventoryFull : StashOperationResult.Success));
             Assert.That(commits, Is.Zero);
             Assert.That(store.GetLoadout(), Is.EqualTo(before));
-            Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 2) }));
+            Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 2, 0) }));
             Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(RecoverySword));
             if (!newDisplacedId) Assert.That(projected.WeaponSetAMainHand, Is.EqualTo(Sword));
             Assert.That(store.TryEquipFromStash(EquipmentSlot.WeaponSetAMainHand, Sword), Is.EqualTo(evaluation));
@@ -221,8 +221,8 @@ namespace Tests.EditMode.Equipment
             Assert.That(store.TryEquipFromStash(EquipmentSlot.WeaponSetAMainHand, Sword),
                 Is.EqualTo(StashOperationResult.Success));
             Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(Sword));
-            Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 1) }));
-            Assert.That(store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Sword, 1) }));
+            Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(Sword, 1, 0) }));
+            Assert.That(store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Sword, 1, 0) }));
         }
 
         [Test]
@@ -258,7 +258,7 @@ namespace Tests.EditMode.Equipment
             Assert.That(store.GetStash(), Is.Empty);
             Assert.That(
                 store.GetLoadout(),
-                Is.EqualTo(new[] { new StashItem(Helmet, 1) }),
+                Is.EqualTo(new[] { new StashItem(Helmet, 1, 0) }),
                 "A rejected assignment moves nothing.");
         }
 
@@ -279,7 +279,7 @@ namespace Tests.EditMode.Equipment
 
             Assert.That(store.GetPreparedEquipment().HasAnyEquipment, Is.False);
             Assert.That(store.GetStash(), Is.Empty);
-            Assert.That(store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Greatsword, 1) }));
+            Assert.That(store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Greatsword, 1, 0) }));
             Assert.That(commitCount, Is.Zero);
         }
 
@@ -321,8 +321,10 @@ namespace Tests.EditMode.Equipment
             Assert.That(prepared.WeaponSetAMainHand, Is.EqualTo(Greatsword));
             Assert.That(prepared.WeaponSetAOffHand.IsValid, Is.False);
             Assert.That(prepared.WeaponSetBMainHand, Is.EqualTo(Sword));
-            Assert.That(store.GetLoadout(), Has.Some.EqualTo(new StashItem(Sword, 1)));
-            Assert.That(store.GetLoadout(), Has.Some.EqualTo(new StashItem(RecoverySword, 1)));
+            Assert.That(store.GetLoadout(), Is.EqualTo(new[]
+            {
+                new StashItem(Sword, 1, 0), new StashItem(RecoverySword, 1, 1)
+            }));
         }
 
         [Test]
@@ -347,8 +349,10 @@ namespace Tests.EditMode.Equipment
             PreparedEquipmentLoadout prepared = store.GetPreparedEquipment();
             Assert.That(prepared.WeaponSetAMainHand, Is.EqualTo(Greatsword));
             Assert.That(prepared.WeaponSetAOffHand.IsValid, Is.False);
-            Assert.That(store.GetLoadout(), Has.Some.EqualTo(new StashItem(Sword, 1)));
-            Assert.That(store.GetLoadout(), Has.Some.EqualTo(new StashItem(TrainingShield, 1)));
+            Assert.That(store.GetLoadout(), Is.EqualTo(new[]
+            {
+                new StashItem(Sword, 1, 0), new StashItem(TrainingShield, 1, 1)
+            }));
         }
 
         [Test]
@@ -368,7 +372,7 @@ namespace Tests.EditMode.Equipment
                 Is.EqualTo(StashOperationResult.InvalidInventory));
             Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(Greatsword));
             Assert.That(store.GetPreparedEquipment().WeaponSetAOffHand.IsValid, Is.False);
-            Assert.That(store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Sword, 1) }));
+            Assert.That(store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Sword, 1, 0) }));
         }
 
         [Test]
@@ -394,7 +398,7 @@ namespace Tests.EditMode.Equipment
             Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(Sword));
             Assert.That(store.GetPreparedEquipment().WeaponSetAOffHand, Is.EqualTo(RecoverySword));
             Assert.That(store.GetLoadout(), Has.Count.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
-            Assert.That(store.GetLoadout(), Has.Some.EqualTo(new StashItem(Greatsword, 1)));
+            Assert.That(store.GetLoadout(), Has.Some.EqualTo(new StashItem(Greatsword, 1, 0)));
         }
 
         [Test]
@@ -413,7 +417,7 @@ namespace Tests.EditMode.Equipment
 
             Assert.That(store.GetPreparedEquipment().HasAnyEquipment, Is.False);
             Assert.That(store.GetStash(), Is.Empty);
-            Assert.That(store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Greatsword, 1) }));
+            Assert.That(store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Greatsword, 1, 0) }));
             Assert.That(commitCount, Is.Zero);
         }
 
@@ -500,13 +504,13 @@ namespace Tests.EditMode.Equipment
             Assert.That(
                 store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, Sword),
                 Is.EqualTo(StashOperationResult.Success));
-            Assert.That(store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Sword, 1) }));
+            Assert.That(store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Sword, 1, 0) }));
             Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(Sword));
 
             Assert.That(
                 store.TryClearPreparedEquipment(EquipmentSlot.WeaponSetAMainHand),
                 Is.EqualTo(StashOperationResult.Success));
-            Assert.That(store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Sword, 2) }));
+            Assert.That(store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Sword, 2, 0) }));
             Assert.That(store.GetPreparedEquipment().HasAnyWeapon, Is.False);
         }
 
@@ -552,8 +556,8 @@ namespace Tests.EditMode.Equipment
 
             Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(Greatsword));
             Assert.That(store.GetLoadout(), Has.Count.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
-            Assert.That(store.GetLoadout(), Has.Some.EqualTo(new StashItem(Sword, 1)));
-            Assert.That(store.GetLoadout(), Has.None.EqualTo(new StashItem(Greatsword, 1)));
+            Assert.That(store.GetLoadout(), Has.Some.EqualTo(new StashItem(Sword, 1, 0)));
+            Assert.That(store.GetLoadout(), Has.None.Property(nameof(StashItem.LootId)).EqualTo(Greatsword));
         }
 
         [Test]
@@ -577,6 +581,10 @@ namespace Tests.EditMode.Equipment
 
             Assert.That(store.GetPreparedEquipment().Helmet, Is.EqualTo(Helmet));
             Assert.That(store.GetLoadout(), Has.Count.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots - 1));
+            for (int index = 1; index < LocalProfileSnapshot.MaxLoadoutSlots; index++)
+                Assert.That(store.GetLoadout()[index - 1],
+                    Is.EqualTo(new StashItem(new LootId($"occupied-{index}"), 1, index)),
+                    "Equipping leaves slot 0 empty; other physical slots do not compact.");
         }
 
         [Test]
@@ -666,6 +674,7 @@ namespace Tests.EditMode.Equipment
                 default,
                 default,
                 Boots);
+            PhysicalSlotTestSeed.AssignUnplaced(snapshot);
 
             Assert.That(
                 LocalProfileSaveCodec.TryDecode(
@@ -720,8 +729,8 @@ namespace Tests.EditMode.Equipment
             Assert.That(restored.PendingReservation.PreparedEquipment.WeaponSetBMainHand, Is.EqualTo(RecoverySword));
             Assert.That(restored.PendingReservation.PreparedEquipment.WeaponSetAOffHand.IsValid, Is.False);
             Assert.That(restored.PendingReservation.PreparedEquipment.WeaponSetBOffHand.IsValid, Is.False);
-            Assert.That(restored.Loadout, Is.EqualTo(new[] { new StashItem(new LootId("bone"), 2) }));
-            Assert.That(restored.PendingReservation.Items, Is.EqualTo(new[] { new StashItem(new LootId("bone"), 1) }));
+            Assert.That(restored.Loadout, Is.EqualTo(new[] { new StashItem(new LootId("bone"), 2, 0) }));
+            Assert.That(restored.PendingReservation.Items, Is.EqualTo(new[] { new StashItem(new LootId("bone"), 1, 0) }));
         }
 
         [Test]
@@ -749,7 +758,7 @@ namespace Tests.EditMode.Equipment
             Assert.That(restored.SchemaVersion, Is.EqualTo(LocalProfileSnapshot.CurrentSchemaVersion));
             Assert.That(restored.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(Sword));
             Assert.That(restored.PreparedEquipment.Helmet, Is.EqualTo(Helmet));
-            Assert.That(restored.Loadout, Is.EqualTo(new[] { new StashItem(Sword, 1) }));
+            Assert.That(restored.Loadout, Is.EqualTo(new[] { new StashItem(Sword, 1, 0) }));
         }
 
         [Test]
@@ -775,7 +784,7 @@ namespace Tests.EditMode.Equipment
             Assert.That(restored.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(Sword));
             Assert.That(
                 restored.Loadout,
-                Is.EqualTo(new[] { new StashItem(new LootId("bone"), 2) }));
+                Is.EqualTo(new[] { new StashItem(new LootId("bone"), 2, 0) }));
         }
 
         private LocalProfileStore CreateStore(string profileValue)
@@ -797,6 +806,7 @@ namespace Tests.EditMode.Equipment
             LocalProfileSnapshot snapshot = repository.Snapshot.Clone();
             snapshot.CharacterAttributes = attributes;
             configure?.Invoke(snapshot);
+            PhysicalSlotTestSeed.AssignUnplaced(snapshot);
             Assert.That(repository.TrySave(snapshot, out string error), Is.True, error);
             return new LocalProfileStore(repository, profile, _catalog);
         }

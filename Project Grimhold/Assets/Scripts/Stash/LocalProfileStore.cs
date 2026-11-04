@@ -83,6 +83,7 @@ public sealed class LocalProfileStore
         _repository.Snapshot != null ? _repository.Snapshot.LastAppliedProgressionResultSequence : 0;
     public int RemoteRevision =>
         _repository.Snapshot != null ? _repository.Snapshot.RemoteRevision : 0;
+    public int InventorySchemaVersion => _repository.Snapshot?.InventorySchemaVersion ?? 1;
 
     public IReadOnlyList<MissionInstanceState> GetActiveMissions() =>
         _repository.Snapshot != null ? _repository.Snapshot.ActiveMissions : Array.Empty<MissionInstanceState>();
@@ -642,7 +643,7 @@ public sealed class LocalProfileStore
             if (itemsToAdd.Count > 0)
             {
                 if (!CanAdmitStashItems(current.Stash, itemsToAdd)) return StashOperationResult.InventoryFull;
-                if (!TryMerge(next.Stash, itemsToAdd))
+                if (!TryMerge(next.Stash, itemsToAdd, StashCapacity))
                     return StashOperationResult.PersistenceFailed;
                 Debug.Log($"[MissionBoard] {itemsToAdd.Count} items de recompensa añadidos al Stash local exitosamente.");
             }
@@ -837,7 +838,7 @@ public sealed class LocalProfileStore
         if (!IsAvailable || _repository.Snapshot == null) return StashOperationResult.InvalidInventory;
         if (!CanAdmitStashItems(_repository.Snapshot.Stash, items)) return StashOperationResult.InventoryFull;
         var next = _repository.Snapshot.Clone();
-        if (!TryMerge(next.Stash, items)) return StashOperationResult.InvalidInventory;
+        if (!TryMerge(next.Stash, items, StashCapacity)) return StashOperationResult.InvalidInventory;
         return Commit(next);
     }
 
@@ -899,8 +900,9 @@ public sealed class LocalProfileStore
             long saleTotal = 0;
             foreach (MerchantPricedTradeLine sale in ticket.Sales)
             {
-                if (FindAmount(current.Loadout, sale.LootId) < sale.Amount ||
-                    !TryRemove(next.Loadout, sale.LootId, sale.Amount) ||
+                int saleIndex = FindIndex(next.Loadout, sale.LootId);
+                if (saleIndex < 0 ||
+                    !TryRemoveAt(next.Loadout, next.Loadout[saleIndex].Slot, sale.LootId, sale.Amount) ||
                     saleTotal > long.MaxValue - sale.Total)
                     return StashOperationResult.InvalidInventory;
                 saleTotal += sale.Total;
@@ -921,7 +923,7 @@ public sealed class LocalProfileStore
             long projectedCurrency = next.Currency + saleTotal - purchaseTotal;
             if (projectedCurrency < 0 ||
                 ExceedsCapacity(next.Loadout, purchased, LocalProfileSnapshot.MaxLoadoutSlots) ||
-                !TryMerge(next.Loadout, purchased))
+                !TryMerge(next.Loadout, purchased, LocalProfileSnapshot.MaxLoadoutSlots))
                 return StashOperationResult.InvalidInventory;
 
             next.Currency = projectedCurrency;
@@ -963,7 +965,7 @@ public sealed class LocalProfileStore
             if (current.Currency < totalPrice || ExceedsCapacity(current.Loadout, items, LocalProfileSnapshot.MaxLoadoutSlots))
                 return StashOperationResult.InvalidInventory;
             var candidate = current.Clone();
-            if (!TryMerge(candidate.Loadout, items)) return StashOperationResult.InvalidInventory;
+            if (!TryMerge(candidate.Loadout, items, LocalProfileSnapshot.MaxLoadoutSlots)) return StashOperationResult.InvalidInventory;
             candidate.Currency -= totalPrice;
             RecordShopReceipt(candidate, receipt);
             next = candidate;
@@ -986,12 +988,17 @@ public sealed class LocalProfileStore
             if (gate != StashOperationResult.Success) return gate;
             var next = current.Clone();
             next.Loadout.Clear();
-            foreach (var item in response.loadout)
+            var seenSlots = new HashSet<int>();
+            for (int i = 0; i < response.loadout.Length; i++)
             {
+                var item = response.loadout[i];
                 var lootId = new LootId(item.lootId);
-                if (!lootId.IsValid || item.amount <= 0 || !TryMerge(next.Loadout, new[] { new StashItem(lootId, item.amount) }))
+                int slot = current.InventorySchemaVersion == 2 ? item.slot : i;
+                if (!lootId.IsValid || item.amount <= 0 || slot < 0 || !seenSlots.Add(slot))
                     return StashOperationResult.InvalidInventory;
+                next.Loadout.Add(new StashItem(lootId, item.amount, slot));
             }
+            next.Loadout.Sort((a, b) => a.Slot.CompareTo(b.Slot));
             next.Currency = response.currency;
             next.RemoteRevision = response.revision;
             RecordShopReceipt(next, receipt);
@@ -1023,9 +1030,17 @@ public sealed class LocalProfileStore
         }
     }
 
+    public StashOperationResult TryConsumeStashSlot(int slot, LootId id, int amount)
+    {
+        if (!IsAvailable || _repository.Snapshot == null) return StashOperationResult.InvalidInventory;
+        var next = _repository.Snapshot.Clone();
+        if (!TryRemoveAt(next.Stash, slot, id, amount)) return StashOperationResult.InvalidInventory;
+        return Commit(next);
+    }
+
     public StashOperationResult TryConsumeLoot(LootId lootId, int amount)
     {
-        if (!lootId.IsValid || amount <= 0) return StashOperationResult.InvalidInventory;
+        if (!lootId.IsValid || amount <= 0 || !IsAvailable || _repository.Snapshot == null) return StashOperationResult.InvalidInventory;
         var next = _repository.Snapshot.Clone();
         if (!TryRemove(next.Stash, lootId, amount)) return StashOperationResult.InvalidInventory;
         return Commit(next);
@@ -1075,83 +1090,169 @@ public sealed class LocalProfileStore
     /// <summary>Reports what <see cref="TryTransferAllToStash"/> would return now, changing nothing.</summary>
     public StashOperationResult EvaluateTransferAllToStash() => PlanTransferAllToStash(out _);
 
+    // Compatibility order is unambiguous only when the list has one stack per definition.
     public StashOperationResult TryOrder(InventoryList list, IReadOnlyList<LootId> lootIds) =>
-        CommitPlan(PlanOrder(list, lootIds, out LocalProfileSnapshot next), next);
+        CommitPlan(PlanOrder(list, ResolveSlotOrder(list, lootIds), out LocalProfileSnapshot next), next);
 
     public StashOperationResult EvaluateOrder(InventoryList list, IReadOnlyList<LootId> lootIds) =>
-        PlanOrder(list, lootIds, out _);
+        PlanOrder(list, ResolveSlotOrder(list, lootIds), out _);
 
-    private StashOperationResult PlanOrder(InventoryList list, IReadOnlyList<LootId> lootIds, out LocalProfileSnapshot next)
+    private IReadOnlyList<int> ResolveSlotOrder(InventoryList list, IReadOnlyList<LootId> lootIds)
+    {
+        if (lootIds == null) return null;
+        var source = list == InventoryList.Stash ? GetStash() : GetLoadout();
+        var slots = new List<int>();
+        var ids = new HashSet<LootId>();
+        foreach (StashItem item in source) if (!ids.Add(item.LootId)) return null;
+        foreach (LootId id in lootIds)
+        {
+            int index = FindIndex(source, id);
+            if (index < 0) return null;
+            slots.Add(source[index].Slot);
+        }
+        return slots;
+    }
+
+    public StashOperationResult TryOrderSlots(InventoryList list, IReadOnlyList<int> slots) =>
+        CommitPlan(PlanOrder(list, slots, out LocalProfileSnapshot next), next);
+    public StashOperationResult EvaluateOrderSlots(InventoryList list, IReadOnlyList<int> slots) => PlanOrder(list, slots, out _);
+
+    private StashOperationResult PlanOrder(InventoryList list, IReadOnlyList<int> slots, out LocalProfileSnapshot next)
     {
         next = null;
-        StashOperationResult gate = BeginTownMutation(out LocalProfileSnapshot current);
+        var gate = BeginTownMutation(out var current);
         if (gate != StashOperationResult.Success) return gate;
-        if ((list != InventoryList.Stash && list != InventoryList.Loadout) || lootIds == null)
+        if ((list != InventoryList.Stash && list != InventoryList.Loadout) || slots == null)
             return StashOperationResult.InvalidInventory;
         var source = list == InventoryList.Stash ? current.Stash : current.Loadout;
-        if (lootIds.Count != source.Count) return StashOperationResult.InvalidInventory;
-        var items = new Dictionary<LootId, StashItem>();
-        foreach (StashItem item in source)
-        {
-            if (!item.LootId.IsValid || item.Amount <= 0 || items.ContainsKey(item.LootId))
-                return StashOperationResult.InvalidInventory;
-            items.Add(item.LootId, item);
-        }
-        var ordered = new List<StashItem>(source.Count);
+        if (!HasValidSlots(source) || slots.Count != source.Count) return StashOperationResult.InvalidInventory;
+        var seen = new HashSet<int>();
+        var ordered = new List<StashItem>();
         bool changed = false;
-        for (int i = 0; i < lootIds.Count; i++)
+        for (int i = 0; i < slots.Count; i++)
         {
-            if (!items.TryGetValue(lootIds[i], out StashItem item)) return StashOperationResult.InvalidInventory;
-            items.Remove(lootIds[i]);
-            ordered.Add(item);
-            changed |= source[i].LootId != lootIds[i];
+            int index = FindSlotIndex(source, slots[i]);
+            if (index < 0 || !seen.Add(slots[i])) return StashOperationResult.InvalidInventory;
+            ordered.Add(source[index].AtSlot(i));
+            changed |= source[index].Slot != i;
         }
-        // As with empty transfers, an identical order succeeds without a commit.
         if (!changed) return StashOperationResult.Success;
         next = current.Clone();
         var target = list == InventoryList.Stash ? next.Stash : next.Loadout;
-        target.Clear();
-        target.AddRange(ordered);
+        target.Clear(); target.AddRange(ordered);
         return StashOperationResult.Success;
     }
 
     private StashOperationResult CommitPlan(StashOperationResult plan, LocalProfileSnapshot next) =>
         plan == StashOperationResult.Success && next != null ? Commit(next) : plan;
 
-    private StashOperationResult PlanTransferToLoadout(LootId lootId, int amount, out LocalProfileSnapshot next)
+    private int SourceSlot(LootId id, bool fromStash)
+    {
+        var source = fromStash ? GetStash() : GetLoadout();
+        int index = FindIndex(source, id);
+        return index < 0 ? -1 : source[index].Slot;
+    }
+
+    private StashOperationResult PlanTransferToLoadout(LootId id, int amount, out LocalProfileSnapshot next) =>
+        PlanTransfer(SourceSlot(id, true), id, amount, true, out next);
+    private StashOperationResult PlanTransferToStash(LootId id, int amount, out LocalProfileSnapshot next) =>
+        PlanTransfer(SourceSlot(id, false), id, amount, false, out next);
+
+    public StashOperationResult EvaluateTransfer(int sourceSlot, LootId id, int amount, bool fromStash) =>
+        PlanTransfer(sourceSlot, id, amount, fromStash, out _);
+    public StashOperationResult TryTransfer(int sourceSlot, LootId id, int amount, bool fromStash) =>
+        CommitPlan(PlanTransfer(sourceSlot, id, amount, fromStash, out var next), next);
+
+    private StashOperationResult PlanTransfer(int sourceSlot, LootId id, int amount, bool fromStash,
+        out LocalProfileSnapshot next)
     {
         next = null;
-        if (!lootId.IsValid || amount <= 0) return StashOperationResult.InvalidInventory;
-        StashOperationResult gate = BeginTownMutation(out LocalProfileSnapshot current);
+        // A reservation owns the lists even when legacy lookup finds no source slot.
+        // Keep its refusal ahead of every inventory-input check for Try and Evaluate alike.
+        var gate = BeginTownMutation(out var current);
         if (gate != StashOperationResult.Success) return gate;
-        LocalProfileSnapshot candidate = current.Clone();
-        int available = FindAmount(candidate.Stash, lootId);
-        if (available <= 0) return StashOperationResult.InvalidInventory;
-        int actualAmount = Math.Min(amount, available);
-        if (FindIndex(candidate.Loadout, lootId) < 0 &&
-            candidate.Loadout.Count >= LocalProfileSnapshot.MaxLoadoutSlots)
-            return StashOperationResult.InventoryFull;
-        if (!TryRemove(candidate.Stash, lootId, actualAmount) ||
-            !TryMerge(candidate.Loadout, new[] { new StashItem(lootId, actualAmount) }))
+        if (!id.IsValid || amount <= 0 || sourceSlot < 0) return StashOperationResult.InvalidInventory;
+        var candidate = current.Clone();
+        var source = fromStash ? candidate.Stash : candidate.Loadout;
+        var destination = fromStash ? candidate.Loadout : candidate.Stash;
+        int index = FindSlotIndex(source, sourceSlot);
+        if (index < 0 || source[index].LootId != id) return StashOperationResult.InvalidInventory;
+        int actual = Math.Min(amount, source[index].Amount);
+        var incoming = new[] { new StashItem(id, actual) };
+        int capacity = fromStash ? LocalProfileSnapshot.MaxLoadoutSlots : StashCapacity;
+        if (ExceedsCapacity(destination, incoming, capacity)) return StashOperationResult.InventoryFull;
+        if (!TryRemoveAt(source, sourceSlot, id, actual) || !TryMerge(destination, incoming, capacity))
             return StashOperationResult.InvalidInventory;
         next = candidate;
         return StashOperationResult.Success;
     }
 
-    private StashOperationResult PlanTransferToStash(LootId lootId, int amount, out LocalProfileSnapshot next)
+    /// <summary>Plans an addressed split without saving or publishing ownership changes.</summary>
+    public StashOperationResult EvaluateSplit(InventoryList list, int sourceSlot, int amount, int destinationSlot, LootId lootId)
+    {
+        lock (_sync) return PlanSplit(list, sourceSlot, amount, destinationSlot, lootId, out _);
+    }
+
+    /// <summary>Creates one stack in an empty slot of the same list, atomically and without compaction.</summary>
+    public StashOperationResult TrySplit(InventoryList list, int sourceSlot, int amount, int destinationSlot, LootId lootId)
+    {
+        lock (_sync)
+        {
+            var result = PlanSplit(list, sourceSlot, amount, destinationSlot, lootId, out var next);
+            return CommitPlan(result, next);
+        }
+    }
+
+    private StashOperationResult PlanSplit(InventoryList list, int sourceSlot, int amount, int destinationSlot,
+        LootId lootId, out LocalProfileSnapshot next)
     {
         next = null;
-        if (!lootId.IsValid || amount <= 0) return StashOperationResult.InvalidInventory;
-        StashOperationResult gate = BeginTownMutation(out LocalProfileSnapshot current);
+        // A pending reservation owns the lists, even for malformed or missing-source input.
+        var gate = BeginTownMutation(out var current);
         if (gate != StashOperationResult.Success) return gate;
-        LocalProfileSnapshot candidate = current.Clone();
-        int available = FindAmount(candidate.Loadout, lootId);
-        if (available <= 0) return StashOperationResult.InvalidInventory;
-        int actualAmount = Math.Min(amount, available);
-        if (!CanAdmitStashItems(current.Stash, new[] { new StashItem(lootId, actualAmount) }))
-            return StashOperationResult.InventoryFull;
-        if (!TryRemove(candidate.Loadout, lootId, actualAmount) ||
-            !TryMerge(candidate.Stash, new[] { new StashItem(lootId, actualAmount) }))
+        if ((list != InventoryList.Stash && list != InventoryList.Loadout) || !lootId.IsValid ||
+            sourceSlot < 0 || destinationSlot < 0 || sourceSlot == destinationSlot || amount <= 0)
+            return StashOperationResult.InvalidInventory;
+
+        var items = list == InventoryList.Stash ? current.Stash : current.Loadout;
+        if (!HasValidSlots(items)) return StashOperationResult.InvalidInventory;
+        int index = FindSlotIndex(items, sourceSlot);
+        if (index < 0 || items[index].LootId != lootId || amount >= items[index].Amount)
+            return StashOperationResult.InvalidInventory;
+        if (FindSlotIndex(items, destinationSlot) >= 0) return StashOperationResult.InvalidInventory;
+        int capacity = list == InventoryList.Stash ? StashCapacity : LocalProfileSnapshot.MaxLoadoutSlots;
+        if (destinationSlot >= capacity || items.Count >= capacity) return StashOperationResult.InventoryFull;
+
+        var candidate = current.Clone();
+        var target = list == InventoryList.Stash ? candidate.Stash : candidate.Loadout;
+        StashItem source = items[index];
+        // Use addressed removal, never the receive/merge rule: duplicate IDs stay separate.
+        if (!TryRemoveAt(target, sourceSlot, lootId, amount)) return StashOperationResult.InvalidInventory;
+        target.Add(new StashItem(source.LootId, amount, destinationSlot));
+        target.Sort((a, b) => a.Slot.CompareTo(b.Slot));
+        next = candidate;
+        return StashOperationResult.Success;
+    }
+
+    public StashOperationResult EvaluateMove(InventoryList from, int fromSlot, InventoryList to, int toSlot, LootId id) =>
+        PlanMove(from, fromSlot, to, toSlot, id, out _);
+    public StashOperationResult TryMove(InventoryList from, int fromSlot, InventoryList to, int toSlot, LootId id) =>
+        CommitPlan(PlanMove(from, fromSlot, to, toSlot, id, out var next), next);
+
+    private StashOperationResult PlanMove(InventoryList from, int fromSlot, InventoryList to, int toSlot, LootId id,
+        out LocalProfileSnapshot next)
+    {
+        next = null;
+        var gate = BeginTownMutation(out var current);
+        if (gate != StashOperationResult.Success) return gate;
+        if ((from != InventoryList.Stash && from != InventoryList.Loadout) ||
+            (to != InventoryList.Stash && to != InventoryList.Loadout)) return StashOperationResult.InvalidInventory;
+        var candidate = current.Clone();
+        var source = from == InventoryList.Stash ? candidate.Stash : candidate.Loadout;
+        var target = to == InventoryList.Stash ? candidate.Stash : candidate.Loadout;
+        if (!ProfileInventoryRules.TryMove(source, fromSlot, target, toSlot, id,
+            from == InventoryList.Stash ? StashCapacity : LocalProfileSnapshot.MaxLoadoutSlots,
+            to == InventoryList.Stash ? StashCapacity : LocalProfileSnapshot.MaxLoadoutSlots))
             return StashOperationResult.InvalidInventory;
         next = candidate;
         return StashOperationResult.Success;
@@ -1164,12 +1265,9 @@ public sealed class LocalProfileStore
         if (gate != StashOperationResult.Success) return gate;
         if (current.Stash.Count == 0) return StashOperationResult.Success;
         LocalProfileSnapshot candidate = current.Clone();
-        int newSlots = 0;
-        foreach (StashItem item in candidate.Stash)
-            if (FindIndex(candidate.Loadout, item.LootId) < 0) newSlots++;
-        if (candidate.Loadout.Count + newSlots > LocalProfileSnapshot.MaxLoadoutSlots)
+        if (ExceedsCapacity(candidate.Loadout, candidate.Stash, LocalProfileSnapshot.MaxLoadoutSlots))
             return StashOperationResult.InventoryFull;
-        if (!TryMerge(candidate.Loadout, candidate.Stash)) return StashOperationResult.InvalidInventory;
+        if (!TryMerge(candidate.Loadout, candidate.Stash, LocalProfileSnapshot.MaxLoadoutSlots)) return StashOperationResult.InvalidInventory;
         candidate.Stash.Clear();
         next = candidate;
         return StashOperationResult.Success;
@@ -1183,7 +1281,7 @@ public sealed class LocalProfileStore
         if (current.Loadout.Count == 0) return StashOperationResult.Success;
         LocalProfileSnapshot candidate = current.Clone();
         if (!CanAdmitStashItems(current.Stash, candidate.Loadout)) return StashOperationResult.InventoryFull;
-        if (!TryMerge(candidate.Stash, candidate.Loadout)) return StashOperationResult.InvalidInventory;
+        if (!TryMerge(candidate.Stash, candidate.Loadout, StashCapacity)) return StashOperationResult.InvalidInventory;
         candidate.Loadout.Clear();
         next = candidate;
         return StashOperationResult.Success;
@@ -1192,23 +1290,16 @@ public sealed class LocalProfileStore
     // Capacity is admission-only: accepted remote excess may remain and existing IDs may merge.
     private bool CanAdmitStashItems(IReadOnlyList<StashItem> current, IReadOnlyList<StashItem> incoming)
     {
-        var ids = new HashSet<LootId>();
-        foreach (StashItem item in current) ids.Add(item.LootId);
-        int existing = ids.Count;
-        foreach (StashItem item in incoming) ids.Add(item.LootId);
-        return ids.Count == existing || ids.Count <= StashCapacity;
+        return !ExceedsCapacity(current, incoming, StashCapacity);
     }
 
     public StashOperationResult TryImportItems(IReadOnlyList<StashItem> items)
     {
         if (!HasValidItems(items)) return StashOperationResult.InvalidInventory;
         var next = _repository.Snapshot.Clone();
-        int newSlots = 0;
-        foreach (StashItem item in items)
-            if (FindIndex(next.Loadout, item.LootId) < 0) newSlots++;
-        if (next.Loadout.Count + newSlots > LocalProfileSnapshot.MaxLoadoutSlots)
+        if (ExceedsCapacity(next.Loadout, items, LocalProfileSnapshot.MaxLoadoutSlots))
             return StashOperationResult.PersistenceFailed;
-        if (!TryMerge(next.Loadout, items)) return StashOperationResult.InvalidInventory;
+        if (!TryMerge(next.Loadout, items, LocalProfileSnapshot.MaxLoadoutSlots)) return StashOperationResult.InvalidInventory;
         return Commit(next);
     }
 
@@ -1383,33 +1474,23 @@ public sealed class LocalProfileStore
             return StashOperationResult.InvalidInventory;
         }
 
+        var displaced = new List<StashItem>();
         LootId previousLootId = next.PreparedEquipment.Get(slot);
-        if (!TryReturnEquippedUnitToLoadout(next.Loadout, previousLootId))
+        if (previousLootId.IsValid) displaced.Add(new StashItem(previousLootId, 1));
+        if (displacedSecondSlot != EquipmentSlot.None)
         {
-            return StashOperationResult.PersistenceFailed;
+            LootId second = next.PreparedEquipment.Get(displacedSecondSlot);
+            if (second.IsValid) displaced.Add(new StashItem(second, 1));
         }
-
-        if (displacedSecondSlot != EquipmentSlot.None &&
-            !TryReturnEquippedUnitToLoadout(next.Loadout, next.PreparedEquipment.Get(displacedSecondSlot)))
-        {
-            return StashOperationResult.PersistenceFailed;
-        }
-
-        // Preserve hydrated excess without permitting it to grow. No intermediate
-        // Loadout slot is needed for the incoming Stash unit.
-        if (next.Loadout.Count > Math.Max(LocalProfileSnapshot.MaxLoadoutSlots, current.Loadout.Count))
-        {
+        // No intermediate Loadout slot is needed for the Stash unit. Displaced units use
+        // the same admission rule as all other receives, including overflow rejection.
+        if (ExceedsCapacity(next.Loadout, displaced, LocalProfileSnapshot.MaxLoadoutSlots))
             return StashOperationResult.InventoryFull;
-        }
+        if (!TryMerge(next.Loadout, displaced, LocalProfileSnapshot.MaxLoadoutSlots))
+            return StashOperationResult.PersistenceFailed;
 
         next.PreparedEquipment = candidate;
         return StashOperationResult.Success;
-    }
-
-    private static bool TryReturnEquippedUnitToLoadout(List<StashItem> inventory, LootId lootId)
-    {
-        if (!lootId.IsValid) return true;
-        return TryMerge(inventory, new[] { new StashItem(lootId, 1) });
     }
 
     private static bool TryReturnEquippedUnit(List<StashItem> inventory, LootId lootId)
@@ -1417,7 +1498,7 @@ public sealed class LocalProfileStore
         if (!lootId.IsValid) return true;
         return (FindIndex(inventory, lootId) >= 0 ||
                 inventory.Count < LocalProfileSnapshot.MaxLoadoutSlots) &&
-            TryMerge(inventory, new[] { new StashItem(lootId, 1) });
+            TryMerge(inventory, new[] { new StashItem(lootId, 1) }, LocalProfileSnapshot.MaxLoadoutSlots);
     }
 
     /// <summary>Moves one equipped unit back into the persistent Inventory atomically.</summary>
@@ -1443,7 +1524,7 @@ public sealed class LocalProfileStore
         LocalProfileSnapshot next = current.Clone();
         if ((FindIndex(next.Loadout, previousLootId) < 0 &&
              next.Loadout.Count >= LocalProfileSnapshot.MaxLoadoutSlots) ||
-            !TryMerge(next.Loadout, new[] { new StashItem(previousLootId, 1) }))
+            !TryMerge(next.Loadout, new[] { new StashItem(previousLootId, 1) }, LocalProfileSnapshot.MaxLoadoutSlots))
         {
             return StashOperationResult.PersistenceFailed;
         }
@@ -1629,6 +1710,7 @@ public sealed class LocalProfileStore
             return StashOperationResult.Success;
         }
 
+        if (!HasValidSlots(current.Loadout)) return StashOperationResult.InvalidInventory;
         // Backend data may leave the Loadout over capacity; the excess must be moved
         // to the Stash before it can enter a raid, whose inventory is capped.
         if (current.Loadout.Count > LocalProfileSnapshot.MaxLoadoutSlots)
@@ -1687,8 +1769,7 @@ public sealed class LocalProfileStore
         if (current.PendingReservation == null || !string.Equals(current.PendingReservation.ReservationId, reservationId, StringComparison.Ordinal))
             return StashOperationResult.InvalidInventory;
         var next = current.Clone();
-        if (ExceedsCapacity(next.Loadout, next.PendingReservation.Items, LocalProfileSnapshot.MaxLoadoutSlots) ||
-            !TryMerge(next.Loadout, next.PendingReservation.Items)) return StashOperationResult.PersistenceFailed;
+        RestoreSlots(next.Loadout, next.PendingReservation.Items);
         PreparedEquipmentLoadout restoredWeapons = next.PendingReservation.PreparedEquipment;
         if (!PreparedEquipmentLoadout.TryValidate(
                 restoredWeapons,
@@ -1726,7 +1807,7 @@ public sealed class LocalProfileStore
         int resultingLevel,
         long resultingExperience)
     {
-        if (!receipt.IsValid || receipt.ProfileId != _profileId || !HasValidItems(items, allowEmpty: true))
+        if (!receipt.IsValid || receipt.ProfileId != _profileId || !HasValidItems(items, allowEmpty: true, allowDuplicates: true))
             return StashOperationResult.InvalidInventory;
 
         if (items.Count > LocalProfileSnapshot.MaxLoadoutSlots)
@@ -1740,7 +1821,8 @@ public sealed class LocalProfileStore
             return StashOperationResult.PersistenceFailed;
 
         LocalProfileSnapshot next = current.Clone();
-        next.Loadout.AddRange(items);
+        if (!TryMerge(next.Loadout, items, LocalProfileSnapshot.MaxLoadoutSlots))
+            return StashOperationResult.PersistenceFailed;
         next.AppliedExtractionReceipts.Add(receipt);
         while (next.AppliedExtractionReceipts.Count > LocalProfileSnapshot.MaxAppliedExtractionReceipts)
             next.AppliedExtractionReceipts.RemoveAt(0);
@@ -1849,12 +1931,12 @@ public sealed class LocalProfileStore
         }
     }
 
-    private static bool HasValidItems(IReadOnlyList<StashItem> items, bool allowEmpty = false)
+    private static bool HasValidItems(IReadOnlyList<StashItem> items, bool allowEmpty = false, bool allowDuplicates = false)
     {
         if (items == null || (!allowEmpty && items.Count == 0)) return false;
         var seen = new HashSet<LootId>();
         foreach (StashItem item in items)
-            if (!item.IsValid || !seen.Add(item.LootId)) return false;
+            if (!item.IsValid || (!allowDuplicates && !seen.Add(item.LootId))) return false;
         return true;
     }
 

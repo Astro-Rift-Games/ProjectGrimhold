@@ -29,7 +29,8 @@ namespace Tests.EditMode.Stash
                 definitions.Add(Definition($"item{i:D2}", "same", categories[i]));
             definitions.Add(Definition("alpha", "Alpha", LootCategory.Valuable));
             definitions.Add(Definition("beta", "beta", LootCategory.Valuable));
-            var source = definitions.Select(d => new StashItem(d.LootId, 3)).Reverse().ToArray();
+            var source = definitions.AsEnumerable().Reverse()
+                .Select((d, slot) => new StashItem(d.LootId, 3, slot)).ToArray();
             StashItem[] original = source.ToArray();
             var projected = Project(source, definitions);
             Assert.That(projected.Select(s => s.LootId.Value), Is.EqualTo(
@@ -49,7 +50,7 @@ namespace Tests.EditMode.Stash
                 Definition("none", "zzz", LootCategory.None),
                 Definition("invalid", "yyy", (LootCategory)999) };
             string[] ids = { "missing", "none", "tie_b", "invalid", "tie_a", "bbb_null", "aaa_blank" };
-            var projected = Project(ids.Select(id => new StashItem(new LootId(id), 1)).ToArray(), definitions);
+            var projected = Project(ids.Select((id, slot) => new StashItem(new LootId(id), 1, slot)).ToArray(), definitions);
             Assert.That(projected.Select(s => s.LootId.Value), Is.EqualTo(ids));
             Assert.That(projected[6].DisplayName, Is.EqualTo("aaa_blank"));
             Assert.That(projected[5].DisplayName, Is.EqualTo("bbb_null"));
@@ -90,7 +91,7 @@ namespace Tests.EditMode.Stash
             _owned.Add(catalog);
             typeof(LootDefinitionCatalog).GetField("_definitions", Private)
                 .SetValue(catalog, new List<LootDefinition> { definition });
-            var item = new StashItem(definition.LootId, 6);
+            var item = new StashItem(definition.LootId, 6, 0);
             var original = RaidInventorySlotData.Create(new LootEntry(item.LootId, item.Amount), definition, null);
             var projected = Project(new[] { item }, new List<LootDefinition> { definition })[0];
             Assert.That(projected.DisplayName, Is.EqualTo("blank"));

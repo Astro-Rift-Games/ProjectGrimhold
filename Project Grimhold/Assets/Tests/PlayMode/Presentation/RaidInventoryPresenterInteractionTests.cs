@@ -160,10 +160,13 @@ namespace Tests.PlayMode.Presentation
             var repository = new InMemoryLocalProfileRepository();
             Assert.That(repository.Initialize(profile, catalog), Is.True);
             var snapshot = repository.Snapshot.Clone();
-            var expected = StashDisplayOrder.SortedCopy(new[] {
+            snapshot.InventorySchemaVersion = 2; // Sort must cross the migrated-inventory mutation gate.
+            var sorted = StashDisplayOrder.SortedCopy(new[] {
                 new StashItem(new LootId("bone"), 2), new StashItem(new LootId("rapier"), 1) }, catalog);
-            snapshot.Loadout.Add(expected[1]);
-            snapshot.Loadout.Add(expected[0]);
+            // Stored addresses remain sparse until the explicit Sort compacts them.
+            var initial = new[] { sorted[1].AtSlot(3), sorted[0].AtSlot(7) };
+            var expected = new[] { sorted[0].AtSlot(0), sorted[1].AtSlot(1) };
+            snapshot.Loadout.AddRange(initial);
             Assert.That(repository.TrySave(snapshot, out _), Is.True);
             var services = new GameObject("Town sort services");
             LocalLoadoutInventoryReadSource source = null;
@@ -189,7 +192,7 @@ namespace Tests.PlayMode.Presentation
                 var gate = new System.Threading.Tasks.TaskCompletionSource<bool>();
                 remote.Gates.Enqueue(gate.Task);
                 var task = (System.Threading.Tasks.Task)InvokeMethod(_presenter, "SortTownAsync");
-                Assert.That(store.GetLoadout()[0], Is.EqualTo(expected[1]), "Remote first.");
+                Assert.That(store.GetLoadout(), Is.EqualTo(initial), "Remote first: preserve both entries and their addresses until acknowledgement.");
                 gate.SetResult(true);
                 await task;
                 Assert.That(store.GetLoadout(), Is.EqualTo(expected));

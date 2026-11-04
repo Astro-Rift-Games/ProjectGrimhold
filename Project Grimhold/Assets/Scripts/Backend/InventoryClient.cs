@@ -21,6 +21,22 @@ namespace Grimhold.Backend
 
     public static class InventoryClient
     {
+        public static Task<(bool success, MoveItemResult data, BackendError error)> OrderSlotsAsync(
+            BackendConfiguration config, string token, InventorySlotOrderRequest body) =>
+            PutJson<InventorySlotOrderRequest, MoveItemResult>(config, token,
+                $"{config.BaseUrl}/character/me/inventory/order", body);
+
+        /// <summary>Splits one v2 stack in place; the shared POST path sends protocol header 2.</summary>
+        public static Task<(bool success, MoveItemResult data, BackendError error)> SplitSlotAsync(
+            BackendConfiguration config, string token, InventorySlotSplitRequest body) =>
+            PostJson<InventorySlotSplitRequest, MoveItemResult>(config, token,
+                $"{config.BaseUrl}/character/me/inventory/slots/split", body);
+
+        public static Task<(bool success, MoveItemResult data, BackendError error)> MoveSlotsAsync(
+            BackendConfiguration config, string token, InventorySlotMoveRequest body) =>
+            PostJson<InventorySlotMoveRequest, MoveItemResult>(config, token,
+                $"{config.BaseUrl}/character/me/inventory/slots/move", body);
+
         public static Task<(bool success, MoveItemResult data, BackendError error)> OrderAsync(
             BackendConfiguration config, string token, InventoryOrderRequest body) =>
             PutJson<InventoryOrderRequest, MoveItemResult>(config, token,
@@ -38,7 +54,7 @@ namespace Grimhold.Backend
             GetInventoryAsync(BackendConfiguration config, string token)
         {
             var url = $"{config.BaseUrl}/character/me/inventory";
-            using var request = UnityWebRequest.Get(url);
+            using var request = InventoryProtocol.Get(url);
             request.SetRequestHeader("Authorization", $"Bearer {token}");
             request.timeout = config.TimeoutSeconds;
 
@@ -57,10 +73,10 @@ namespace Grimhold.Backend
         /// stash to the loadout. Returns the updated stash and loadout on success.
         /// </summary>
         public static async Task<(bool success, MoveItemResult data, BackendError error)>
-            MoveToLoadoutAsync(BackendConfiguration config, string token, string lootId, int amount, int expectedRevision)
+            MoveToLoadoutAsync(BackendConfiguration config, string token, string lootId, int amount, int expectedRevision, int sourceSlot = -1)
         {
             var url  = $"{config.BaseUrl}/character/me/inventory/stash/move-to-loadout";
-            var body = new MoveItemRequest { lootId = lootId, amount = amount, expectedRevision = expectedRevision };
+            var body = new MoveItemRequest { sourceSlot = sourceSlot, lootId = lootId, amount = amount, expectedRevision = expectedRevision };
             return await PostJson<MoveItemRequest, MoveItemResult>(config, token, url, body);
         }
 
@@ -69,10 +85,10 @@ namespace Grimhold.Backend
         /// loadout to the stash. Returns the updated stash and loadout on success.
         /// </summary>
         public static async Task<(bool success, MoveItemResult data, BackendError error)>
-            MoveToStashAsync(BackendConfiguration config, string token, string lootId, int amount, int expectedRevision)
+            MoveToStashAsync(BackendConfiguration config, string token, string lootId, int amount, int expectedRevision, int sourceSlot = -1)
         {
             var url  = $"{config.BaseUrl}/character/me/inventory/loadout/move-to-stash";
-            var body = new MoveItemRequest { lootId = lootId, amount = amount, expectedRevision = expectedRevision };
+            var body = new MoveItemRequest { sourceSlot = sourceSlot, lootId = lootId, amount = amount, expectedRevision = expectedRevision };
             return await PostJson<MoveItemRequest, MoveItemResult>(config, token, url, body);
         }
 
@@ -81,10 +97,10 @@ namespace Grimhold.Backend
         // ------------------------------------------------------------------
 
         public static async Task<(bool success, ShopTransactionResult data, BackendError error)>
-            ShopSellAsync(BackendConfiguration config, string token, string transactionId, string lootId, int amount, int expectedRevision)
+            ShopSellAsync(BackendConfiguration config, string token, string transactionId, string lootId, int amount, int expectedRevision, int sourceSlot = -1)
         {
             var url  = $"{config.BaseUrl}/character/me/inventory/shop/sell";
-            var body = new ShopSellRequest { transactionId = transactionId, lootId = lootId, amount = amount, expectedRevision = expectedRevision };
+            var body = new ShopSellRequest { sourceSlot = sourceSlot, transactionId = transactionId, lootId = lootId, amount = amount, expectedRevision = expectedRevision };
             return await PostJson<ShopSellRequest, ShopTransactionResult>(config, token, url, body);
         }
 
@@ -154,7 +170,7 @@ namespace Grimhold.Backend
             ClearPendingReservationAsync(BackendConfiguration config, string token)
         {
             var url = $"{config.BaseUrl}/character/me/inventory/reservation";
-            using var request = UnityWebRequest.Delete(url);
+            using var request = InventoryProtocol.Delete(url);
             request.SetRequestHeader("Authorization", $"Bearer {token}");
             // DELETE needs a download handler to read the response body.
             request.downloadHandler = new DownloadHandlerBuffer();
@@ -173,7 +189,7 @@ namespace Grimhold.Backend
             RollbackPendingReservationAsync(BackendConfiguration config, string token)
         {
             var url = $"{config.BaseUrl}/character/me/inventory/reservation?rollback=true";
-            using var request = UnityWebRequest.Delete(url);
+            using var request = InventoryProtocol.Delete(url);
             request.SetRequestHeader("Authorization", $"Bearer {token}");
             request.downloadHandler = new DownloadHandlerBuffer();
             request.timeout = config.TimeoutSeconds;
@@ -226,8 +242,8 @@ namespace Grimhold.Backend
         private static async Task<(bool success, TResult data, BackendError error)>
             PostJson<TRequest, TResult>(BackendConfiguration config, string token, string url, TRequest body)
         {
-            var json = JsonUtility.ToJson(body);
-            using var request = new UnityWebRequest(url, "POST");
+            var json = InventoryRequestJson.Encode(body);
+            using var request = InventoryProtocol.Create(url, "POST");
             request.uploadHandler   = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(json));
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
@@ -244,7 +260,7 @@ namespace Grimhold.Backend
             PutJson<TRequest, TResult>(BackendConfiguration config, string token, string url, TRequest body)
         {
             var json = JsonUtility.ToJson(body);
-            using var request = new UnityWebRequest(url, "PUT");
+            using var request = InventoryProtocol.Create(url, "PUT");
             request.uploadHandler   = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(json));
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");

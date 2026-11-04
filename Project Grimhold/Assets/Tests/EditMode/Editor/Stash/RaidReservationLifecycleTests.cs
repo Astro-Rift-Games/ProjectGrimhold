@@ -52,9 +52,9 @@ namespace Tests.EditMode.Stash
 
             Assert.That(store.PendingReservation, Is.Null);
             Assert.That(store.PendingExtractionCommit, Is.Null);
-            Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(new LootId("bone"), 3) }));
+            Assert.That(store.GetStash(), Is.EqualTo(new[] { new StashItem(new LootId("bone"), 3, 0) }));
             Assert.That(store.GetLoadout(), Is.EqualTo(admitted
-                ? Array.Empty<StashItem>() : new[] { new StashItem(new LootId("bone"), 2) }));
+                ? Array.Empty<StashItem>() : new[] { new StashItem(new LootId("bone"), 2, 0) }));
             Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand,
                 Is.EqualTo(admitted ? default(LootId) : new LootId("rapier")));
             Assert.That(store.RemoteRevision, Is.EqualTo(7));
@@ -75,7 +75,7 @@ namespace Tests.EditMode.Stash
                 Is.EqualTo(StashOperationResult.Success));
             LocalProfileSnapshot hydrated = repository.Snapshot.Clone();
             hydrated.PendingReservation = new PendingLoadoutReservation("reservation-a",
-                new[] { new StashItem(new LootId("bone"), 2) },
+                new[] { new StashItem(new LootId("bone"), 2, 0) },
                 new PreparedEquipmentLoadout(new LootId("rapier"), default));
             Assert.That(repository.TrySave(hydrated, out string error), Is.True, error);
             string before = LocalProfileSaveCodec.Encode(repository.Snapshot);

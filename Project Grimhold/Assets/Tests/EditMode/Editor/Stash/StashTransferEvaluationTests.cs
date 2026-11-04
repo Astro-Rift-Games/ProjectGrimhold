@@ -178,6 +178,7 @@ namespace Tests.EditMode.Stash
             Assert.That(repository.Initialize(profile, _catalog), Is.True);
             LocalProfileSnapshot snapshot = repository.Snapshot.Clone();
             configure?.Invoke(snapshot);
+            PhysicalSlotTestSeed.AssignUnplaced(snapshot);
             Assert.That(repository.TrySave(snapshot, out string error), Is.True, error);
             return new LocalProfileStore(repository, profile, _catalog);
         }

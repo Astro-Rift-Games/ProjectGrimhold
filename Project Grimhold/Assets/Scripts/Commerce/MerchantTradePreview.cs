@@ -107,13 +107,14 @@ public sealed class MerchantTradePreview
         {
             if (!TryResolve(catalog, line.LootId, blocks, out LootDefinition definition)) continue;
 
-            if (line.Amount > ProfileInventoryRules.FindAmount(confirmed, line.LootId))
+            int saleIndex = ProfileInventoryRules.FindIndex(projected, line.LootId);
+            if (saleIndex < 0 || line.Amount > projected[saleIndex].Amount)
             {
                 blocks.Add(new MerchantTradeBlock(MerchantTradeBlockReason.InsufficientOwnedUnits, line.LootId));
                 continue;
             }
 
-            ProfileInventoryRules.TryRemove(projected, line.LootId, line.Amount);
+            ProfileInventoryRules.TryRemoveAt(projected, projected[saleIndex].Slot, line.LootId, line.Amount);
             overflow |= !TryAdd(saleTotal, (long)definition.SellValuePerUnit * line.Amount, out saleTotal);
         }
 
@@ -166,6 +167,8 @@ public sealed class MerchantTradePreview
         bool exceedsCapacity = ProfileInventoryRules.ExceedsCapacity(projected, purchased, slotCapacity);
         foreach (StashItem item in purchased)
         {
+            // Keep the rejected hypothetical result visible, as before. Admission above uses
+            // the real capacity/overflow rule; this advisory list is never committed.
             if (!ProfileInventoryRules.TryMerge(projected, new[] { item }))
             {
                 blocks.Add(new MerchantTradeBlock(MerchantTradeBlockReason.Overflow, item.LootId));
@@ -215,14 +218,14 @@ public sealed class MerchantTradePreview
 
     private static List<StashItem> CopyInventory(IReadOnlyList<LootEntry> inventory)
     {
+        if (inventory is TownInventoryProjection town) return new List<StashItem>(town.PhysicalItems);
         var items = new List<StashItem>(inventory.Count);
-        foreach (LootEntry entry in inventory)
+        for (int index = 0; index < inventory.Count; index++)
         {
-            if (!entry.IsValid ||
-                !ProfileInventoryRules.TryMerge(items, new[] { new StashItem(entry.LootId, entry.Amount) }))
-            {
+            LootEntry entry = inventory[index];
+            if (!entry.IsValid)
                 throw new ArgumentException("The confirmed Inventory contains an invalid entry.", nameof(inventory));
-            }
+            items.Add(new StashItem(entry.LootId, entry.Amount, index));
         }
 
         return items;

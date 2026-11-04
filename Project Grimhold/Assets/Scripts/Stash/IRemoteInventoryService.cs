@@ -4,6 +4,8 @@ using Grimhold.Backend;
 /// <summary>
 /// The backend inventory operations the Stash screen drives. It exists so Stash action logic can
 /// be tested without HTTP; <see cref="RemoteInventoryService"/> is the production implementation.
+/// Protocol-2 coordinators also require ISlotRemoteInventoryService; these LootId methods are
+/// compatibility wrappers resolving the lowest source slot, never v2 wire addresses.
 /// </summary>
 public interface IRemoteInventoryService
 {

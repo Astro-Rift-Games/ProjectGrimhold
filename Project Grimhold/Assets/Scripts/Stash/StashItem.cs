@@ -8,18 +8,25 @@ public readonly struct StashItem : IEquatable<StashItem>
 {
     public LootId LootId { get; }
     public int Amount { get; }
+    /// <summary>Physical Town location; -1 denotes an aggregate input awaiting placement.</summary>
+    public int Slot { get; }
 
     public bool IsValid => LootId.IsValid && Amount > 0;
 
-    public StashItem(LootId lootId, int amount)
+    public StashItem(LootId lootId, int amount) : this(lootId, amount, -1) { }
+
+    public StashItem(LootId lootId, int amount, int slot)
     {
         LootId = lootId;
         Amount = amount;
+        Slot = slot;
     }
+
+    public StashItem AtSlot(int slot) => new(LootId, Amount, slot);
 
     public bool Equals(StashItem other)
     {
-        return LootId.Equals(other.LootId) && Amount == other.Amount;
+        return LootId.Equals(other.LootId) && Amount == other.Amount && Slot == other.Slot;
     }
 
     public override bool Equals(object obj)
@@ -31,7 +38,7 @@ public readonly struct StashItem : IEquatable<StashItem>
     {
         unchecked
         {
-            return (LootId.GetHashCode() * 397) ^ Amount;
+            return (((LootId.GetHashCode() * 397) ^ Amount) * 397) ^ Slot;
         }
     }
 

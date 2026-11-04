@@ -265,7 +265,7 @@ public sealed class RemoteShopTransactionServiceTests
     {
         var snapshot = _repository.Snapshot.Clone();
         snapshot.PendingReservation = new PendingLoadoutReservation("pending",
-            new[] { new StashItem(new LootId("arming_sword"), 1) },
+            new[] { new StashItem(new LootId("arming_sword"), 1, 0) },
             new PreparedEquipmentLoadout(new LootId("arming_sword"), default));
         Assert.That(_repository.TrySave(snapshot, out var error), Is.True, error);
         Assert.That(await _service.ExecuteBuybackAsync(Profile, Buyback()), Is.EqualTo(StashOperationResult.ReservationPending));
@@ -281,7 +281,7 @@ public sealed class RemoteShopTransactionServiceTests
         var snapshot = _repository.Snapshot.Clone();
         for (int i = 0; i < catalog.DefinitionCount && snapshot.Loadout.Count < LocalProfileSnapshot.MaxLoadoutSlots; i++)
             if (catalog.TryGetByIndex(i, out var definition) && definition.LootId != Bone)
-                snapshot.Loadout.Add(new StashItem(definition.LootId, 1));
+                snapshot.Loadout.Add(new StashItem(definition.LootId, 1, snapshot.Loadout.Count));
         Assert.That(snapshot.Loadout.Count, Is.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
         Assert.That(_repository.TrySave(snapshot, out var error), Is.True, error);
         Assert.That(await _service.ExecuteBuybackAsync(Profile, Buyback()), Is.EqualTo(StashOperationResult.InvalidInventory));
@@ -328,8 +328,9 @@ public sealed class RemoteShopTransactionServiceTests
     {
         var snapshot = _repository.Snapshot.Clone();
         snapshot.Currency = currency;
+        snapshot.InventorySchemaVersion = 2;
         snapshot.Loadout.Clear();
-        if (bone > 0) snapshot.Loadout.Add(new StashItem(Bone, bone));
+        if (bone > 0) snapshot.Loadout.Add(new StashItem(Bone, bone, 0));
         Assert.That(_repository.TrySave(snapshot, out string error), Is.True, error);
     }
 

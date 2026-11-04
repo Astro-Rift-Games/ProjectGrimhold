@@ -3,7 +3,8 @@ using System.Collections.Generic;
 
 /// <summary>
 /// Service abstraction for interacting with a player's stash.
-/// Enables future replacements with persistent backends, database calls, or host-managed services.
+/// Entries retain physical Slot addresses (holes and repeated LootIds are valid).
+/// Definition-wide consumption drains matching stacks in ascending Slot order.
 /// </summary>
 public interface IPlayerStashService
 {

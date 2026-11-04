@@ -11,7 +11,7 @@ namespace Grimhold.Backend
         public static async Task<(bool success, CharacterData data, BackendError error)> GetCharacterAsync(BackendConfiguration config, string token)
         {
             var url = $"{config.BaseUrl}/character/me";
-            using var request = UnityWebRequest.Get(url);
+            using var request = InventoryProtocol.Get(url);
             request.SetRequestHeader("Authorization", $"Bearer {token}");
             request.timeout = config.TimeoutSeconds;
 
@@ -27,7 +27,7 @@ namespace Grimhold.Backend
         public static async Task<(bool success, CharacterProfileData data, BackendError error)> GetProfileAsync(BackendConfiguration config, string token)
         {
             var url = $"{config.BaseUrl}/character/me/profile";
-            using var request = UnityWebRequest.Get(url);
+            using var request = InventoryProtocol.Get(url);
             request.SetRequestHeader("Authorization", $"Bearer {token}");
             request.timeout = config.TimeoutSeconds;
 
@@ -46,7 +46,7 @@ namespace Grimhold.Backend
             var requestData = new PatchProfileRequest { customNote = customNote };
             var json = JsonUtility.ToJson(requestData);
 
-            using var request = new UnityWebRequest(url, "PATCH");
+            using var request = InventoryProtocol.Create(url, "PATCH");
             request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
@@ -68,7 +68,7 @@ namespace Grimhold.Backend
             var requestData = new CreateCharacterRequest { name = name };
             var json = JsonUtility.ToJson(requestData);
 
-            using var request = new UnityWebRequest(url, "POST");
+            using var request = InventoryProtocol.Create(url, "POST");
             request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
@@ -87,7 +87,7 @@ namespace Grimhold.Backend
         public static async Task<(bool success, TownSessionTicketResponse data, BackendError error)> GetTownSessionTicketAsync(BackendConfiguration config, string token)
         {
             var url = $"{config.BaseUrl}/character/me/session-ticket/town";
-            using var request = new UnityWebRequest(url, "POST");
+            using var request = InventoryProtocol.Create(url, "POST");
             request.uploadHandler = new UploadHandlerRaw(Array.Empty<byte>());
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Authorization", $"Bearer {token}");
@@ -104,7 +104,7 @@ namespace Grimhold.Backend
             var body = new VerifyTownTicketRequest { ticket = rawTicket };
             var json = JsonUtility.ToJson(body);
 
-            using var request = new UnityWebRequest(url, "POST");
+            using var request = InventoryProtocol.Create(url, "POST");
             request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
@@ -126,7 +126,7 @@ namespace Grimhold.Backend
             var body = new IssueRaidAdmissionTicketRequest { raidCode = raidCode, reservationId = reservationId };
             var json = JsonUtility.ToJson(body);
 
-            using var request = new UnityWebRequest(url, "POST");
+            using var request = InventoryProtocol.Create(url, "POST");
             request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
@@ -148,7 +148,7 @@ namespace Grimhold.Backend
             var body = new VerifyRaidAdmissionTicketRequest { ticket = rawTicket, raidCode = raidCode };
             var json = JsonUtility.ToJson(body);
 
-            using var request = new UnityWebRequest(url, "POST");
+            using var request = InventoryProtocol.Create(url, "POST");
             request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");

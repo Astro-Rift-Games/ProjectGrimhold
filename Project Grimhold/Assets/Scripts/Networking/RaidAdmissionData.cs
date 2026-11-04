@@ -137,11 +137,8 @@ public readonly struct RaidAdmissionData
             return false;
         }
 
-        var entries = new List<LootEntry>(reservation.Items.Count);
-        for (int index = 0; index < reservation.Items.Count; index++)
-        {
-            entries.Add(new LootEntry(reservation.Items[index].LootId, reservation.Items[index].Amount));
-        }
+        if (!ProfileInventoryRules.TryAggregate(reservation.Items, out List<LootEntry> entries))
+            return false;
 
         EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
         var indices = new int[slots.Length];
@@ -153,6 +150,7 @@ public readonly struct RaidAdmissionData
                 int entryIndex = FindEntryIndexPlusOne(entries, eqLootId) - 1;
                 if (entryIndex >= 0)
                 {
+                    if (entries[entryIndex].Amount == int.MaxValue) return false;
                     entries[entryIndex] = new LootEntry(eqLootId, entries[entryIndex].Amount + 1);
                 }
                 else

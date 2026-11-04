@@ -76,7 +76,7 @@ namespace Tests.PlayMode.Presentation
             var displaced = new LootId("arming_sword");
             CreateScreen(snapshot =>
             {
-                snapshot.Stash.Add(new StashItem(sword, 2));
+                snapshot.Stash.Add(new StashItem(sword, 2, 0));
                 snapshot.PreparedEquipment = new PreparedEquipmentLoadout(displaced, default);
             });
             yield return null;
@@ -97,8 +97,8 @@ namespace Tests.PlayMode.Presentation
                 Assert.That(_store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(sword),
                     "The real Stash menu must retain its source through the presenter.");
                 Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:rapier:1", "equipment" }));
-                Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(sword, 1) }));
-                Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(displaced, 1) }));
+                Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(sword, 1, 0) }));
+                Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(displaced, 1, 0) }));
                 Assert.That(FindOccupiedSlot(LoadoutPanel()), Is.Not.Null);
             }
         }
@@ -106,7 +106,7 @@ namespace Tests.PlayMode.Presentation
         [UnityTest]
         public IEnumerator MoveAllFromTheStash_ReachesTheBackendThenMovesTheStackAndRefreshesTheView()
         {
-            CreateScreen(snapshot => snapshot.Stash.Add(new StashItem(Bone, 3)));
+            CreateScreen(snapshot => snapshot.Stash.Add(new StashItem(Bone, 3, 0)));
             yield return null;
 
             ClickMoveAll(StashPanel());
@@ -114,7 +114,7 @@ namespace Tests.PlayMode.Presentation
 
             Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:bone:3" }));
             Assert.That(_store.GetStash(), Is.Empty);
-            Assert.That(_store.GetLoadout().Single(), Is.EqualTo(new StashItem(Bone, 3)));
+            Assert.That(_store.GetLoadout().Single(), Is.EqualTo(new StashItem(Bone, 3, 0)));
             Assert.That(FindOccupiedSlot(LoadoutPanel()), Is.Not.Null, "The Loadout panel must show the moved stack.");
             Assert.That(FindOccupiedSlot(StashPanel()), Is.Null, "The Stash panel must no longer show it.");
         }
@@ -122,7 +122,7 @@ namespace Tests.PlayMode.Presentation
         [UnityTest]
         public IEnumerator TakeAllPointerClick_MovesStackFromStash()
         {
-            CreateScreen(snapshot => snapshot.Stash.Add(new StashItem(Bone, 3)));
+            CreateScreen(snapshot => snapshot.Stash.Add(new StashItem(Bone, 3, 0)));
             yield return null;
 
             Button button = GetButton("_takeAllButton");
@@ -132,13 +132,13 @@ namespace Tests.PlayMode.Presentation
 
             Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:bone:3" }));
             Assert.That(_store.GetStash(), Is.Empty);
-            Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Bone, 3) }));
+            Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Bone, 3, 0) }));
         }
 
         [UnityTest]
         public IEnumerator LeaveAllPointerClick_MovesStackFromLoadout()
         {
-            CreateScreen(snapshot => snapshot.Loadout.Add(new StashItem(Bone, 3)));
+            CreateScreen(snapshot => snapshot.Loadout.Add(new StashItem(Bone, 3, 0)));
             yield return null;
 
             Button button = GetButton("_leaveAllButton");
@@ -148,7 +148,7 @@ namespace Tests.PlayMode.Presentation
 
             Assert.That(_remote.Calls, Is.EqualTo(new[] { "toStash:bone:3" }));
             Assert.That(_store.GetLoadout(), Is.Empty);
-            Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Bone, 3) }));
+            Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Bone, 3, 0) }));
         }
 
         [UnityTest]
@@ -157,12 +157,12 @@ namespace Tests.PlayMode.Presentation
             LootId[] ids = DistinctLootIds(LocalProfileSnapshot.MaxLoadoutSlots + 1);
             CreateScreen(snapshot =>
             {
-                foreach (LootId id in ids.Take(LocalProfileSnapshot.MaxLoadoutSlots))
+                for (int slot = 0; slot < LocalProfileSnapshot.MaxLoadoutSlots; slot++)
                 {
-                    snapshot.Loadout.Add(new StashItem(id, 1));
+                    snapshot.Loadout.Add(new StashItem(ids[slot], 1, slot));
                 }
 
-                snapshot.Stash.Add(new StashItem(ids[LocalProfileSnapshot.MaxLoadoutSlots], 1));
+                snapshot.Stash.Add(new StashItem(ids[LocalProfileSnapshot.MaxLoadoutSlots], 1, 0));
             });
             yield return null;
             LogAssert.Expect(LogType.Warning, new Regex("Stash action did not complete: Rejected \\(InventoryFull\\)"));
@@ -181,8 +181,8 @@ namespace Tests.PlayMode.Presentation
             var sword = new LootId("rapier");
             CreateScreen(snapshot =>
             {
-                snapshot.Stash.Add(new StashItem(Bone, 3));
-                snapshot.Stash.Add(new StashItem(sword, 1));
+                snapshot.Stash.Add(new StashItem(Bone, 3, 0));
+                snapshot.Stash.Add(new StashItem(sword, 1, 1));
             });
             yield return null;
             var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -237,8 +237,10 @@ namespace Tests.PlayMode.Presentation
                 LootId[] expected = definitions.Select(d => d.LootId).Reverse().ToArray();
                 CreateScreen(snapshot =>
                 {
-                    foreach (LootId id in expected) snapshot.Stash.Add(new StashItem(id, 1));
-                    foreach (LootId id in expected.Take(3)) snapshot.Loadout.Add(new StashItem(id, 1));
+                    for (int slot = 0; slot < expected.Length; slot++)
+                        snapshot.Stash.Add(new StashItem(expected[slot], 1, slot));
+                    for (int slot = 0; slot < 3; slot++)
+                        snapshot.Loadout.Add(new StashItem(expected[slot], 1, slot));
                 });
                 var presenter = _instance.GetComponent<LobbyStashPresenter>();
                 _instance.SetActive(false);
@@ -289,9 +291,12 @@ namespace Tests.PlayMode.Presentation
         public IEnumerator SortButtons_PersistOnlyTheirListRemoteFirstWhileReady()
         {
             var ids = DistinctLootIds(6);
-            var source = ids.Select((id, i) => new StashItem(id, i + 2)).ToArray();
-            var sorted = StashDisplayOrder.SortedCopy(source, _catalog).ToArray();
-            source = sorted.Reverse().ToArray();
+            var source = ids.Select((id, i) => new StashItem(id, i + 2, i)).ToArray();
+            source = StashDisplayOrder.SortedCopy(source, _catalog).AsEnumerable().Reverse()
+                .Select((item, i) => item.AtSlot(i + 2)).ToArray();
+            var slotOrder = StashDisplayOrder.SortedCopy(source, _catalog).Select(item => item.Slot).ToArray();
+            var sorted = StashDisplayOrder.SortedCopy(source, _catalog)
+                .Select((item, i) => item.AtSlot(i)).ToArray();
             CreateScreen(snapshot =>
             {
                 snapshot.Stash.AddRange(source);
@@ -310,19 +315,24 @@ namespace Tests.PlayMode.Presentation
                 Assert.That(button.IsInteractable(), Is.False);
                 Assert.That(list == InventoryList.Stash ? _store.GetStash() : _store.GetLoadout(), Is.EqualTo(source),
                     "Local order must not change before the remote response.");
-                Assert.That(_remote.Calls.Last(), Is.EqualTo($"order:{list}:{string.Join(",", sorted.Select(s => s.LootId.Value))}"));
+                Assert.That(_remote.Calls.Last(), Is.EqualTo($"order:{list}:{string.Join(",", slotOrder)}"));
                 gate.SetResult(true);
                 for (int frame = 0; frame < 5; frame++) yield return null;
                 Assert.That(list == InventoryList.Stash ? _store.GetStash() : _store.GetLoadout(), Is.EqualTo(sorted));
                 Assert.That(_store.GetStash(), Is.EqualTo(sorted));
                 Assert.That(_store.GetLoadout(), Is.EqualTo(list == InventoryList.Stash ? source : sorted));
+                RaidLootPanelView panel = list == InventoryList.Stash ? StashPanel() : LoadoutPanel();
+                RaidInventorySlotView[] cells = panel.GetComponentsInChildren<RaidInventorySlotView>(true);
+                for (int slot = 0; slot < sorted.Length; slot++)
+                    Assert.That(cells[slot].LootId, Is.EqualTo(sorted[slot].LootId), "Only explicit Sort closes holes.");
+                Assert.That(cells.Skip(sorted.Length).All(cell => !cell.IsOccupied), Is.True);
             }
         }
 
         [UnityTest]
         public IEnumerator ApplicationQueue_BlocksOtherConsumersWhileStashTransferIsPending()
         {
-            CreateScreen(snapshot => snapshot.Stash.Add(new StashItem(new LootId("bone"), 3)));
+            CreateScreen(snapshot => snapshot.Stash.Add(new StashItem(new LootId("bone"), 3, 0)));
             yield return null;
             var context = _contextObject.GetComponent<ApplicationStashContext>();
             var coordinator = context.GetTransferCoordinator();
@@ -341,7 +351,203 @@ namespace Tests.PlayMode.Presentation
             for (int frame = 0; frame < 5; frame++) yield return null;
             Assert.That(otherConsumerSort.IsCompleted, Is.True);
             Assert.That(otherConsumerSort.Result.IsSuccess, Is.True);
-            Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(new LootId("bone"), 3) }));
+            Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(new LootId("bone"), 3, 0) }));
+        }
+
+        [UnityTest]
+        public IEnumerator RemovingOneDuplicate_LeavesItsHoleAndTransfersOnlyTheSelectedSlot()
+        {
+            CreateScreen(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Bone, 2, 2));
+                snapshot.Stash.Add(new StashItem(Bone, 5, 7));
+            });
+            yield return null;
+            RaidInventorySlotView[] cells = StashPanel().GetComponentsInChildren<RaidInventorySlotView>(true);
+            Assert.That(cells[0].IsOccupied, Is.False);
+            Assert.That(cells[2].LootId, Is.EqualTo(Bone));
+            Assert.That(cells[7].LootId, Is.EqualTo(Bone));
+
+            ClickMoveAll(StashPanel(), occupiedIndex: 1);
+            yield return null;
+
+            Assert.That(_remote.TransferSlots, Is.EqualTo(new[] { 7 }));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:bone:5" }));
+            Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Bone, 2, 2) }));
+            Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Bone, 5, 0) }));
+            Assert.That(cells[2].LootId, Is.EqualTo(Bone));
+            Assert.That(cells[7].IsOccupied, Is.False, "Removal must not shift another entry into the hole.");
+        }
+
+        [UnityTest]
+        public IEnumerator SparseStash_RendersAtPhysicalSlotOnSecondPageAndTransfersThatAddress()
+        {
+            CreateScreen(snapshot => snapshot.Stash.Add(new StashItem(Bone, 4, 19)));
+            yield return null;
+            Assert.That(FindOccupiedSlot(StashPanel()), Is.Null);
+            ClickButton(GetButton("_stashNextPage"));
+            RaidInventorySlotView[] cells = StashPanel().GetComponentsInChildren<RaidInventorySlotView>(true);
+            Assert.That(cells[0].IsOccupied, Is.False);
+            Assert.That(cells[3].LootId, Is.EqualTo(Bone));
+            Assert.That(cells.Count(cell => cell.IsOccupied), Is.EqualTo(1));
+            ClickMoveAll(StashPanel());
+            yield return null;
+            Assert.That(_remote.TransferSlots, Is.EqualTo(new[] { 19 }));
+            Assert.That(_store.GetStash(), Is.Empty);
+        }
+
+        [UnityTest]
+        public IEnumerator StashOverflow_UsesExistingInvalidVisualAndCanBeReduced()
+        {
+            CreateScreen(snapshot => snapshot.Stash.Add(new StashItem(Bone, 4, 64)));
+            yield return null;
+            for (int page = 0; page < 4; page++) ClickButton(GetButton("_stashNextPage"));
+            RaidInventorySlotView cell = FindOccupiedSlot(StashPanel());
+            Assert.That(cell, Is.Not.Null);
+            var serializedCell = new SerializedObject(cell);
+            var background = (UnityEngine.UI.Image)serializedCell.FindProperty("_background").objectReferenceValue;
+            var invalidSprite = (Sprite)serializedCell.FindProperty("_invalidSprite").objectReferenceValue;
+            Assert.That(invalidSprite, Is.Not.Null);
+            Assert.That(background.sprite, Is.SameAs(invalidSprite));
+            cell.OnPointerEnter(new PointerEventData(null));
+            Assert.That(background.sprite, Is.SameAs(invalidSprite), "Hover must not erase the overflow marker.");
+            ClickMoveAll(StashPanel());
+            yield return null;
+            Assert.That(_remote.TransferSlots, Is.EqualTo(new[] { 64 }));
+            Assert.That(_store.GetStash(), Is.Empty);
+            Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Bone, 4, 0) }));
+        }
+
+        [UnityTest]
+        public IEnumerator DragBetweenCells_UsesSlotMoveForEmptyMergeAndSwap()
+        {
+            LootId other = new("rapier");
+            CreateScreen(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Bone, 2, 2));
+                snapshot.Stash.Add(new StashItem(Bone, 3, 5));
+                snapshot.Stash.Add(new StashItem(other, 1, 7));
+            });
+            yield return null;
+            RaidInventorySlotView[] cells = StashPanel().GetComponentsInChildren<RaidInventorySlotView>(true);
+            Drag(cells[2], cells[3]);
+            yield return null;
+            Assert.That(cells[2].IsOccupied, Is.False);
+            Assert.That(cells[3].LootId, Is.EqualTo(Bone));
+            Drag(cells[3], cells[5]);
+            yield return null;
+            Assert.That(cells[3].IsOccupied, Is.False);
+            Assert.That(_store.GetStash(), Does.Contain(new StashItem(Bone, 5, 5)));
+            Drag(cells[5], cells[7]);
+            yield return null;
+            Assert.That(_remote.Calls, Is.EqualTo(new[] {
+                "move:Stash:2:Stash:3:bone", "move:Stash:3:Stash:5:bone", "move:Stash:5:Stash:7:bone" }));
+            Assert.That(_store.GetStash(), Is.EquivalentTo(new[] {
+                new StashItem(other, 1, 5), new StashItem(Bone, 5, 7) }));
+            Assert.That(cells[5].LootId, Is.EqualTo(other));
+            Assert.That(cells[7].LootId, Is.EqualTo(Bone));
+        }
+
+        [UnityTest]
+        public IEnumerator LoadoutRemoval_KeepsTheOtherDuplicateAtItsSlot()
+        {
+            CreateScreen(snapshot =>
+            {
+                snapshot.Loadout.Add(new StashItem(Bone, 2, 3));
+                snapshot.Loadout.Add(new StashItem(Bone, 4, 9));
+            });
+            yield return null;
+            RaidInventorySlotView[] cells = LoadoutPanel().GetComponentsInChildren<RaidInventorySlotView>(true);
+            Assert.That(cells[0].IsOccupied, Is.False);
+            Assert.That(cells[3].LootId, Is.EqualTo(Bone));
+            Assert.That(cells[9].LootId, Is.EqualTo(Bone));
+            ClickMoveAll(LoadoutPanel());
+            yield return null;
+            Assert.That(_remote.TransferSlots, Is.EqualTo(new[] { 3 }));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toStash:bone:2" }));
+            Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Bone, 4, 9) }));
+            Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Bone, 2, 0) }));
+            Assert.That(cells[3].IsOccupied, Is.False);
+            Assert.That(cells[9].LootId, Is.EqualTo(Bone));
+        }
+
+        [UnityTest]
+        public IEnumerator DragFromSecondStashPage_ToLoadoutCell_PreservesBothAddresses()
+        {
+            CreateScreen(snapshot => snapshot.Stash.Add(new StashItem(Bone, 4, 19)));
+            yield return null;
+            ClickButton(GetButton("_stashNextPage"));
+            var source = StashPanel().GetComponentsInChildren<RaidInventorySlotView>(true)[3];
+            var target = LoadoutPanel().GetComponentsInChildren<RaidInventorySlotView>(true)[8];
+            Drag(source, target);
+            yield return null;
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "move:Stash:19:Loadout:8:bone" }));
+            Assert.That(_store.GetStash(), Is.Empty);
+            Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Bone, 4, 8) }));
+            Assert.That(target.LootId, Is.EqualTo(Bone));
+        }
+
+        [UnityTest]
+        public IEnumerator EquipmentDrag_StillUsesEquipmentEndpointAndReadyGate()
+        {
+            LootId sword = new("rapier");
+            CreateScreen(snapshot => snapshot.Loadout.Add(new StashItem(sword, 1, 4)));
+            var presenter = _instance.GetComponent<LobbyStashPresenter>();
+            presenter.SetEquipmentGate(() => false);
+            yield return null;
+            var field = typeof(LobbyStashUI).GetField("_weaponSetAMainHandView",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var equipmentCell = (RaidInventorySlotView)field.GetValue(_view);
+            var source = LoadoutPanel().GetComponentsInChildren<RaidInventorySlotView>(true)[4];
+            LogAssert.Expect(LogType.Warning, new Regex("Stash action did not complete: Blocked"));
+            Drag(source, equipmentCell);
+            yield return null;
+            Assert.That(_remote.Calls, Is.Empty);
+            Assert.That(_store.GetPreparedEquipment().WeaponSetAMainHand.IsValid, Is.False);
+            Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(sword, 1, 4) }));
+            presenter.SetEquipmentGate(() => true);
+            Drag(source, equipmentCell);
+            yield return null;
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "equipment" }));
+            Assert.That(_store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(sword));
+            Assert.That(_store.GetLoadout(), Is.Empty);
+        }
+
+        [UnityTest]
+        public IEnumerator LoadoutOverflow_ReportsTheAuthoredShortageWithoutCompactingIntoAnotherCell()
+        {
+            LogAssert.Expect(LogType.Error, new Regex(
+                @"needs physical slots 0\.\.30 but only 30 slots are authored in the prefab; Loadout paging is not authored\."));
+            CreateScreen(snapshot => snapshot.Loadout.Add(new StashItem(Bone, 4, 30)));
+            yield return null;
+            Assert.That(LoadoutPanel().AuthoredSlotCount, Is.EqualTo(30));
+            Assert.That(FindOccupiedSlot(LoadoutPanel()), Is.Null,
+                "Overflow must not silently take the position of an in-capacity cell.");
+            Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Bone, 4, 30) }));
+            Assert.That(_remote.Calls, Is.Empty);
+        }
+
+        [UnityTest]
+        public IEnumerator AuthoredCellHierarchy_MatchesPanelPoolUsedForSlotAddressing()
+        {
+            CreateScreen(_ => { });
+            yield return null;
+            foreach (RaidLootPanelView panel in new[] { StashPanel(), LoadoutPanel() })
+            {
+                var pool = new SerializedObject(panel).FindProperty("_authoredSlots");
+                var cells = panel.GetComponentsInChildren<RaidInventorySlotView>(true);
+                Assert.That(cells.Length, Is.EqualTo(pool.arraySize));
+                for (int i = 0; i < cells.Length; i++)
+                    Assert.That(cells[i], Is.SameAs(pool.GetArrayElementAtIndex(i).objectReferenceValue));
+            }
+        }
+
+        private static void Drag(RaidInventorySlotView source, RaidInventorySlotView target)
+        {
+            var pointer = new PointerEventData(null) { button = PointerEventData.InputButton.Left };
+            source.OnBeginDrag(pointer);
+            target.OnDrop(pointer);
+            source.OnEndDrag(pointer);
         }
 
         private void CreateScreen(Action<LocalProfileSnapshot> configure)
@@ -350,6 +556,7 @@ namespace Tests.PlayMode.Presentation
             var repository = new InMemoryLocalProfileRepository();
             Assert.That(repository.Initialize(profile, _catalog), Is.True);
             LocalProfileSnapshot snapshot = repository.Snapshot.Clone();
+            snapshot.InventorySchemaVersion = 2;
             configure(snapshot);
             Assert.That(repository.TrySave(snapshot, out string error), Is.True, error);
             _store = new LocalProfileStore(repository, profile, _catalog);
@@ -455,8 +662,26 @@ namespace Tests.PlayMode.Presentation
         private static RaidInventorySlotView FindOccupiedSlot(RaidLootPanelView panel) =>
             Array.Find(panel.GetComponentsInChildren<RaidInventorySlotView>(true), slot => slot.IsOccupied);
 
-        public sealed class FakeRemoteComponent : MonoBehaviour, IRemoteInventoryService
+        public sealed class FakeRemoteComponent : MonoBehaviour, IRemoteInventoryService, ISlotRemoteInventoryService
         {
+            public readonly List<int> TransferSlots = new();
+
+            public Task<(bool success, BackendError error)> SplitSlotAsync(
+                InventoryList list, int sourceSlot, int amount, int destinationSlot, LootId lootId) =>
+                Run($"split:{list}:{sourceSlot}:{amount}:{destinationSlot}:{lootId.Value}");
+
+            public Task<(bool success, BackendError error)> TransferAsync(int sourceSlot, LootId id, int amount, bool fromStash)
+            {
+                TransferSlots.Add(sourceSlot);
+                return Run($"{(fromStash ? "toLoadout" : "toStash")}:{id.Value}:{amount}");
+            }
+
+            public Task<(bool success, BackendError error)> OrderSlotsAsync(InventoryList list, IReadOnlyList<int> slots) =>
+                Run($"order:{list}:{string.Join(",", slots)}");
+
+            public Task<(bool success, BackendError error)> MoveSlotsAsync(
+                InventoryList from, int fromSlot, InventoryList to, int toSlot, LootId id) =>
+                Run($"move:{from}:{fromSlot}:{to}:{toSlot}:{id.Value}");
             public Task<(bool success, BackendError error)> OrderAsync(InventoryList list, IReadOnlyList<LootId> lootIds) =>
                 Run($"order:{list}:{string.Join(",", lootIds.Select(id => id.Value))}");
             public readonly List<string> Calls = new();

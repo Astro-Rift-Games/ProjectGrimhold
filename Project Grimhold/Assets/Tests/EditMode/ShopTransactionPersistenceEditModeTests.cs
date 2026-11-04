@@ -41,7 +41,7 @@ public sealed class ShopTransactionPersistenceEditModeTests
         var ticket = Ticket(NextId(), Buy(Potion, 1, 30), Sell(Coins, 2, 1));
         Assert.That(_store.EvaluateTrade(Profile, ticket), Is.EqualTo(StashOperationResult.Success));
         Assert.That(_store.GetCurrency(), Is.EqualTo(100));
-        AssertLoadout((Coins, 2));
+        AssertLoadout((0, Coins, 2));
         Assert.That(_commits, Is.Zero);
         Assert.That(_store.IsTradeApplied(Profile, ticket.TransactionId), Is.False);
         Assert.That(_store.TryCommitTrade(Profile, ticket), Is.EqualTo(StashOperationResult.Success));
@@ -60,7 +60,7 @@ public sealed class ShopTransactionPersistenceEditModeTests
         Assert.That(Trade(Buy(Potion, 2, 50), Buy(Bone, 3, 10)), Is.EqualTo(StashOperationResult.Success));
 
         Assert.That(_store.GetCurrency(), Is.EqualTo(370L));
-        AssertLoadout((Potion, 2), (Bone, 3));
+        AssertLoadout((0, Potion, 2), (1, Bone, 3));
     }
 
     [Test]
@@ -71,7 +71,7 @@ public sealed class ShopTransactionPersistenceEditModeTests
         Assert.That(Trade(Sell(Potion, 3, 20), Sell(Bone, 2, 5)), Is.EqualTo(StashOperationResult.Success));
 
         Assert.That(_store.GetCurrency(), Is.EqualTo(70L));
-        AssertLoadout((Potion, 2));
+        AssertLoadout((0, Potion, 2));
     }
 
     [Test]
@@ -82,7 +82,7 @@ public sealed class ShopTransactionPersistenceEditModeTests
         Assert.That(Trade(Buy(Potion, 1, 30), Sell(Coins, 4, 10)), Is.EqualTo(StashOperationResult.Success));
 
         Assert.That(_store.GetCurrency(), Is.EqualTo(110L));
-        AssertLoadout((Potion, 1));
+        AssertLoadout((0, Potion, 1));
     }
 
     [Test]
@@ -93,7 +93,7 @@ public sealed class ShopTransactionPersistenceEditModeTests
         Assert.That(Trade(Buy(Potion, 1, 30), Sell(Coins, 3, 10)), Is.EqualTo(StashOperationResult.Success));
 
         Assert.That(_store.GetCurrency(), Is.Zero);
-        AssertLoadout((Potion, 1));
+        AssertLoadout((0, Potion, 1));
     }
 
     [Test]
@@ -219,7 +219,7 @@ public sealed class ShopTransactionPersistenceEditModeTests
         AssertRejectedWithoutChange(StashOperationResult.ReservationPending, Buy(purchase, 1, 1));
 
         Assert.That(_store.TryRollbackLoadoutReservation("shop-reservation"), Is.EqualTo(StashOperationResult.Success));
-        AssertLoadout(reserved.Select(id => (id, 2)).ToArray());
+        AssertLoadout(reserved.Select((id, slot) => (slot, id, 2)).ToArray());
         Assert.That(_store.GetCurrency(), Is.EqualTo(100L));
     }
 
@@ -235,7 +235,7 @@ public sealed class ShopTransactionPersistenceEditModeTests
         AssertRejectedWithoutChange(StashOperationResult.AlreadyApplied, () => _store.TryCommitTrade(Profile, ticket));
 
         Assert.That(_store.TryRollbackLoadoutReservation("shop-replay"), Is.EqualTo(StashOperationResult.Success));
-        AssertLoadout((Bone, 2), (Potion, 1));
+        AssertLoadout((0, Bone, 2), (1, Potion, 1));
         Assert.That(_store.GetCurrency(), Is.EqualTo(70L));
     }
 
@@ -249,7 +249,7 @@ public sealed class ShopTransactionPersistenceEditModeTests
         Assert.That(Trade(Buy(Potion, 5, 30), Sell(Potion, 2, 10)), Is.EqualTo(StashOperationResult.Success));
 
         Assert.That(_store.GetCurrency(), Is.EqualTo(200L + 20L - 150L));
-        AssertLoadout((Potion, 5));
+        AssertLoadout((0, Potion, 5));
     }
 
     [Test]
@@ -284,7 +284,7 @@ public sealed class ShopTransactionPersistenceEditModeTests
         Assert.That(_store.TryCommitTrade(Profile, ticket), Is.EqualTo(StashOperationResult.AlreadyApplied));
 
         Assert.That(_store.GetCurrency(), Is.EqualTo(90L));
-        AssertLoadout((Potion, 1));
+        AssertLoadout((0, Potion, 1));
         Assert.That(_commits, Is.Zero);
     }
 
@@ -334,7 +334,7 @@ public sealed class ShopTransactionPersistenceEditModeTests
 
         Trade(Buy(Potion, 1, 30), Sell(Coins, 1, 10));
 
-        Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Coins, 7) }));
+        Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Coins, 7, 0) }));
     }
 
     [Test]
@@ -444,7 +444,11 @@ public sealed class ShopTransactionPersistenceEditModeTests
         LocalProfileSnapshot snapshot = _repository.Snapshot.Clone();
         snapshot.Currency = currency;
         snapshot.Loadout.Clear();
-        foreach ((LootId lootId, int amount) in loadout) snapshot.Loadout.Add(new StashItem(lootId, amount));
+        for (int slot = 0; slot < loadout.Length; slot++)
+        {
+            (LootId lootId, int amount) = loadout[slot];
+            snapshot.Loadout.Add(new StashItem(lootId, amount, slot));
+        }
         Assert.That(_repository.TrySave(snapshot, out string error), Is.True, error);
     }
 
@@ -500,9 +504,9 @@ public sealed class ShopTransactionPersistenceEditModeTests
         Assert.That(_commits, Is.Zero);
     }
 
-    private void AssertLoadout(params (LootId lootId, int amount)[] expected)
+    private void AssertLoadout(params (int slot, LootId lootId, int amount)[] expected)
     {
-        Assert.That(_store.GetLoadout(), Is.EquivalentTo(expected.Select(item => new StashItem(item.lootId, item.amount))));
+        Assert.That(_store.GetLoadout(), Is.EquivalentTo(expected.Select(item => new StashItem(item.lootId, item.amount, item.slot))));
     }
 
     private ShopTransactionId NextId() => new ShopTransactionId(_nextTimestamp++, Guid.NewGuid());

@@ -14,7 +14,7 @@ namespace Grimhold.Backend
             var requestData = new LoginRequest { username = username, password = password };
             var json = JsonUtility.ToJson(requestData);
 
-            using var request = new UnityWebRequest(url, "POST");
+            using var request = InventoryProtocol.Create(url, "POST");
             request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
@@ -58,7 +58,7 @@ namespace Grimhold.Backend
             var requestData = new LoginRequest { username = username, password = password };
             var json = JsonUtility.ToJson(requestData);
 
-            using var request = new UnityWebRequest(url, "POST");
+            using var request = InventoryProtocol.Create(url, "POST");
             request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
@@ -100,7 +100,7 @@ namespace Grimhold.Backend
         public static async Task<bool> PostLogoutAsync(BackendConfiguration config, string token)
         {
             var url = $"{config.BaseUrl}/auth/logout";
-            using var request = new UnityWebRequest(url, "POST");
+            using var request = InventoryProtocol.Create(url, "POST");
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Authorization", $"Bearer {token}");
             request.timeout = config.TimeoutSeconds;

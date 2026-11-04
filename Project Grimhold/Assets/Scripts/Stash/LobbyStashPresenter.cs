@@ -22,6 +22,7 @@ public class LobbyStashPresenter : MonoBehaviour
     private ProfileId _localProfileId;
     private readonly List<RaidInventorySlotData> _preparedProjection = new();
     private DragPayload _activeDrag = DragPayload.Empty;
+    private int _activeDragSlot = -1;
     private int _pendingActions;
     private Func<bool> _canMutateEquipment = AllowEquipmentMutation;
 
@@ -42,7 +43,9 @@ public class LobbyStashPresenter : MonoBehaviour
 
         if (_stashUI != null)
         {
-            _stashUI.TransferRequested += OnTransferRequested;
+            _stashUI.SlotTransferRequested += OnTransferRequested;
+            _stashUI.SlotDragStarted += OnSlotDragStarted;
+            _stashUI.SlotDropReceived += OnSlotDropReceived;
             _stashUI.TakeAllRequested += OnTakeAllRequested;
             _stashUI.LeaveAllRequested += OnLeaveAllRequested;
             _stashUI.SortRequested += OnSortRequested;
@@ -76,7 +79,9 @@ public class LobbyStashPresenter : MonoBehaviour
         CancelActiveDrag();
         if (_stashUI != null)
         {
-            _stashUI.TransferRequested -= OnTransferRequested;
+            _stashUI.SlotTransferRequested -= OnTransferRequested;
+            _stashUI.SlotDragStarted -= OnSlotDragStarted;
+            _stashUI.SlotDropReceived -= OnSlotDropReceived;
             _stashUI.TakeAllRequested -= OnTakeAllRequested;
             _stashUI.LeaveAllRequested -= OnLeaveAllRequested;
             _stashUI.SortRequested -= OnSortRequested;
@@ -119,6 +124,7 @@ public class LobbyStashPresenter : MonoBehaviour
         if (_activeDrag.IsValid)
         {
             _activeDrag = DragPayload.Empty;
+            _activeDragSlot = -1;
             if (_stashUI != null && _stashUI.DragPreview != null) _stashUI.DragPreview.Hide();
         }
     }
@@ -128,12 +134,30 @@ public class LobbyStashPresenter : MonoBehaviour
         if (!payload.IsValid) return;
 
         _activeDrag = payload;
+        _activeDragSlot = -1;
         if (_stashUI.TooltipView != null) _stashUI.TooltipView.Hide();
 
         if (_stashUI.DragPreview != null)
         {
             _stashUI.DragPreview.Show(payload.Icon, UnityEngine.Input.mousePosition);
         }
+    }
+
+    private void OnSlotDragStarted(int sourceSlot, DragPayload payload)
+    {
+        // Town addresses stay separate from Raid's 0..29 address/revision and Origin contract.
+        if (payload.IsValid) _activeDragSlot = sourceSlot;
+    }
+
+    private void OnSlotDropReceived(InventoryList targetList, int targetSlot)
+    {
+        if (!_activeDrag.IsValid || _activeDragSlot < 0) return;
+        DragPayload payload = _activeDrag;
+        if (payload.Source != DragSlotLocation.Stash && payload.Source != DragSlotLocation.Inventory) return;
+        InventoryList sourceList = payload.Source == DragSlotLocation.Stash ? InventoryList.Stash : InventoryList.Loadout;
+        int sourceSlot = _activeDragSlot;
+        CancelActiveDrag();
+        Run(coordinator => coordinator.MoveAsync(sourceList, sourceSlot, targetList, targetSlot, payload.LootId));
     }
 
     private void OnDragUpdated()
@@ -155,15 +179,8 @@ public class LobbyStashPresenter : MonoBehaviour
         if (!DropPolicy.CanAttemptDrop(payload.Source, targetLocation, targetEquipmentSlot)) return;
         if (targetLocation == DragSlotLocation.Equipment && !DropPolicy.CanAttemptEquipmentDrop(in payload, targetEquipmentSlot, _stashUI.IsEquipmentDropReserved(targetEquipmentSlot))) return;
 
-        if (payload.Source == DragSlotLocation.Inventory && targetLocation == DragSlotLocation.Stash)
-        {
-            OnTransferRequested(payload.LootId, false, LootTransferQuantityMode.FullStack);
-        }
-        else if (payload.Source == DragSlotLocation.Stash && targetLocation == DragSlotLocation.Inventory)
-        {
-            OnTransferRequested(payload.LootId, true, LootTransferQuantityMode.FullStack);
-        }
-        else if (payload.Source == DragSlotLocation.Inventory && targetLocation == DragSlotLocation.Equipment)
+        // Inventory/Stash cell drops are handled by OnSlotDropReceived with both addresses.
+        if (payload.Source == DragSlotLocation.Inventory && targetLocation == DragSlotLocation.Equipment)
         {
             OnPreparedEquipmentAssignmentRequested(payload.LootId, targetEquipmentSlot, false);
         }
@@ -183,8 +200,8 @@ public class LobbyStashPresenter : MonoBehaviour
 
     private void OnLeaveAllRequested() => Run(coordinator => coordinator.LeaveAllAsync());
 
-    private void OnTransferRequested(LootId lootId, bool isFromStash, LootTransferQuantityMode mode) =>
-        Run(coordinator => coordinator.TransferAsync(lootId, isFromStash, mode));
+    private void OnTransferRequested(int sourceSlot, LootId lootId, bool isFromStash, LootTransferQuantityMode mode) =>
+        Run(coordinator => coordinator.TransferAsync(sourceSlot, lootId, isFromStash, mode));
 
     private void OnPreparedEquipmentAssignmentRequested(LootId lootId, EquipmentSlot slot, bool fromStash) =>
         Run(coordinator => coordinator.EquipAsync(lootId, slot, fromStash, _equipmentEndpoint));
@@ -239,6 +256,8 @@ public class LobbyStashPresenter : MonoBehaviour
         if (_stashUI == null)
             return;
 
+        CancelActiveDrag();
+
         // Refresh Stash
         if (_stashService != null)
         {
@@ -273,12 +292,14 @@ public class LobbyStashPresenter : MonoBehaviour
         if (items == null) return result;
         foreach (StashItem item in items)
         {
+            if (item.Slot < 0) continue;
+            while (result.Count <= item.Slot) result.Add(RaidInventorySlotData.Empty);
             LootDefinition definition = null;
             if (_lootCatalog != null) _lootCatalog.TryGet(item.LootId.Value, out definition);
             var slot = RaidInventorySlotData.Create(new LootEntry(item.LootId, item.Amount), definition, ResolvePlaceholderIcon());
             if (slot.IsOccupied && string.IsNullOrWhiteSpace(slot.DisplayName))
                 slot = slot.WithDisplayName(item.LootId.Value);
-            result.Add(slot);
+            result[item.Slot] = slot;
         }
         return result;
     }

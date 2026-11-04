@@ -18,7 +18,7 @@ namespace Grimhold.Backend
         {
             var baseUrl = config.BaseUrl.TrimEnd('/');
             var url = $"{baseUrl}/character/me/progression";
-            using var request = UnityWebRequest.Get(url);
+            using var request = InventoryProtocol.Get(url);
             request.SetRequestHeader("Authorization", $"Bearer {token}");
             request.timeout = config.TimeoutSeconds;
 
@@ -67,7 +67,7 @@ namespace Grimhold.Backend
             PostJson<TRequest, TResult>(BackendConfiguration config, string token, string url, TRequest body)
         {
             var json = JsonUtility.ToJson(body);
-            using var request = new UnityWebRequest(url, "POST");
+            using var request = InventoryProtocol.Create(url, "POST");
             request.uploadHandler   = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(json));
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");

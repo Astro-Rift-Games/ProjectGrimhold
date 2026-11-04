@@ -6,8 +6,26 @@ using UnityEngine;
 /// Compatibility adapter exposing process-local loadout operations through the
 /// existing service contract. It owns no loadout state.
 /// </summary>
-public sealed class InMemoryPlayerLoadoutService : MonoBehaviour, IPlayerLoadoutService
+public sealed class InMemoryPlayerLoadoutService : MonoBehaviour, IPlayerLoadoutService, ISlotPlayerLoadoutService
 {
+    public int InventorySchemaVersion => _store?.InventorySchemaVersion ?? 1;
+    public StashOperationResult EvaluateSplit(ProfileId profile, InventoryList list, int sourceSlot, int amount, int destinationSlot, LootId lootId) =>
+        IsProfile(profile) ? _store.EvaluateSplit(list, sourceSlot, amount, destinationSlot, lootId) : StashOperationResult.InvalidInventory;
+    public StashOperationResult TrySplit(ProfileId profile, InventoryList list, int sourceSlot, int amount, int destinationSlot, LootId lootId) =>
+        IsProfile(profile) ? _store.TrySplit(list, sourceSlot, amount, destinationSlot, lootId) : StashOperationResult.InvalidInventory;
+    public StashOperationResult EvaluateTransfer(ProfileId profile, int slot, LootId id, int amount, bool fromStash) =>
+        IsProfile(profile) ? _store.EvaluateTransfer(slot, id, amount, fromStash) : StashOperationResult.InvalidInventory;
+    public StashOperationResult TryTransfer(ProfileId profile, int slot, LootId id, int amount, bool fromStash) =>
+        IsProfile(profile) ? _store.TryTransfer(slot, id, amount, fromStash) : StashOperationResult.InvalidInventory;
+    public StashOperationResult EvaluateOrderSlots(ProfileId profile, InventoryList list, IReadOnlyList<int> slots) =>
+        IsProfile(profile) ? _store.EvaluateOrderSlots(list, slots) : StashOperationResult.InvalidInventory;
+    public StashOperationResult TryOrderSlots(ProfileId profile, InventoryList list, IReadOnlyList<int> slots) =>
+        IsProfile(profile) ? _store.TryOrderSlots(list, slots) : StashOperationResult.InvalidInventory;
+    public StashOperationResult EvaluateMove(ProfileId profile, InventoryList from, int fromSlot, InventoryList to, int toSlot, LootId id) =>
+        IsProfile(profile) ? _store.EvaluateMove(from, fromSlot, to, toSlot, id) : StashOperationResult.InvalidInventory;
+    public StashOperationResult TryMove(ProfileId profile, InventoryList from, int fromSlot, InventoryList to, int toSlot, LootId id) =>
+        IsProfile(profile) ? _store.TryMove(from, fromSlot, to, toSlot, id) : StashOperationResult.InvalidInventory;
+
     public StashOperationResult TryOrder(ProfileId profileId, InventoryList list, IReadOnlyList<LootId> lootIds) =>
         IsProfile(profileId) ? _store.TryOrder(list, lootIds) : StashOperationResult.InvalidInventory;
 

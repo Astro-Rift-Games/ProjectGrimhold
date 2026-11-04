@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
-using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
@@ -32,12 +31,12 @@ public sealed class LobbyStashUI : MonoBehaviour
     [SerializeField] private RaidLootPanelView _stashPanel;
     [SerializeField] private RaidLootPanelView _loadoutPanel;
 
-    [SerializeField] private Button _takeAllButton;
-    [SerializeField] private Button _leaveAllButton;
-    [SerializeField] private Button _stashSortButton;
-    [SerializeField] private Button _loadoutSortButton;
-    [SerializeField] private Button _stashPreviousPage;
-    [SerializeField] private Button _stashNextPage;
+    [SerializeField] private UnityEngine.UI.Button _takeAllButton;
+    [SerializeField] private UnityEngine.UI.Button _leaveAllButton;
+    [SerializeField] private UnityEngine.UI.Button _stashSortButton;
+    [SerializeField] private UnityEngine.UI.Button _loadoutSortButton;
+    [SerializeField] private UnityEngine.UI.Button _stashPreviousPage;
+    [SerializeField] private UnityEngine.UI.Button _stashNextPage;
     [SerializeField] private TMP_Text _stashPageLabel;
     private readonly List<RaidInventorySlotData> _stashItems = new();
     private int _stashCapacity = LocalProfileStore.DefaultStashCapacity;
@@ -63,11 +62,19 @@ public sealed class LobbyStashUI : MonoBehaviour
     private RaidInventorySlotView[] _equipmentSlotViews;
     private LootId _contextLootId;
     private bool _contextIsFromStash;
+    private int _contextSlot = -1;
+    private RaidInventorySlotView[] _stashCells;
+    private RaidInventorySlotView[] _loadoutCells;
+    private readonly List<Action> _unbindCells = new();
     private bool _hasReportedLoadoutOverflow;
     private bool _setAOffHandBlocked;
     private bool _setBOffHandBlocked;
 
     public event Action<LootId, bool, LootTransferQuantityMode> TransferRequested; // LootId, isFromStash, quantityMode
+    /// <summary>Town-only addresses; unlike Raid metadata these also cover Stash and overflow slots.</summary>
+    public event Action<int, LootId, bool, LootTransferQuantityMode> SlotTransferRequested;
+    public event Action<int, DragPayload> SlotDragStarted;
+    public event Action<InventoryList, int> SlotDropReceived;
     public event Action TakeAllRequested;
     public event Action LeaveAllRequested;
     public event Action<InventoryList> SortRequested;
@@ -108,7 +115,6 @@ public sealed class LobbyStashUI : MonoBehaviour
             _stashPanel.ContextRequested += OnStashContextRequested;
             BindPanelTooltipEvents(_stashPanel);
             
-            _stashPanel.DragStarted += p => DragStarted?.Invoke(p);
             _stashPanel.DragUpdated += () => DragUpdated?.Invoke();
             _stashPanel.DragEnded += b => DragEnded?.Invoke(b);
             _stashPanel.DropReceived += (loc, targetSlot) => DropReceived?.Invoke(loc, targetSlot);
@@ -125,7 +131,6 @@ public sealed class LobbyStashUI : MonoBehaviour
             _loadoutPanel.ContextRequested += OnLoadoutContextRequested;
             BindPanelTooltipEvents(_loadoutPanel);
             
-            _loadoutPanel.DragStarted += p => DragStarted?.Invoke(p);
             _loadoutPanel.DragUpdated += () => DragUpdated?.Invoke();
             _loadoutPanel.DragEnded += b => DragEnded?.Invoke(b);
             _loadoutPanel.DropReceived += (loc, targetSlot) => DropReceived?.Invoke(loc, targetSlot);
@@ -135,11 +140,15 @@ public sealed class LobbyStashUI : MonoBehaviour
             ReportMissingView(nameof(_loadoutPanel));
         }
 
+        _stashCells = BindPanelCells(_stashPanel, InventoryList.Stash);
+        _loadoutCells = BindPanelCells(_loadoutPanel, InventoryList.Loadout);
         BindEquipmentSlotViews();
     }
 
     private void OnDestroy()
     {
+        foreach (Action unbind in _unbindCells) unbind();
+        _unbindCells.Clear();
         if (_stashPreviousPage != null) _stashPreviousPage.onClick.RemoveListener(OnPreviousStashPage);
         if (_stashNextPage != null) _stashNextPage.onClick.RemoveListener(OnNextStashPage);
         if (_takeAllButton != null) _takeAllButton.onClick.RemoveListener(OnTakeAllClicked);
@@ -203,10 +212,12 @@ public sealed class LobbyStashUI : MonoBehaviour
         _tooltipView?.Hide();
         _contextMenu?.Hide();
         _contextLootId = default;
+        _contextSlot = -1;
+        // Cancel the intention even when no drag-preview view is configured.
+        DragEnded?.Invoke(false);
         if (_dragPreview != null && _dragPreview.IsActive)
         {
             _dragPreview.Hide();
-            DragEnded?.Invoke(false);
         }
     }
 
@@ -222,20 +233,26 @@ public sealed class LobbyStashUI : MonoBehaviour
         for (int i = 0; i < count; i++)
             _stashProjection.Add(start + i < _stashItems.Count ? _stashItems[start + i] : RaidInventorySlotData.Empty);
         if (!_stashPanel.EnsureSlotCount(count)) return;
-        _stashPanel.Present(_stashProjection, null, _stashItems.Count == 0,
+        _stashPanel.Present(_stashProjection, null, !HasOccupied(_stashItems),
             RaidLootSlotInteractionMode.TransferWithContextMenu, default);
+        MarkOverflow(_stashCells, _stashProjection, start, _stashCapacity);
         if (_stashPreviousPage != null) _stashPreviousPage.interactable = _stashPage > 0;
         if (_stashNextPage != null) _stashNextPage.interactable = _stashPage < StashPageCount - 1;
         if (_stashPageLabel != null) _stashPageLabel.text = $"{_stashPage + 1} / {StashPageCount}";
     }
 
-    public void DisplayLoadout(IReadOnlyList<RaidInventorySlotData> items) =>
+    /// <summary>Input index is the physical Town slot, including empty interior cells.</summary>
+    public void DisplayLoadout(IReadOnlyList<RaidInventorySlotData> items)
+    {
+        DismissStashInteraction();
         PresentPanel(
             _loadoutPanel,
             items,
             _loadoutProjection,
             RaidLootSlotInteractionMode.TransferWithContextMenu,
             ref _hasReportedLoadoutOverflow);
+        MarkOverflow(_loadoutCells, _loadoutProjection, 0, LocalProfileSnapshot.MaxLoadoutSlots);
+    }
 
     public bool IsEquipmentDropReserved(EquipmentSlot slot) =>
         slot == EquipmentSlot.WeaponSetAOffHand && _setAOffHandBlocked ||
@@ -283,9 +300,8 @@ public sealed class LobbyStashUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Shows the authored pool of <paramref name="panel"/> completely, filling it with the received
-    /// stacks in order and empty slots afterwards. Content beyond the authored pool cannot be shown,
-    /// so it is reported once and the panel signals that it is full.
+    /// Shows physical cells without compaction, padding the authored pool with empties. A physical
+    /// extent beyond the pool is reported once: the Loadout has no authored paging controls.
     /// </summary>
     private void PresentPanel(
         RaidLootPanelView panel,
@@ -311,7 +327,7 @@ public sealed class LobbyStashUI : MonoBehaviour
         {
             hasReportedOverflow = true;
             Debug.LogError(
-                $"{panel.name} holds {received} stacks but only {capacity} slots are authored in the prefab.",
+                $"{panel.name} needs physical slots 0..{received - 1} but only {capacity} slots are authored in the prefab; Loadout paging is not authored.",
                 panel);
         }
 
@@ -327,11 +343,73 @@ public sealed class LobbyStashUI : MonoBehaviour
             projection.Add(RaidInventorySlotData.Empty);
         }
 
-        panel.Present(projection, null, visible == 0, interactionMode, default);
+        panel.Present(projection, null, !HasOccupied(projection), interactionMode, default);
         if (overflows)
         {
             panel.ShowCapacityRejection();
         }
+    }
+
+    private static bool HasOccupied(IReadOnlyList<RaidInventorySlotData> items)
+    {
+        for (int i = 0; i < items.Count; i++) if (items[i].IsOccupied) return true;
+        return false;
+    }
+
+    private static void MarkOverflow(
+        RaidInventorySlotView[] cells, IReadOnlyList<RaidInventorySlotData> projection, int start, int capacity)
+    {
+        if (cells == null) return;
+        for (int i = 0; i < cells.Length; i++)
+            cells[i].SetDropHighlight(i < projection.Count && projection[i].IsOccupied && start + i >= capacity
+                ? DropHighlightState.Invalid : DropHighlightState.None);
+    }
+
+    /// <summary>
+    /// Cache only the existing panel-local cells. The prefab's hierarchy and authored pool use the
+    /// same cell order; no new serialized references, cell objects or Raid addresses are invented.
+    /// </summary>
+    private RaidInventorySlotView[] BindPanelCells(RaidLootPanelView panel, InventoryList list)
+    {
+        if (panel == null) return Array.Empty<RaidInventorySlotView>();
+        RaidInventorySlotView[] cells = panel.GetComponentsInChildren<RaidInventorySlotView>(true);
+        if (cells.Length != panel.AuthoredSlotCount)
+        {
+            Debug.LogError($"{panel.name} must contain exactly its {panel.AuthoredSlotCount} authored cells.", panel);
+            return Array.Empty<RaidInventorySlotView>();
+        }
+        for (int i = 0; i < cells.Length; i++)
+        {
+            int cellIndex = i;
+            RaidInventorySlotView cell = cells[i];
+            Action<DragPayload> drag = payload =>
+            {
+                DragStarted?.Invoke(payload);
+                SlotDragStarted?.Invoke(PhysicalSlot(list, cellIndex), payload);
+            };
+            Action<DragSlotLocation, EquipmentSlot> drop = (_, __) =>
+            {
+                if (isActiveAndEnabled && cell.gameObject.activeInHierarchy && cellIndex < panel.SlotCount)
+                    SlotDropReceived?.Invoke(list, PhysicalSlot(list, cellIndex));
+            };
+            cell.DragStarted += drag;
+            cell.DropReceived += drop;
+            _unbindCells.Add(() => { if (cell != null) { cell.DragStarted -= drag; cell.DropReceived -= drop; } });
+        }
+        return cells;
+    }
+
+    private int PhysicalSlot(InventoryList list, int cellIndex) =>
+        list == InventoryList.Stash ? _stashPage * _stashPanel.AuthoredSlotCount + cellIndex : cellIndex;
+
+    private int ResolveContextSlot(RectTransform anchor, bool fromStash)
+    {
+        RaidInventorySlotView[] cells = fromStash ? _stashCells : _loadoutCells;
+        if (cells == null) return -1;
+        for (int i = 0; i < cells.Length; i++)
+            if (cells[i].transform == anchor)
+                return PhysicalSlot(fromStash ? InventoryList.Stash : InventoryList.Loadout, i);
+        return -1;
     }
 
     /// <summary>
@@ -438,6 +516,7 @@ public sealed class LobbyStashUI : MonoBehaviour
 
         _contextLootId = lootId;
         _contextIsFromStash = isFromStash;
+        _contextSlot = ResolveContextSlot(anchor, isFromStash);
         _contextActions.Clear();
         string transferLabel = isFromStash
             ? "Mover todo al Inventario"
@@ -519,10 +598,14 @@ public sealed class LobbyStashUI : MonoBehaviour
         if (!_contextLootId.IsValid) return;
         if (actionId == MoveAllId)
         {
-            TransferRequested?.Invoke(
-                _contextLootId,
-                _contextIsFromStash,
-                LootTransferQuantityMode.FullStack);
+            LootId lootId = _contextLootId;
+            bool fromStash = _contextIsFromStash;
+            int sourceSlot = _contextSlot;
+            if (sourceSlot >= 0)
+                SlotTransferRequested?.Invoke(sourceSlot, lootId, fromStash, LootTransferQuantityMode.FullStack);
+            // A synchronous confirmed refresh may clear context during dispatch, so use captured values.
+            TransferRequested?.Invoke(lootId, fromStash, LootTransferQuantityMode.FullStack);
+            _contextSlot = -1;
             _contextLootId = default;
             _contextIsFromStash = false;
             return;

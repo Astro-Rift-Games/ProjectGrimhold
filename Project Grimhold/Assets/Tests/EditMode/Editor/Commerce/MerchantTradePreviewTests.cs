@@ -286,8 +286,8 @@ public class MerchantTradePreviewTests
 
         MerchantTradePreview preview = Calculate(Inventory((Bone, 1), (Bone, 2), (Relic, 1)), currency: 1000);
 
-        Assert.That(preview.ConfirmedOccupiedSlots, Is.EqualTo(2), "Stacks of one loot share a slot.");
-        Assert.That(preview.ProjectedOccupiedSlots, Is.EqualTo(3));
+        Assert.That(preview.ConfirmedOccupiedSlots, Is.EqualTo(3), "Duplicate definitions occupy separate physical slots.");
+        Assert.That(preview.ProjectedOccupiedSlots, Is.EqualTo(4));
         Assert.That(preview.SlotCapacity, Is.EqualTo(Capacity));
     }
 
@@ -300,6 +300,39 @@ public class MerchantTradePreviewTests
         MerchantTradePreview preview = Calculate(Inventory((Bone, 1), (Hat, 1), (Relic, 2)), currency: 100);
 
         AssertBlocks(preview, MerchantTradeBlockReason.CapacityExceeded);
+    }
+
+    [Test]
+    public void PhysicalTownProjection_PreservesDuplicateStacksAndOverflowAdmissionRules()
+    {
+        var physical = new List<StashItem> { new(Bone, 2, 1), new(Bone, 3, 7) };
+        var entries = physical.Select(item => new LootEntry(item.LootId, item.Amount)).ToList();
+        var projection = new TownInventoryProjection(entries, physical);
+        _draft.TryAddPurchase(Bone, 1);
+        var preview = MerchantTradePreview.Calculate(projection, 3, 100, _draft,
+            _ => MerchantStockItem.UnlimitedQuantity, _catalog);
+        Assert.That(preview.CanConfirm, Is.True);
+        Assert.That(preview.ConfirmedOccupiedSlots, Is.EqualTo(2));
+        AssertInventory(preview, (Bone, 3), (Bone, 3));
+        Assert.That(physical[0], Is.EqualTo(new StashItem(Bone, 2, 1)), "Preview never mutates confirmed slots.");
+        physical.RemoveAt(0);
+        projection = new TownInventoryProjection(physical.Select(item => new LootEntry(item.LootId, item.Amount)).ToList(), physical);
+        preview = MerchantTradePreview.Calculate(projection, 3, 100, _draft,
+            _ => MerchantStockItem.UnlimitedQuantity, _catalog);
+        Assert.That(preview.HasBlock(MerchantTradeBlockReason.CapacityExceeded), Is.True,
+            "An overflow slot cannot receive even a same-definition purchase.");
+    }
+
+    [Test]
+    public void PhysicalSale_AddressesLowestSlot_AndDoesNotConsumeAnotherStack()
+    {
+        var physical = new List<StashItem> { new(Bone, 2, 1), new(Bone, 3, 7) };
+        var projection = new TownInventoryProjection(physical.Select(item => new LootEntry(item.LootId, item.Amount)).ToList(), physical);
+        _draft.TryAddSale(Bone, 3);
+        var preview = Calculate(projection, 100);
+        Assert.That(preview.HasBlock(MerchantTradeBlockReason.InsufficientOwnedUnits), Is.True);
+        Assert.That(preview.SaleTotal, Is.Zero);
+        AssertInventory(preview, (Bone, 2), (Bone, 3));
     }
 
     // --- Configuration and overflow ---

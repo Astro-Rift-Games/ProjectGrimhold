@@ -101,7 +101,7 @@ namespace Tests.EditMode.Stash
             Assert.That(_catalog.TryGetByIndex(0, out LootDefinition definition), Is.True);
             var item = new StashItem(definition.LootId, 1);
             var snapshot = new LocalProfileSnapshot { ProfileId = _profile };
-            snapshot.Loadout.Add(item);
+            snapshot.Loadout.Add(item.AtSlot(0));
             snapshot.PendingExtractionCommit = new PendingExtractionCommit(
                 new ExtractionReceipt("recovery-raid", _profile, 1), new[] { item }, default, 0, 1);
             string json = LocalProfileSaveCodec.Encode(snapshot);
@@ -112,7 +112,7 @@ namespace Tests.EditMode.Stash
             Assert.That(Prepare(true), Is.True);
             Assert.That(_repository.Snapshot.PendingExtractionCommit.Receipt.RaidId, Is.EqualTo("recovery-raid"));
             CollectionAssert.AreEqual(new[] { item }, _repository.Snapshot.PendingExtractionCommit.Items);
-            CollectionAssert.AreEqual(new[] { item }, _repository.Snapshot.Loadout);
+            CollectionAssert.AreEqual(new[] { item.AtSlot(0) }, _repository.Snapshot.Loadout);
             var reload = new LocalProfileRepository(_files, ".");
             Assert.That(reload.Initialize(_profile, _catalog), Is.True);
             Assert.That(reload.Snapshot.PendingExtractionCommit, Is.Not.Null);

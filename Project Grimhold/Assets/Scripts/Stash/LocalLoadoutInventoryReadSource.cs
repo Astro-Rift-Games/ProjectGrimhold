@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 
 /// <summary>
 /// Read-only projection of one confirmed application-level Loadout.
@@ -13,7 +12,8 @@ public sealed class LocalLoadoutInventoryReadSource : IInventoryReadSource, IPre
     private readonly IPlayerLoadoutService _loadoutService;
     private readonly ProfileId _profileId;
     private readonly List<LootEntry> _snapshot = new();
-    private readonly ReadOnlyCollection<LootEntry> _readOnlySnapshot;
+    private readonly TownInventoryProjection _readOnlySnapshot;
+    private readonly List<StashItem> _physicalSnapshot = new();
     private bool _disposed;
 
     public LocalLoadoutInventoryReadSource(
@@ -29,7 +29,7 @@ public sealed class LocalLoadoutInventoryReadSource : IInventoryReadSource, IPre
         }
 
         _profileId = profileId;
-        _readOnlySnapshot = _snapshot.AsReadOnly();
+        _readOnlySnapshot = new TownInventoryProjection(_snapshot, _physicalSnapshot);
         _context.ProfileCommitted += OnProfileCommitted;
     }
 
@@ -53,16 +53,19 @@ public sealed class LocalLoadoutInventoryReadSource : IInventoryReadSource, IPre
         }
 
         _snapshot.Clear();
+        _physicalSnapshot.Clear();
         for (int index = 0; index < loadout.Count; index++)
         {
             StashItem item = loadout[index];
             if (!item.IsValid)
             {
                 _snapshot.Clear();
+                _physicalSnapshot.Clear();
                 return false;
             }
 
             _snapshot.Add(new LootEntry(item.LootId, item.Amount));
+            _physicalSnapshot.Add(item);
         }
 
         content = _readOnlySnapshot;
@@ -92,6 +95,7 @@ public sealed class LocalLoadoutInventoryReadSource : IInventoryReadSource, IPre
         _context.ProfileCommitted -= OnProfileCommitted;
         Changed = null;
         _snapshot.Clear();
+        _physicalSnapshot.Clear();
     }
 
     private void OnProfileCommitted(ProfileId profileId)

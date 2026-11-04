@@ -44,8 +44,9 @@ namespace Tests.PlayMode
             Assert.That(repository.Initialize(ProfileId, catalog), Is.True);
             var snapshot = repository.Snapshot.Clone();
             snapshot.Currency = gold;
+            snapshot.InventorySchemaVersion = 2;
             snapshot.Loadout.Clear();
-            if (amount > 0) snapshot.Loadout.Add(new StashItem(owned, amount));
+            if (amount > 0) snapshot.Loadout.Add(new StashItem(owned, amount, 0));
             Assert.That(repository.TrySave(snapshot, out string error), Is.True, error);
             Store = new LocalProfileStore(repository, ProfileId, catalog);
             _suspended = Object.FindObjectsByType<ApplicationStashContext>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
@@ -105,7 +106,7 @@ namespace Tests.PlayMode
             return Task.FromResult((true, new ShopTransactionResult {
                 revision = revision + 1, currency = Store.GetCurrency() - cost,
                 stash = Array.Empty<InventoryItemData>(),
-                loadout = new[] { new InventoryItemData { lootId = _soldEntry.lootId, amount = amount } },
+                loadout = new[] { new InventoryItemData { slot = 0, lootId = _soldEntry.lootId, amount = amount } },
                 buyback = new BuybackData { entries = _soldEntry.amount > 0 ? new[] { _soldEntry } : Array.Empty<BuybackEntryData>() }
             }, default(BackendError)));
         }

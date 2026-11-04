@@ -1,0 +1,53 @@
+#if UNITY_EDITOR && UNITY_INCLUDE_TESTS
+using Grimhold.Backend;
+using NUnit.Framework;
+using UnityEngine;
+
+public sealed class InventoryProtocolSlotTests
+{
+    [Test]
+    public void EveryBackendRequestFactory_AddsProtocolTwoHeader()
+    {
+        using var get = InventoryProtocol.Get("http://localhost/inventory");
+        using var post = InventoryProtocol.Create("http://localhost/inventory", "POST");
+        using var delete = InventoryProtocol.Delete("http://localhost/inventory");
+        foreach (var request in new[] { get, post, delete })
+            Assert.That(request.GetRequestHeader("X-Grimhold-Inventory-Protocol"), Is.EqualTo("2"));
+    }
+
+    [Test]
+    public void SlotMutationDtos_SerializeExactAddresses()
+    {
+        string json = InventoryRequestJson.Encode(new MoveItemRequest
+        { sourceSlot = 7, lootId = "bone", amount = 2, expectedRevision = 3 });
+        Assert.That(json, Does.Contain("\"sourceSlot\":7"));
+        json = InventoryRequestJson.Encode(new ShopSellRequest
+        { sourceSlot = 7, lootId = "bone", amount = 2, expectedRevision = 3 });
+        Assert.That(json, Does.Contain("\"sourceSlot\":7"));
+        json = JsonUtility.ToJson(new InventorySlotOrderRequest
+        { list = "stash", slotOrder = new[] { 7, 1 }, expectedRevision = 3 });
+        Assert.That(json, Does.Contain("\"slotOrder\":[7,1]"));
+        Assert.That(json, Does.Not.Contain("lootIds"));
+        json = InventoryRequestJson.Encode(new InventorySlotMoveRequest
+        { fromList = "stash", fromSlot = 7, toList = "loadout", toSlot = 1, lootId = "bone", expectedRevision = 3 });
+        Assert.That(json, Does.Contain("\"fromSlot\":7"));
+        Assert.That(json, Does.Contain("\"toSlot\":1"));
+    }
+
+    [Test]
+    public void ExtractionWirePayloads_StayAggregateWithoutSlotFields()
+    {
+        var items = new[] { new InventoryItemData { slot = 7, lootId = "bone", amount = 3 } };
+        foreach (string json in new[]
+        {
+            InventoryRequestJson.Encode(new CommitExtractionRequest { items = items }),
+            InventoryRequestJson.Encode(new CommitExtractionUnifiedRequest { items = items }),
+            InventoryRequestJson.Encode(new PublishExtractionResultRequest { items = items })
+        })
+        {
+            Assert.That(json, Does.Contain("\"items\":[{\"lootId\":\"bone\",\"amount\":3}]"));
+            Assert.That(json, Does.Not.Contain("\"slot\""));
+        }
+    }
+}
+#endif

@@ -65,12 +65,12 @@ public sealed class LocalProfilePersistenceEditModeTests
 
         Assert.That(repository.Initialize(profile, _catalog), Is.True);
         var snapshot = repository.Snapshot.Clone();
-        snapshot.Stash.Add(new StashItem(new LootId("healthpotion"), 2));
+        snapshot.Stash.Add(new StashItem(new LootId("healthpotion"), 2, 5));
         Assert.That(repository.TrySave(snapshot, out string error), Is.True, error);
 
         var reloaded = new LocalProfileRepository(files, ".");
         Assert.That(reloaded.Initialize(profile, _catalog), Is.True, reloaded.LastError);
-        Assert.That(reloaded.Snapshot.Stash[0].Amount, Is.EqualTo(2));
+        CollectionAssert.AreEqual(snapshot.Stash, reloaded.Snapshot.Stash);
     }
 
     [Test]
@@ -98,7 +98,7 @@ public sealed class LocalProfilePersistenceEditModeTests
         var profile = new ProfileId("17171717171717171717171717171717");
         LootId sword = new("rapier");
         var active = new LocalProfileSnapshot { ProfileId = profile };
-        active.Loadout.Add(new StashItem(sword, 2));
+        active.Loadout.Add(new StashItem(sword, 2, 3));
         active.PreparedEquipment = new PreparedEquipmentLoadout(sword, sword);
 
         Assert.That(LocalProfileSaveCodec.TryDecode(
@@ -108,13 +108,14 @@ public sealed class LocalProfilePersistenceEditModeTests
             out LocalProfileSnapshot restoredActive,
             out _,
             out string activeError), Is.True, activeError);
+        CollectionAssert.AreEqual(active.Loadout, restoredActive.Loadout);
         Assert.That(restoredActive.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(sword));
         Assert.That(restoredActive.PreparedEquipment.WeaponSetBMainHand, Is.EqualTo(sword));
 
         var pending = new LocalProfileSnapshot { ProfileId = profile };
         pending.PendingReservation = new PendingLoadoutReservation(
             "reservation-codec",
-            new[] { new StashItem(sword, 2) },
+            new[] { new StashItem(sword, 2, 7) },
             new PreparedEquipmentLoadout(sword, sword));
 
         Assert.That(LocalProfileSaveCodec.TryDecode(
@@ -124,6 +125,7 @@ public sealed class LocalProfilePersistenceEditModeTests
             out LocalProfileSnapshot restoredPending,
             out _,
             out string pendingError), Is.True, pendingError);
+        CollectionAssert.AreEqual(pending.PendingReservation.Items, restoredPending.PendingReservation.Items);
         Assert.That(restoredPending.PendingReservation.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(sword));
         Assert.That(restoredPending.PendingReservation.PreparedEquipment.WeaponSetBMainHand, Is.EqualTo(sword));
     }
@@ -146,7 +148,7 @@ public sealed class LocalProfilePersistenceEditModeTests
 
         var equippedReload = new LocalProfileRepository(files, ".");
         Assert.That(equippedReload.Initialize(profile, _catalog), Is.True, equippedReload.LastError);
-        Assert.That(equippedReload.Snapshot.Loadout, Is.EqualTo(new[] { new StashItem(sword, 1) }));
+        Assert.That(equippedReload.Snapshot.Loadout, Is.EqualTo(new[] { new StashItem(sword, 1, 0) }));
         Assert.That(equippedReload.Snapshot.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(sword));
 
         var reloadedStore = new LocalProfileStore(equippedReload, profile, _catalog);
@@ -155,7 +157,7 @@ public sealed class LocalProfilePersistenceEditModeTests
             Is.EqualTo(StashOperationResult.Success));
         var unequippedReload = new LocalProfileRepository(files, ".");
         Assert.That(unequippedReload.Initialize(profile, _catalog), Is.True, unequippedReload.LastError);
-        Assert.That(unequippedReload.Snapshot.Loadout, Is.EqualTo(new[] { new StashItem(sword, 2) }));
+        Assert.That(unequippedReload.Snapshot.Loadout, Is.EqualTo(new[] { new StashItem(sword, 2, 0) }));
         Assert.That(unequippedReload.Snapshot.PreparedEquipment.HasAnyWeapon, Is.False);
     }
 
@@ -168,21 +170,22 @@ public sealed class LocalProfilePersistenceEditModeTests
         Assert.That(repository.Initialize(profile, _catalog), Is.True);
         var store = new LocalProfileStore(repository, profile);
         var initial = repository.Snapshot.Clone();
-        initial.Stash.Add(new StashItem(new LootId("bone"), 2));
+        initial.Stash.Add(new StashItem(new LootId("bone"), 2, 4));
         Assert.That(repository.TrySave(initial, out string initialError), Is.True, initialError);
         int eventCount = 0;
         store.ProfileCommitted += _ => eventCount++;
         var receipt = new ExtractionReceipt("raid-1", profile, 1);
         var items = new[] { new StashItem(new LootId("coins"), 3) };
+        var expectedLoadout = new[] { new StashItem(new LootId("coins"), 3, 0) };
 
         Assert.That(store.TryCommitExtraction(receipt, items, new PreparedEquipmentLoadout(), 0, 1, 0), Is.EqualTo(StashOperationResult.Success));
-        CollectionAssert.AreEqual(items, store.GetLoadout());
-        CollectionAssert.AreEqual(new[] { new StashItem(new LootId("bone"), 2) }, store.GetStash());
+        CollectionAssert.AreEqual(expectedLoadout, store.GetLoadout());
+        CollectionAssert.AreEqual(initial.Stash, store.GetStash());
 
         // The duplicate must be recognized before inspecting the current Loadout.
         Assert.That(store.TryCommitExtraction(receipt, items, new PreparedEquipmentLoadout(), 0, 1, 0), Is.EqualTo(StashOperationResult.AlreadySecured));
-        CollectionAssert.AreEqual(items, store.GetLoadout());
-        CollectionAssert.AreEqual(new[] { new StashItem(new LootId("bone"), 2) }, store.GetStash());
+        CollectionAssert.AreEqual(expectedLoadout, store.GetLoadout());
+        CollectionAssert.AreEqual(initial.Stash, store.GetStash());
         Assert.That(eventCount, Is.EqualTo(1));
     }
 
@@ -195,24 +198,25 @@ public sealed class LocalProfilePersistenceEditModeTests
         Assert.That(repository.Initialize(profile, _catalog), Is.True);
         var store = new LocalProfileStore(repository, profile);
         var initial = repository.Snapshot.Clone();
-        initial.Stash.Add(new StashItem(new LootId("bone"), 2));
+        initial.Stash.Add(new StashItem(new LootId("bone"), 2, 4));
         Assert.That(repository.TrySave(initial, out string initialError), Is.True, initialError);
         var receipt = new ExtractionReceipt("raid-failure", profile, 1);
         var items = new[] { new StashItem(new LootId("coins"), 5) };
+        var expectedLoadout = new[] { new StashItem(new LootId("coins"), 5, 0) };
 
         files.FailWrites = true;
         LogAssert.Expect(UnityEngine.LogType.Error,
             "[LocalProfileStore] Commit failed. Available=True; Status=Ready; Error=Simulated disk failure.");
         Assert.That(store.TryCommitExtraction(receipt, items, new PreparedEquipmentLoadout(), 0, 1, 0), Is.EqualTo(StashOperationResult.PersistenceFailed));
         Assert.That(store.GetLoadout(), Is.Empty);
-        CollectionAssert.AreEqual(new[] { new StashItem(new LootId("bone"), 2) }, store.GetStash());
+        CollectionAssert.AreEqual(initial.Stash, store.GetStash());
         Assert.That(repository.Snapshot.AppliedExtractionReceipts, Is.Empty);
 
         files.FailWrites = false;
         Assert.That(store.TryCommitExtraction(receipt, items, new PreparedEquipmentLoadout(), 0, 1, 0), Is.EqualTo(StashOperationResult.Success));
         Assert.That(store.TryCommitExtraction(receipt, items, new PreparedEquipmentLoadout(), 0, 1, 0), Is.EqualTo(StashOperationResult.AlreadySecured));
-        CollectionAssert.AreEqual(items, store.GetLoadout());
-        CollectionAssert.AreEqual(new[] { new StashItem(new LootId("bone"), 2) }, store.GetStash());
+        CollectionAssert.AreEqual(expectedLoadout, store.GetLoadout());
+        CollectionAssert.AreEqual(initial.Stash, store.GetStash());
         Assert.That(repository.Snapshot.AppliedExtractionReceipts, Has.Count.EqualTo(1));
     }
 
@@ -241,8 +245,8 @@ public sealed class LocalProfilePersistenceEditModeTests
         var repository = new LocalProfileRepository(files, ".");
         Assert.That(repository.Initialize(profile, _catalog), Is.True);
         var initial = repository.Snapshot.Clone();
-        initial.Loadout.Add(new StashItem(new LootId("coins"), 7));
-        initial.Stash.Add(new StashItem(new LootId("bone"), 2));
+        initial.Loadout.Add(new StashItem(new LootId("coins"), 7, 3));
+        initial.Stash.Add(new StashItem(new LootId("bone"), 2, 4));
         Assert.That(repository.TrySave(initial, out string initialError), Is.True, initialError);
         var store = new LocalProfileStore(repository, profile);
         var receipt = new ExtractionReceipt("raid-non-empty-loadout", profile, 1);
@@ -250,8 +254,8 @@ public sealed class LocalProfilePersistenceEditModeTests
         Assert.That(
             store.TryCommitExtraction(receipt, new[] { new StashItem(new LootId("healthpotion"), 1) }, new PreparedEquipmentLoadout(), 0, 1, 0),
             Is.EqualTo(StashOperationResult.PersistenceFailed));
-        CollectionAssert.AreEqual(new[] { new StashItem(new LootId("coins"), 7) }, store.GetLoadout());
-        CollectionAssert.AreEqual(new[] { new StashItem(new LootId("bone"), 2) }, store.GetStash());
+        CollectionAssert.AreEqual(initial.Loadout, store.GetLoadout());
+        CollectionAssert.AreEqual(initial.Stash, store.GetStash());
         Assert.That(repository.Snapshot.AppliedExtractionReceipts, Is.Empty);
     }
 
@@ -301,7 +305,7 @@ public sealed class LocalProfilePersistenceEditModeTests
             store.TryCreateLoadoutReservation("next-raid", out PendingLoadoutReservation reservation),
             Is.EqualTo(StashOperationResult.Success));
         CollectionAssert.AreEqual(
-            new[] { new StashItem(new LootId("bone"), 2) },
+            new[] { new StashItem(new LootId("bone"), 2, 1) },
             reservation.Items);
         Assert.That(reservation.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(new LootId("rapier")));
         Assert.That(store.GetLoadout(), Is.Empty);
@@ -490,7 +494,7 @@ public sealed class LocalProfilePersistenceEditModeTests
         LootId recovery = new(ConfiguredRecoveryWeapon);
         Assert.That(store.TryImportItems(new[] { new StashItem(recovery, 1) }), Is.EqualTo(StashOperationResult.Success));
         Assert.That(store.TryTransferToStash(recovery, 1), Is.EqualTo(StashOperationResult.Success));
-        Assert.That(store.GetStash(), Is.EquivalentTo(new[] { new StashItem(recovery, 1) }));
+        Assert.That(store.GetStash(), Is.EquivalentTo(new[] { new StashItem(recovery, 1, 0) }));
 
         Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.Success));
 
@@ -552,7 +556,7 @@ public sealed class LocalProfilePersistenceEditModeTests
 
         Assert.That(reservation.Items, Is.EquivalentTo(new[]
         {
-            new StashItem(new LootId("bone"), 3)
+            new StashItem(new LootId("bone"), 3, 0)
         }));
         Assert.That(reservation.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(recovery));
         Assert.That(reservation.PreparedEquipment.HasWeaponSetBMainHand, Is.False);
@@ -566,7 +570,7 @@ public sealed class LocalProfilePersistenceEditModeTests
         Assert.That(store.TryRollbackLoadoutReservation("prepared-raid"), Is.EqualTo(StashOperationResult.Success));
         Assert.That(store.GetLoadout(), Is.EquivalentTo(new[]
         {
-            new StashItem(new LootId("bone"), 3)
+            new StashItem(new LootId("bone"), 3, 0)
         }));
         Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(recovery));
     }
@@ -579,8 +583,8 @@ public sealed class LocalProfilePersistenceEditModeTests
         var repository = new LocalProfileRepository(files, ".");
         Assert.That(repository.Initialize(profile, _catalog), Is.True);
         var snapshot = repository.Snapshot.Clone();
-        snapshot.Loadout.Add(new StashItem(new LootId("rapier"), 1));
-        snapshot.Loadout.Add(new StashItem(new LootId("bone"), 2));
+        snapshot.Loadout.Add(new StashItem(new LootId("rapier"), 1, 0));
+        snapshot.Loadout.Add(new StashItem(new LootId("bone"), 2, 7));
         Assert.That(repository.TrySave(snapshot, out _), Is.True);
         var store = new LocalProfileStore(repository, profile, _catalog);
         Assert.That(
@@ -588,13 +592,13 @@ public sealed class LocalProfilePersistenceEditModeTests
             Is.EqualTo(StashOperationResult.Success));
 
         Assert.That(store.TryCreateLoadoutReservation("reservation-1", out PendingLoadoutReservation reservation), Is.EqualTo(StashOperationResult.Success));
-        Assert.That(reservation.Items, Has.Count.EqualTo(1));
+        Assert.That(reservation.Items, Is.EqualTo(new[] { new StashItem(new LootId("bone"), 2, 7) }));
         Assert.That(reservation.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(new LootId("rapier")));
         Assert.That(store.GetLoadout(), Is.Empty);
         Assert.That(store.TryRollbackLoadoutReservation("reservation-1"), Is.EqualTo(StashOperationResult.Success));
         Assert.That(store.GetLoadout(), Is.EquivalentTo(new[]
         {
-            new StashItem(new LootId("bone"), 2)
+            new StashItem(new LootId("bone"), 2, 7)
         }));
         Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(new LootId("rapier")));
 
@@ -623,7 +627,7 @@ public sealed class LocalProfilePersistenceEditModeTests
         var repository = new LocalProfileRepository(files, ".");
         Assert.That(repository.Initialize(profile, _catalog), Is.True);
         var snapshot = repository.Snapshot.Clone();
-        snapshot.Stash.Add(new StashItem(new LootId("bone"), 4));
+        snapshot.Stash.Add(new StashItem(new LootId("bone"), 4, 4));
         Assert.That(repository.TrySave(snapshot, out _), Is.True);
         files.Files[BackupPath(profile)] = files.Files[MainPath(profile)];
         files.Files[MainPath(profile)] = "{ malformed";
@@ -631,7 +635,7 @@ public sealed class LocalProfilePersistenceEditModeTests
         var recovered = new LocalProfileRepository(files, ".");
         Assert.That(recovered.Initialize(profile, _catalog), Is.True);
         Assert.That(recovered.Status, Is.EqualTo(LocalProfilePersistenceStatus.RecoveredFromBackup));
-        Assert.That(recovered.Snapshot.Stash[0].Amount, Is.EqualTo(4));
+        CollectionAssert.AreEqual(snapshot.Stash, recovered.Snapshot.Stash);
     }
 
     [Test]

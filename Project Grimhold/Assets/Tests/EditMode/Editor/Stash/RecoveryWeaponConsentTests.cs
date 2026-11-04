@@ -91,8 +91,8 @@ public sealed class RecoveryWeaponConsentTests
         LocalProfileSnapshot snapshot = repository.Snapshot.Clone();
         if (source == RecoveryWeaponPreparation.Source.Prepared)
             snapshot.PreparedEquipment = new PreparedEquipmentLoadout(Weapon, default);
-        if (source == RecoveryWeaponPreparation.Source.Loadout) snapshot.Loadout.Add(new StashItem(Weapon, 1));
-        if (source == RecoveryWeaponPreparation.Source.Stash) snapshot.Stash.Add(new StashItem(Weapon, 1));
+        if (source == RecoveryWeaponPreparation.Source.Loadout) snapshot.Loadout.Add(new StashItem(Weapon, 1, 0));
+        if (source == RecoveryWeaponPreparation.Source.Stash) snapshot.Stash.Add(new StashItem(Weapon, 1, 0));
         Assert.That(repository.TrySave(snapshot, out _), Is.True);
         return new LocalProfileStore(repository, profile, _catalog, Weapon);
     }

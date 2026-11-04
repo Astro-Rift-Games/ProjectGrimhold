@@ -628,31 +628,8 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         System.Collections.Generic.IReadOnlyList<StashItem> expected,
         System.Collections.Generic.IReadOnlyList<LootEntry> actual)
     {
-        if (expected == null || actual == null || expected.Count != actual.Count)
-        {
-            return false;
-        }
-
-        for (int index = 0; index < expected.Count; index++)
-        {
-            bool found = false;
-            for (int actualIndex = 0; actualIndex < actual.Count; actualIndex++)
-            {
-                if (expected[index].LootId == actual[actualIndex].LootId &&
-                    expected[index].Amount == actual[actualIndex].Amount)
-                {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found)
-            {
-                return false;
-            }
-        }
-
-        return true;
+        if (!ProfileInventoryRules.TryAggregate(expected, out var aggregate)) return false;
+        return MatchesLootEntries(aggregate, actual);
     }
 
     private static bool MatchesLootEntries(

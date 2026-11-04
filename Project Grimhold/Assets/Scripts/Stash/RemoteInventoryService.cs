@@ -6,33 +6,94 @@ using Grimhold.Backend;
 /// Handles backend synchronization for the stash/loadout inventory system.
 /// Intended to be called by Presenters before applying local state changes.
 /// </summary>
-public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService
+public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, ISlotRemoteInventoryService
 {
-    public async Task<(bool success, BackendError error)> OrderAsync(
+    public Task<(bool success, BackendError error)> OrderAsync(
         InventoryList list, System.Collections.Generic.IReadOnlyList<LootId> lootIds)
+    {
+        var slots = new System.Collections.Generic.List<int>();
+        var source = list == InventoryList.Stash ? _store?.GetStash() : _store?.GetLoadout();
+        if (source == null || lootIds == null) return InvalidSlotRequest();
+        foreach (LootId id in lootIds)
+        {
+            int index = ProfileInventoryRules.FindIndex(source, id);
+            if (index < 0) return InvalidSlotRequest();
+            slots.Add(source[index].Slot);
+        }
+        return OrderSlotsAsync(list, slots);
+    }
+
+    private static Task<(bool success, BackendError error)> InvalidSlotRequest() =>
+        Task.FromResult((false, new BackendError { error = "VALIDATION_FAILED", message = "Invalid inventory slots" }));
+
+    public Task<(bool success, BackendError error)> OrderSlotsAsync(
+        InventoryList list, System.Collections.Generic.IReadOnlyList<int> slots)
+    {
+        if ((list != InventoryList.Stash && list != InventoryList.Loadout) || slots == null) return InvalidSlotRequest();
+        var order = new int[slots.Count];
+        for (int i = 0; i < order.Length; i++) order[i] = slots[i];
+        return MutateSlotsAsync(() => InventoryClient.OrderSlotsAsync(_backendConfig, AuthToken,
+            new InventorySlotOrderRequest { list = ListName(list), slotOrder = order, expectedRevision = _store.RemoteRevision }));
+    }
+
+    public Task<(bool success, BackendError error)> TransferAsync(int sourceSlot, LootId id, int amount, bool fromStash) =>
+        MutateSlotsAsync(() => fromStash
+            ? InventoryClient.MoveToLoadoutAsync(_backendConfig, AuthToken, id.Value, amount, _store.RemoteRevision, sourceSlot)
+            : InventoryClient.MoveToStashAsync(_backendConfig, AuthToken, id.Value, amount, _store.RemoteRevision, sourceSlot));
+
+    public Task<(bool success, BackendError error)> MoveSlotsAsync(
+        InventoryList from, int fromSlot, InventoryList to, int toSlot, LootId id)
+    {
+        if ((from != InventoryList.Stash && from != InventoryList.Loadout) ||
+            (to != InventoryList.Stash && to != InventoryList.Loadout)) return InvalidSlotRequest();
+        return MutateSlotsAsync(() => InventoryClient.MoveSlotsAsync(_backendConfig, AuthToken,
+            new InventorySlotMoveRequest
+            {
+                fromList = ListName(from), fromSlot = fromSlot, toList = ListName(to), toSlot = toSlot,
+                lootId = id.Value, expectedRevision = _store.RemoteRevision
+            }));
+    }
+
+    /// <summary>Submits one revision-guarded split without retry; the coordinator applies ownership.</summary>
+    public Task<(bool success, BackendError error)> SplitSlotAsync(
+        InventoryList list, int sourceSlot, int amount, int destinationSlot, LootId lootId)
+    {
+        if (list != InventoryList.Stash && list != InventoryList.Loadout) return InvalidSlotRequest();
+        return MutateSlotsAsync(() => InventoryClient.SplitSlotAsync(_backendConfig, AuthToken,
+            new InventorySlotSplitRequest
+            {
+                list = ListName(list), sourceSlot = sourceSlot, amount = amount, destinationSlot = destinationSlot,
+                lootId = lootId.Value, expectedRevision = _store.RemoteRevision
+            }));
+    }
+
+    private static string ListName(InventoryList list) => list == InventoryList.Stash ? "stash" : "loadout";
+
+    private async Task<(bool success, BackendError error)> MutateSlotsAsync(
+        System.Func<Task<(bool success, MoveItemResult data, BackendError error)>> operation)
     {
         if (string.IsNullOrEmpty(AuthToken))
             return (false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
-        if ((list != InventoryList.Stash && list != InventoryList.Loadout) || lootIds == null)
-            return (false, new BackendError { error = "VALIDATION_FAILED", message = "Invalid inventory order" });
-        var ids = new string[lootIds.Count];
-        for (int i = 0; i < ids.Length; i++) ids[i] = lootIds[i].Value;
         await _mutationLock.WaitAsync();
         try
         {
-            var body = new InventoryOrderRequest
-            {
-                list = list == InventoryList.Stash ? "stash" : "loadout",
-                lootIds = ids,
-                expectedRevision = _store?.RemoteRevision ?? 0
-            };
-            var (success, result, error) = await InventoryClient.OrderAsync(_backendConfig, AuthToken, body);
+            if (_store == null || _store.InventorySchemaVersion != 2)
+                return (false, new BackendError { error = "INVENTORY_MIGRATION_REQUIRED", message = "Inventory migration required" });
+            var (success, data, error) = await operation();
             if (!success && error.error == BackendErrorUtility.Unauthorized)
                 ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
-            if (success && _store != null) _store.SetRemoteRevision(result.revision);
+            if (success) _store.SetRemoteRevision(data.revision);
             return (success, error);
         }
         finally { _mutationLock.Release(); }
+    }
+
+    private int ResolveSourceSlot(LootId id, bool fromStash)
+    {
+        var source = fromStash ? _store?.GetStash() : _store?.GetLoadout();
+        if (source == null) return -1;
+        int index = ProfileInventoryRules.FindIndex(source, id);
+        return index < 0 ? -1 : source[index].Slot;
     }
 
     private BackendConfiguration _backendConfig;
@@ -104,66 +165,14 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService
     /// <summary>
     /// Persists a move from stash to loadout.
     /// </summary>
-    public async Task<(bool success, BackendError error)> MoveToLoadoutAsync(LootId lootId, int amount)
-    {
-        if (string.IsNullOrEmpty(AuthToken))
-        {
-            Debug.LogError($"[{nameof(RemoteInventoryService)}] MoveToLoadoutAsync: Not authenticated.");
-            return (false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
-        }
-
-        await _mutationLock.WaitAsync();
-        try
-        {
-            int expectedRevision = _store?.RemoteRevision ?? 0;
-            var (success, result, error) = await InventoryClient.MoveToLoadoutAsync(_backendConfig, AuthToken, lootId.Value, amount, expectedRevision);
-            if (!success && error.error == BackendErrorUtility.Unauthorized)
-            {
-                ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
-            }
-            if (success && _store != null)
-            {
-                _store.SetRemoteRevision(result.revision);
-            }
-            return (success, error);
-        }
-        finally
-        {
-            _mutationLock.Release();
-        }
-    }
+    public Task<(bool success, BackendError error)> MoveToLoadoutAsync(LootId lootId, int amount) =>
+        TransferAsync(ResolveSourceSlot(lootId, true), lootId, amount, true);
 
     /// <summary>
     /// Persists a move from loadout to stash.
     /// </summary>
-    public async Task<(bool success, BackendError error)> MoveToStashAsync(LootId lootId, int amount)
-    {
-        if (string.IsNullOrEmpty(AuthToken))
-        {
-            Debug.LogError($"[{nameof(RemoteInventoryService)}] MoveToStashAsync: Not authenticated.");
-            return (false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
-        }
-
-        await _mutationLock.WaitAsync();
-        try
-        {
-            int expectedRevision = _store?.RemoteRevision ?? 0;
-            var (success, result, error) = await InventoryClient.MoveToStashAsync(_backendConfig, AuthToken, lootId.Value, amount, expectedRevision);
-            if (!success && error.error == BackendErrorUtility.Unauthorized)
-            {
-                ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
-            }
-            if (success && _store != null)
-            {
-                _store.SetRemoteRevision(result.revision);
-            }
-            return (success, error);
-        }
-        finally
-        {
-            _mutationLock.Release();
-        }
-    }
+    public Task<(bool success, BackendError error)> MoveToStashAsync(LootId lootId, int amount) =>
+        TransferAsync(ResolveSourceSlot(lootId, false), lootId, amount, false);
 
     /// <summary>
     /// Persists the updated prepared equipment to the backend.

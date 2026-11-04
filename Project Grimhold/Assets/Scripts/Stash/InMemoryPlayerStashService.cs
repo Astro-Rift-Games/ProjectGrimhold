@@ -6,8 +6,11 @@ using UnityEngine;
 /// Compatibility adapter exposing the application-level store through the existing
 /// stash service contract. It owns no stash state.
 /// </summary>
-public sealed class InMemoryPlayerStashService : MonoBehaviour, IPlayerStashService
+public sealed class InMemoryPlayerStashService : MonoBehaviour, IPlayerStashService, ISlotPlayerStashService
 {
+    public StashOperationResult TryConsumeSlot(ProfileId profile, int slot, LootId id, int amount) =>
+        IsProfile(profile) ? _store.TryConsumeStashSlot(slot, id, amount) : StashOperationResult.InvalidInventory;
+
     private LocalProfileStore _store;
 
     public event Action<ProfileId> StashChanged;

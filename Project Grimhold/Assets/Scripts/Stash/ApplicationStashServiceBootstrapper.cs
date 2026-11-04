@@ -252,7 +252,7 @@ public static class ApplicationStashServiceBootstrapper
     ///
     /// Every input is validated before anything is written, so a rejected payload leaves the
     /// snapshot untouched. Item lists are normalized to what the save codec accepts: unknown
-    /// LootIds and non-positive amounts are skipped and duplicates are merged. A Loadout over
+    /// LootIds and non-positive amounts are skipped; physical entries are never merged. A Loadout over
     /// its slot capacity is accepted as is; the Store only allows operations that reduce it.
     /// </summary>
     public static bool HydrateSnapshot(
@@ -328,10 +328,12 @@ public static class ApplicationStashServiceBootstrapper
                 return false;
             }
 
-            if (!TryNormalizeItems(data.stash, catalog, "stash", out stash) ||
-                !TryNormalizeItems(data.loadout, catalog, "loadout", out loadout) ||
+            int schema = data.inventorySchemaVersion == 0 ? 1 : data.inventorySchemaVersion;
+            if ((schema != 1 && schema != 2) ||
+                !TryNormalizeItems(data.stash, catalog, "stash", out stash, schema) ||
+                !TryNormalizeItems(data.loadout, catalog, "loadout", out loadout, schema) ||
                 (!string.IsNullOrEmpty(data.pendingReservation.reservationId) &&
-                 !TryNormalizeItems(data.pendingReservation.items, catalog, "reservation", out reservationItems)))
+                 !TryNormalizeItems(data.pendingReservation.items, catalog, "reservation", out reservationItems, schema)))
             {
                 return false;
             }
@@ -341,6 +343,7 @@ public static class ApplicationStashServiceBootstrapper
         {
             var data = inventoryData.Value;
             snapshot.Currency = data.currency;
+            snapshot.InventorySchemaVersion = data.inventorySchemaVersion == 0 ? 1 : data.inventorySchemaVersion;
             snapshot.Stash.Clear();
             snapshot.Stash.AddRange(stash);
 
@@ -446,35 +449,27 @@ public static class ApplicationStashServiceBootstrapper
         InventoryItemData[] items,
         LootDefinitionCatalog catalog,
         string label,
-        out System.Collections.Generic.List<StashItem> normalized)
+        out System.Collections.Generic.List<StashItem> normalized,
+        int inventorySchemaVersion)
     {
         normalized = new System.Collections.Generic.List<StashItem>();
         if (items == null) return true;
 
-        foreach (var item in items)
+        var slots = new System.Collections.Generic.HashSet<int>();
+        for (int index = 0; index < items.Length; index++)
         {
-            if (item.amount <= 0 || string.IsNullOrWhiteSpace(item.lootId) || !catalog.TryGet(item.lootId, out _))
+            var item = items[index];
+            int slot = inventorySchemaVersion == 2 ? item.slot : index;
+            if (slot < 0 || !slots.Add(slot))
             {
-                continue;
-            }
-
-            var lootId = new LootId(item.lootId);
-            int index = normalized.FindIndex(existing => existing.LootId == lootId);
-            if (index < 0)
-            {
-                normalized.Add(new StashItem(lootId, item.amount));
-                continue;
-            }
-
-            long merged = (long)normalized[index].Amount + item.amount;
-            if (merged > int.MaxValue)
-            {
-                Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Hydration failed: {label} amount overflow for '{item.lootId}'.");
+                Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Hydration failed: {label} has invalid or duplicate slots.");
                 return false;
             }
-
-            normalized[index] = new StashItem(lootId, (int)merged);
+            if (item.amount <= 0 || string.IsNullOrWhiteSpace(item.lootId) || catalog == null || !catalog.TryGet(item.lootId, out _))
+                continue;
+            normalized.Add(new StashItem(new LootId(item.lootId), item.amount, slot));
         }
+        normalized.Sort((a, b) => a.Slot.CompareTo(b.Slot));
 
         return true;
     }

@@ -88,7 +88,7 @@ namespace Tests.EditMode.Stash
             Create(65);
             var snapshot = _repository.Snapshot.Clone();
             snapshot.Loadout.Clear();
-            snapshot.Loadout.Add(new StashItem(_ids[0], 5));
+            snapshot.Loadout.Add(new StashItem(_ids[0], 5, 0));
             Assert.That(_repository.TrySave(snapshot, out _), Is.True);
             Assert.That(all ? _store.EvaluateTransferAllToStash() : _store.EvaluateTransferToStash(_ids[0], 5),
                 Is.EqualTo(StashOperationResult.Success));

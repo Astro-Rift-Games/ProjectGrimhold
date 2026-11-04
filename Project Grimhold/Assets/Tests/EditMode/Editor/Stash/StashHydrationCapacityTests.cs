@@ -88,7 +88,7 @@ namespace Tests.EditMode.Stash
         }
 
         [Test]
-        public void ReconcileRemoteState_DuplicateAndNonPositiveItems_AreNormalizedAndLaterCommitsSucceed()
+        public void ReconcileRemoteState_DuplicateIdsKeepSeparateSlots_AndNonPositiveItemsLeaveHoles()
         {
             LootId[] ids = DistinctLootIds(3);
             LocalProfileStore store = CreateStore(new MemoryFileStore(), out _);
@@ -107,12 +107,12 @@ namespace Tests.EditMode.Stash
             };
 
             Assert.That(store.ReconcileRemoteState(data, null, _catalog, null), Is.EqualTo(StashOperationResult.Success));
-            CollectionAssert.AreEqual(new[] { new StashItem(ids[0], 5) }, store.GetStash());
+            CollectionAssert.AreEqual(new[] { new StashItem(ids[0], 2, 0), new StashItem(ids[0], 3, 1) }, store.GetStash());
             Assert.That(store.TryTransferToLoadout(ids[0], 1), Is.EqualTo(StashOperationResult.Success));
         }
 
         [Test]
-        public void HydrateSnapshot_AmountOverflowOnMerge_FailsWithoutChangingTheSnapshot()
+        public void HydrateSnapshot_DuplicateIdsAreNotMerged_EvenWhenTheirSumExceedsIntMax()
         {
             LootId[] ids = DistinctLootIds(2);
             var snapshot = new LocalProfileSnapshot { ProfileId = _profile, Currency = 7 };
@@ -126,13 +126,12 @@ namespace Tests.EditMode.Stash
                 preparedEquipment = new PreparedEquipmentData()
             };
 
-            LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("stash amount overflow"));
             bool result = ApplicationStashServiceBootstrapper.HydrateSnapshot(_profile, snapshot, data, null, _catalog, null);
 
-            Assert.That(result, Is.False);
-            Assert.That(snapshot.Currency, Is.EqualTo(7));
-            Assert.That(snapshot.RemoteRevision, Is.EqualTo(0));
-            CollectionAssert.AreEqual(new[] { new StashItem(ids[1], 4) }, snapshot.Stash);
+            Assert.That(result, Is.True);
+            Assert.That(snapshot.Currency, Is.EqualTo(100));
+            Assert.That(snapshot.RemoteRevision, Is.EqualTo(9));
+            CollectionAssert.AreEqual(new[] { new StashItem(ids[0], int.MaxValue, 0), new StashItem(ids[0], 1, 1) }, snapshot.Stash);
         }
 
         private LocalProfileStore CreateOverCapacityStore(out LootId[] ids)

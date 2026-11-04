@@ -5,6 +5,7 @@ using System.Collections.Generic;
 /// Service abstraction for interacting with a player's pre-match loadout.
 /// Handles transfers between the application-level stash and the active loadout configuration.
 /// Serves as the authority for loadout limits and validation.
+/// Production also exposes ISlotPlayerLoadoutService; LootId transfer APIs resolve the lowest slot.
 /// </summary>
 public interface IPlayerLoadoutService
 {

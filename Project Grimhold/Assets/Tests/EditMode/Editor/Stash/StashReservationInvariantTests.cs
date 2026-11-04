@@ -37,6 +37,16 @@ namespace Tests.EditMode.Stash
             yield return Case("TryTransferToStash", s => s.TryTransferToStash(Bone, 1));
             yield return Case("TryTransferAllToLoadout", s => s.TryTransferAllToLoadout());
             yield return Case("TryTransferAllToStash", s => s.TryTransferAllToStash());
+            yield return Case("TryTransferToLoadout_InvalidInput", s => s.TryTransferToLoadout(default, 0));
+            yield return Case("TryTransferToStash_InvalidInput", s => s.TryTransferToStash(default, 0));
+            yield return Case("EvaluateTransferToLoadout_InvalidInput", s => s.EvaluateTransferToLoadout(default, 0));
+            yield return Case("EvaluateTransferToStash_InvalidInput", s => s.EvaluateTransferToStash(default, 0));
+            yield return Case("TryTransfer_InvalidStashSlot", s => s.TryTransfer(-1, Bone, 1, true));
+            yield return Case("TryTransfer_InvalidLoadoutSlot", s => s.TryTransfer(-1, Bone, 1, false));
+            yield return Case("EvaluateTransfer_InvalidStashSlot", s => s.EvaluateTransfer(-1, Bone, 1, true));
+            yield return Case("EvaluateTransfer_InvalidLoadoutSlot", s => s.EvaluateTransfer(-1, Bone, 1, false));
+            yield return Case("TryTransfer_InvalidItem", s => s.TryTransfer(0, default, 1, true));
+            yield return Case("EvaluateTransfer_InvalidAmount", s => s.EvaluateTransfer(0, Bone, 0, true));
             yield return Case(
                 "TryEquipFromStash",
                 s => s.TryEquipFromStash(EquipmentSlot.WeaponSetAMainHand, Sword));
@@ -146,6 +156,39 @@ namespace Tests.EditMode.Stash
                 Is.EqualTo(StashOperationResult.InvalidInventory));
         }
 
+        [TestCase(true)]
+        [TestCase(false)]
+        public void Transfers_WithoutReservation_KeepReceiveAndValidationBehavior(bool fromStash)
+        {
+            LocalProfileStore store = CreateStore(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Bone, 3, fromStash ? 4 : 1));
+                snapshot.Loadout.Add(new StashItem(Bone, 2, fromStash ? 1 : 4));
+            });
+            Snapshot before = Capture(store);
+            int commits = 0;
+            store.ProfileCommitted += _ => commits++;
+
+            Assert.That(store.EvaluateTransfer(-1, Bone, 1, fromStash), Is.EqualTo(StashOperationResult.InvalidInventory));
+            Assert.That(store.TryTransfer(-1, Bone, 1, fromStash), Is.EqualTo(StashOperationResult.InvalidInventory));
+            Assert.That(fromStash ? store.EvaluateTransferToLoadout(default, 0) : store.EvaluateTransferToStash(default, 0),
+                Is.EqualTo(StashOperationResult.InvalidInventory));
+            Assert.That(fromStash ? store.TryTransferToLoadout(default, 0) : store.TryTransferToStash(default, 0),
+                Is.EqualTo(StashOperationResult.InvalidInventory));
+            Assert.That(Capture(store), Is.EqualTo(before));
+            Assert.That(commits, Is.Zero);
+
+            Assert.That(store.EvaluateTransfer(4, Bone, int.MaxValue, fromStash), Is.EqualTo(StashOperationResult.Success));
+            Assert.That(Capture(store), Is.EqualTo(before));
+            Assert.That(commits, Is.Zero);
+            Assert.That(fromStash ? store.TryTransferToLoadout(Bone, int.MaxValue) : store.TryTransferToStash(Bone, int.MaxValue),
+                Is.EqualTo(StashOperationResult.Success));
+            Assert.That(fromStash ? store.GetStash() : store.GetLoadout(), Is.Empty);
+            Assert.That(fromStash ? store.GetLoadout() : store.GetStash(),
+                Is.EqualTo(new[] { new StashItem(Bone, 5, 1) }));
+            Assert.That(commits, Is.EqualTo(1));
+        }
+
         private LocalProfileStore CreateReservedStore()
         {
             LocalProfileStore store = CreateStore(snapshot =>
@@ -167,6 +210,7 @@ namespace Tests.EditMode.Stash
             Assert.That(repository.Initialize(profile, _catalog), Is.True);
             LocalProfileSnapshot snapshot = repository.Snapshot.Clone();
             configure?.Invoke(snapshot);
+            PhysicalSlotTestSeed.AssignUnplaced(snapshot);
             Assert.That(repository.TrySave(snapshot, out string error), Is.True, error);
             return new LocalProfileStore(repository, profile, _catalog);
         }
@@ -198,7 +242,9 @@ namespace Tests.EditMode.Stash
             store.GetStash().ToArray(),
             store.GetLoadout().ToArray(),
             EquipmentSlotRules.AllSlots.Select(slot => store.GetPreparedEquipment().Get(slot).Value).ToArray(),
-            store.PendingReservation?.ReservationId);
+            store.PendingReservation?.ReservationId,
+            store.PendingReservation?.Items.ToArray() ?? Array.Empty<StashItem>(),
+            store.PendingReservation?.PreparedEquipment ?? default);
 
         private readonly struct Snapshot : IEquatable<Snapshot>
         {
@@ -206,20 +252,27 @@ namespace Tests.EditMode.Stash
             private readonly StashItem[] _loadout;
             private readonly string[] _equipment;
             private readonly string _reservationId;
+            private readonly StashItem[] _reservedItems;
+            private readonly PreparedEquipmentLoadout _reservedEquipment;
 
-            public Snapshot(StashItem[] stash, StashItem[] loadout, string[] equipment, string reservationId)
+            public Snapshot(StashItem[] stash, StashItem[] loadout, string[] equipment, string reservationId,
+                StashItem[] reservedItems, PreparedEquipmentLoadout reservedEquipment)
             {
                 _stash = stash;
                 _loadout = loadout;
                 _equipment = equipment;
                 _reservationId = reservationId;
+                _reservedItems = reservedItems;
+                _reservedEquipment = reservedEquipment;
             }
 
             public bool Equals(Snapshot other) =>
                 _stash.SequenceEqual(other._stash) &&
                 _loadout.SequenceEqual(other._loadout) &&
                 _equipment.SequenceEqual(other._equipment) &&
-                _reservationId == other._reservationId;
+                _reservationId == other._reservationId &&
+                _reservedItems.SequenceEqual(other._reservedItems) &&
+                _reservedEquipment.Equals(other._reservedEquipment);
 
             public override bool Equals(object obj) => obj is Snapshot other && Equals(other);
 

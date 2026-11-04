@@ -18,7 +18,9 @@ public static class StashDisplayOrder
         int order = Rank(leftDefinition).CompareTo(Rank(rightDefinition));
         if (order != 0) return order;
         order = StringComparer.OrdinalIgnoreCase.Compare(Name(left, leftDefinition), Name(right, rightDefinition));
-        return order != 0 ? order : StringComparer.Ordinal.Compare(left.LootId.Value, right.LootId.Value);
+        if (order != 0) return order;
+        order = StringComparer.Ordinal.Compare(left.LootId.Value, right.LootId.Value);
+        return order != 0 ? order : left.Slot.CompareTo(right.Slot);
     }
 
     private static LootDefinition Resolve(StashItem item, LootDefinitionCatalog catalog)

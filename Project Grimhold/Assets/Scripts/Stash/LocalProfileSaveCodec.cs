@@ -11,6 +11,7 @@ public static class LocalProfileSaveCodec
     private sealed class SaveData
     {
         public int schemaVersion;
+        public int inventorySchemaVersion;
         public string profileId;
         public long currency;
         public int level;
@@ -55,6 +56,7 @@ public static class LocalProfileSaveCodec
     [Serializable]
     private sealed class ItemData
     {
+        public int slot;
         public string lootId;
         public int amount;
     }
@@ -144,6 +146,7 @@ public static class LocalProfileSaveCodec
         var data = new SaveData
         {
             schemaVersion = LocalProfileSnapshot.CurrentSchemaVersion,
+            inventorySchemaVersion = snapshot.InventorySchemaVersion,
             profileId = snapshot.ProfileId.Value,
             currency = snapshot.Currency,
             level = snapshot.Level,
@@ -289,10 +292,16 @@ public static class LocalProfileSaveCodec
         var candidate = new LocalProfileSnapshot
         {
             SchemaVersion = LocalProfileSnapshot.CurrentSchemaVersion,
-            ProfileId = expectedProfileId
+            ProfileId = expectedProfileId,
+            InventorySchemaVersion = data.schemaVersion >= 10 ? data.inventorySchemaVersion : 1
         };
-        if (!TryReadItems(data.stash, catalog, candidate.Stash, "stash", out error) ||
-            !TryReadItems(data.loadout, catalog, candidate.Loadout, "loadout", out error))
+        if (candidate.InventorySchemaVersion != 1 && candidate.InventorySchemaVersion != 2)
+        {
+            error = "Invalid backend inventory schema version.";
+            return false;
+        }
+        if (!TryReadItems(data.stash, catalog, candidate.Stash, "stash", out error, data.schemaVersion >= 10) ||
+            !TryReadItems(data.loadout, catalog, candidate.Loadout, "loadout", out error, data.schemaVersion >= 10))
         {
             return false;
         }
@@ -423,7 +432,7 @@ public static class LocalProfileSaveCodec
                 return false;
             }
 
-            if (!TryReadItems(data.pendingReservation.items, catalog, out List<StashItem> reservationItems, "reservation", out error))
+            if (!TryReadItems(data.pendingReservation.items, catalog, out List<StashItem> reservationItems, "reservation", out error, data.schemaVersion >= 10))
             {
                 return false;
             }
@@ -474,7 +483,7 @@ public static class LocalProfileSaveCodec
                 return false;
             }
 
-            if (!TryReadItems(data.pendingExtractionCommit.items, catalog, out List<StashItem> extractionItems, "pending extraction", out error))
+            if (!TryReadItems(data.pendingExtractionCommit.items, catalog, out List<StashItem> extractionItems, "pending extraction", out error, aggregate: true))
             {
                 return false;
             }
@@ -612,7 +621,7 @@ public static class LocalProfileSaveCodec
             }
             else
             {
-                items[index] = new StashItem(lootId, item.Amount - 1);
+                items[index] = new StashItem(lootId, item.Amount - 1, item.Slot);
             }
 
             return true;
@@ -744,7 +753,7 @@ public static class LocalProfileSaveCodec
         var result = new ItemData[items?.Count ?? 0];
         for (int i = 0; i < result.Length; i++)
         {
-            result[i] = new ItemData { lootId = items[i].LootId.Value, amount = items[i].Amount };
+            result[i] = new ItemData { slot = items[i].Slot, lootId = items[i].LootId.Value, amount = items[i].Amount };
         }
         return result;
     }
@@ -968,7 +977,7 @@ public static class LocalProfileSaveCodec
         return result;
     }
 
-    private static bool TryReadItems(ItemData[] data, LootDefinitionCatalog catalog, List<StashItem> destination, string label, out string error)
+    private static bool TryReadItems(ItemData[] data, LootDefinitionCatalog catalog, List<StashItem> destination, string label, out string error, bool physical = false, bool aggregate = false)
     {
         error = null;
         if (data == null)
@@ -977,6 +986,8 @@ public static class LocalProfileSaveCodec
         }
 
         var seen = new HashSet<LootId>();
+        var slots = new HashSet<int>();
+        int index = 0;
         foreach (ItemData item in data)
         {
             if (item == null || string.IsNullOrWhiteSpace(item.lootId))
@@ -990,19 +1001,21 @@ public static class LocalProfileSaveCodec
                 error = $"{label} contains an invalid or unknown loot item.";
                 return false;
             }
-            if (!seen.Add(lootId))
+            int slot = physical ? item.slot : index;
+            if (physical ? slot < 0 || !slots.Add(slot) : !aggregate && !seen.Add(lootId))
             {
-                error = $"{label} contains duplicate loot IDs.";
+                error = physical ? $"{label} contains invalid or duplicate slots." : $"{label} contains duplicate loot IDs.";
                 return false;
             }
-            destination.Add(new StashItem(lootId, item.amount));
+            destination.Add(new StashItem(lootId, item.amount, aggregate ? -1 : slot));
+            index++;
         }
         return true;
     }
 
-    private static bool TryReadItems(ItemData[] data, LootDefinitionCatalog catalog, out List<StashItem> items, string label, out string error)
+    private static bool TryReadItems(ItemData[] data, LootDefinitionCatalog catalog, out List<StashItem> items, string label, out string error, bool physical = false, bool aggregate = false)
     {
         items = new List<StashItem>();
-        return TryReadItems(data, catalog, items, label, out error);
+        return TryReadItems(data, catalog, items, label, out error, physical, aggregate);
     }
 }

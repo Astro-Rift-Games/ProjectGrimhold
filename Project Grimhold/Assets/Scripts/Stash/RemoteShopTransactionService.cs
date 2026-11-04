@@ -42,11 +42,18 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
             ? InventoryClient.ShopBuyAsync(config, ApplicationAuthContext.Instance?.Token,
                 transactionId, line.LootId.Value, line.Amount, revision)
             : InventoryClient.ShopSellAsync(config, ApplicationAuthContext.Instance?.Token,
-                transactionId, line.LootId.Value, line.Amount, revision), reconciliationService.ReconcileAsync);
+                transactionId, line.LootId.Value, line.Amount, revision, ResolveSaleSlot(store, line.LootId)), reconciliationService.ReconcileAsync);
         if (ledger != null)
             InitializeBuyback(ledger, (transactionId, entryId, amount, revision) =>
                 InventoryClient.ShopBuybackAsync(config, ApplicationAuthContext.Instance?.Token,
                     transactionId, entryId, amount, revision));
+    }
+
+    private static int ResolveSaleSlot(LocalProfileStore store, LootId id)
+    {
+        var items = store.GetLoadout();
+        int index = ProfileInventoryRules.FindIndex(items, id);
+        return index < 0 ? -1 : items[index].Slot;
     }
 
     /// <summary>Explicit infrastructure injection, also used by deterministic tests.</summary>
@@ -65,7 +72,7 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
 
     public async Task<StashOperationResult> ExecuteBuybackAsync(ProfileId profileId, MerchantBuybackRequest request)
     {
-        if (_store == null || !_store.IsAvailable || _buybackBackend == null) return StashOperationResult.PersistenceFailed;
+        if (_store == null || !_store.IsAvailable || _buybackBackend == null || _store.InventorySchemaVersion != 2) return StashOperationResult.PersistenceFailed;
         if (string.IsNullOrWhiteSpace(request.EntryId) || request.UnitPrice < 0 || request.Amount < 1 ||
             (request.UnitPrice > 0 && request.Amount > long.MaxValue / request.UnitPrice))
             return StashOperationResult.InvalidInventory;
@@ -121,7 +128,7 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
 
     public async Task<StashOperationResult> ExecuteTradeAsync(ProfileId profileId, MerchantTradeTicket ticket)
     {
-        if (_store == null || !_store.IsAvailable || _backend == null) return StashOperationResult.PersistenceFailed;
+        if (_store == null || !_store.IsAvailable || _backend == null || _store.InventorySchemaVersion != 2) return StashOperationResult.PersistenceFailed;
         if (!profileId.IsValid || _store.ProfileId != profileId || ticket == null)
             return StashOperationResult.InvalidInventory;
         if (ticket.LineCount != 1)

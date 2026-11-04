@@ -5,7 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 /// <summary>
-/// Runs every Stash screen action (transfers, Take All / Leave All, equip and unequip) through one
+/// Runs Town inventory actions (transfers, split, Take All / Leave All, equip and unequip) through one
 /// serialized queue, so an equip never interleaves with a transfer that is waiting for the backend.
 /// Each transfer is checked against the local Store rules first, so a transfer the Store would
 /// refuse never reaches the backend, then follows the remote-first order: the backend confirms,
@@ -45,7 +45,41 @@ public sealed class StashTransferCoordinator
     }
 
     public Task<StashTransferOutcome> TransferAsync(LootId lootId, bool fromStash, LootTransferQuantityMode mode) =>
-        RunExclusiveAsync(() => TransferCoreAsync(lootId, fromStash, mode));
+        RunExclusiveAsync(() => TransferCoreAsync(ResolveSourceSlot(lootId, fromStash), lootId, fromStash, mode));
+
+    public Task<StashTransferOutcome> TransferAsync(int sourceSlot, LootId lootId, bool fromStash, LootTransferQuantityMode mode) =>
+        RunExclusiveAsync(() => TransferCoreAsync(sourceSlot, lootId, fromStash, mode));
+
+    public Task<StashTransferOutcome> OrderAsync(InventoryList list, IReadOnlyList<int> slotOrder) =>
+        RunExclusiveAsync(() => OrderCoreAsync(list, slotOrder));
+
+    public Task<StashTransferOutcome> MoveAsync(InventoryList from, int fromSlot, InventoryList to, int toSlot, LootId id) =>
+        RunExclusiveAsync(async () =>
+        {
+            if (!(_loadout is ISlotPlayerLoadoutService local) || !(_remote is ISlotRemoteInventoryService remote))
+                return StashTransferOutcome.Unavailable();
+            var rule = local.EvaluateMove(_profileId, from, fromSlot, to, toSlot, id);
+            if (rule != StashOperationResult.Success) return StashTransferOutcome.Rejected(rule);
+            var outcome = await ExecuteRemoteAsync(() => remote.MoveSlotsAsync(from, fromSlot, to, toSlot, id));
+            return outcome.IsSuccess ? await ApplyLocalAsync(local.TryMove(_profileId, from, fromSlot, to, toSlot, id)) : outcome;
+        });
+
+    /// <summary>
+    /// Splits one addressed stack through the shared queue: local validation, remote confirmation,
+    /// then local commit. Failure or an unknown result reconciles once and never retries.
+    /// </summary>
+    public Task<StashTransferOutcome> SplitAsync(InventoryList list, int sourceSlot, int amount, int destinationSlot, LootId lootId) =>
+        RunExclusiveAsync(async () =>
+        {
+            if (!(_loadout is ISlotPlayerLoadoutService local) || !(_remote is ISlotRemoteInventoryService remote))
+                return StashTransferOutcome.Unavailable();
+            var rule = local.EvaluateSplit(_profileId, list, sourceSlot, amount, destinationSlot, lootId);
+            if (rule != StashOperationResult.Success) return StashTransferOutcome.Rejected(rule);
+            var outcome = await ExecuteRemoteAsync(() => remote.SplitSlotAsync(list, sourceSlot, amount, destinationSlot, lootId));
+            return outcome.IsSuccess
+                ? await ApplyLocalAsync(local.TrySplit(_profileId, list, sourceSlot, amount, destinationSlot, lootId))
+                : outcome;
+        });
 
     public Task<StashTransferOutcome> SortAsync(InventoryList list, LootDefinitionCatalog catalog = null) =>
         RunExclusiveAsync(() => SortCoreAsync(list, catalog ?? _catalog));
@@ -56,14 +90,19 @@ public sealed class StashTransferCoordinator
             return StashTransferOutcome.Rejected(StashOperationResult.InvalidInventory);
         IReadOnlyList<StashItem> source = list == InventoryList.Stash
             ? _stash.GetStash(_profileId) : _loadout.GetLoadout(_profileId);
-        LootId[] order = StashDisplayOrder.SortedCopy(source, catalog).Select(item => item.LootId).ToArray();
-        StashOperationResult rule = _loadout.EvaluateOrder(_profileId, list, order);
+        int[] order = StashDisplayOrder.SortedCopy(source, catalog).Select(item => item.Slot).ToArray();
+        return await OrderCoreAsync(list, order);
+    }
+
+    private async Task<StashTransferOutcome> OrderCoreAsync(InventoryList list, IReadOnlyList<int> order)
+    {
+        if (!(_loadout is ISlotPlayerLoadoutService local) || local.InventorySchemaVersion != 2 ||
+            !(_remote is ISlotRemoteInventoryService remote)) return StashTransferOutcome.Unavailable();
+        var rule = local.EvaluateOrderSlots(_profileId, list, order);
         if (rule != StashOperationResult.Success) return StashTransferOutcome.Rejected(rule);
-        if (source.Select(item => item.LootId).SequenceEqual(order)) return StashTransferOutcome.Success();
-        if (_remote == null) return StashTransferOutcome.Unavailable();
-        StashTransferOutcome remote = await ExecuteRemoteAsync(() => _remote.OrderAsync(list, order));
-        if (!remote.IsSuccess) return remote;
-        return await ApplyLocalAsync(_loadout.TryOrder(_profileId, list, order));
+        if (order.Select((slot, i) => slot == i).All(x => x)) return StashTransferOutcome.Success();
+        var outcome = await ExecuteRemoteAsync(() => remote.OrderSlotsAsync(list, order));
+        return outcome.IsSuccess ? await ApplyLocalAsync(local.TryOrderSlots(_profileId, list, order)) : outcome;
     }
 
     public Task<StashTransferOutcome> TakeAllAsync() => RunExclusiveAsync(TakeAllCoreAsync);
@@ -86,6 +125,9 @@ public sealed class StashTransferCoordinator
         await _queue.WaitAsync();
         try
         {
+            // Reads remain available on legacy inventories, but no Town mutation may precede migration.
+            if (!(_loadout is ISlotPlayerLoadoutService slots) || slots.InventorySchemaVersion != 2)
+                return StashTransferOutcome.Unavailable();
             return await operation();
         }
         finally
@@ -95,36 +137,31 @@ public sealed class StashTransferCoordinator
     }
 
     private async Task<StashTransferOutcome> TransferCoreAsync(
+        int sourceSlot,
         LootId lootId,
         bool fromStash,
         LootTransferQuantityMode mode)
     {
-        if (_remote == null)
+        if (!(_remote is ISlotRemoteInventoryService remoteSlots) ||
+            !(_loadout is ISlotPlayerLoadoutService local) || local.InventorySchemaVersion != 2)
         {
             return StashTransferOutcome.Unavailable();
         }
 
-        int amount = ResolveAmount(lootId, fromStash, mode);
-        StashOperationResult rule = fromStash
-            ? _loadout.EvaluateTransferToLoadout(_profileId, lootId, amount)
-            : _loadout.EvaluateTransferToStash(_profileId, lootId, amount);
+        int amount = ResolveAmount(sourceSlot, lootId, fromStash, mode);
+        StashOperationResult rule = local.EvaluateTransfer(_profileId, sourceSlot, lootId, amount, fromStash);
         if (rule != StashOperationResult.Success)
         {
             return StashTransferOutcome.Rejected(rule);
         }
 
-        StashTransferOutcome remote = await ExecuteRemoteAsync(() => fromStash
-            ? _remote.MoveToLoadoutAsync(lootId, amount)
-            : _remote.MoveToStashAsync(lootId, amount));
+        StashTransferOutcome remote = await ExecuteRemoteAsync(() => remoteSlots.TransferAsync(sourceSlot, lootId, amount, fromStash));
         if (!remote.IsSuccess)
         {
             return remote;
         }
 
-        StashOperationResult local = fromStash
-            ? _loadout.TryTransferToLoadout(_profileId, lootId, amount)
-            : _loadout.TryTransferToStash(_profileId, lootId, amount);
-        return await ApplyLocalAsync(local);
+        return await ApplyLocalAsync(local.TryTransfer(_profileId, sourceSlot, lootId, amount, fromStash));
     }
 
     private Task<StashTransferOutcome> TakeAllCoreAsync() => TransferEachStackAsync(fromStash: true);
@@ -146,18 +183,17 @@ public sealed class StashTransferCoordinator
 
         IReadOnlyList<StashItem> source = fromStash ? _stash.GetStash(_profileId) : _loadout.GetLoadout(_profileId);
         // Snapshot once inside the queue, not from a visible page or a cached projection.
-        LootId[] order = source
-            .Select(item => item.LootId)
-            .ToArray();
+        StashItem[] order = source.OrderBy(item => item.Slot).ToArray();
         int completed = 0;
         int failed = 0;
         StashTransferOutcome firstFailure = default;
         for (int index = 0; index < order.Length; index++)
         {
-            LootId lootId = order[index];
+            LootId lootId = order[index].LootId;
+            int sourceSlot = order[index].Slot;
             // A reconciliation after an earlier failure may have changed the source, so every
             // stack is re-read and checked against the current state.
-            if (!IsOwned(lootId, fromStash))
+            if (!IsOwned(sourceSlot, lootId, fromStash))
             {
                 if (failed++ == 0)
                 {
@@ -166,7 +202,7 @@ public sealed class StashTransferCoordinator
                 continue;
             }
 
-            StashTransferOutcome outcome = await TransferCoreAsync(lootId, fromStash, LootTransferQuantityMode.FullStack);
+            StashTransferOutcome outcome = await TransferCoreAsync(sourceSlot, lootId, fromStash, LootTransferQuantityMode.FullStack);
             if (outcome.IsSuccess)
             {
                 completed++;
@@ -197,12 +233,12 @@ public sealed class StashTransferCoordinator
                 completed, failed, firstFailure.RemoteError, firstFailure.RemoteErrorCode, firstFailure.Rule);
     }
 
-    private bool IsOwned(LootId lootId, bool fromStash)
+    private bool IsOwned(int slot, LootId lootId, bool fromStash)
     {
         IReadOnlyList<StashItem> source = fromStash ? _stash.GetStash(_profileId) : _loadout.GetLoadout(_profileId);
         foreach (StashItem item in source)
         {
-            if (item.LootId == lootId)
+            if (item.Slot == slot && item.LootId == lootId)
             {
                 return true;
             }
@@ -221,7 +257,7 @@ public sealed class StashTransferCoordinator
 
         if (fromStash)
         {
-            if (_remote == null) return StashTransferOutcome.Unavailable();
+            if (!(_remote is ISlotRemoteInventoryService remoteSlots)) return StashTransferOutcome.Unavailable();
 
             StashOperationResult rule = _loadout.EvaluateEquipFromStash(
                 _profileId, lootId, slot, out PreparedEquipmentLoadout projected);
@@ -233,7 +269,8 @@ public sealed class StashTransferCoordinator
             StashItem[] loadoutBefore = _loadout.GetLoadout(_profileId).ToArray();
             PreparedEquipmentLoadout equipmentBefore = _loadout.GetPreparedEquipment(_profileId);
 
-            StashTransferOutcome move = await ExecuteRemoteAsync(() => _remote.MoveToLoadoutAsync(lootId, 1));
+            int sourceSlot = ResolveSourceSlot(lootId, true);
+            StashTransferOutcome move = await ExecuteRemoteAsync(() => remoteSlots.TransferAsync(sourceSlot, lootId, 1, true));
             if (!move.IsSuccess) return move;
             if (!OwnershipMatches(stashBefore, loadoutBefore, equipmentBefore))
                 return await ApplyLocalAsync(StashOperationResult.InvalidInventory);
@@ -263,7 +300,7 @@ public sealed class StashTransferCoordinator
 
     private static bool SameItems(StashItem[] expected, IReadOnlyList<StashItem> current)
     {
-        // Store inventories have one entry per ID; ordering is not ownership.
+        // Equality includes location: drift must not consume another physical stack.
         return expected.Length == current.Count && expected.All(item => current.Contains(item));
     }
 
@@ -352,7 +389,14 @@ public sealed class StashTransferCoordinator
         }
     }
 
-    private int ResolveAmount(LootId lootId, bool fromStash, LootTransferQuantityMode mode)
+    private int ResolveSourceSlot(LootId id, bool fromStash)
+    {
+        var source = fromStash ? _stash.GetStash(_profileId) : _loadout.GetLoadout(_profileId);
+        int index = ProfileInventoryRules.FindIndex(source, id);
+        return index < 0 ? -1 : source[index].Slot;
+    }
+
+    private int ResolveAmount(int slot, LootId lootId, bool fromStash, LootTransferQuantityMode mode)
     {
         if (mode != LootTransferQuantityMode.FullStack)
         {
@@ -362,7 +406,7 @@ public sealed class StashTransferCoordinator
         IReadOnlyList<StashItem> source = fromStash ? _stash.GetStash(_profileId) : _loadout.GetLoadout(_profileId);
         foreach (StashItem item in source)
         {
-            if (item.LootId == lootId)
+            if (item.Slot == slot && item.LootId == lootId)
             {
                 return item.Amount;
             }
