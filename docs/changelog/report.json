@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 901,
-  "canonicalEntries": 898,
+  "rawCommits": 906,
+  "canonicalEntries": 903,
   "before": {
-    "Features": 333,
-    "Documentation": 77,
+    "Documentation": 78,
+    "Features": 337,
     "Bug Fixes": 88,
     "Architecture & Infrastructure": 13,
     "Other Changes": 353,
@@ -12,8 +12,8 @@
     "Tests": 24
   },
   "after": {
-    "Features": 470,
-    "Documentation": 92,
+    "Documentation": 93,
+    "Features": 474,
     "Bug Fixes": 104,
     "Maintenance": 12,
     "Other Changes": 163,
@@ -23,27 +23,27 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Combat": 319,
-    "Inventory & Loot": 332,
-    "UI": 276,
+    "Extraction": 122,
+    "Inventory & Loot": 337,
+    "UI": 279,
+    "Persistence & Backend": 190,
+    "Documentation": 355,
+    "Combat": 320,
+    "Networking & Sessions": 259,
+    "Build & Tooling": 458,
+    "Tests": 544,
     "World & Visibility": 120,
-    "Persistence & Backend": 186,
-    "Build & Tooling": 456,
-    "Tests": 540,
     "Unassigned": 19,
     "Abilities": 114,
-    "Extraction": 120,
     "Art & Animation": 218,
     "Audio": 33,
-    "Documentation": 354,
-    "Networking & Sessions": 257,
     "Movement": 91,
     "Input": 28
   },
   "canonical": {
     "sections": {
-      "Features": 469,
-      "Documentation": 92,
+      "Documentation": 93,
+      "Features": 473,
       "Bug Fixes": 103,
       "Maintenance": 12,
       "Other Changes": 162,
@@ -52,20 +52,20 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "Combat": 317,
-      "Inventory & Loot": 332,
-      "UI": 275,
+      "Extraction": 122,
+      "Inventory & Loot": 337,
+      "UI": 278,
+      "Persistence & Backend": 190,
+      "Documentation": 353,
+      "Combat": 318,
+      "Networking & Sessions": 259,
+      "Build & Tooling": 456,
+      "Tests": 542,
       "World & Visibility": 118,
-      "Persistence & Backend": 186,
-      "Build & Tooling": 454,
-      "Tests": 538,
       "Unassigned": 19,
       "Abilities": 112,
-      "Extraction": 120,
       "Art & Animation": 215,
       "Audio": 33,
-      "Documentation": 352,
-      "Networking & Sessions": 257,
       "Movement": 91,
       "Input": 28
     }
@@ -34099,8 +34099,8 @@
       "title": "2026-11 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 29,
-      "canonicalEntries": 29
+      "originalCommits": 34,
+      "canonicalEntries": 34
     },
     {
       "key": "history-2026-10",
@@ -34136,6 +34136,1358 @@
     }
   ],
   "commits": [
+    {
+      "sha": "b4dfeabab36f58accbd4eb9b5efe8e5b686cf65c",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b4dfeabab36f58accbd4eb9b5efe8e5b686cf65c",
+      "subject": "docs(inventory): document physical slots and TASK-281 split",
+      "body": "Record the approved Town/Stash physical-slot model and the TASK-281\nsplit as implemented.\n\n- LocalPlayerPersistenceArchitecture: slot model replaces the TASK-218\n  compact exception; codec schema 10, inventorySchemaVersion, protocol\n  gate, migration and rollback floors; Town StackMax stays deferred;\n  Town Origin under D2 = O1 pending Game Design doc 07 reconciliation.\n- RaidInventoryUIArchitecture: slot projection, Stash slot-range paging,\n  Loadout fixed at 30 visible slots without paging.\n- LootInteractionArchitecture: Raid and Town split contracts; UI stays\n  in TASK-282.\n- ExtractionArchitecture: extraction placement into Loadout slots.\n- docs/proposal_task281_town_stash_physical_slots.md (approved rev 4),\n  docs/defect_raid_loot_eligibility_other_team.md (open GD conflict) and\n  the ODD tracker odd/tasks/stash-physical-slots.md.\n",
+      "date": "2026-11-04T01:27:42-03:00",
+      "files": [
+        "Project Grimhold/Docs/Architecture/ExtractionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+        "docs/defect_raid_loot_eligibility_other_team.md",
+        "docs/proposal_task281_town_stash_physical_slots.md",
+        "odd/tasks/stash-physical-slots.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "inventory",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "UI",
+        "Persistence & Backend",
+        "Documentation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ExtractionArchitecture.md",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "docs/defect_raid_loot_eligibility_other_team.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "UI",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ExtractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/defect_raid_loot_eligibility_other_team.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/proposal_task281_town_stash_physical_slots.md",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "fc872660c13a0c839d39c3edeab09c9d5ca85a00",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/fc872660c13a0c839d39c3edeab09c9d5ca85a00",
+      "subject": "feat(stash): adopt physical slots in Town inventory and Stash",
+      "body": "Move the Unity Town Loadout and Stash to the physical-slot model\nserved by the backend (D1, D3) and add the authoritative Stash split\nfor TASK-281 without UI.\n\n- StashItem.Slot; save codec schema 10 persists slots, duplicate\n  lootIds and holes, plus the backend inventorySchemaVersion. Schemas\n  1-9 decode losslessly with slot = list index.\n- Hydration no longer merges entries; every backend request sends\n  X-Grimhold-Inventory-Protocol: 2. With a v1 backend document the\n  coordinator reports every mutation as unavailable before any remote\n  call.\n- Slot rules in ProfileInventoryRules, LocalProfileStore and\n  MerchantTradePreview: capacity by occupied slots, overflow\n  reducing-only, receive into the lowest matching then lowest free\n  slot, removal leaves a hole, consumption in ascending slot order,\n  Quick Slot counts sum every stack, exact reservation rollback.\n  A pending reservation is still reported before input errors.\n- Slot-addressed transfer, sell, Sort and slot move through\n  RemoteInventoryService and StashTransferCoordinator.\n- LocalProfileStore.TrySplit and StashTransferCoordinator.SplitAsync\n  (remote first, serialized queue, reconcile without retry).\n- Raid admission aggregates reservation stacks by lootId\n  (RaidAdmissionData, FusionSessionLauncher); its duplicate-ID and\n  entry limits are unchanged.\n- Lobby renders each entry at its slot, Stash pages by slot range,\n  the Loadout keeps its 30 visible cells and cell drags use slot moves.\n\nTests: PhysicalProfileSlotTests, StashSplitTests,\nInventoryProtocolSlotTests, RaidAdmissionSlotAggregationTests and\nslot cases in StashTransferCoordinatorTests, StashReservationInvariant\nand LobbyStashPresenter PlayMode; existing Stash, Equipment, Commerce,\npersistence and shop fixtures updated to explicit slots.\n",
+      "date": "2026-11-04T01:27:32-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Backend/AuthenticationClient.cs",
+        "Project Grimhold/Assets/Scripts/Backend/CharacterClient.cs",
+        "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+        "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+        "Project Grimhold/Assets/Scripts/Backend/InventoryProtocol.cs",
+        "Project Grimhold/Assets/Scripts/Backend/InventoryProtocol.cs.meta",
+        "Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs",
+        "Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs.meta",
+        "Project Grimhold/Assets/Scripts/Backend/InventorySlotMoveRequest.cs",
+        "Project Grimhold/Assets/Scripts/Backend/InventorySlotMoveRequest.cs.meta",
+        "Project Grimhold/Assets/Scripts/Backend/InventorySlotOrderRequest.cs",
+        "Project Grimhold/Assets/Scripts/Backend/InventorySlotOrderRequest.cs.meta",
+        "Project Grimhold/Assets/Scripts/Backend/InventorySlotSplitRequest.cs",
+        "Project Grimhold/Assets/Scripts/Backend/InventorySlotSplitRequest.cs.meta",
+        "Project Grimhold/Assets/Scripts/Backend/ProgressionClient.cs",
+        "Project Grimhold/Assets/Scripts/Commerce/MerchantTradePreview.cs",
+        "Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionData.cs",
+        "Project Grimhold/Assets/Scripts/Stash/ApplicationStashServiceBootstrapper.cs",
+        "Project Grimhold/Assets/Scripts/Stash/IPlayerLoadoutService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/IPlayerStashService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/IRemoteInventoryService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/ISlotPlayerLoadoutService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/ISlotPlayerLoadoutService.cs.meta",
+        "Project Grimhold/Assets/Scripts/Stash/ISlotPlayerStashService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/ISlotPlayerStashService.cs.meta",
+        "Project Grimhold/Assets/Scripts/Stash/ISlotRemoteInventoryService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/ISlotRemoteInventoryService.cs.meta",
+        "Project Grimhold/Assets/Scripts/Stash/InMemoryPlayerLoadoutService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/InMemoryPlayerStashService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalLoadoutInventoryReadSource.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+        "Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs",
+        "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/RemoteShopTransactionService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/StashDisplayOrder.cs",
+        "Project Grimhold/Assets/Scripts/Stash/StashItem.cs",
+        "Project Grimhold/Assets/Scripts/Stash/StashTransferCoordinator.cs",
+        "Project Grimhold/Assets/Scripts/Stash/TownInventoryProjection.cs",
+        "Project Grimhold/Assets/Scripts/Stash/TownInventoryProjection.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Backend.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/MerchantTradePreviewTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/PreparedEquipmentTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalSlotTestSeed.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalSlotTestSeed.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashCapacityTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashCorruptLoginRecoveryTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashDisplayOrderTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashHydrationCapacityTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashReservationInvariantTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashSplitTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashSplitTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferCoordinatorTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferEvaluationTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/LocalProfilePersistenceEditModeTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/ShopTransactionPersistenceEditModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/PlayModeMerchantComposition.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs"
+      ],
+      "originalType": "feat",
+      "originalScope": "stash",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryProtocol.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryProtocol.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventorySlotMoveRequest.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventorySlotMoveRequest.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventorySlotOrderRequest.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventorySlotOrderRequest.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventorySlotSplitRequest.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventorySlotSplitRequest.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/IRemoteInventoryService.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/ISlotRemoteInventoryService.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/ISlotRemoteInventoryService.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalLoadoutInventoryReadSource.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/TownInventoryProjection.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/TownInventoryProjection.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/PreparedEquipmentTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionData.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "Lobby",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/AuthenticationClient.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/CharacterClient.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryProtocol.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryProtocol.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventorySlotMoveRequest.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventorySlotMoveRequest.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventorySlotOrderRequest.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventorySlotOrderRequest.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventorySlotSplitRequest.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventorySlotSplitRequest.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/ProgressionClient.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/LocalProfilePersistenceEditModeTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/ShopTransactionPersistenceEditModeTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/MerchantTradePreviewTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/PreparedEquipmentTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalSlotTestSeed.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalSlotTestSeed.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashCapacityTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashCorruptLoginRecoveryTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashDisplayOrderTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashHydrationCapacityTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashReservationInvariantTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashSplitTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashSplitTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferCoordinatorTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferEvaluationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/MerchantTradePreviewTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/PreparedEquipmentTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalSlotTestSeed.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalSlotTestSeed.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashCapacityTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashCorruptLoginRecoveryTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashDisplayOrderTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashHydrationCapacityTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashReservationInvariantTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashSplitTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashSplitTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferCoordinatorTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferEvaluationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/LocalProfilePersistenceEditModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/ShopTransactionPersistenceEditModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayModeMerchantComposition.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "43fb6ad3c41e36f3d63761cfa7a8a87ec25289d0",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/43fb6ad3c41e36f3d63761cfa7a8a87ec25289d0",
+      "subject": "feat(backend): add one-time inventory slot migration script",
+      "body": "Add backend/scripts/migrate_inventory_slots.js to move legacy aggregate\ninventories to physical slots once, explicitly, during the cutover\nwindow. Reads and ordinary writes never migrate data.\n\n- Per list (stash, loadout, pendingReservation.items) in stored order:\n  fold legacy duplicate lootIds into the first occurrence, assign\n  slots 0..n-1, keep over-capacity entries in overflow slots and\n  report unknown lootIds without dropping them.\n- One revision-guarded write per character sets\n  inventorySchemaVersion 2; per-lootId totals must match or the\n  character is skipped unchanged. Version 2 is skipped, so reruns are\n  no-ops. --dry-run writes nothing and prints a report.\n\nTests: migrate.inventory.slots (planner) and integration (dry run,\nmigration, rerun, revision conflict, aborted character unchanged).\n",
+      "date": "2026-11-04T01:27:16-03:00",
+      "files": [
+        "backend/scripts/migrate_inventory_slots.js",
+        "backend/tests/integration/migrate.inventory.slots.test.js",
+        "backend/tests/migrate.inventory.slots.test.js"
+      ],
+      "originalType": "feat",
+      "originalScope": "backend",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "backend/scripts/migrate_inventory_slots.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/migrate.inventory.slots.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/migrate.inventory.slots.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/scripts/migrate_inventory_slots.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/migrate.inventory.slots.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/migrate.inventory.slots.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "scope",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/migrate.inventory.slots.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/migrate.inventory.slots.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "e36cafcb12bcddae3cae576069b83d0e63768cb6",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e36cafcb12bcddae3cae576069b83d0e63768cb6",
+      "subject": "feat(backend): persist physical inventory slots behind a protocol gate",
+      "body": "Move Town Loadout and Stash persistence from one aggregate entry per\nlootId to physical slots (approved decisions D1 and D3), and add the\nauthoritative Stash/Loadout split for TASK-281 behind a feature flag.\n\n- Character items gain an optional slot; inventory.inventorySchemaVersion\n  1 = legacy aggregate lists, 2 = physical slots. Reads never merge or\n  save; the read-time lootId normalizer is removed.\n- X-Grimhold-Inventory-Protocol: 2 middleware on every inventory,\n  reservation, extraction and admission route. INVENTORY_PROTOCOL_GATE\n  (default off) rejects 426 CLIENT_UPGRADE_REQUIRED and v1 documents\n  409 INVENTORY_MIGRATION_REQUIRED.\n- v2 rules: capacity by occupied slots (Loadout 30, Stash 60), overflow\n  slots reducing-only, receive into the lowest matching then lowest\n  free slot, removal leaves a hole, sourceSlot-addressed transfer and\n  sell, slotOrder Sort as the only compaction, POST /slots/move\n  (move, merge, swap), exact reservation rollback, extraction placed\n  into slots and rejected above capacity before claiming the result.\n- POST /slots/split behind INVENTORY_SPLIT_ENABLED (default off,\n  403 FEATURE_DISABLED); revision-guarded, rejected during a pending\n  reservation.\n- Raid admission tickets stay aggregated by lootId.\n\nTests: inventory.protocol, inventory.slots, inventory.split (unit,\nintegration, concurrency) and inventory.slots.expand; read-time\nnormalization expectations in inventory.service replaced.\n\nDocs: backend/README.md (protocol, flags, DTOs, error codes).\n",
+      "date": "2026-11-04T01:27:15-03:00",
+      "files": [
+        "backend/README.md",
+        "backend/scripts/seed-test-accounts.js",
+        "backend/src/config/env.js",
+        "backend/src/middleware/inventoryProtocol.js",
+        "backend/src/models/Character.js",
+        "backend/src/routes/character.routes.js",
+        "backend/src/routes/inventory.routes.js",
+        "backend/src/routes/raid.routes.js",
+        "backend/src/services/CharacterService.js",
+        "backend/src/services/ExtractionCommitService.js",
+        "backend/src/services/InventoryEntries.js",
+        "backend/src/services/InventoryLootIdNormalizer.js",
+        "backend/src/services/InventoryService.js",
+        "backend/src/services/RaidResultService.js",
+        "backend/src/services/SessionTicketService.js",
+        "backend/src/validators/inventory.validators.js",
+        "backend/tests/concurrency/inventory.real.test.js",
+        "backend/tests/concurrency/inventory.split.real.test.js",
+        "backend/tests/integration/inventory.slots.expand.test.js",
+        "backend/tests/integration/inventory.slots.test.js",
+        "backend/tests/integration/inventory.split.test.js",
+        "backend/tests/inventory.protocol.test.js",
+        "backend/tests/inventory.service.test.js",
+        "backend/tests/inventory.slots.test.js",
+        "backend/tests/inventory.split.test.js",
+        "backend/tests/setup.js"
+      ],
+      "originalType": "feat",
+      "originalScope": "backend",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/ExtractionCommitService.js",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/middleware/inventoryProtocol.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/inventory.routes.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryEntries.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryLootIdNormalizer.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/validators/inventory.validators.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.real.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.split.real.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.slots.expand.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.slots.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.split.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.protocol.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.service.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.slots.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.split.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/SessionTicketService.js",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "backend/README.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/scripts/seed-test-accounts.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/config/env.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/middleware/inventoryProtocol.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/models/Character.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/character.routes.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/inventory.routes.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/raid.routes.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/CharacterService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/ExtractionCommitService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryEntries.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryLootIdNormalizer.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/RaidResultService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/SessionTicketService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/validators/inventory.validators.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.real.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.split.real.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.slots.expand.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.slots.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.split.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.protocol.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.service.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.slots.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.split.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/setup.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "scope",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/scripts/seed-test-accounts.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.real.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.split.real.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.slots.expand.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.slots.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.split.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.protocol.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.service.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.slots.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.split.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/setup.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "b815be1341cce259b562fcc6de08eea2fa5590d7",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b815be1341cce259b562fcc6de08eea2fa5590d7",
+      "subject": "feat(loot): add authoritative Raid stack split",
+      "body": "Add the State Authority split for the Raid inventory (TASK-281, Raid\nhalf). A split moves part of one addressed physical stack into an\nempty addressed slot; the new stack keeps the source item and Raid\norigin, so the total and every origin bucket are conserved (INV-AC-03).\n\n- LootInventoryRules.ValidateSplit/TrySplit: amount in [1, qty-1],\n  empty distinct destination, occupied slots below the gameplay\n  capacity; rejection writes nothing.\n- PlayerLootReceiver.TrySplitStack: State Authority only, rejects a\n  stale revision or extracted player, advances the revision once.\n- Rejections reuse existing LootTransferFailureReason values.\n- The Input Authority request path and UI stay in TASK-282.\n\nTests:\n- LootInventorySlotRulesTests: 13 -> 5 + 8, mixed origins, invalid\n  requests and capacity are atomic.\n- PlayerLootReceiverSlotsPlayModeTests: mixed-origin split, stale and\n  reused revision, occupied destination, whole-stack amount.\n",
+      "date": "2026-11-04T01:26:59-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/PlayerLootReceiver.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventorySlotRulesTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/PlayerLootReceiverSlotsPlayModeTests.cs"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "UI",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/PlayerLootReceiver.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventorySlotRulesTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerLootReceiverSlotsPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "UI",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventorySlotRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventorySlotRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerLootReceiverSlotsPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "9727c4f970c91b260ca6e1162ed2a0594ef2f636",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9727c4f970c91b260ca6e1162ed2a0594ef2f636",

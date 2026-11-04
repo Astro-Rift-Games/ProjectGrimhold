@@ -4,32 +4,627 @@
 
 Release: Unreleased
 
-29 original commits; 29 canonical entries.
+34 original commits; 34 canonical entries.
 
 ## Canonical classification
 
-15 features; 10 bug fixes; 2 documentation; 1 maintenance; 1 other changes
+19 features; 10 bug fixes; 3 documentation; 1 maintenance; 1 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 2 | 6 | 0 | 0 | 1 | 1 |
 | Art & Animation | 6 | 4 | 0 | 0 | 1 | 0 |
 | Audio | 5 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 12 | 6 | 0 | 0 | 1 | 1 |
-| Combat | 7 | 0 | 0 | 0 | 0 | 0 |
-| Documentation | 10 | 6 | 0 | 0 | 0 | 0 |
-| Extraction | 1 | 0 | 0 | 0 | 0 | 0 |
+| Build & Tooling | 14 | 6 | 0 | 0 | 1 | 1 |
+| Combat | 8 | 0 | 0 | 0 | 0 | 0 |
+| Documentation | 10 | 6 | 0 | 0 | 1 | 0 |
+| Extraction | 2 | 0 | 0 | 0 | 1 | 0 |
 | Input | 1 | 0 | 0 | 0 | 0 | 0 |
-| Inventory & Loot | 8 | 10 | 0 | 0 | 0 | 0 |
+| Inventory & Loot | 12 | 10 | 0 | 0 | 1 | 0 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 2 | 1 | 0 | 0 | 0 | 0 |
-| Persistence & Backend | 1 | 0 | 0 | 0 | 0 | 0 |
-| Tests | 14 | 9 | 0 | 0 | 1 | 0 |
-| UI | 8 | 3 | 0 | 0 | 1 | 0 |
+| Networking & Sessions | 4 | 1 | 0 | 0 | 0 | 0 |
+| Persistence & Backend | 4 | 0 | 0 | 0 | 1 | 0 |
+| Tests | 18 | 9 | 0 | 0 | 1 | 0 |
+| UI | 10 | 3 | 0 | 0 | 2 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 1 | 0 |
 | World & Visibility | 7 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### b4dfeabab36f58accbd4eb9b5efe8e5b686cf65c
+
+[b4dfeabab36f58accbd4eb9b5efe8e5b686cf65c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b4dfeabab36f58accbd4eb9b5efe8e5b686cf65c)
+
+Date: 2026-11-04T01:27:42-03:00 · Classification: Documentation (explicit) · Systems: Extraction, Inventory & Loot, UI, Persistence & Backend, Documentation
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(inventory): document physical slots and TASK-281 split
+```
+
+#### Original body
+
+```text
+Record the approved Town/Stash physical-slot model and the TASK-281
+split as implemented.
+
+- LocalPlayerPersistenceArchitecture: slot model replaces the TASK-218
+  compact exception; codec schema 10, inventorySchemaVersion, protocol
+  gate, migration and rollback floors; Town StackMax stays deferred;
+  Town Origin under D2 = O1 pending Game Design doc 07 reconciliation.
+- RaidInventoryUIArchitecture: slot projection, Stash slot-range paging,
+  Loadout fixed at 30 visible slots without paging.
+- LootInteractionArchitecture: Raid and Town split contracts; UI stays
+  in TASK-282.
+- ExtractionArchitecture: extraction placement into Loadout slots.
+- docs/proposal_task281_town_stash_physical_slots.md (approved rev 4),
+  docs/defect_raid_loot_eligibility_other_team.md (open GD conflict) and
+  the ODD tracker odd/tasks/stash-physical-slots.md.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Docs/Architecture/ExtractionArchitecture.md
+Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md
+Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+docs/defect_raid_loot_eligibility_other_team.md
+docs/proposal_task281_town_stash_physical_slots.md
+odd/tasks/stash-physical-slots.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+- path → Extraction: Project Grimhold/Docs/Architecture/ExtractionArchitecture.md
+- message-term → Extraction: extraction
+- path → Inventory &amp; Loot: Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md
+- path → Inventory &amp; Loot: Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+- path → Inventory &amp; Loot: docs/defect\_raid\_loot\_eligibility\_other\_team.md
+- scope → Inventory &amp; Loot: inventory
+- message-term → Inventory &amp; Loot: inventory
+- message-term → UI: UI
+- path → Persistence &amp; Backend: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/ExtractionArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+- path → Documentation: docs/defect\_raid\_loot\_eligibility\_other\_team.md
+- path → Documentation: docs/proposal\_task281\_town\_stash\_physical\_slots.md
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### fc872660c13a0c839d39c3edeab09c9d5ca85a00
+
+[fc872660c13a0c839d39c3edeab09c9d5ca85a00](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/fc872660c13a0c839d39c3edeab09c9d5ca85a00)
+
+Date: 2026-11-04T01:27:32-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, Networking & Sessions, UI, Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(stash): adopt physical slots in Town inventory and Stash
+```
+
+#### Original body
+
+```text
+Move the Unity Town Loadout and Stash to the physical-slot model
+served by the backend (D1, D3) and add the authoritative Stash split
+for TASK-281 without UI.
+
+- StashItem.Slot; save codec schema 10 persists slots, duplicate
+  lootIds and holes, plus the backend inventorySchemaVersion. Schemas
+  1-9 decode losslessly with slot = list index.
+- Hydration no longer merges entries; every backend request sends
+  X-Grimhold-Inventory-Protocol: 2. With a v1 backend document the
+  coordinator reports every mutation as unavailable before any remote
+  call.
+- Slot rules in ProfileInventoryRules, LocalProfileStore and
+  MerchantTradePreview: capacity by occupied slots, overflow
+  reducing-only, receive into the lowest matching then lowest free
+  slot, removal leaves a hole, consumption in ascending slot order,
+  Quick Slot counts sum every stack, exact reservation rollback.
+  A pending reservation is still reported before input errors.
+- Slot-addressed transfer, sell, Sort and slot move through
+  RemoteInventoryService and StashTransferCoordinator.
+- LocalProfileStore.TrySplit and StashTransferCoordinator.SplitAsync
+  (remote first, serialized queue, reconcile without retry).
+- Raid admission aggregates reservation stacks by lootId
+  (RaidAdmissionData, FusionSessionLauncher); its duplicate-ID and
+  entry limits are unchanged.
+- Lobby renders each entry at its slot, Stash pages by slot range,
+  the Loadout keeps its 30 visible cells and cell drags use slot moves.
+
+Tests: PhysicalProfileSlotTests, StashSplitTests,
+InventoryProtocolSlotTests, RaidAdmissionSlotAggregationTests and
+slot cases in StashTransferCoordinatorTests, StashReservationInvariant
+and LobbyStashPresenter PlayMode; existing Stash, Equipment, Commerce,
+persistence and shop fixtures updated to explicit slots.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Backend/AuthenticationClient.cs
+Project Grimhold/Assets/Scripts/Backend/CharacterClient.cs
+Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs
+Project Grimhold/Assets/Scripts/Backend/InventoryProtocol.cs
+Project Grimhold/Assets/Scripts/Backend/InventoryProtocol.cs.meta
+Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs
+Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs.meta
+Project Grimhold/Assets/Scripts/Backend/InventorySlotMoveRequest.cs
+Project Grimhold/Assets/Scripts/Backend/InventorySlotMoveRequest.cs.meta
+Project Grimhold/Assets/Scripts/Backend/InventorySlotOrderRequest.cs
+Project Grimhold/Assets/Scripts/Backend/InventorySlotOrderRequest.cs.meta
+Project Grimhold/Assets/Scripts/Backend/InventorySlotSplitRequest.cs
+Project Grimhold/Assets/Scripts/Backend/InventorySlotSplitRequest.cs.meta
+Project Grimhold/Assets/Scripts/Backend/ProgressionClient.cs
+Project Grimhold/Assets/Scripts/Commerce/MerchantTradePreview.cs
+Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs
+Project Grimhold/Assets/Scripts/Networking/RaidAdmissionData.cs
+Project Grimhold/Assets/Scripts/Stash/ApplicationStashServiceBootstrapper.cs
+Project Grimhold/Assets/Scripts/Stash/IPlayerLoadoutService.cs
+Project Grimhold/Assets/Scripts/Stash/IPlayerStashService.cs
+Project Grimhold/Assets/Scripts/Stash/IRemoteInventoryService.cs
+Project Grimhold/Assets/Scripts/Stash/ISlotPlayerLoadoutService.cs
+Project Grimhold/Assets/Scripts/Stash/ISlotPlayerLoadoutService.cs.meta
+Project Grimhold/Assets/Scripts/Stash/ISlotPlayerStashService.cs
+Project Grimhold/Assets/Scripts/Stash/ISlotPlayerStashService.cs.meta
+Project Grimhold/Assets/Scripts/Stash/ISlotRemoteInventoryService.cs
+Project Grimhold/Assets/Scripts/Stash/ISlotRemoteInventoryService.cs.meta
+Project Grimhold/Assets/Scripts/Stash/InMemoryPlayerLoadoutService.cs
+Project Grimhold/Assets/Scripts/Stash/InMemoryPlayerStashService.cs
+Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs
+Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs
+Project Grimhold/Assets/Scripts/Stash/LocalLoadoutInventoryReadSource.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs
+Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+Project Grimhold/Assets/Scripts/Stash/RemoteShopTransactionService.cs
+Project Grimhold/Assets/Scripts/Stash/StashDisplayOrder.cs
+Project Grimhold/Assets/Scripts/Stash/StashItem.cs
+Project Grimhold/Assets/Scripts/Stash/StashTransferCoordinator.cs
+Project Grimhold/Assets/Scripts/Stash/TownInventoryProjection.cs
+Project Grimhold/Assets/Scripts/Stash/TownInventoryProjection.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Backend.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/MerchantTradePreviewTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/PreparedEquipmentTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalSlotTestSeed.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalSlotTestSeed.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashCapacityTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashCorruptLoginRecoveryTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashDisplayOrderTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashHydrationCapacityTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashReservationInvariantTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashSplitTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashSplitTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferCoordinatorTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferEvaluationTests.cs
+Project Grimhold/Assets/Tests/EditMode/LocalProfilePersistenceEditModeTests.cs
+Project Grimhold/Assets/Tests/EditMode/ShopTransactionPersistenceEditModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/PlayModeMerchantComposition.cs
+Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventoryProtocol.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventoryProtocol.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventorySlotMoveRequest.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventorySlotMoveRequest.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventorySlotOrderRequest.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventorySlotOrderRequest.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventorySlotSplitRequest.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventorySlotSplitRequest.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/IRemoteInventoryService.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/ISlotRemoteInventoryService.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/ISlotRemoteInventoryService.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/LocalLoadoutInventoryReadSource.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/TownInventoryProjection.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/TownInventoryProjection.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/PreparedEquipmentTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs
+- message-term → Inventory &amp; Loot: inventory
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidAdmissionData.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs
+- message-term → Networking &amp; Sessions: Lobby
+- path → UI: Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/AuthenticationClient.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/CharacterClient.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventoryProtocol.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventoryProtocol.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventorySlotMoveRequest.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventorySlotMoveRequest.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventorySlotOrderRequest.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventorySlotOrderRequest.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventorySlotSplitRequest.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventorySlotSplitRequest.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/ProgressionClient.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Backend.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/LocalProfilePersistenceEditModeTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/ShopTransactionPersistenceEditModeTests.cs
+- message-term → Persistence &amp; Backend: backend
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Backend.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/MerchantTradePreviewTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/PreparedEquipmentTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalSlotTestSeed.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalSlotTestSeed.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashCapacityTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashCorruptLoginRecoveryTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashDisplayOrderTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashHydrationCapacityTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashReservationInvariantTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashSplitTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashSplitTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferCoordinatorTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferEvaluationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Backend.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/MerchantTradePreviewTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/PreparedEquipmentTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalSlotTestSeed.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalSlotTestSeed.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidReservationLifecycleTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashCapacityTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashCorruptLoginRecoveryTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashDisplayOrderTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashHydrationCapacityTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashReservationInvariantTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashSplitTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashSplitTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferCoordinatorTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferEvaluationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/LocalProfilePersistenceEditModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/ShopTransactionPersistenceEditModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayModeMerchantComposition.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 43fb6ad3c41e36f3d63761cfa7a8a87ec25289d0
+
+[43fb6ad3c41e36f3d63761cfa7a8a87ec25289d0](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/43fb6ad3c41e36f3d63761cfa7a8a87ec25289d0)
+
+Date: 2026-11-04T01:27:16-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(backend): add one-time inventory slot migration script
+```
+
+#### Original body
+
+```text
+Add backend/scripts/migrate_inventory_slots.js to move legacy aggregate
+inventories to physical slots once, explicitly, during the cutover
+window. Reads and ordinary writes never migrate data.
+
+- Per list (stash, loadout, pendingReservation.items) in stored order:
+  fold legacy duplicate lootIds into the first occurrence, assign
+  slots 0..n-1, keep over-capacity entries in overflow slots and
+  report unknown lootIds without dropping them.
+- One revision-guarded write per character sets
+  inventorySchemaVersion 2; per-lootId totals must match or the
+  character is skipped unchanged. Version 2 is skipped, so reruns are
+  no-ops. --dry-run writes nothing and prints a report.
+
+Tests: migrate.inventory.slots (planner) and integration (dry run,
+migration, rerun, revision conflict, aborted character unchanged).
+```
+
+#### Changed paths
+
+```text
+backend/scripts/migrate_inventory_slots.js
+backend/tests/integration/migrate.inventory.slots.test.js
+backend/tests/migrate.inventory.slots.test.js
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Inventory &amp; Loot: backend/scripts/migrate\_inventory\_slots.js
+- path → Inventory &amp; Loot: backend/tests/integration/migrate.inventory.slots.test.js
+- path → Inventory &amp; Loot: backend/tests/migrate.inventory.slots.test.js
+- message-term → Inventory &amp; Loot: inventory
+- path → Persistence &amp; Backend: backend/scripts/migrate\_inventory\_slots.js
+- path → Persistence &amp; Backend: backend/tests/integration/migrate.inventory.slots.test.js
+- path → Persistence &amp; Backend: backend/tests/migrate.inventory.slots.test.js
+- scope → Persistence &amp; Backend: backend
+- message-term → Persistence &amp; Backend: backend
+- path → Tests: backend/tests/integration/migrate.inventory.slots.test.js
+- path → Tests: backend/tests/migrate.inventory.slots.test.js
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### e36cafcb12bcddae3cae576069b83d0e63768cb6
+
+[e36cafcb12bcddae3cae576069b83d0e63768cb6](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e36cafcb12bcddae3cae576069b83d0e63768cb6)
+
+Date: 2026-11-04T01:27:15-03:00 · Classification: Features (explicit) · Systems: Extraction, Inventory & Loot, Networking & Sessions, Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(backend): persist physical inventory slots behind a protocol gate
+```
+
+#### Original body
+
+```text
+Move Town Loadout and Stash persistence from one aggregate entry per
+lootId to physical slots (approved decisions D1 and D3), and add the
+authoritative Stash/Loadout split for TASK-281 behind a feature flag.
+
+- Character items gain an optional slot; inventory.inventorySchemaVersion
+  1 = legacy aggregate lists, 2 = physical slots. Reads never merge or
+  save; the read-time lootId normalizer is removed.
+- X-Grimhold-Inventory-Protocol: 2 middleware on every inventory,
+  reservation, extraction and admission route. INVENTORY_PROTOCOL_GATE
+  (default off) rejects 426 CLIENT_UPGRADE_REQUIRED and v1 documents
+  409 INVENTORY_MIGRATION_REQUIRED.
+- v2 rules: capacity by occupied slots (Loadout 30, Stash 60), overflow
+  slots reducing-only, receive into the lowest matching then lowest
+  free slot, removal leaves a hole, sourceSlot-addressed transfer and
+  sell, slotOrder Sort as the only compaction, POST /slots/move
+  (move, merge, swap), exact reservation rollback, extraction placed
+  into slots and rejected above capacity before claiming the result.
+- POST /slots/split behind INVENTORY_SPLIT_ENABLED (default off,
+  403 FEATURE_DISABLED); revision-guarded, rejected during a pending
+  reservation.
+- Raid admission tickets stay aggregated by lootId.
+
+Tests: inventory.protocol, inventory.slots, inventory.split (unit,
+integration, concurrency) and inventory.slots.expand; read-time
+normalization expectations in inventory.service replaced.
+
+Docs: backend/README.md (protocol, flags, DTOs, error codes).
+```
+
+#### Changed paths
+
+```text
+backend/README.md
+backend/scripts/seed-test-accounts.js
+backend/src/config/env.js
+backend/src/middleware/inventoryProtocol.js
+backend/src/models/Character.js
+backend/src/routes/character.routes.js
+backend/src/routes/inventory.routes.js
+backend/src/routes/raid.routes.js
+backend/src/services/CharacterService.js
+backend/src/services/ExtractionCommitService.js
+backend/src/services/InventoryEntries.js
+backend/src/services/InventoryLootIdNormalizer.js
+backend/src/services/InventoryService.js
+backend/src/services/RaidResultService.js
+backend/src/services/SessionTicketService.js
+backend/src/validators/inventory.validators.js
+backend/tests/concurrency/inventory.real.test.js
+backend/tests/concurrency/inventory.split.real.test.js
+backend/tests/integration/inventory.slots.expand.test.js
+backend/tests/integration/inventory.slots.test.js
+backend/tests/integration/inventory.split.test.js
+backend/tests/inventory.protocol.test.js
+backend/tests/inventory.service.test.js
+backend/tests/inventory.slots.test.js
+backend/tests/inventory.split.test.js
+backend/tests/setup.js
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Extraction: backend/src/services/ExtractionCommitService.js
+- message-term → Extraction: extraction
+- path → Inventory &amp; Loot: backend/src/middleware/inventoryProtocol.js
+- path → Inventory &amp; Loot: backend/src/routes/inventory.routes.js
+- path → Inventory &amp; Loot: backend/src/services/InventoryEntries.js
+- path → Inventory &amp; Loot: backend/src/services/InventoryLootIdNormalizer.js
+- path → Inventory &amp; Loot: backend/src/services/InventoryService.js
+- path → Inventory &amp; Loot: backend/src/validators/inventory.validators.js
+- path → Inventory &amp; Loot: backend/tests/concurrency/inventory.real.test.js
+- path → Inventory &amp; Loot: backend/tests/concurrency/inventory.split.real.test.js
+- path → Inventory &amp; Loot: backend/tests/integration/inventory.slots.expand.test.js
+- path → Inventory &amp; Loot: backend/tests/integration/inventory.slots.test.js
+- path → Inventory &amp; Loot: backend/tests/integration/inventory.split.test.js
+- path → Inventory &amp; Loot: backend/tests/inventory.protocol.test.js
+- path → Inventory &amp; Loot: backend/tests/inventory.service.test.js
+- path → Inventory &amp; Loot: backend/tests/inventory.slots.test.js
+- path → Inventory &amp; Loot: backend/tests/inventory.split.test.js
+- message-term → Inventory &amp; Loot: inventory
+- path → Networking &amp; Sessions: backend/src/services/SessionTicketService.js
+- path → Persistence &amp; Backend: backend/README.md
+- path → Persistence &amp; Backend: backend/scripts/seed-test-accounts.js
+- path → Persistence &amp; Backend: backend/src/config/env.js
+- path → Persistence &amp; Backend: backend/src/middleware/inventoryProtocol.js
+- path → Persistence &amp; Backend: backend/src/models/Character.js
+- path → Persistence &amp; Backend: backend/src/routes/character.routes.js
+- path → Persistence &amp; Backend: backend/src/routes/inventory.routes.js
+- path → Persistence &amp; Backend: backend/src/routes/raid.routes.js
+- path → Persistence &amp; Backend: backend/src/services/CharacterService.js
+- path → Persistence &amp; Backend: backend/src/services/ExtractionCommitService.js
+- path → Persistence &amp; Backend: backend/src/services/InventoryEntries.js
+- path → Persistence &amp; Backend: backend/src/services/InventoryLootIdNormalizer.js
+- path → Persistence &amp; Backend: backend/src/services/InventoryService.js
+- path → Persistence &amp; Backend: backend/src/services/RaidResultService.js
+- path → Persistence &amp; Backend: backend/src/services/SessionTicketService.js
+- path → Persistence &amp; Backend: backend/src/validators/inventory.validators.js
+- path → Persistence &amp; Backend: backend/tests/concurrency/inventory.real.test.js
+- path → Persistence &amp; Backend: backend/tests/concurrency/inventory.split.real.test.js
+- path → Persistence &amp; Backend: backend/tests/integration/inventory.slots.expand.test.js
+- path → Persistence &amp; Backend: backend/tests/integration/inventory.slots.test.js
+- path → Persistence &amp; Backend: backend/tests/integration/inventory.split.test.js
+- path → Persistence &amp; Backend: backend/tests/inventory.protocol.test.js
+- path → Persistence &amp; Backend: backend/tests/inventory.service.test.js
+- path → Persistence &amp; Backend: backend/tests/inventory.slots.test.js
+- path → Persistence &amp; Backend: backend/tests/inventory.split.test.js
+- path → Persistence &amp; Backend: backend/tests/setup.js
+- scope → Persistence &amp; Backend: backend
+- message-term → Persistence &amp; Backend: backend
+- path → Tests: backend/scripts/seed-test-accounts.js
+- path → Tests: backend/tests/concurrency/inventory.real.test.js
+- path → Tests: backend/tests/concurrency/inventory.split.real.test.js
+- path → Tests: backend/tests/integration/inventory.slots.expand.test.js
+- path → Tests: backend/tests/integration/inventory.slots.test.js
+- path → Tests: backend/tests/integration/inventory.split.test.js
+- path → Tests: backend/tests/inventory.protocol.test.js
+- path → Tests: backend/tests/inventory.service.test.js
+- path → Tests: backend/tests/inventory.slots.test.js
+- path → Tests: backend/tests/inventory.split.test.js
+- path → Tests: backend/tests/setup.js
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### b815be1341cce259b562fcc6de08eea2fa5590d7
+
+[b815be1341cce259b562fcc6de08eea2fa5590d7](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b815be1341cce259b562fcc6de08eea2fa5590d7)
+
+Date: 2026-11-04T01:26:59-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, UI, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(loot): add authoritative Raid stack split
+```
+
+#### Original body
+
+```text
+Add the State Authority split for the Raid inventory (TASK-281, Raid
+half). A split moves part of one addressed physical stack into an
+empty addressed slot; the new stack keeps the source item and Raid
+origin, so the total and every origin bucket are conserved (INV-AC-03).
+
+- LootInventoryRules.ValidateSplit/TrySplit: amount in [1, qty-1],
+  empty distinct destination, occupied slots below the gameplay
+  capacity; rejection writes nothing.
+- PlayerLootReceiver.TrySplitStack: State Authority only, rejects a
+  stale revision or extracted player, advances the revision once.
+- Rejections reuse existing LootTransferFailureReason values.
+- The Input Authority request path and UI stay in TASK-282.
+
+Tests:
+- LootInventorySlotRulesTests: 13 -> 5 + 8, mixed origins, invalid
+  requests and capacity are atomic.
+- PlayerLootReceiverSlotsPlayModeTests: mixed-origin split, stale and
+  reused revision, occupied destination, whole-stack amount.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs
+Project Grimhold/Assets/Scripts/Gameplay/PlayerLootReceiver.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventorySlotRulesTests.cs
+Project Grimhold/Assets/Tests/PlayMode/PlayerLootReceiverSlotsPlayModeTests.cs
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/PlayerLootReceiver.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventorySlotRulesTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/PlayerLootReceiverSlotsPlayModeTests.cs
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- message-term → UI: UI
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventorySlotRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventorySlotRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayerLootReceiverSlotsPlayModeTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 9727c4f970c91b260ca6e1162ed2a0594ef2f636
 
