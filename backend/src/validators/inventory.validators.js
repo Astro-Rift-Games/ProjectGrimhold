@@ -68,11 +68,17 @@ const moveItemValidator = [
 ];
 
 // Validates the body for the update-prepared-equipment operation.
-// All equipment slots are optional; if provided they must be strings.
-// Generated from EQUIPMENT_SLOTS so new slots are covered automatically.
+// All slots are optional. Legacy strings and v3 {lootId, instanceId} intentions
+// coexist; the service validates the format against the character's schema version.
 const preparedEquipmentValidator = [
   ...EQUIPMENT_SLOTS.map(slot =>
-    body(slot).optional().isString().withMessage('must be a string')
+    body(slot).optional().custom(async (value, { req }) => {
+      if (typeof value === 'string') return true;
+      const character = await require('../models/Character').findOne({ accountId: req.accountId });
+      if (character?.inventory?.inventorySchemaVersion !== 3 ||
+          (value !== null && (typeof value !== 'object' || Array.isArray(value)))) throw new Error('must be a string');
+      return true;
+    }).withMessage('must be a string')
   ),
   body('expectedRevision')
     .isInt({ min: 0 }).withMessage('must be a non-negative integer'),

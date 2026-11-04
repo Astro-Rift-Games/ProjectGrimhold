@@ -1,20 +1,15 @@
 const mongoose = require('mongoose');
+const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
 
 const itemSchema = new mongoose.Schema({
   lootId: { type: String, required: true },
-  amount: { type: Number, required: true, min: 1 }
+  amount: { type: Number, required: true, min: 1 },
+  modifiers: { type: mongoose.Schema.Types.Mixed }
 }, { _id: false });
 
-const preparedEquipmentSchema = new mongoose.Schema({
-  weaponSlot1: { type: String, default: '' },
-  weaponSlot2: { type: String, default: '' },
-  offHand1:    { type: String, default: '' },
-  helmet:      { type: String, default: '' },
-  armor:       { type: String, default: '' },
-  gloves:      { type: String, default: '' },
-  boots:       { type: String, default: '' },
-  offHand2:    { type: String, default: '' }
-}, { _id: false });
+// Legacy strings remain readable until the explicit result migration. V3 is ID-free.
+const preparedEquipmentSchema = new mongoose.Schema(Object.fromEntries(EQUIPMENT_SLOTS.map(slot =>
+  [slot, { type: mongoose.Schema.Types.Mixed, default: null }])), { _id: false });
 
 const authoritativeExtractionResultSchema = new mongoose.Schema({
   resultId: {

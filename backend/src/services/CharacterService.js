@@ -20,7 +20,7 @@ class CharacterService {
     const character = new Character({
       accountId,
       name,
-      inventory: { inventorySchemaVersion: env.inventoryProtocolGate ? 2 : 1 },
+      inventory: { inventorySchemaVersion: env.newInventorySchemaVersion },
       profile: {
         lastSeen: null,
         customNote: ''

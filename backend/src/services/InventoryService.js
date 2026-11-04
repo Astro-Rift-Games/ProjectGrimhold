@@ -13,6 +13,8 @@ const {
   BUYBACK_MAX_ENTRIES,
   BUYBACK_PRICE_MULTIPLIER,
   isBuybackEligible,
+  getEquipmentTemplate,
+  GEM_CATALOG,
   getBuyOffer,
   getSellOffer
 } = require('../config/shopCatalog');
@@ -21,19 +23,23 @@ const { inventoryVersion, copyEntry, serializeItems, requireMigratedInventory,
   requireSlotInventory, requireSplitEnabled, requireSourceSlot, assertUnambiguousItems, matchesLootId,
   CAPACITIES, inventoryFull, assertSlot, lowestItemIndex, receiveItem, restoreEntries, addAmount } = require('./InventoryEntries');
 
+const { INSTANCE_ID, invalidInventory, createEquipment, validateResultItems, resultEquipmentToInstances,
+  equipmentToResult } = require('./ItemInstances');
+
 function inventoryItems(character, list) {
-  return serializeItems(character.inventory[list], inventoryVersion(character) === 2);
+  return serializeItems(character.inventory[list], inventoryVersion(character) >= 2);
 }
 
 function listsSnapshot(character) {
   return { stash: inventoryItems(character, 'stash'), loadout: inventoryItems(character, 'loadout'), revision: character.revision };
 }
 
-async function writeSlotLists(character, expectedRevision, lists, blockReservation = false) {
+async function writeSlotLists(character, expectedRevision, lists, blockReservation = false, receipt = null) {
   const updated = await Character.findOneAndUpdate(
     { accountId: character.accountId, revision: expectedRevision,
       ...(blockReservation ? { 'inventory.pendingReservation': null } : {}) },
-    { $set: Object.fromEntries(Object.entries(lists).map(([list, items]) => [`inventory.${list}`, items])), $inc: { revision: 1 } },
+    { $set: Object.fromEntries(Object.entries(lists).map(([list, items]) => [`inventory.${list}`, items])), $inc: { revision: 1 },
+      ...(receipt ? { $push: { appliedShopReceipts: { $each: [receipt], $slice: -64 } } } : {}) },
     { returnDocument: 'after' }
   );
   if (!updated) throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during inventory update.' };
@@ -50,7 +56,7 @@ async function transferSlotItems(character, fromList, toList, lootId, amount, ex
     throw { statusCode: 409, errorCode: fromList === 'stash' ? 'INSUFFICIENT_STASH_ITEMS' : 'INSUFFICIENT_LOADOUT_ITEMS',
       message: `${fromList === 'stash' ? 'Stash' : 'Loadout'} does not hold ${amount} unit(s) of '${normalizeLootId(lootId)}'.` };
   }
-  receiveItem(to, toList, { ...copyEntry(from[index]), amount }, 2);
+  receiveItem(to, toList, { ...copyEntry(from[index]), amount }, inventoryVersion(character));
   if (from[index].amount === amount) from.splice(index, 1);
   else from[index].amount -= amount;
   // Legacy transfers remain usable during reservations; rollback restores collisions.
@@ -59,13 +65,14 @@ async function transferSlotItems(character, fromList, toList, lootId, amount, ex
 
 function restoreReservation(character) {
   const reservation = character.inventory.pendingReservation;
-  const equipment = serializePreparedEquipment(character.inventory.preparedEquipment);
+  const version = inventoryVersion(character);
+  const equipment = serializePreparedEquipment(character.inventory.preparedEquipment, version);
   const displaced = [];
   for (const slot of EQUIPMENT_SLOTS) {
     const item = reservation.preparedEquipment?.[slot];
     if (!item) continue;
     if (!equipment[slot]) equipment[slot] = item;
-    else displaced.push({ lootId: item, amount: 1 });
+    else displaced.push(version === 3 ? { ...copyEntry(item), amount: 1 } : { lootId: item, amount: 1 });
   }
   const loadout = restoreEntries(character.inventory.loadout, reservation.items, 'loadout');
   character.inventory.loadout = restoreEntries(loadout, displaced, 'loadout');
@@ -76,8 +83,9 @@ function restoreReservation(character) {
  * Serializes the preparedEquipment subdocument to a plain object.
  * Iterates over EQUIPMENT_SLOTS so new slots are covered automatically.
  */
-function serializePreparedEquipment(eq) {
-  const clean = (val) => (!val || val === 'null' ? '' : val);
+function serializePreparedEquipment(eq, version = 2) {
+  const clean = (val) => (!val || val === 'null' ? (version === 3 ? null : '') :
+    typeof val === 'object' ? copyEntry(val) : val);
   const result = {};
   for (const slot of EQUIPMENT_SLOTS) {
     result[slot] = clean(eq ? eq[slot] : undefined);
@@ -88,13 +96,13 @@ function serializePreparedEquipment(eq) {
 /**
  * Serializes the pendingReservation subdocument to a plain object, or null.
  */
-function serializePendingReservation(res, sorted = false) {
+function serializePendingReservation(res, sorted = false, version = 2) {
   if (!res || !res.reservationId) return null;
   return {
     reservationId:    res.reservationId,
     admittedAt:       res.admittedAt ? res.admittedAt.toISOString() : null,
     items:            serializeItems(res.items, sorted),
-    preparedEquipment: serializePreparedEquipment(res.preparedEquipment)
+    preparedEquipment: serializePreparedEquipment(res.preparedEquipment, version)
   };
 }
 
@@ -120,12 +128,94 @@ function shopSnapshot(character) {
     currency: character.inventory.currency || 0,
     stash: inventoryItems(character, 'stash'),
     loadout: inventoryItems(character, 'loadout'),
-    preparedEquipment: serializePreparedEquipment(character.inventory.preparedEquipment),
+    preparedEquipment: serializePreparedEquipment(character.inventory.preparedEquipment, inventoryVersion(character)),
     buyback: serializeBuyback(character.inventory)
   };
 }
 
+// Resolve an existing entry by identity; client modifiers are never accepted by equip.
+async function updateInstanceEquipment(character, requested, expectedRevision) {
+  const stash = inventoryItems(character, 'stash'); const loadout = inventoryItems(character, 'loadout');
+  const old = serializePreparedEquipment(character.inventory.preparedEquipment, 3);
+  const available = new Map(Object.values(old).filter(Boolean).map(item => [item.instance.instanceId, item]));
+  const selected = new Set(); const equipment = {};
+  for (const slot of EQUIPMENT_SLOTS) {
+    const intent = requested[slot];
+    if (intent == null || intent === '') { equipment[slot] = null; continue; }
+    if (typeof intent !== 'object' || typeof intent.lootId !== 'string' || !INSTANCE_ID.test(intent.instanceId || '') ||
+        Object.keys(intent).some(key => !['lootId', 'instanceId'].includes(key)) || selected.has(intent.instanceId)) invalidInventory();
+    let item = available.get(intent.instanceId);
+    if (!item) {
+      const list = [loadout, stash].find(list => list.some(entry => entry.instance?.instanceId === intent.instanceId));
+      const index = list?.findIndex(entry => entry.instance?.instanceId === intent.instanceId);
+      if (list) { const entry = list.splice(index, 1)[0]; item = { lootId: entry.lootId, instance: copyEntry(entry.instance) }; }
+    }
+    if (!item || !matchesLootId(item, intent.lootId)) {
+      throw { statusCode: 422, errorCode: 'ITEM_NOT_FOUND', message: 'The equipment instance is not present in the loadout, stash or prepared equipment.' };
+    }
+    selected.add(intent.instanceId); equipment[slot] = copyEntry(item);
+  }
+  for (const item of available.values()) {
+    if (!selected.has(item.instance.instanceId)) receiveItem(loadout, 'loadout', { ...copyEntry(item), amount: 1 }, 3);
+  }
+  const snapshot = await writeSlotLists(character, expectedRevision, { stash, loadout, preparedEquipment: equipment });
+  return { preparedEquipment: equipment, ...snapshot };
+}
+
+function takeRecoveryWeapon(loadout, stash) {
+  for (const list of [loadout, stash]) {
+    const index = lowestItemIndex(list, 'arming_sword');
+    if (index !== -1) {
+      const item = list.splice(index, 1)[0];
+      return { lootId: item.lootId, instance: copyEntry(item.instance) };
+    }
+  }
+  return createEquipment('arming_sword');
+}
+
 class InventoryService {
+  /** Permanently fills the lowest empty socket; receipt and both lists commit together. */
+  static async installGem(accountId, body) {
+    const { transactionId, weaponList, weaponSlot, instanceId, gemList, gemSlot, gemLootId, expectedRevision } = body;
+    if (typeof transactionId !== 'string' || !transactionId.trim() || transactionId.length > 128 ||
+        !Object.hasOwn(CAPACITIES, weaponList) || !Object.hasOwn(CAPACITIES, gemList) ||
+        typeof instanceId !== 'string' || !INSTANCE_ID.test(instanceId) || typeof gemLootId !== 'string' || !gemLootId ||
+        !Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
+      throw { statusCode: 400, errorCode: 'VALIDATION_FAILED', message: 'Invalid input parameters.' };
+    }
+    assertSlot(weaponSlot); assertSlot(gemSlot);
+    const character = await Character.findOne({ accountId });
+    if (!character) throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
+    requireSlotInventory(character);
+    if (inventoryVersion(character) !== 3) throw { statusCode: 409, errorCode: 'INVENTORY_MIGRATION_REQUIRED', message: 'Inventory migration is required.' };
+    const intent = { weaponList, weaponSlot, instanceId, gemList, gemSlot, gemLootId };
+    const receipt = (character.appliedShopReceipts || []).find(receipt => receipt.transactionId === transactionId);
+    if (receipt) {
+      if (receipt.type !== 'install_gem' || JSON.stringify(receipt.intent) !== JSON.stringify(intent)) {
+        throw { statusCode: 409, errorCode: 'TRANSACTION_ID_REUSED', message: 'Transaction ID was previously applied with a different operation or parameters.' };
+      }
+      return { ...copyEntry(receipt.outcome), alreadySecured: true };
+    }
+    if (character.revision !== expectedRevision) throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
+    if (character.inventory.pendingReservation) throw { statusCode: 409, errorCode: 'RESERVATION_PENDING', message: 'Cannot install gems while a raid reservation is pending.' };
+    const lists = { stash: inventoryItems(character, 'stash'), loadout: inventoryItems(character, 'loadout') };
+    const weapon = lists[weaponList].find(item => item.slot === weaponSlot);
+    if (getEquipmentTemplate(weapon?.lootId)?.category !== 'Weapon' || weapon?.instance?.instanceId !== instanceId) {
+      throw { statusCode: 409, errorCode: 'INSTANCE_MISMATCH', message: 'The slot does not contain the weapon instance.' };
+    }
+    const gem = lists[gemList].find(item => item.slot === gemSlot && item.lootId === gemLootId);
+    if (!gem || !Object.hasOwn(GEM_CATALOG, gemLootId)) throw { statusCode: 409, errorCode: 'GEM_NOT_AVAILABLE', message: 'The gem is not available at the specified slot.' };
+    const modifiers = weapon.instance.modifiers;
+    if (!modifiers?.gemSocketCount) throw { statusCode: 409, errorCode: 'GEM_NO_SOCKETS', message: 'The weapon has no gem sockets.' };
+    const socket = modifiers.gems.indexOf(null);
+    if (socket === -1) throw { statusCode: 409, errorCode: 'GEM_NO_EMPTY_SOCKET', message: 'The weapon has no empty gem socket.' };
+    modifiers.gems[socket] = gemLootId;
+    if (--gem.amount === 0) lists[gemList].splice(lists[gemList].indexOf(gem), 1);
+    const outcome = { stash: serializeItems(lists.stash, true), loadout: serializeItems(lists.loadout, true), revision: expectedRevision + 1 };
+    return writeSlotLists(character, expectedRevision, lists, true,
+      { transactionId, type: 'install_gem', intent, outcome, timestamp: new Date() });
+  }
+
   /** Reorders one inventory list without changing item identity or amounts. */
   static async updateOrder(accountId, list, lootIds, expectedRevision, slotOrder) {
     const character = await Character.findOne({ accountId });
@@ -140,7 +230,7 @@ class InventoryService {
     }
     requireMigratedInventory(character);
     const items = ['stash', 'loadout'].includes(list) ? character.inventory[list] : null;
-    if (inventoryVersion(character) === 2) {
+    if (inventoryVersion(character) >= 2) {
       if (lootIds !== undefined || slotOrder === undefined) {
         throw { statusCode: 409, errorCode: 'INVENTORY_SLOT_ADDRESS_REQUIRED', message: 'A slot order is required for this inventory operation.' };
       }
@@ -193,7 +283,7 @@ class InventoryService {
 
     requireMigratedInventory(character);
     const version = inventoryVersion(character);
-    const sorted = version === 2;
+    const sorted = version >= 2;
 
     const extractionReceipts = character.inventory.appliedExtractionReceipts || [];
     const lastExtraction = extractionReceipts.length > 0
@@ -208,8 +298,8 @@ class InventoryService {
       currency:           character.inventory.currency || 0,
       stash:              serializeItems(character.inventory.stash, sorted),
       loadout:            serializeItems(character.inventory.loadout, sorted),
-      preparedEquipment:  serializePreparedEquipment(character.inventory.preparedEquipment),
-      pendingReservation: serializePendingReservation(character.inventory.pendingReservation, sorted),
+      preparedEquipment:  serializePreparedEquipment(character.inventory.preparedEquipment, version),
+      pendingReservation: serializePendingReservation(character.inventory.pendingReservation, sorted, version),
       buyback: serializeBuyback(character.inventory),
       lastAppliedExtractionReceipt: lastExtraction,
       revision: character.revision || 0
@@ -229,7 +319,7 @@ class InventoryService {
     }
 
     requireSourceSlot(character, sourceSlot);
-    if (inventoryVersion(character) === 2) return transferSlotItems(character, 'stash', 'loadout', lootId, amount, expectedRevision, sourceSlot);
+    if (inventoryVersion(character) >= 2) return transferSlotItems(character, 'stash', 'loadout', lootId, amount, expectedRevision, sourceSlot);
     assertUnambiguousItems(character.inventory.stash, [lootId]);
     assertUnambiguousItems(character.inventory.loadout, [lootId]);
     
@@ -299,7 +389,7 @@ class InventoryService {
     }
 
     requireSourceSlot(character, sourceSlot);
-    if (inventoryVersion(character) === 2) return transferSlotItems(character, 'loadout', 'stash', lootId, amount, expectedRevision, sourceSlot);
+    if (inventoryVersion(character) >= 2) return transferSlotItems(character, 'loadout', 'stash', lootId, amount, expectedRevision, sourceSlot);
     assertUnambiguousItems(character.inventory.stash, [lootId]);
     assertUnambiguousItems(character.inventory.loadout, [lootId]);
     
@@ -378,7 +468,7 @@ class InventoryService {
       if (fromList !== toList && to.length >= CAPACITIES[toList]) inventoryFull();
       from.splice(from.indexOf(source), 1);
       to.push({ ...source, slot: toSlot });
-    } else if (matchesLootId(target, source.lootId)) {
+    } else if (matchesLootId(target, source.lootId) && !(inventoryVersion(character) === 3 && source.instance)) {
       addAmount(target, source.amount);
       from.splice(from.indexOf(source), 1);
     } else {
@@ -410,6 +500,9 @@ class InventoryService {
     if (!source) {
       throw { statusCode: 409, errorCode: list === 'stash' ? 'INSUFFICIENT_STASH_ITEMS' : 'INSUFFICIENT_LOADOUT_ITEMS',
         message: 'Source slot does not contain the guarded item.' };
+    }
+    if (inventoryVersion(character) === 3 && source.instance) {
+      throw { statusCode: 409, errorCode: 'INSTANCE_NOT_SPLITTABLE', message: 'Equipment instances cannot be split.' };
     }
     if (!Number.isSafeInteger(amount) || amount < 1 || amount >= source.amount) {
       throw { statusCode: 400, errorCode: 'INVALID_QUANTITY', message: 'Split amount must be an integer between 1 and source amount minus 1.' };
@@ -448,6 +541,7 @@ class InventoryService {
     if (character.revision !== expectedRevision) {
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
     }
+    if (version === 3) return updateInstanceEquipment(character, slots, expectedRevision);
     normalizePreparedEquipment(slots);
 
     const slotNames = EQUIPMENT_SLOTS;
@@ -576,16 +670,19 @@ class InventoryService {
     if (character.inventory.pendingReservation && character.inventory.pendingReservation.reservationId === reservationId) {
       const existingEq = character.inventory.pendingReservation.preparedEquipment || {};
       if (!existingEq.weaponSlot1 && !existingEq.weaponSlot2) {
-        existingEq.weaponSlot1 = 'arming_sword';
+        existingEq.weaponSlot1 = version === 3
+          ? takeRecoveryWeapon(character.inventory.pendingReservation.items, character.inventory.stash) : 'arming_sword';
         character.inventory.pendingReservation.preparedEquipment = existingEq;
-        if (version === 2) {
+        if (version >= 2) {
           const updated = await Character.findOneAndUpdate(
             { accountId, revision: character.revision, 'inventory.pendingReservation.reservationId': reservationId },
-            { $set: { 'inventory.pendingReservation.preparedEquipment.weaponSlot1': 'arming_sword' }, $inc: { revision: 1 } },
+            { $set: { 'inventory.pendingReservation.preparedEquipment.weaponSlot1': existingEq.weaponSlot1,
+                ...(version === 3 ? { 'inventory.pendingReservation.items': character.inventory.pendingReservation.items,
+                  'inventory.stash': character.inventory.stash } : {}) }, $inc: { revision: 1 } },
             { returnDocument: 'after' }
           );
           if (!updated) throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during reservation.' };
-          return { pendingReservation: serializePendingReservation(updated.inventory.pendingReservation, true), revision: updated.revision };
+          return { pendingReservation: serializePendingReservation(updated.inventory.pendingReservation, true, version), revision: updated.revision };
         }
         if (typeof Character.updateOne === 'function') {
           await Character.updateOne(
@@ -595,7 +692,7 @@ class InventoryService {
         }
       }
       return {
-        pendingReservation: serializePendingReservation(character.inventory.pendingReservation, version === 2),
+        pendingReservation: serializePendingReservation(character.inventory.pendingReservation, version >= 2, version),
         revision: character.revision || 0
       };
     }
@@ -607,20 +704,22 @@ class InventoryService {
     if (
       character.inventory.pendingReservation &&
       !character.inventory.pendingReservation.admittedAt &&
-      (version === 2 || ((!character.inventory.loadout || character.inventory.loadout.length === 0) && !hasActiveEquipment))
+      (version >= 2 || ((!character.inventory.loadout || character.inventory.loadout.length === 0) && !hasActiveEquipment))
     ) {
-      if (version === 2) restoreReservation(character);
+      if (version >= 2) restoreReservation(character);
       else {
         character.inventory.loadout = serializeItems(character.inventory.pendingReservation.items);
         character.inventory.preparedEquipment = serializePreparedEquipment(character.inventory.pendingReservation.preparedEquipment);
       }
     }
-    if (version === 2 && character.inventory.loadout.length > CAPACITIES.loadout) inventoryFull();
+    if (version >= 2 && character.inventory.loadout.length > CAPACITIES.loadout) inventoryFull();
 
     // Mirror LocalProfileStore.TryPrepareExpeditionEquipment / TryPrepareRecoveryWeapon:
     // Guarantee at least one Main Hand weapon ('arming_sword') before creating the reservation,
     // reusing an owned unit from loadout or stash before granting the recovery weapon.
-    if (!character.inventory.preparedEquipment.weaponSlot1 && !character.inventory.preparedEquipment.weaponSlot2) {
+    if (version === 3 && !character.inventory.preparedEquipment.weaponSlot1 && !character.inventory.preparedEquipment.weaponSlot2) {
+      character.inventory.preparedEquipment.weaponSlot1 = takeRecoveryWeapon(character.inventory.loadout, character.inventory.stash);
+    } else if (!character.inventory.preparedEquipment.weaponSlot1 && !character.inventory.preparedEquipment.weaponSlot2) {
       const recoveryWeaponId = 'arming_sword';
       const loadoutIndex = version === 2 ? lowestItemIndex(character.inventory.loadout, recoveryWeaponId)
         : character.inventory.loadout.findIndex(i => matchesLootId(i, recoveryWeaponId) && i.amount >= 1);
@@ -646,7 +745,7 @@ class InventoryService {
 
     // Derive the reservation from the current persisted loadout and preparedEquipment
     const items = inventoryItems(character, 'loadout');
-    const preparedEquipment = serializePreparedEquipment(character.inventory.preparedEquipment);
+    const preparedEquipment = serializePreparedEquipment(character.inventory.preparedEquipment, version);
 
     const resolvedAbilities = preparedAbilities && typeof preparedAbilities === 'object'
       ? {
@@ -673,7 +772,7 @@ class InventoryService {
           'inventory.stash': character.inventory.stash,
           'inventory.pendingReservation': pendingReservation,
           'inventory.loadout': [],
-          'inventory.preparedEquipment': {}
+          'inventory.preparedEquipment': version === 3 ? serializePreparedEquipment({}, version) : {}
         },
         $inc: { revision: 1 }
       },
@@ -685,7 +784,7 @@ class InventoryService {
     }
 
     return {
-      pendingReservation: serializePendingReservation(updated.inventory.pendingReservation, version === 2),
+      pendingReservation: serializePendingReservation(updated.inventory.pendingReservation, version >= 2, version),
       revision: updated.revision
     };
   }
@@ -703,7 +802,7 @@ class InventoryService {
       throw { statusCode: 422, errorCode: 'NO_ACTIVE_RESERVATION', message: 'No active reservation matches this reservation id.' };
     }
     if (reservation.admittedAt) {
-      return { pendingReservation: serializePendingReservation(reservation, inventoryVersion(character) === 2), revision: character.revision };
+      return { pendingReservation: serializePendingReservation(reservation, inventoryVersion(character) >= 2, inventoryVersion(character)), revision: character.revision };
     }
 
     const updated = await Character.findOneAndUpdate(
@@ -716,7 +815,7 @@ class InventoryService {
     if (!updated) {
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during reservation admission.' };
     }
-    return { pendingReservation: serializePendingReservation(updated.inventory.pendingReservation, inventoryVersion(updated) === 2), revision: updated.revision };
+    return { pendingReservation: serializePendingReservation(updated.inventory.pendingReservation, inventoryVersion(updated) >= 2, inventoryVersion(updated)), revision: updated.revision };
   }
 
   /**
@@ -743,7 +842,7 @@ class InventoryService {
     if (rollback && character.inventory.pendingReservation) {
       const currentEq = character.inventory.preparedEquipment || {};
       const hasActiveEquipment = EQUIPMENT_SLOTS.some(slot => Boolean(currentEq[slot]));
-      if (version === 2) {
+      if (version >= 2) {
         restoreReservation(character);
         setFields['inventory.loadout'] = character.inventory.loadout;
         setFields['inventory.preparedEquipment'] = character.inventory.preparedEquipment;
@@ -795,7 +894,7 @@ class InventoryService {
 
     requireMigratedInventory(character);
     const version = inventoryVersion(character);
-    items = normalizeItems(items);
+    items = version === 3 ? validateResultItems(items) : normalizeItems(items);
 
     // Idempotency check: has this exact extraction already been applied?
     const receipts = character.inventory.appliedExtractionReceipts || [];
@@ -813,14 +912,16 @@ class InventoryService {
       throw { statusCode: 409, errorCode: 'LOADOUT_NOT_EMPTY', message: 'Cannot commit extraction while loadout is not empty.' };
     }
 
-    if (version === 2) {
+    if (version >= 2) {
       const loadout = [];
       for (const item of items) receiveItem(loadout, 'loadout', item, version);
       const updated = await Character.findOneAndUpdate(
         { accountId, revision: character.revision,
           'inventory.appliedExtractionReceipts': { $not: { $elemMatch: { raidId } } } },
         { $set: { 'inventory.loadout': loadout,
-            ...(character.inventory.pendingReservation ? { 'inventory.preparedEquipment': character.inventory.pendingReservation.preparedEquipment } : {}) },
+            ...(character.inventory.pendingReservation ? { 'inventory.preparedEquipment': version === 3
+              ? resultEquipmentToInstances(equipmentToResult(character.inventory.pendingReservation.preparedEquipment))
+              : character.inventory.pendingReservation.preparedEquipment } : {}) },
           $unset: { 'inventory.pendingReservation': 1 }, $inc: { revision: 1 },
           $push: { 'inventory.appliedExtractionReceipts': { raidId, resultSequence } } },
         { returnDocument: 'after' }
@@ -901,7 +1002,7 @@ class InventoryService {
       const existingReceipt = character.appliedShopReceipts.find(r => r.transactionId === transactionId);
       if (existingReceipt) {
         if (existingReceipt.type !== 'sell' ||
-            (version === 2 && existingReceipt.sourceSlot !== sourceSlot) ||
+            (version >= 2 && existingReceipt.sourceSlot !== sourceSlot) ||
             (existingReceipt.lootId && existingReceipt.lootId !== lootId) ||
             (existingReceipt.amount && existingReceipt.amount !== amount)) {
           throw {
@@ -925,7 +1026,7 @@ class InventoryService {
     }
 
     // 3. Resolve authoritative sell offer from catalog
-    const sellOffer = getSellOffer(lootId);
+    const sellOffer = version === 3 && getEquipmentTemplate(lootId) ? getEquipmentTemplate(lootId) : getSellOffer(lootId);
     if (!sellOffer) {
       throw {
         statusCode: 404,
@@ -934,7 +1035,9 @@ class InventoryService {
       };
     }
 
-    const unitSellValue = sellOffer.sellValue;
+    const source = character.inventory.loadout.find(i => matchesLootId(i, lootId) && (version === 1 || i.slot === sourceSlot));
+    const unitSellValue = sellOffer.sellValue + (version === 3 ? (source?.instance?.modifiers?.gems || [])
+      .reduce((sum, gem) => sum + (gem ? GEM_CATALOG[gem].sellValue : 0), 0) : 0);
     const authoritativeRevenue = unitSellValue * amount;
     if (!Number.isSafeInteger(authoritativeRevenue)) {
       throw {
@@ -961,7 +1064,7 @@ class InventoryService {
       loadout[loadoutIndex].amount -= amount;
     }
 
-    const buybackPush = isBuybackEligible(lootId) ? {
+    const buybackPush = isBuybackEligible(lootId, version) ? {
       'inventory.buyback.entries': {
         $each: [{ entryId: randomUUID(), lootId, amount,
           unitPrice: Math.ceil(unitSellValue * BUYBACK_PRICE_MULTIPLIER), soldAt: new Date() }],
@@ -977,7 +1080,7 @@ class InventoryService {
         $push: {
           ...buybackPush,
           appliedShopReceipts: {
-            $each: [{ transactionId, type: 'sell', lootId, amount, ...(version === 2 ? { sourceSlot } : {}), totalAmount: authoritativeRevenue, timestamp: new Date() }],
+            $each: [{ transactionId, type: 'sell', lootId, amount, ...(version >= 2 ? { sourceSlot } : {}), totalAmount: authoritativeRevenue, timestamp: new Date() }],
             $slice: -64
           }
         }
@@ -1134,6 +1237,10 @@ class InventoryService {
     }
     const entry = character.inventory.buyback?.entries?.find(e => e.entryId === entryId);
     if (!entry) throw { statusCode: 404, errorCode: 'BUYBACK_ENTRY_NOT_FOUND', message: 'Buyback entry not found in this Town session.' };
+    // v3 disables equipment buy-back, including ledger entries sold before the instance migration.
+    if (version >= 3 && !isBuybackEligible(entry.lootId, version)) {
+      throw { statusCode: 409, errorCode: 'BUYBACK_NOT_ELIGIBLE', message: 'This item cannot be bought back.' };
+    }
     if (amount > entry.amount) throw { statusCode: 409, errorCode: 'INSUFFICIENT_BUYBACK_UNITS', message: 'Not enough units in this sale line.' };
     const cost = entry.unitPrice * amount;
     if (!Number.isSafeInteger(cost) || cost < 0) throw { statusCode: 400, errorCode: 'INTEGER_OVERFLOW', message: 'Invalid transaction cost.' };

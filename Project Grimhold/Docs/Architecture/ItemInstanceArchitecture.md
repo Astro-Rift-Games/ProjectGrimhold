@@ -109,7 +109,7 @@ An explicit one-time script, following `scripts/migrate_inventory_slots.js`:
 | Equip / unequip | The entry (with its instance) moves between the list and `preparedEquipment`; equip requires `instanceId` |
 | Buy | Each purchased equipment unit is a new plain instance |
 | Sell | Every equipment instance is sellable, even for 0; price = Template sell value + sell value of each installed gem (*provisional*) |
-| Buy-back | Disabled for equipment: sales push no ledger entry; `isBuybackEligible` returns false |
+| Buy-back | Disabled for equipment: sales push no ledger entry; `isBuybackEligible` returns false; a pre-migration equipment entry rejects `409 BUYBACK_NOT_ELIGIBLE` |
 | Reservation / admission | Reserved entries keep their instances in `pendingReservation` and the admission snapshot |
 | Gem incrustation | §5 |
 
@@ -146,6 +146,9 @@ One revision-guarded `findOneAndUpdate` (the `writeSlotLists` pattern):
 | Weapon without sockets | `409 GEM_NO_SOCKETS` |
 | All sockets occupied | `409 GEM_NO_EMPTY_SOCKET` |
 | Revision changed | `409 REVISION_CONFLICT` |
+
+The shared inventory codes also apply: `400 VALIDATION_FAILED`, `409 RESERVATION_PENDING`,
+`409 INVENTORY_MIGRATION_REQUIRED` and `409 TRANSACTION_ID_REUSED`.
 
 Replays with the same `transactionId` return the stored outcome (shop receipt pattern). Unity calls
 it remote-first: the UI asks for confirmation ("¿Incrustar {gema} en {arma}? Es permanente."), shows

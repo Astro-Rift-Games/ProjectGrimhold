@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const Character = require('../models/Character');
 const env = require('../config/env');
 const { normalizeItems } = require('./InventoryLootIdNormalizer');
-const { inventoryVersion, requireMigratedInventory } = require('./InventoryEntries');
+const { inventoryVersion, requireMigratedInventory, serializeItems, copyEntry } = require('./InventoryEntries');
 
 const TOWN_TICKET_TTL_SECONDS = 1800; // 30 minutes
 const RAID_TICKET_TTL_SECONDS = 600;  // 10 minutes
@@ -176,11 +176,11 @@ class SessionTicketService {
         availablePoints: characterAttributes.availablePoints ?? 0
       },
       preparedAbilities,
-      // Raid admission remains aggregate; never replace the stored slot entries.
-      items: inventoryVersion(character) === 2
+      // V2 aggregates only the admission DTO; v3 transports the complete reserved instances.
+      items: inventoryVersion(character) === 3 ? serializeItems(reservation.items, true) : inventoryVersion(character) === 2
         ? normalizeItems(reservation.items)
         : (reservation.items || []).map(i => ({ lootId: i.lootId, amount: i.amount })),
-      preparedEquipment: {
+      preparedEquipment: inventoryVersion(character) === 3 ? copyEntry(reservation.preparedEquipment) : {
         weaponSlot1: reservation.preparedEquipment?.weaponSlot1 || (!reservation.preparedEquipment?.weaponSlot2 ? 'arming_sword' : ''),
         weaponSlot2: reservation.preparedEquipment?.weaponSlot2 || '',
         offHand1:    reservation.preparedEquipment?.offHand1 || '',

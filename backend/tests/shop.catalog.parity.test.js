@@ -33,7 +33,8 @@ test('shop catalogs mirror every Unity LootDefinition price and eligibility', t 
     // stays classified but cannot create a buyback entry because shopSell rejects it.
     const category = Number(text.match(/^\s*_category:\s*(\d+)\s*$/m)?.[1]);
     if (category >= 5 && category <= 10) eligibleIds.add(id);
-    assert.equal(isBuybackEligible(id), category >= 5 && category <= 10, id);
+    assert.equal(isBuybackEligible(id), false, `${id} v3`);
+    assert.equal(isBuybackEligible(id, 2), category >= 5 && category <= 10, `${id} v2`);
     for (const [field, catalog, price] of [
       ['_buyValuePerUnit', BUY_CATALOG, 'buyPrice'],
       ['_sellValuePerUnit', SELL_CATALOG, 'sellValue']

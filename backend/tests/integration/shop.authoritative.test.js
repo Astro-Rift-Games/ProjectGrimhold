@@ -143,7 +143,7 @@ test('E2E Shop Authoritative Validation (US-57 / SEC-57.4)', async (t) => {
 
   await t.test('4. Exploit Defense: Sending declaredPrice = 0 does NOT bypass authoritative server price', async () => {
     // Attacker tries to buy 5 health potions claiming declaredPrice = 0
-    // Server price is 20 gold per potion -> 5 * 20 = 100 gold
+    // Unity catalog price is 40 gold per potion -> 5 * 40 = 200 gold
     const res = await request(app).post('/character/me/inventory/shop/buy')
       .set('Authorization', `Bearer ${token}`)
       .send({
@@ -155,8 +155,8 @@ test('E2E Shop Authoritative Validation (US-57 / SEC-57.4)', async (t) => {
       });
 
     assert.strictEqual(res.status, 200);
-    // Server must deduct 100 gold, NOT 0 gold!
-    assert.strictEqual(res.body.currency, 395, '495 - 100 = 395');
+    // Server must deduct 200 gold, NOT 0 gold!
+    assert.strictEqual(res.body.currency, 295, '495 - 200 = 295');
     assert.strictEqual(res.body.revision, 3);
     const potionItem = res.body.loadout.find(i => i.lootId === 'healthpotion');
     assert.strictEqual(potionItem.amount, 5);
@@ -166,7 +166,7 @@ test('E2E Shop Authoritative Validation (US-57 / SEC-57.4)', async (t) => {
 
   await t.test('5. Exploit Defense: Sending declaredSellValue = 1,000,000,000 does NOT grant arbitrary gold', async () => {
     // Attacker tries to sell 1 potion claiming 1 billion gold
-    // Server sell value is 10 gold
+    // Unity catalog sell value is 20 gold
     const res = await request(app).post('/character/me/inventory/shop/sell')
       .set('Authorization', `Bearer ${token}`)
       .send({
@@ -178,15 +178,15 @@ test('E2E Shop Authoritative Validation (US-57 / SEC-57.4)', async (t) => {
       });
 
     assert.strictEqual(res.status, 200);
-    // Server must credit 10 gold, NOT 1 billion!
-    assert.strictEqual(res.body.currency, 405, '395 + 10 = 405');
+    // Server must credit 20 gold, NOT 1 billion!
+    assert.strictEqual(res.body.currency, 315, '295 + 20 = 315');
     assert.strictEqual(res.body.revision, 4);
 
     currentRevision = res.body.revision;
   });
 
   await t.test('6. Rejection: Insufficient funds rejects purchase without state mutation', async () => {
-    // Set currency to 15 gold (not enough for 1 health potion costing 20)
+    // Set currency to 15 gold (not enough for 1 health potion costing 40)
     await Character.findOneAndUpdate({ accountId }, { 'inventory.currency': 15 });
 
     const res = await request(app).post('/character/me/inventory/shop/buy')
@@ -309,9 +309,9 @@ test('E2E Shop Authoritative Validation (US-57 / SEC-57.4)', async (t) => {
   });
 
   await t.test('12. Concurrency: Two simultaneous purchases competing for limited currency', async () => {
-    // Set currency to 30 gold. Health potion costs 20 gold.
-    // Buying 2 potions simultaneously costs 40 gold > 30 gold.
-    await Character.findOneAndUpdate({ accountId }, { 'inventory.currency': 30 });
+    // Set currency to 60 gold. Health potion costs 40 gold.
+    // Buying 2 potions simultaneously costs 80 gold > 60 gold.
+    await Character.findOneAndUpdate({ accountId }, { 'inventory.currency': 60 });
 
     const reqA = request(app).post('/character/me/inventory/shop/buy')
       .set('Authorization', `Bearer ${token}`)
@@ -337,6 +337,6 @@ test('E2E Shop Authoritative Validation (US-57 / SEC-57.4)', async (t) => {
     assert.deepStrictEqual(statuses, [200, 409], 'Exactly one purchase must succeed and one must fail');
 
     const char = await Character.findOne({ accountId });
-    assert.strictEqual(char.inventory.currency, 10, '30 - 20 = 10 gold remaining');
+    assert.strictEqual(char.inventory.currency, 20, '60 - 40 = 20 gold remaining');
   });
 });

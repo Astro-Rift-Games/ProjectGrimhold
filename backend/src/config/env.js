@@ -77,6 +77,12 @@ module.exports = {
   get inventoryProtocolGate() {
     return process.env.INVENTORY_PROTOCOL_GATE === 'true';
   },
+  get inventoryInstanceProtocolGate() {
+    return process.env.INVENTORY_INSTANCE_PROTOCOL_GATE === 'true';
+  },
+  get newInventorySchemaVersion() {
+    return this.inventoryInstanceProtocolGate ? 3 : this.inventoryProtocolGate ? 2 : 1;
+  },
   get inventorySplitEnabled() {
     return process.env.INVENTORY_SPLIT_ENABLED === 'true';
   },

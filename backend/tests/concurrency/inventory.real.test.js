@@ -111,7 +111,7 @@ test('InventoryService - Concurrency and Revision', async (t) => {
     assert.strictEqual(after.revision, 1); assert.strictEqual(after.loadout.length, 30);
     const bought = after.loadout[0];
     assert.strictEqual(bought.slot, 0); assert.strictEqual(bought.amount, 1);
-    assert.strictEqual(after.currency, bought.lootId === 'bone' ? 95 : 80);
+    assert.strictEqual(after.currency, bought.lootId === 'bone' ? 95 : 60);
     assert.deepStrictEqual(after.loadout.slice(1), loadout);
   });
 

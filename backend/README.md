@@ -23,8 +23,9 @@ Node.js + Express + Mongoose backend para Project Grimhold.
 | `JWT_SECRET`     | Sí                         | Secreto HMAC-SHA256 para firmar JWT (mín. 32 caracteres de alta entropía en prod) |
 | `JWT_EXPIRES_IN` | No                         | Duración del token en segundos (default: `3600`)                            |
 | `WEBHOOK_SECRET` | Sí en `production`         | Secreto compartido para endpoints internos/webhooks (mín. 32 caracteres en prod) |
-| `INVENTORY_PROTOCOL_GATE` | No (default `false`) | Sólo `true` exige protocolo de inventario 2 y documentos migrados; leído desde `src/config/env.js` |
-| `INVENTORY_SPLIT_ENABLED` | No (default `false`) | Sólo `true` habilita split por slot v2; leído desde `src/config/env.js`, independiente del gate |
+| `INVENTORY_PROTOCOL_GATE` | No (default `false`) | Sólo `true` exige protocolo 2 y documentos v2/v3, salvo que el gate de instancias esté activo |
+| `INVENTORY_INSTANCE_PROTOCOL_GATE` | No (default `false`) | Sólo `true` exige protocolo 3 y documentos v3; tiene precedencia sobre el gate v2. No migra datos |
+| `INVENTORY_SPLIT_ENABLED` | No (default `false`) | Sólo `true` habilita split por slot v2/v3 (sólo stacks, nunca instancias); independiente de ambos gates |
 | `ENABLE_DEV_DEBUG_ROUTES` | No (default `false`) | Sólo `true` habilita `/character/debug/mock-fusion-result` fuera de producción |
 | `ENABLE_LEGACY_EXTRACTION` | No (default `false`) | Sólo `true` habilita `/character/me/inventory/extraction` fuera de producción |
 
@@ -33,6 +34,10 @@ Node.js + Express + Mongoose backend para Project Grimhold.
 - `GET /health` - Estado del servidor (y de la base de datos)
 
 ## Inventario: B1 expand (slots físicos)
+
+Las secciones B1/B2/T6 documentan v1/v2. Para v3 y su cutover independiente, ver
+[Instancias de equipamiento](#inventario-instancias-de-equipamiento-v3) abajo. Ningún despliegue
+ni lectura realiza una migración implícita.
 
 B1 amplía el formato y protege los datos; **no es el cutover**. B2 (T3, abajo) añade
 operaciones por slot y recepción/capacidad v2. La migración explícita es T2.
@@ -60,7 +65,7 @@ operaciones por slot y recepción/capacidad v2. La migración explícita es T2.
 Con `INVENTORY_PROTOCOL_GATE=true`, enviar **`X-Grimhold-Inventory-Protocol: 2`** además del JWT
 (`Authorization: Bearer ...`). La comprobación ocurre antes de validar el body o ejecutar la
 operación. Sin header o con otro valor: `426 CLIENT_UPGRADE_REQUIRED`; con header correcto y
-personaje no v2: `409 INVENTORY_MIGRATION_REQUIRED`. Con el gate apagado el header se ignora.
+personaje no v2/v3: `409 INVENTORY_MIGRATION_REQUIRED`. Con ambos gates apagados el header se ignora.
 No se migra durante la petición. Los hosts también deben actualizarse; se comprueba el documento
 del destinatario de resultados y del participante de tickets, además del caller autenticado.
 
@@ -303,6 +308,153 @@ HTTP 200, misma forma que slot move, listas ordenadas por slot. Ejemplo con 13 u
 | 409 | `INVENTORY_FULL` | Destino fuera de capacidad o occupied count >= capacidad |
 | 409 | `RESERVATION_PENDING` | Hay una reserva pendiente al validar |
 | 409 | `REVISION_CONFLICT` | Revisión stale o carrera del write atómico (incluida una reserva concurrente) |
+
+## Inventario: instancias de equipamiento v3
+
+Contrato: [ItemInstanceArchitecture.md](../Project%20Grimhold/Docs/Architecture/ItemInstanceArchitecture.md),
+§2–§5 y §7. V1/v2 conservan sus formatos, elegibilidad de venta y buy-back anteriores;
+los precios comunes se alinean con Unity (tabla abajo). El gate de instancias **no se activa al desplegar**.
+
+### Formato, validación y creación
+
+- `inventorySchemaVersion: 3`: Weapon, Shield, Helmet, Armor, Gloves y Boots tienen
+  `amount: 1` y `instance: {instanceId, modifiers?}`. El ID es un ObjectId de 24 caracteres
+  hexadecimales minúsculos emitido sólo por el backend. Otros tipos no tienen `instance`.
+- Weapon puede llevar `{primary?, secondary?, gemSocketCount, gems}`. Atributos:
+  `vitality`, `resistance`, `strength`, `dexterity`, `intelligence`, `luck`; grados: `E`–`S`.
+  Primary coincide con el atributo natural; secondary requiere primary y otro atributo.
+  `gemSocketCount` es 0–2 y `gems` tiene esa longitud, con `null` por socket vacío o uno de
+  `RES_ATTUNEMENT_GEM`, `RES_RUBY_GEM`, `RES_SAPPHIRE_GEM`. Escudos/armaduras no llevan modifiers.
+  Formas inconsistentes, IDs repetidos entre ubicaciones o modifiers ilegales: `400 INVALID_INVENTORY`.
+- `preparedEquipment.<slot>` es `null | {lootId, instance}`. La reserva y su snapshot de admisión
+  conservan entradas completas, slots, IDs y modifiers (v3 no agrega equipamiento por lootId).
+- Las instancias nunca se apilan, fusionan ni dividen. Recibir cada unidad ocupa el menor hueco
+  libre bajo las reglas existentes Loadout 30 / Stash 60; overflow es sólo reducible.
+  Slot move entre dos instancias del mismo template hace swap. Split habilitado sobre una instancia
+  rechaza `409 INSTANCE_NOT_SPLITTABLE`; para stacks no cambia T6.
+- Move/order/equip/unequip/rollback conservan IDs y modifiers. Equip requiere intención
+  `{lootId, instanceId}`, no acepta modifiers enviados por el cliente; desasignar usa `null`.
+  Los slots omitidos se desasignan, como en el contrato de reemplazo anterior:
+
+  ```json
+  {"weaponSlot1":{"lootId":"arming_sword","instanceId":"0123456789abcdef01234567"},"weaponSlot2":null,"expectedRevision":4}
+  ```
+
+- Buy crea una instancia por unidad; migration/fallback también usan el emisor central.
+  Un arma plain tiene `{gemSocketCount:0,gems:[]}` y primary según el coeficiente legacy de su
+  template (actualmente los 14 son 0: sin primary, daño previo intacto). Fallback sigue siendo
+  `arming_sword`, consumiendo una instancia propia antes de emitir una nueva.
+- Cada instancia de equipo se puede vender, **incluso por 0**. Valor = template + cada gema
+  instalada (hoy 70 por gema); se ignora `declaredSellValue`. La venta v3 no añade buy-back.
+  El endpoint de recompra sigue disponible para líneas preexistentes; no crea nuevas líneas v3.
+
+### Cutover independiente
+
+| Configuración | Header obligatorio | Personaje admitido | Nuevos personajes/seed |
+| --- | --- | --- | --- |
+| Ambos gates false | Ninguno | v1/v2/v3, según operación | v1 |
+| Sólo `INVENTORY_PROTOCOL_GATE=true` | `X-Grimhold-Inventory-Protocol: 2` | v2 o v3 | v2 |
+| `INVENTORY_INSTANCE_PROTOCOL_GATE=true` (con o sin gate v2) | `X-Grimhold-Inventory-Protocol: 3` | Sólo v3 | v3 |
+
+Falta/otro header: `426 CLIENT_UPGRADE_REQUIRED`; documento no migrado:
+`409 INVENTORY_MIGRATION_REQUIRED`. Se aplica a las mismas rutas B1, incluida creación,
+caller/target de Raid y la nueva ruta de gemas. Split apagado conserva su rechazo previo al gate.
+
+### Incrustar gema (Town, remoto primero)
+
+`POST /character/me/inventory/gems/install`, JWT y header según la tabla anterior:
+
+```json
+{"transactionId":"install-1","weaponList":"stash","weaponSlot":9,"instanceId":"0123456789abcdef01234567","gemList":"loadout","gemSlot":3,"gemLootId":"RES_RUBY_GEM","expectedRevision":4}
+```
+
+`weaponList`/`gemList`: `stash` o `loadout`; slots/revisión: enteros seguros no negativos;
+`transactionId`: string no vacío de hasta 128 caracteres. Sólo schema v3. No admite armas equipadas
+(primero desequipar) ni una reserva Raid pendiente. El cliente debe pedir confirmación irreversible
+antes de enviar; el backend no tiene un flag de confirmación. No existe extracción/reemplazo de gemas.
+
+Éxito HTTP 200: `{stash,loadout,revision}` con listas completas ordenadas por slot; una sola escritura
+`findOneAndUpdate` valida revisión y ausencia de reserva, ocupa el menor socket vacío, consume una
+unidad de la gema (elimina la entrada al llegar a 0), guarda receipt y aumenta revision una vez.
+Ejemplo de respuesta cuando se consume la última gema:
+
+```json
+{"stash":[{"slot":9,"lootId":"arming_sword","amount":1,"instance":{"instanceId":"0123456789abcdef01234567","modifiers":{"gemSocketCount":1,"gems":["RES_RUBY_GEM"]}}}],"loadout":[],"revision":5}
+```
+
+Repetir intención/transactionId devuelve **el snapshot almacenado del resultado**, añadiendo
+`alreadySecured:true`, incluso con una revisión vieja o después de mover el arma. Una intención
+cambiada rechaza `TRANSACTION_ID_REUSED`. Comparte la ventana de 64 receipts de shop; la revisión
+sigue protegiendo contra reenvíos obsoletos fuera de esa ventana. Rechazos no consumen gemas ni
+cambian IDs, listas, moneda, receipts o revisión:
+
+| HTTP | Código | Condición |
+| --- | --- | --- |
+| 409 | `INSTANCE_MISMATCH` | Slot no contiene esa instancia de Weapon |
+| 409 | `GEM_NOT_AVAILABLE` | Gema ausente, lootId incorrecto o no pertenece al catálogo de gemas |
+| 409 | `GEM_NO_SOCKETS` | Arma sin sockets |
+| 409 | `GEM_NO_EMPTY_SOCKET` | Todos los sockets ocupados |
+| 409 | `REVISION_CONFLICT` | Revisión obsoleta o carrera del write atómico |
+| 409 | `RESERVATION_PENDING` | Hay una reserva Raid pendiente |
+| 409 | `TRANSACTION_ID_REUSED` | Receipt existente con otra intención/operación |
+| 409 | `INVENTORY_MIGRATION_REQUIRED` | Schema no v3 |
+| 400 | `VALIDATION_FAILED` | DTO inválido |
+
+### Extracción v3
+
+El host publica items `{lootId,amount,modifiers?}`: cada equipo lleva `amount:1`; dos variantes del
+mismo template son dos entradas. Equipment del resultado es `null | {lootId,modifiers?}` por slot.
+**No enviar instanceId**. Las reglas de template/gemas se validan antes de persistir y también antes
+del claim del commit. Los resultados almacenados quedan ID-free; commit emite IDs nuevos tanto
+para items como para equipo preparado, manteniendo modifiers. Replay no emite IDs ni aplica XP otra
+vez. Capacidad/validación fallidas dejan el resultado sin consumir. La derrota mantiene su pérdida
+actual. No hay regeneración de seeds ni nueva validación de membresía/provenance de Raid.
+
+El host sigue siendo de confianza. La firma HMAC legacy no se amplía para modifiers: resultados
+firmados v3/endurecimiento de esa autoridad quedan fuera de esta entrega (§7 del contrato).
+
+### Migración explícita v2 → v3
+
+Desde `backend/`:
+
+```sh
+node scripts/migrate_item_instances.js --help
+node scripts/migrate_item_instances.js --dry-run
+node scripts/migrate_item_instances.js
+```
+
+Usa `MONGODB_URI` del entorno/archivo local; nunca imprime la URI ni errores raw del driver.
+**No ejecutar con tráfico activo.** Primero migrar v1 con `migrate_inventory_slots.js` según su
+procedimiento; este script sólo transforma v2, omite v1/versiones desconocidas y v3 ya migrado.
+
+1. Preparar backup consistente de **characters y authoritativeextractionresults**, poner Town/Raid
+   en mantenimiento y drenar todos los backends/hosts que escriben. Probar restauración y dry-run
+   sobre una copia. Desplegar backend, clientes y hosts capaces de v3 antes de admitir tráfico v3.
+2. Dry-run informa una línea JSON por personaje y un summary; no escribe. Entradas/revisiones
+   inválidas abortan ese personaje sin descartar unidades. Revisar `aborted`/`conflicts` antes de aplicar.
+3. Aplicar durante mantenimiento. Cada stack de N equipos se expande en N IDs nuevos: primero
+   conserva el slot original; extras ocupan los menores huecos y luego overflow. Conserva todos
+   los slots originales antes de colocar extras; migra también equipo preparado y reservas.
+4. Primero convierte resultados del account a unidades ID-free y equipment con modifiers; luego
+   migra el personaje en un update guardado por schema/revision, aumentando revision exactamente 1.
+   Son escrituras separadas, **no una transacción entre colecciones**. Un conflicto re-lee/replanifica
+   el personaje hasta tres retries; un conflicto de resultado o datos inválidos aborta ese personaje.
+   Un corte puede dejar resultados convertidos con personaje aún v2: mantener mantenimiento y
+   reejecutar (conversión de resultados idempotente), no reabrir tráfico a mitad de migración.
+5. Verificar summary y snapshots; activar `INVENTORY_INSTANCE_PROTOCOL_GATE=true` al reabrir
+   sólo con clientes/hosts de protocolo 3. No desactivar el gate ni volver a un backend viejo sobre
+   datos v3. Si hace falta rollback, restaurar **ambas colecciones** del backup durante mantenimiento.
+
+Summary: `dryRun,scanned,planned,migrated,skipped,aborted,conflicts,exitCode`. Exit 0: éxito;
+1: algún aborto/error de base; 2: argumentos CLI inválidos. Reejecutar v3 no cambia IDs ni revision.
+
+### Alineación de precios con Unity
+
+`shop.catalog.parity.test.js` compara todos los LootDefinitions (precio/eligibilidad), e
+`item.instances.parity.test.js` compara templates, atributo natural, coeficiente legacy y gemas.
+Cambio de ofertas existentes: `healthpotion` compra **20 → 40**, venta **10 → 20**.
+Se incorporan además las ofertas Unity antes ausentes (sin cambiar eligibility legacy de equipo).
+Los valores de gemas provienen de sus LootDefinitions; no se duplica aquí su daño Unity.
 
 ## Atlas Network Access
 
