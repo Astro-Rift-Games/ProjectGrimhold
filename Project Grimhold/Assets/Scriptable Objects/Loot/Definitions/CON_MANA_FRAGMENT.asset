@@ -15,8 +15,8 @@ MonoBehaviour:
   _id: CON_MANA_FRAGMENT
   _displayName: Mana Fragment
   _description: A minor crystal shard releasing a burst of mana.
-  _icon: {fileID: 21300000, guid: b77b4a38f9eaab143b6e877a7ba93435, type: 3}
-  _worldSprite: {fileID: 21300000, guid: b77b4a38f9eaab143b6e877a7ba93435, type: 3}
+  _icon: {fileID: 21300000, guid: 20db8abf63eb5e688df4829647f6f69d, type: 3}
+  _worldSprite: {fileID: 21300000, guid: 2145c72230d255e9acea99a428192752, type: 3}
   _category: 3
   _rarity: 0
   _objectValue: 8

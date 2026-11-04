@@ -15,8 +15,8 @@ MonoBehaviour:
   _id: CON_SELF_REVIVE
   _displayName: Phoenix Elixir
   _description: Miraculous draught capable of resuscitating a downed adventurer.
-  _icon: {fileID: 21300000, guid: b77b4a38f9eaab143b6e877a7ba93435, type: 3}
-  _worldSprite: {fileID: 21300000, guid: b77b4a38f9eaab143b6e877a7ba93435, type: 3}
+  _icon: {fileID: 21300000, guid: cd37a307b84456c9a723b484b0953ac2, type: 3}
+  _worldSprite: {fileID: 21300000, guid: e599c2a4b55f5d06a154d8e5e6a81ff0, type: 3}
   _category: 3
   _rarity: 3
   _objectValue: 300
