@@ -559,7 +559,8 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
 
         _lootDefinition = definition;
 
-        if (_resolvedLootDefinition == definition)
+        if (_resolvedLootDefinition == definition &&
+            (_worldRenderer == null || _worldRenderer.sprite == definition.WorldSprite))
         {
             return;
         }
