@@ -54,44 +54,60 @@ namespace Tests.EditMode.Presentation
             Assert.That(title.raycastTarget, Is.False);
         }
 
-        [Test]
-        public void MinimapHasAStaticNorthCompassBetweenTheTitleAndTheViewport()
+        [TestCase(1920f, 1080f)]
+        [TestCase(1440f, 1080f)]
+        public void MinimapHasAStaticNorthCompassBetweenTheTitleAndTheViewport(float width, float height)
         {
-            Transform minimap = LoadMinimap();
-            TMP_Text compass = minimap.Find("Compass")?.GetComponent<TMP_Text>();
-            Assert.That(compass, Is.Not.Null, "Compass under RaidMinimap");
-            TMP_Text header = LoadHud().transform.Find("RaidRightPanel/ObjectivesBlock/Header").GetComponent<TMP_Text>();
+            GameObject canvas = CreateLaidOutHud(width, height, out Transform minimap);
+            try
+            {
+                TMP_Text compass = minimap.Find("Compass")?.GetComponent<TMP_Text>();
+                Assert.That(compass, Is.Not.Null, "Compass under RaidMinimap");
+                TMP_Text header = LoadHud().transform.Find("RaidRightPanel/ObjectivesBlock/Header").GetComponent<TMP_Text>();
 
-            Assert.That(compass.text, Is.EqualTo("N"));
-            Assert.That(compass.font, Is.SameAs(header.font));
-            Assert.That(compass.raycastTarget, Is.False);
-            Assert.That(compass.GetComponent<RectTransform>().localEulerAngles, Is.EqualTo(Vector3.zero));
+                Assert.That(compass.text, Is.EqualTo("N"));
+                Assert.That(compass.font, Is.SameAs(header.font));
+                Assert.That(compass.raycastTarget, Is.False);
+                Assert.That(compass.GetComponent<RectTransform>().localEulerAngles, Is.EqualTo(Vector3.zero));
 
-            // The minimap never rotates (north-up), so the compass must stay out of the clipped viewport
-            // where the Sanctuary arrow can sit on the edge.
-            Rect root = ResolveRoot(minimap);
-            Rect title = ResolveRectIn((RectTransform)minimap.Find("Title"), root);
-            Rect compassRect = ResolveRectIn((RectTransform)compass.transform, root);
-            Rect viewport = ResolveRectIn((RectTransform)minimap.Find("Viewport"), root);
-            Assert.That(compassRect.Overlaps(viewport), Is.False, "compass vs viewport");
-            Assert.That(compassRect.Overlaps(title), Is.False, "compass vs title");
-            Assert.That(title.Overlaps(viewport), Is.False, "title vs viewport");
+                // The minimap never rotates (north-up), so the compass must stay out of the clipped viewport
+                // where the Sanctuary arrow can sit on the edge.
+                Rect root = ResolveRoot(minimap);
+                Rect title = ResolveRectIn((RectTransform)minimap.Find("Title"), root);
+                Rect compassRect = ResolveRectIn((RectTransform)compass.transform, root);
+                Rect viewport = ResolveRectIn((RectTransform)minimap.Find("Viewport"), root);
+                Assert.That(compassRect.Overlaps(viewport), Is.False, "compass vs viewport");
+                Assert.That(compassRect.Overlaps(title), Is.False, "compass vs title");
+                Assert.That(title.Overlaps(viewport), Is.False, "title vs viewport");
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
         }
 
-        [Test]
-        public void MinimapContentFitsInsideItsOwnLayoutSlotSoItNeverOverlapsTheBlocksBelow()
+        [TestCase(1920f, 1080f)]
+        [TestCase(1440f, 1080f)]
+        public void MinimapContentFitsInsideItsOwnLayoutSlotSoItNeverOverlapsTheBlocksBelow(float width, float height)
         {
-            Transform minimap = LoadMinimap();
-            RectTransform rect = (RectTransform)minimap;
-            LayoutElement slot = minimap.GetComponent<LayoutElement>();
-            Assert.That(slot.preferredHeight, Is.EqualTo(rect.sizeDelta.y).Within(Tolerance));
-            Assert.That(slot.minHeight, Is.EqualTo(rect.sizeDelta.y).Within(Tolerance));
+            GameObject canvas = CreateLaidOutHud(width, height, out Transform minimap);
+            try
+            {
+                RectTransform rect = (RectTransform)minimap;
+                LayoutElement slot = minimap.GetComponent<LayoutElement>();
+                Assert.That(slot.preferredHeight, Is.EqualTo(rect.sizeDelta.y).Within(Tolerance));
+                Assert.That(slot.minHeight, Is.EqualTo(rect.sizeDelta.y).Within(Tolerance));
 
-            Rect root = ResolveRoot(minimap);
-            Rect viewport = ResolveRectIn((RectTransform)minimap.Find("Viewport"), root);
-            Rect title = ResolveRectIn((RectTransform)minimap.Find("Title"), root);
-            Assert.That(root.Contains(viewport.min) && root.Contains(viewport.max), Is.True, "viewport inside slot");
-            Assert.That(root.Contains(title.min) && root.Contains(title.max), Is.True, "title inside slot");
+                Rect root = ResolveRoot(minimap);
+                Rect viewport = ResolveRectIn((RectTransform)minimap.Find("Viewport"), root);
+                Rect title = ResolveRectIn((RectTransform)minimap.Find("Title"), root);
+                Assert.That(root.Contains(viewport.min) && root.Contains(viewport.max), Is.True, "viewport inside slot");
+                Assert.That(root.Contains(title.min) && root.Contains(title.max), Is.True, "title inside slot");
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+            }
         }
 
         [Test]
@@ -215,6 +231,37 @@ namespace Tests.EditMode.Presentation
 
             Assert.That(header.horizontalAlignment, Is.EqualTo(HorizontalAlignmentOptions.Center));
             Assert.That(header.horizontalAlignment, Is.EqualTo(title.horizontalAlignment));
+        }
+
+        private static GameObject CreateLaidOutHud(float width, float height, out Transform minimap)
+        {
+            var canvas = new GameObject("HudLayoutTestCanvas", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                canvas.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+                GameObject instance = Object.Instantiate(LoadHud(), canvas.transform, false);
+                instance.SetActive(true);
+                var root = (RectTransform)instance.transform;
+                root.anchorMin = Vector2.zero;
+                root.anchorMax = Vector2.zero;
+                root.sizeDelta = new Vector2(width, height);
+                var column = (RectTransform)root.Find("RaidRightPanel");
+                column.gameObject.SetActive(true);
+                minimap = column.Find("RaidMinimap");
+                Assert.That(minimap, Is.Not.Null);
+                minimap.gameObject.SetActive(true);
+                Canvas.ForceUpdateCanvases();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(column);
+                Canvas.ForceUpdateCanvases();
+                Assert.That(((RectTransform)minimap).rect.width, Is.GreaterThan(0f));
+                Assert.That(((RectTransform)minimap).rect.height, Is.GreaterThan(0f));
+                return canvas;
+            }
+            catch
+            {
+                Object.DestroyImmediate(canvas);
+                throw;
+            }
         }
 
         private static Transform LoadMinimap()

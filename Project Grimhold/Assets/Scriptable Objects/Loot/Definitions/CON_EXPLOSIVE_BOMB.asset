@@ -15,8 +15,8 @@ MonoBehaviour:
   _id: CON_EXPLOSIVE_BOMB
   _displayName: Explosive Bomb
   _description: A thrown device that detonates in a fiery blast.
-  _icon: {fileID: 21300000, guid: 3968ca9e97ed44feac69874b87f09c5c, type: 3}
-  _worldSprite: {fileID: 21300000, guid: 3968ca9e97ed44feac69874b87f09c5c, type: 3}
+  _icon: {fileID: 21300000, guid: 42ee516c726454049261c5e8d325f22f, type: 3}
+  _worldSprite: {fileID: 21300000, guid: abc2b8b4e4a15370a35dbbefb99add96, type: 3}
   _category: 3
   _rarity: 1
   _objectValue: 30

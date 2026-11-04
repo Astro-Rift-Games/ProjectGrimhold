@@ -15,8 +15,8 @@ MonoBehaviour:
   _id: CON_SMOKE_BOMB
   _displayName: Smoke Bomb
   _description: Discharges a thick obscurant cloud for rapid escape.
-  _icon: {fileID: 21300000, guid: 3968ca9e97ed44feac69874b87f09c5c, type: 3}
-  _worldSprite: {fileID: 21300000, guid: 3968ca9e97ed44feac69874b87f09c5c, type: 3}
+  _icon: {fileID: 21300000, guid: c3c58bb1df7c51159df0e93e66c8d6a9, type: 3}
+  _worldSprite: {fileID: 21300000, guid: 05fe092000525e63bc4424cf81b9b1b7, type: 3}
   _category: 3
   _rarity: 1
   _objectValue: 45

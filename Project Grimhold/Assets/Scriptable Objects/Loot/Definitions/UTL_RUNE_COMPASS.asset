@@ -15,8 +15,8 @@ MonoBehaviour:
   _id: UTL_RUNE_COMPASS
   _displayName: Rune Compass
   _description: Attuned navigational instrument pointing towards extraction sites.
-  _icon: {fileID: 21300000, guid: 3968ca9e97ed44feac69874b87f09c5c, type: 3}
-  _worldSprite: {fileID: 21300000, guid: 3968ca9e97ed44feac69874b87f09c5c, type: 3}
+  _icon: {fileID: 21300000, guid: 2cbfd3dbbb0b5905aba11762d472e8f3, type: 3}
+  _worldSprite: {fileID: 21300000, guid: 6923edadb7d957d7a9c774497c679ab2, type: 3}
   _category: 4
   _rarity: 2
   _objectValue: 140

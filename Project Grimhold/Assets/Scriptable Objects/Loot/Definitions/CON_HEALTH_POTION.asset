@@ -15,8 +15,8 @@ MonoBehaviour:
   _id: CON_HEALTH_POTION
   _displayName: Health Potion
   _description: Restores 40 Health over 2.5s channel.
-  _icon: {fileID: 21300000, guid: b77b4a38f9eaab143b6e877a7ba93435, type: 3}
-  _worldSprite: {fileID: 21300000, guid: b77b4a38f9eaab143b6e877a7ba93435, type: 3}
+  _icon: {fileID: 21300000, guid: 27e890203b1e5c3d8f560caae9a3c9b5, type: 3}
+  _worldSprite: {fileID: 21300000, guid: 10bad2b08e9353c3ad589f83cd55d02e, type: 3}
   _category: 3
   _rarity: 0
   _objectValue: 20

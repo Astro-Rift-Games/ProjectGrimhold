@@ -15,8 +15,8 @@ MonoBehaviour:
   _id: CON_LOCKPICK
   _displayName: Lockpick
   _description: Tools for picking locked dungeon doors and chests.
-  _icon: {fileID: 21300000, guid: 3968ca9e97ed44feac69874b87f09c5c, type: 3}
-  _worldSprite: {fileID: 21300000, guid: 3968ca9e97ed44feac69874b87f09c5c, type: 3}
+  _icon: {fileID: 21300000, guid: d74ee162ca755b6497cbe91d4b52b7b3, type: 3}
+  _worldSprite: {fileID: 21300000, guid: 661a8702731f5584bffaba30b05c4974, type: 3}
   _category: 3
   _rarity: 0
   _objectValue: 25

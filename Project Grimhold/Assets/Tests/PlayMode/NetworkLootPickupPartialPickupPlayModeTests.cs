@@ -80,6 +80,59 @@ namespace Tests.PlayMode.Loot
         }
 
         [UnityTest]
+        public IEnumerator AuthoritativeSpawn_AppliesDefinitionWorldSpriteForPresetAndOverride()
+        {
+            Assert.That(_catalog.TryGet(Bone.Value, out LootDefinition definition), Is.True);
+            var texture = new Texture2D(16, 16);
+            var expectedSprite = Sprite.Create(texture, new Rect(0, 0, 16, 16), Vector2.one * 0.5f, 16);
+            _ownedAssets.Add(expectedSprite);
+            _ownedAssets.Add(texture);
+            SetField(definition, "_worldSprite", expectedSprite);
+            Assert.That(_pickupPrefab.GetComponentInChildren<SpriteRenderer>(true).sprite,
+                Is.Not.SameAs(expectedSprite), "The prefab must start with a different sprite.");
+
+            foreach (bool useOverride in new[] { false, true })
+            {
+                bool accepted = !useOverride;
+                NetworkObject instance = _runner.Spawn(_pickupPrefab, Vector3.zero, Quaternion.identity,
+                    onBeforeSpawned: (runner, spawned) =>
+                    {
+                        var pickup = spawned.GetComponent<NetworkLootPickup>();
+                        SetField(pickup, "_lootCatalog", _catalog);
+                        if (useOverride)
+                        {
+                            accepted = pickup.TrySetSpawnContentOverride(
+                                runner, spawned, new LootEntry(Bone, 3));
+                        }
+                        else
+                        {
+                            SetField(pickup, "_lootDefinition", definition);
+                            SetField(pickup, "_amount", 3);
+                        }
+                    });
+                Assert.That(accepted, Is.True);
+                var result = instance.GetComponent<NetworkLootPickup>();
+                var renderer = instance.GetComponentInChildren<SpriteRenderer>(true);
+                Assert.That(result.HasStateAuthority, Is.True);
+                Assert.That((bool)result.IsInitialized, Is.True);
+                Assert.That(result.IsAvailable, Is.True);
+                Assert.That(result.LootDefinition, Is.SameAs(definition));
+                Assert.That(result.Amount, Is.EqualTo(3));
+                Assert.That(result.FirstAcquisitionEligibleAmount, Is.EqualTo(3));
+                AssertOrigins(result, new RaidLootOriginBucket(RaidLootOrigin.Dungeon, 3));
+                Assert.That(renderer.sprite, Is.SameAs(expectedSprite),
+                    $"Spawn must apply WorldSprite even when the definition is already resolved (override={useOverride}).");
+                Assert.That(renderer.sortingLayerName, Is.EqualTo(result.SortingLayerName));
+                Assert.That(renderer.sortingOrder, Is.EqualTo(result.SortingOrder));
+
+                yield return null;
+                result.Render();
+                Assert.That(renderer.sprite, Is.SameAs(expectedSprite));
+                Assert.That(result.Amount, Is.EqualTo(3));
+            }
+        }
+
+        [UnityTest]
         public IEnumerator FullCapacity_TransfersWholeStackAndDespawnsPickup()
         {
             PlayerLootReceiver receiver = SpawnReceiver();

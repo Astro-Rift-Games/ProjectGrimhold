@@ -15,8 +15,8 @@ MonoBehaviour:
   _id: CON_THROWING_DAGGER
   _displayName: Throwing Dagger
   _description: A balanced throwing blade for quick ranged strikes.
-  _icon: {fileID: 21300000, guid: 3968ca9e97ed44feac69874b87f09c5c, type: 3}
-  _worldSprite: {fileID: 21300000, guid: 3968ca9e97ed44feac69874b87f09c5c, type: 3}
+  _icon: {fileID: 21300000, guid: d1ea03e9e5d052bf95ea8aa7ec8be551, type: 3}
+  _worldSprite: {fileID: 21300000, guid: 8745f608f1c95e66b311f44151d05c49, type: 3}
   _category: 3
   _rarity: 0
   _objectValue: 12

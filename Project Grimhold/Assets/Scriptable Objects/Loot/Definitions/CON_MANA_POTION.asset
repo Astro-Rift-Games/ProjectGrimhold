@@ -15,8 +15,8 @@ MonoBehaviour:
   _id: CON_MANA_POTION
   _displayName: Mana Potion
   _description: Restores mana reserves.
-  _icon: {fileID: 21300000, guid: b77b4a38f9eaab143b6e877a7ba93435, type: 3}
-  _worldSprite: {fileID: 21300000, guid: b77b4a38f9eaab143b6e877a7ba93435, type: 3}
+  _icon: {fileID: 21300000, guid: f5f3b979054c5c05b3d08d8ea036ce3c, type: 3}
+  _worldSprite: {fileID: 21300000, guid: 97a456e466b45420af43134274a7ce46, type: 3}
   _category: 3
   _rarity: 0
   _objectValue: 20
