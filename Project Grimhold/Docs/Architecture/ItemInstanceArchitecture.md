@@ -65,7 +65,9 @@ EquipmentInstance
 apply unchanged otherwise. Rollout uses a separate cutover flag, `INVENTORY_INSTANCE_PROTOCOL_GATE`
 (default false): when true the backend requires inventory protocol header `3` and schema `3`, and
 older clients receive the existing upgrade/migration error codes; when false the v2 gate behaves as
-today while letting v3 documents pass its schema check.
+today while letting v3 documents pass its schema check. The header is a minimum version: the v2 gate
+accepts `2` or `3`. Instance-capable Unity clients always send `3` and select v2 or v3 behavior from
+the character's `inventorySchemaVersion`, so they need no protocol discovery before hydration.
 
 Wire representation: `attribute` is a lowercase name (`vitality`, `resistance`, `strength`,
 `dexterity`, `intelligence`, `luck`), matching the backend progression convention; `grade` is

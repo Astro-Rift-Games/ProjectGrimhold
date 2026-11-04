@@ -9,7 +9,9 @@ const { inventoryVersion, requireMigratedInventory } = require('../services/Inve
 async function inventoryProtocol(req, res, next) {
   try {
     const requiredProtocol = env.inventoryInstanceProtocolGate ? '3' : env.inventoryProtocolGate ? '2' : null;
-    if (requiredProtocol && req.get('X-Grimhold-Inventory-Protocol') !== requiredProtocol) {
+    // The header is a minimum: a v3-capable client also handles v2 inventories by schema version.
+    const acceptedProtocols = requiredProtocol === '2' ? ['2', '3'] : [requiredProtocol];
+    if (requiredProtocol && !acceptedProtocols.includes(req.get('X-Grimhold-Inventory-Protocol'))) {
       throw { statusCode: 426, errorCode: 'CLIENT_UPGRADE_REQUIRED', message: `Inventory protocol ${requiredProtocol} is required.` };
     }
     const slotInput = ['slot', 'fromSlot', 'toSlot', 'sourceSlot', 'destinationSlot', 'slotOrder']
