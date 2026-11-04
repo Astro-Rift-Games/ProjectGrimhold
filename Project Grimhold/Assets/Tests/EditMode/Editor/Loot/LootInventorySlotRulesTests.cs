@@ -250,6 +250,61 @@ namespace Tests.EditMode.Loot
             Assert.That(_slots, Is.EqualTo(before));
         }
 
+        [Test]
+        public void Split_ThirteenIntoFiveAndEight_ConservesTotalAndOrigin()
+        {
+            _slots[2] = Slot(0, 13, Player(3));
+            Assert.That(LootInventoryRules.TrySplit(_slots, 2, 5, 9), Is.EqualTo(LootTransferFailureReason.None));
+            Assert.That(_slots[2], Is.EqualTo(Slot(0, 8, Player(3))));
+            Assert.That(_slots[9], Is.EqualTo(Slot(0, 5, Player(3))));
+            for (int index = 0; index < _slots.Length; index++)
+                if (index != 2 && index != 9)
+                    Assert.That(_slots[index].IsEmpty, Is.True);
+        }
+
+        [Test]
+        public void Split_MixedOriginInventory_ChangesOnlyTheAddressedStack()
+        {
+            _slots[0] = Slot(0, 6, RaidLootOrigin.Dungeon);
+            _slots[1] = Slot(0, 7, Player(1));
+            Assert.That(LootInventoryRules.TrySplit(_slots, 1, 3, 4), Is.EqualTo(LootTransferFailureReason.None));
+            Assert.That(_slots[0], Is.EqualTo(Slot(0, 6, RaidLootOrigin.Dungeon)));
+            Assert.That(_slots[1], Is.EqualTo(Slot(0, 4, Player(1))));
+            Assert.That(_slots[4], Is.EqualTo(Slot(0, 3, Player(1))));
+        }
+
+        [TestCase(2, 0, 9, LootTransferFailureReason.InvalidAmount)]
+        [TestCase(2, -1, 9, LootTransferFailureReason.InvalidAmount)]
+        [TestCase(2, 13, 9, LootTransferFailureReason.InvalidAmount)]
+        [TestCase(2, 14, 9, LootTransferFailureReason.InvalidAmount)]
+        [TestCase(2, 5, 2, LootTransferFailureReason.InvalidLoot)]
+        [TestCase(-1, 5, 9, LootTransferFailureReason.InvalidLoot)]
+        [TestCase(2, 5, 30, LootTransferFailureReason.InvalidLoot)]
+        [TestCase(3, 1, 9, LootTransferFailureReason.InsufficientAmount)]
+        [TestCase(2, 5, 7, LootTransferFailureReason.DestinationNotFound)]
+        public void Split_InvalidRequest_IsAtomic(int source, int amount, int destination, LootTransferFailureReason expected)
+        {
+            _slots[2] = Slot(0, 13);
+            _slots[7] = Slot(1, 1);
+            var before = (LootInventorySlot[])_slots.Clone();
+            Assert.That(LootInventoryRules.ValidateSplit(_slots, source, amount, destination), Is.EqualTo(expected));
+            Assert.That(LootInventoryRules.TrySplit(_slots, source, amount, destination), Is.EqualTo(expected));
+            Assert.That(_slots, Is.EqualTo(before));
+        }
+
+        [Test]
+        public void Split_AtOccupiedSlotCapacity_IsRejectedAtomically()
+        {
+            _slots[0] = Slot(0, 4);
+            _slots[1] = Slot(1, 1);
+            var before = (LootInventorySlot[])_slots.Clone();
+            Assert.That(LootInventoryRules.TrySplit(_slots, 0, 2, 5, slotCapacity: 2),
+                Is.EqualTo(LootTransferFailureReason.InventoryFull));
+            Assert.That(_slots, Is.EqualTo(before));
+            Assert.That(LootInventoryRules.TrySplit(_slots, 0, 2, 5, slotCapacity: 3),
+                Is.EqualTo(LootTransferFailureReason.None));
+        }
+
         private LootTransferFailureReason Receive(int quantity, int stackMax, int maxTransportable = 0) =>
             LootInventoryRules.TryReceive(_slots, 0, RaidLootOrigin.Dungeon, stackMax, maxTransportable, quantity);
 

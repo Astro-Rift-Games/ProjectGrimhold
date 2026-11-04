@@ -264,6 +264,26 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         WriteSlots(slots);
     }
 
+    /// <summary>
+    /// Splits part of one addressed physical stack into an empty addressed slot on State Authority.
+    /// The captured revision rejects stale selections. The new stack keeps the source's item and
+    /// Origin, so the aggregate quantity and every Raid Origin bucket are unchanged. All-or-nothing.
+    /// </summary>
+    public LootTransferFailureReason TrySplitStack(int sourceSlotIndex, int splitAmount,
+        int destinationSlotIndex, int expectedInventoryRevision)
+    {
+        if (!HasStateAuthority) return LootTransferFailureReason.MissingAuthority;
+        if (IsExtractionLocked() || expectedInventoryRevision != Revision)
+            return LootTransferFailureReason.ContainerUnavailable;
+        Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
+        if (!TryReadSlots(slots)) return LootTransferFailureReason.ContainerUnavailable;
+        LootTransferFailureReason failure = LootInventoryRules.TrySplit(
+            slots, sourceSlotIndex, splitAmount, destinationSlotIndex, _slotCapacity);
+        if (failure != LootTransferFailureReason.None) return failure;
+        WriteSlots(slots);
+        return LootTransferFailureReason.None;
+    }
+
     public bool TryResolveRaidLootOriginTransfer(in LootTransferRequest request, out RaidLootOriginTransfer transfer) =>
         TryResolveRaidLootOriginTransfer(request, RaidLootOriginSelectionOrder.Canonical, out transfer);
 

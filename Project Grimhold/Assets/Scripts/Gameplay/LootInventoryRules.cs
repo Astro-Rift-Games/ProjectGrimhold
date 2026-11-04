@@ -151,6 +151,70 @@ public static class LootInventoryRules
         return LootTransferFailureReason.None;
     }
 
+    /// <summary>
+    /// Validates splitting part of one addressed stack into an empty addressed slot without mutation.
+    /// The amount must leave at least one unit at source; an occupied or identical destination is
+    /// rejected as <see cref="LootTransferFailureReason.DestinationNotFound"/>, and the new stack
+    /// must fit the gameplay slot capacity.
+    /// </summary>
+    public static LootTransferFailureReason ValidateSplit(
+        ReadOnlySpan<LootInventorySlot> slots,
+        int sourceSlotIndex,
+        int splitAmount,
+        int destinationSlotIndex,
+        int slotCapacity = PhysicalSlotCount)
+    {
+        if (splitAmount <= 0)
+            return LootTransferFailureReason.InvalidAmount;
+        if (slots.Length != PhysicalSlotCount || !IsValidSlotCapacity(slotCapacity, PhysicalSlotCount))
+            return LootTransferFailureReason.ContainerUnavailable;
+        if (sourceSlotIndex < 0 || sourceSlotIndex >= slots.Length ||
+            destinationSlotIndex < 0 || destinationSlotIndex >= slots.Length ||
+            sourceSlotIndex == destinationSlotIndex)
+            return LootTransferFailureReason.InvalidLoot;
+
+        LootInventorySlot source = slots[sourceSlotIndex];
+        if (source.IsEmpty)
+            return LootTransferFailureReason.InsufficientAmount;
+        if (!source.IsValid)
+            return LootTransferFailureReason.ContainerUnavailable;
+        if (splitAmount >= source.Quantity)
+            return LootTransferFailureReason.InvalidAmount;
+        if (!slots[destinationSlotIndex].IsEmpty)
+            return LootTransferFailureReason.DestinationNotFound;
+
+        int occupied = 0;
+        for (int index = 0; index < slots.Length; index++)
+            if (!slots[index].IsEmpty)
+                occupied++;
+        return occupied >= slotCapacity
+            ? LootTransferFailureReason.InventoryFull
+            : LootTransferFailureReason.None;
+    }
+
+    /// <summary>
+    /// Revalidates and commits a split or changes nothing. The destination receives exactly the
+    /// split amount with the source's item and Origin; the total and every Origin bucket are conserved.
+    /// </summary>
+    public static LootTransferFailureReason TrySplit(
+        Span<LootInventorySlot> slots,
+        int sourceSlotIndex,
+        int splitAmount,
+        int destinationSlotIndex,
+        int slotCapacity = PhysicalSlotCount)
+    {
+        LootTransferFailureReason failure = ValidateSplit(
+            slots, sourceSlotIndex, splitAmount, destinationSlotIndex, slotCapacity);
+        if (failure != LootTransferFailureReason.None)
+            return failure;
+
+        LootInventorySlot source = slots[sourceSlotIndex];
+        // Validated above: both quantities are positive and the identity is valid.
+        LootInventorySlot.TryCreate(source.CatalogIndex, source.Quantity - splitAmount, source.Origin, out slots[sourceSlotIndex]);
+        LootInventorySlot.TryCreate(source.CatalogIndex, splitAmount, source.Origin, out slots[destinationSlotIndex]);
+        return LootTransferFailureReason.None;
+    }
+
     private static LootTransferFailureReason GetReceiveCapacity(
         ReadOnlySpan<LootInventorySlot> slots,
         int catalogIndex,

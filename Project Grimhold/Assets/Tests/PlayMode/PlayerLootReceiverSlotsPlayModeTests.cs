@@ -754,6 +754,58 @@ namespace Tests.PlayMode.Loot
             });
         }
 
+        [UnityTest]
+        public IEnumerator SplitStack_ThirteenIntoFiveAndEight_ConservesTotalsAndOriginsAtomically()
+        {
+            yield return Execute(() =>
+            {
+                Receive(_receiver, Bone, 4, RaidLootOrigin.Dungeon);
+                Receive(_receiver, Bone, 10, PlayerOrigin(2));
+                Receive(_receiver, Bone, 3, PlayerOrigin(2));
+            });
+            // Slots: 0 = Dungeon 4, 1 = Player 10, 2 = Player 3 (13 Player units in total).
+            Assert.That(_receiver.TryGetRaidLootOriginEntries(out IReadOnlyList<RaidLootOriginEntry> originsBefore), Is.True);
+            LootInventorySlot[] before = SnapshotSlots(_receiver);
+            int revision = _receiver.Revision;
+
+            LootTransferFailureReason stale = LootTransferFailureReason.Uninitialized;
+            LootTransferFailureReason occupied = LootTransferFailureReason.Uninitialized;
+            LootTransferFailureReason whole = LootTransferFailureReason.Uninitialized;
+            yield return Execute(() =>
+            {
+                stale = _receiver.TrySplitStack(1, 5, 9, revision + 1);
+                occupied = _receiver.TrySplitStack(1, 5, 2, revision);
+                whole = _receiver.TrySplitStack(1, 10, 9, revision);
+            });
+            Assert.That(stale, Is.EqualTo(LootTransferFailureReason.ContainerUnavailable));
+            Assert.That(occupied, Is.EqualTo(LootTransferFailureReason.DestinationNotFound));
+            Assert.That(whole, Is.EqualTo(LootTransferFailureReason.InvalidAmount));
+            Assert.That(_receiver.Revision, Is.EqualTo(revision), "Rejected splits must not advance the revision.");
+            AssertSlots(_receiver, before);
+
+            LootTransferFailureReason split = LootTransferFailureReason.Uninitialized;
+            yield return Execute(() => split = _receiver.TrySplitStack(1, 5, 9, revision));
+            Assert.That(split, Is.EqualTo(LootTransferFailureReason.None));
+            Assert.That(_receiver.Revision, Is.EqualTo(revision + 1));
+            LootInventorySlot[] after = SnapshotSlots(_receiver);
+            Assert.That(after[0], Is.EqualTo(before[0]));
+            Assert.That(after[1].Quantity, Is.EqualTo(5));
+            Assert.That(after[9].Quantity, Is.EqualTo(5));
+            Assert.That(after[1].Origin, Is.EqualTo(PlayerOrigin(2)));
+            Assert.That(after[9].Origin, Is.EqualTo(PlayerOrigin(2)));
+            Assert.That(after[9].CatalogIndex, Is.EqualTo(before[1].CatalogIndex));
+            Assert.That(after[2], Is.EqualTo(before[2]));
+            Assert.That(_receiver.GetLootAmount(Bone), Is.EqualTo(17));
+            Assert.That(_receiver.OccupiedSlotCount, Is.EqualTo(4));
+            Assert.That(_receiver.TryGetRaidLootOriginEntries(out IReadOnlyList<RaidLootOriginEntry> originsAfter), Is.True);
+            Assert.That(originsAfter, Is.EqualTo(originsBefore), "Origin buckets must be identical after a split.");
+
+            LootTransferFailureReason reused = LootTransferFailureReason.Uninitialized;
+            yield return Execute(() => reused = _receiver.TrySplitStack(1, 2, 10, revision));
+            Assert.That(reused, Is.EqualTo(LootTransferFailureReason.ContainerUnavailable),
+                "A revision consumed by a committed split cannot authorize another.");
+        }
+
         private NetworkLootContainer SpawnAddressedDepositContainer()
         {
             const string containerGuid = "2c19a78647c64b84a765ff0280706b7d";
