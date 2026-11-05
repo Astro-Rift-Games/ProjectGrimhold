@@ -68,9 +68,16 @@ public sealed class LocalLoadoutInventoryReadSource : IInventoryReadSource, IPre
             _physicalSnapshot.Add(item);
         }
 
+        _readOnlySnapshot.ConfirmedAttributes = ReadConfirmedAttributes();
         content = _readOnlySnapshot;
         return true;
     }
+
+    /// <summary>Reads only this profile's confirmed state; missing state never becomes zero attributes.</summary>
+    public CharacterAttributeState? ReadConfirmedAttributes() =>
+        !_disposed && _context.Store != null && _context.Store.ProfileId == _profileId &&
+        _context.Store.TryGetCharacterAttributeState(out CharacterAttributeState attributes)
+            ? attributes : null;
 
     public bool TryGetPreparedEquipment(out PreparedEquipmentLoadout equipment)
     {
@@ -96,6 +103,7 @@ public sealed class LocalLoadoutInventoryReadSource : IInventoryReadSource, IPre
         Changed = null;
         _snapshot.Clear();
         _physicalSnapshot.Clear();
+        _readOnlySnapshot.ConfirmedAttributes = null;
     }
 
     private void OnProfileCommitted(ProfileId profileId)

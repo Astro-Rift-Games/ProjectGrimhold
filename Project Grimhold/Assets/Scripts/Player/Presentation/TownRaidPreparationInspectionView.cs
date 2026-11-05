@@ -79,6 +79,8 @@ public sealed class TownRaidPreparationInspectionView : MonoBehaviour
     {
         if (!IsOpen || slot.Definition == null || _tooltip == null) return;
         _hoveredSlot = slot;
+        // Inspection rules allow remote members only. Their replicated snapshot has templates,
+        // not instances or confirmed attributes; never substitute the local character's damage.
         _tooltip.Show(EquipmentTooltipPresentationBuilder.Build(slot.Definition), slot.transform as RectTransform);
     }
 

@@ -1503,16 +1503,23 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         out float effectiveDamage)
     {
         effectiveDamage = 0f;
-        if (weaponDefinition == null ||
-            !WeaponScalingContributionsResolver.TryResolve(
-                weaponDefinition.OffensiveScaling,
-                out WeaponScalingContributions contributions))
+        if (weaponDefinition == null) return false;
+        // T7 boundary: Raid currently replicates template identities only, not instance modifiers.
+        // Project a plain instance from the template until transport lands; never read a Town
+        // prepared instance here (it could belong to another unit/participant after an exchange).
+        WeaponInstanceModifiers instance = EquipmentInstance.PlainCache(weaponDefinition).Modifiers ?? default;
+        if (!WeaponScalingContributionsResolver.TryResolve(
+                instance,
+                weaponDefinition.NaturalScalingAttribute,
+                out WeaponScalingContributions contributions) ||
+            !WeaponGemDamageBonusResolver.TryResolve(instance, null, out int gemBonus))
         {
             return false;
         }
 
         return WeaponDamageCalculator.TryCalculate(
             weaponDefinition.BaseDamage,
+            gemBonus,
             attributes,
             contributions,
             out effectiveDamage) && effectiveDamage > 0f;

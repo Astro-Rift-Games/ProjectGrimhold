@@ -24,7 +24,7 @@ public static class WeaponScalingContributionsResolver
     }
 
     /// <summary>
-    /// Translates the future instance contract without making it an active runtime source.
+    /// Translates the active instance scaling contract into canonical damage contributions.
     /// </summary>
     public static bool TryResolve(
         in WeaponInstanceModifiers instanceModifiers,

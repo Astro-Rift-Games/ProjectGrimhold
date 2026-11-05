@@ -479,6 +479,14 @@ rule, also used by Town statistics and the instance tooltip, is:
 EffectiveDamage = floor((BaseDamage + GemDamageBonus) * (1 + sum(AttributeValue/100 * Coefficient)))
 ```
 
+**Current rollout (F3/T5):** Town inventory, stash and prepared Equipment retain their confirmed
+`EquipmentInstance`; Town statistics and their tooltips resolve its scaling and installed gems using
+the character's confirmed attributes and the existing loot catalog. Definition-only merchant offers
+and remote Town preparation inspection remain template-only (remote instances/attributes are not
+available). Raid modifiers are not transported until F5/T7 (§6.3 of Item Instances): the equipment
+controller explicitly projects a plain instance from the template, preserving current plain-weapon
+damage, rather than borrowing a local Town instance or adding temporary networked fields.
+
 `WeaponDamageCalculator` is the only implementation of this pure arithmetic. Equipment performs the calculation when it
 configures or rebuilds the active player weapon. `MeleeAttack` and `RangedAttack` retain the resolved
 runtime value without modifying their shared `AttackConfig`. Non-player executors serialize their

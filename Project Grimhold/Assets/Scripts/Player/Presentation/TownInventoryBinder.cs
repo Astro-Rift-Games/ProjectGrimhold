@@ -177,7 +177,8 @@ public sealed class TownInventoryBinder : NetworkBehaviour
             hosted,
             _quickSlots,
             _profileContext.GetTransferCoordinator(),
-            CanSortInventory);
+            CanSortInventory,
+            _inventorySource.ReadConfirmedAttributes);
         if (hosted)
         {
             _menuPresenter.RegisterTab(new TownMenuTabRegistration(

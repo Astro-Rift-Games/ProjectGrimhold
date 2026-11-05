@@ -8,6 +8,7 @@ using System.Collections.ObjectModel;
 public sealed class TownInventoryProjection : ReadOnlyCollection<LootEntry>
 {
     public IReadOnlyList<StashItem> PhysicalItems { get; }
+    public CharacterAttributeState? ConfirmedAttributes { get; internal set; }
 
     public TownInventoryProjection(IList<LootEntry> entries, List<StashItem> physicalItems) : base(entries)
     {

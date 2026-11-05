@@ -190,6 +190,61 @@ namespace Tests.EditMode.Presentation
             Assert.That(with.LootBonusPercent, Is.EqualTo(without.LootBonusPercent));
         }
 
+        [TestCase(0, 42f)]
+        [TestCase(1, 49f)]
+        [TestCase(2, 56f)]
+        public void TryBuild_ConfirmedInstanceOverridesTemplateAndMatchesTooltip(int gemCount, float expected)
+        {
+            LootDefinition loot = CreateWeaponLoot("Sword", 30f, DamageType.Physical,
+                WeaponHandedness.OneHanded, CharacterAttribute.Strength, 0f);
+            SetPrivateField(loot, "_id", "sword");
+            MeleeAttackConfig attack = Create<MeleeAttackConfig>();
+            SetPrivateField(attack, "_targetLayerMask", new LayerMask { value = 1 });
+            SetPrivateField(loot.WeaponDefinition, "_primaryAttack", attack);
+            SetPrivateField(loot.WeaponDefinition, "_range", 1.5f);
+            Register("sword", loot);
+            LootDefinition gem = CreateLoot("Ruby", LootCategory.Resource);
+            SetPrivateField(gem, "_id", "ruby");
+            GemDefinition gemDefinition = Create<GemDefinition>();
+            SetPrivateField(gemDefinition, "_damageBonus", 5);
+            SetPrivateField(gem, "_gemDefinition", gemDefinition);
+            Register("ruby", gem);
+            LootDefinitionCatalog catalog = Create<LootDefinitionCatalog>();
+            SetPrivateField(catalog, "_definitions", new List<LootDefinition> { loot, gem });
+            SetPrivateField(catalog, "_isCacheDirty", true);
+            Assert.That(WeaponScalingModifier.TryCreate(CharacterAttribute.Strength, WeaponScalingGrade.S,
+                out var primary, out _), Is.True);
+            Assert.That(WeaponScalingModifier.TryCreate(CharacterAttribute.Vitality, WeaponScalingGrade.D,
+                out var secondary, out _), Is.True);
+            Assert.That(WeaponGemSocket.TryCreateOccupied(gem.LootId, out var occupied, out _), Is.True);
+            Assert.That(WeaponInstanceModifiers.TryCreate(primary, secondary, CharacterAttribute.Strength,
+                2, gemCount > 0 ? occupied : default, gemCount > 1 ? occupied : default,
+                out var modifiers, out _), Is.True);
+            var instance = new EquipmentInstance("0123456789abcdef01234567", modifiers);
+            var loadout = new PreparedEquipmentLoadout(loot.LootId, default, mainAInstance: instance);
+            CharacterAttributeState attributes = Attributes(strength: 20, vitality: 50);
+
+            TownCharacterStatisticsPresentation statistics = Build(attributes, loadout);
+            var tooltip = EquipmentTooltipPresentationBuilder.Build(loot, modifiers, attributes, catalog);
+
+            Assert.That(statistics.Weapons.Count, Is.EqualTo(1));
+            Assert.That(statistics.Weapons[0].EffectiveDamage, Is.EqualTo(expected));
+            Assert.That(tooltip.Status, Is.EqualTo(EquipmentTooltipPresentationStatus.FunctionalStatistics));
+            Assert.That(tooltip.Body, Does.Contain($"Daño efectivo: {statistics.Weapons[0].EffectiveDamage}"));
+            Assert.That(loadout.GetInstance(EquipmentSlot.WeaponSetAMainHand), Is.SameAs(instance));
+        }
+
+        [Test]
+        public void TryBuild_PlainInstancePreservesTemplateDamage()
+        {
+            LootDefinition loot = CreateWeaponLoot("Sword", 30f, DamageType.Physical,
+                WeaponHandedness.OneHanded, CharacterAttribute.Strength, 0.70f);
+            Register("sword", loot);
+            var plain = EquipmentInstance.PlainCache(loot);
+            var loadout = new PreparedEquipmentLoadout(new LootId("sword"), default, mainAInstance: plain);
+            Assert.That(Build(Attributes(strength: 20), loadout).Weapons[0].EffectiveDamage, Is.EqualTo(34f));
+        }
+
         [Test]
         public void TryBuild_WeaponWithScaling_UsesTheRuntimeDamageFormula()
         {
@@ -286,7 +341,7 @@ namespace Tests.EditMode.Presentation
                 CharacterAttribute.Strength, 0f));
             Register("bow", CreateWeaponLoot(
                 "Bow", 25f, DamageType.Physical, WeaponHandedness.TwoHanded,
-                CharacterAttribute.Dexterity, 0.5f));
+                CharacterAttribute.Dexterity, 0.55f));
             var loadout = new PreparedEquipmentLoadout(new LootId("sword"), new LootId("bow"));
 
             TownCharacterStatisticsPresentation result = Build(Attributes(dexterity: 20), loadout);

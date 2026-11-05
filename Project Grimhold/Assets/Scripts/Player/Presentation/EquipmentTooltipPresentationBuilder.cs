@@ -95,6 +95,20 @@ public static class EquipmentTooltipPresentationBuilder
             body.ToString());
     }
 
+    /// <summary>Town entry projection. An instance needs confirmed attributes, never a zero-value substitute.</summary>
+    public static EquipmentTooltipPresentation Build(
+        LootDefinition definition,
+        EquipmentInstance instance,
+        CharacterAttributeState? attributes,
+        LootDefinitionCatalog catalog)
+    {
+        if (definition == null || definition.Category != LootCategory.Weapon || instance == null)
+            return Build(definition);
+        if (!instance.Modifiers.HasValue || !attributes.HasValue)
+            return Invalid(ResolveTitle(definition));
+        return Build(definition, instance.Modifiers.Value, attributes.Value, catalog);
+    }
+
     private static EquipmentTooltipPresentation BuildWeapon(string title, WeaponDefinition weapon)
     {
         if (weapon == null || !weapon.TryValidate(out _))

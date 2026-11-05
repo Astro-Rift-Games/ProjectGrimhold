@@ -185,7 +185,13 @@ public sealed class RaidLootPanelPresenter
                 Debug.LogError($"{nameof(RaidLootPanelPresenter)} could not resolve metadata for loot '{entry.LootId.Value}'.", logContext);
             }
 
-            _slotData.Add(RaidInventorySlotData.Create(entry, definition, view.PlaceholderIcon));
+            // Town keeps physical entries (including duplicate templates) aligned with this projection.
+            // Raid/container reads have no Town instance or attributes and retain definition-only tooltips.
+            TownInventoryProjection town = content as TownInventoryProjection;
+            EquipmentInstance instance = town != null && i < town.PhysicalItems.Count
+                ? town.PhysicalItems[i].Instance : null;
+            _slotData.Add(RaidInventorySlotData.Create(entry, definition, view.PlaceholderIcon,
+                instance, town?.ConfirmedAttributes, catalog));
         }
 
         bool showEmpty = showEmptyState && content.Count == 0;

@@ -29,7 +29,12 @@ public sealed class EquipmentInstance : IEquatable<EquipmentInstance>
     public static EquipmentInstance PlainCache(LootDefinition definition)
     {
         if (definition.Category != LootCategory.Weapon) return new EquipmentInstance(null);
-        WeaponDefinition weapon = definition.WeaponDefinition;
+        return PlainCache(definition.WeaponDefinition);
+    }
+
+    /// <summary>Legacy/template projection only; never issues a durable identity.</summary>
+    public static EquipmentInstance PlainCache(WeaponDefinition weapon)
+    {
         WeaponScalingModifier primary = default;
         if (weapon != null && weapon.OffensiveScaling.HasScaling)
         {

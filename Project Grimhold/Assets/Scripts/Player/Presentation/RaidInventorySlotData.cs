@@ -13,6 +13,8 @@ public readonly struct RaidInventorySlotData
     public int Amount { get; }
     public bool UsesFallback { get; }
     public EquipmentTooltipPresentation Tooltip { get; }
+    /// <summary>Confirmed Town equipment only. Raid transport is deferred to T7.</summary>
+    public EquipmentInstance Instance { get; }
     // Nullable backing keeps default(struct) unaddressed without offsetting opaque revision tokens.
     private readonly int? _sourceInventorySlotIndex;
     private readonly int? _expectedInventoryRevision;
@@ -39,7 +41,8 @@ public readonly struct RaidInventorySlotData
         bool hasWeaponDefinition,
         int sourceInventorySlotIndex = -1,
         int expectedInventoryRevision = -1,
-        RaidLootOrigin? origin = null)
+        RaidLootOrigin? origin = null,
+        EquipmentInstance instance = null)
     {
         IsOccupied = isOccupied;
         LootId = lootId;
@@ -48,6 +51,7 @@ public readonly struct RaidInventorySlotData
         Amount = amount;
         UsesFallback = usesFallback;
         Tooltip = tooltip;
+        Instance = instance;
         Category = category;
         WeaponHandedness = weaponHandedness;
         HasWeaponDefinition = hasWeaponDefinition;
@@ -62,7 +66,7 @@ public readonly struct RaidInventorySlotData
     public RaidInventorySlotData WithDisplayName(string displayName) => new(
         IsOccupied, LootId, Icon, displayName, Amount, UsesFallback, Tooltip,
         Category, WeaponHandedness, HasWeaponDefinition,
-        SourceInventorySlotIndex, ExpectedInventoryRevision, Origin);
+        SourceInventorySlotIndex, ExpectedInventoryRevision, Origin, Instance);
 
     public static RaidInventorySlotData EmptyInventorySlot(int index, int revision) =>
         LootTransferRequest.IsValidInventorySlotAddress(index, revision)
@@ -85,7 +89,10 @@ public readonly struct RaidInventorySlotData
     public static RaidInventorySlotData Create(
         LootEntry entry,
         LootDefinition definition,
-        Sprite placeholder)
+        Sprite placeholder,
+        EquipmentInstance instance = null,
+        CharacterAttributeState? attributes = null,
+        LootDefinitionCatalog catalog = null)
     {
         if (!entry.IsValid)
         {
@@ -107,9 +114,10 @@ public readonly struct RaidInventorySlotData
             displayName,
             entry.Amount,
             definitionMissing || definition.Icon == null,
-            EquipmentTooltipPresentationBuilder.Build(definition),
+            EquipmentTooltipPresentationBuilder.Build(definition, instance, attributes, catalog),
             definitionMissing ? LootCategory.None : definition.Category,
             definition?.WeaponDefinition?.Handedness ?? WeaponHandedness.OneHanded,
-            definition?.WeaponDefinition != null);
+            definition?.WeaponDefinition != null,
+            instance: instance);
     }
 }

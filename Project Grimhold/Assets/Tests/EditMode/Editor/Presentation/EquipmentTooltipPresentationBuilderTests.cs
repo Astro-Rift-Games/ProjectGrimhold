@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Tests.EditMode.Presentation
@@ -18,6 +19,124 @@ namespace Tests.EditMode.Presentation
                 Object.DestroyImmediate(_createdObjects[index]);
             }
             _createdObjects.Clear();
+        }
+
+        [Test]
+        public void StashPresenter_ConfirmedInstancesReachStashLoadoutAndPreparedEquipment()
+        {
+            LootDefinition loot = CreateWeaponLoot("Espada", 0f);
+            SetPrivateField(loot, "_id", "sword");
+            LootDefinition gem = CreateGemLoot("RES_RUBY_GEM", "Ruby", 5);
+            LootDefinitionCatalog catalog = CreateCatalog(loot, gem);
+            var modifiers = CreateInstance(CharacterAttribute.Strength, WeaponScalingGrade.S,
+                CharacterAttribute.Strength, WeaponScalingGrade.None, 1, CreateGemSocket("RES_RUBY_GEM"), default);
+            var instance = new EquipmentInstance("0123456789abcdef01234567", modifiers);
+            var profile = new ProfileId("11111111111111111111111111111111");
+            var repository = new InMemoryLocalProfileRepository();
+            Assert.That(repository.Initialize(profile, catalog), Is.True);
+            LocalProfileSnapshot snapshot = repository.Snapshot.Clone();
+            snapshot.InventorySchemaVersion = 3;
+            snapshot.CharacterAttributes = CreateAttributes(20, 0);
+            snapshot.Stash.Add(new StashItem(loot.LootId, 1, 2,
+                new EquipmentInstance("0123456789abcdef01234568", modifiers)));
+            snapshot.Loadout.Add(new StashItem(loot.LootId, 1, 7,
+                new EquipmentInstance("0123456789abcdef01234569", modifiers)));
+            snapshot.PreparedEquipment = new PreparedEquipmentLoadout(loot.LootId, default, mainAInstance: instance);
+            Assert.That(repository.TrySave(snapshot, out _), Is.True);
+            var store = new LocalProfileStore(repository, profile, catalog);
+            var contextObject = new GameObject("Stash instance test context");
+            var context = contextObject.AddComponent<ApplicationStashContext>();
+            var stash = contextObject.AddComponent<InMemoryPlayerStashService>();
+            stash.Initialize(store);
+            var loadout = contextObject.AddComponent<InMemoryPlayerLoadoutService>();
+            loadout.Initialize(store);
+            context.Initialize(store, stash, loadout, null, null);
+            var parent = new GameObject("Stash instance test");
+            parent.SetActive(false);
+            LocalProfileProvider.SetRemoteCharacterId(profile);
+            try
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/UI/StashInventory.prefab");
+                Assert.That(prefab, Is.Not.Null);
+                var screen = Object.Instantiate(prefab, parent.transform);
+                var presenter = screen.GetComponent<LobbyStashPresenter>();
+                SetPrivateField(presenter, "_lootCatalog", catalog);
+                parent.SetActive(true);
+                screen.SetActive(true);
+                var ui = screen.GetComponent<LobbyStashUI>();
+                var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                // EditMode does not run ordinary MonoBehaviour lifecycle callbacks.
+                typeof(LobbyStashUI).GetMethod("Awake", flags).Invoke(ui, null);
+                typeof(LobbyStashPresenter).GetMethod("OnEnable", flags).Invoke(presenter, null);
+                var stashPanel = (RaidLootPanelView)typeof(LobbyStashUI).GetField("_stashPanel", flags).GetValue(ui);
+                var loadoutPanel = (RaidLootPanelView)typeof(LobbyStashUI).GetField("_loadoutPanel", flags).GetValue(ui);
+                var prepared = (RaidInventorySlotView)typeof(LobbyStashUI).GetField("_weaponSetAMainHandView", flags).GetValue(ui);
+                var cells = new[] { stashPanel.GetComponentsInChildren<RaidInventorySlotView>(true)[2],
+                    loadoutPanel.GetComponentsInChildren<RaidInventorySlotView>(true)[7], prepared };
+                foreach (var cell in cells)
+                {
+                    EquipmentTooltipPresentation shown = default;
+                    cell.TooltipRequested += (tooltip, _) => shown = tooltip;
+                    cell.OnPointerEnter(null);
+                    Assert.That(shown.Status, Is.EqualTo(EquipmentTooltipPresentationStatus.FunctionalStatistics));
+                    Assert.That(shown.Body, Does.Contain("Ranuras: 1 (Ruby)"));
+                    Assert.That(shown.Body, Does.Contain("Daño efectivo: 42"));
+                    cell.OnPointerExit(null);
+                }
+                Assert.That(store.GetStash()[0], Is.EqualTo(snapshot.Stash[0]));
+                Assert.That(store.GetLoadout()[0], Is.EqualTo(snapshot.Loadout[0]));
+                Assert.That(store.GetPreparedEquipment(), Is.EqualTo(snapshot.PreparedEquipment));
+                Assert.That(store.RemoteRevision, Is.EqualTo(snapshot.RemoteRevision));
+            }
+            finally
+            {
+                Object.DestroyImmediate(parent);
+                Object.DestroyImmediate(contextObject);
+                LocalProfileProvider.ClearRemoteCharacterId();
+            }
+        }
+
+        [Test]
+        public void TownSlot_KeepsInstanceAndTooltipThroughRenameWithoutInventingRaidMetadata()
+        {
+            var loot = CreateWeaponLoot("Sword", 0f);
+            SetPrivateField(loot, "_id", "sword");
+            var modifiers = CreateInstance(CharacterAttribute.Strength, WeaponScalingGrade.S,
+                CharacterAttribute.Strength, WeaponScalingGrade.None, 0, default, default);
+            var instance = new EquipmentInstance("0123456789abcdef01234567", modifiers);
+            var data = RaidInventorySlotData.Create(new LootEntry(loot.LootId, 1), loot, null,
+                instance, CreateAttributes(20, 0), null);
+            var renamed = data.WithDisplayName("Selected Sword");
+            Assert.That(data.Instance, Is.SameAs(instance));
+            Assert.That(renamed.Instance, Is.SameAs(instance));
+            Assert.That(renamed.Tooltip, Is.EqualTo(data.Tooltip));
+            Assert.That(renamed.Tooltip.Body, Does.Contain("Daño efectivo: 36"));
+            Assert.That(renamed.HasInventorySlotAddress, Is.False);
+            Assert.That(renamed.Origin, Is.Null);
+            Assert.That(renamed.Amount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void TownSlot_WithoutConfirmedAttributesDoesNotInventEffectiveDamage()
+        {
+            var loot = CreateWeaponLoot("Sword", 0f);
+            SetPrivateField(loot, "_id", "sword");
+            var instance = EquipmentInstance.PlainCache(loot);
+            var data = RaidInventorySlotData.Create(new LootEntry(loot.LootId, 1), loot, null, instance);
+            Assert.That(data.Instance, Is.SameAs(instance));
+            Assert.That(data.Tooltip.Status, Is.EqualTo(EquipmentTooltipPresentationStatus.InvalidEquipmentConfiguration));
+            Assert.That(data.Tooltip.Body, Does.Not.Contain("Daño efectivo"));
+        }
+
+        [Test]
+        public void Build_DefinitionOnlyMerchantOfferStillHasNoInstanceDamageOrSockets()
+        {
+            var loot = CreateWeaponLoot("Oferta", 0.70f);
+            var offer = EquipmentTooltipPresentationBuilder.Build(loot);
+            Assert.That(offer.Status, Is.EqualTo(EquipmentTooltipPresentationStatus.FunctionalStatistics));
+            Assert.That(offer.Body, Does.Contain("Escalado: FUE B"));
+            Assert.That(offer.Body, Does.Not.Contain("Daño efectivo"));
+            Assert.That(offer.Body, Does.Not.Contain("Ranuras"));
         }
 
         [TestCase(0.25f, "FUE E")]

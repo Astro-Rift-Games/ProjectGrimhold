@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-/// <summary>Canonical optional scaling slots and gem sockets owned by a future unique weapon instance.</summary>
+/// <summary>Canonical optional scaling slots and gem sockets owned by a unique weapon instance.</summary>
 [Serializable]
 public struct WeaponInstanceModifiers
 {

@@ -276,7 +276,7 @@ public class LobbyStashPresenter : MonoBehaviour
             _preparedProjection.Clear();
             for (int index = 0; index < slots.Length; index++)
             {
-                _preparedProjection.Add(MapPreparedUnit(prepared.Get(slots[index])));
+                _preparedProjection.Add(MapPreparedUnit(prepared.Get(slots[index]), prepared.GetInstance(slots[index])));
             }
 
             _stashUI.DisplayPreparedEquipment(
@@ -296,7 +296,8 @@ public class LobbyStashPresenter : MonoBehaviour
             while (result.Count <= item.Slot) result.Add(RaidInventorySlotData.Empty);
             LootDefinition definition = null;
             if (_lootCatalog != null) _lootCatalog.TryGet(item.LootId.Value, out definition);
-            var slot = RaidInventorySlotData.Create(new LootEntry(item.LootId, item.Amount), definition, ResolvePlaceholderIcon());
+            var slot = RaidInventorySlotData.Create(new LootEntry(item.LootId, item.Amount), definition,
+                ResolvePlaceholderIcon(), item.Instance, ReadConfirmedAttributes(), _lootCatalog);
             if (slot.IsOccupied && string.IsNullOrWhiteSpace(slot.DisplayName))
                 slot = slot.WithDisplayName(item.LootId.Value);
             result[item.Slot] = slot;
@@ -304,7 +305,7 @@ public class LobbyStashPresenter : MonoBehaviour
         return result;
     }
 
-    private RaidInventorySlotData MapPreparedUnit(LootId lootId)
+    private RaidInventorySlotData MapPreparedUnit(LootId lootId, EquipmentInstance instance)
     {
         if (!lootId.IsValid)
         {
@@ -316,8 +317,14 @@ public class LobbyStashPresenter : MonoBehaviour
         {
             _lootCatalog.TryGet(lootId.Value, out definition);
         }
-        return RaidInventorySlotData.Create(new LootEntry(lootId, 1), definition, ResolvePlaceholderIcon());
+        return RaidInventorySlotData.Create(new LootEntry(lootId, 1), definition,
+            ResolvePlaceholderIcon(), instance, ReadConfirmedAttributes(), _lootCatalog);
     }
+
+    private CharacterAttributeState? ReadConfirmedAttributes() =>
+        _context?.Store != null && _context.ProfileId == _localProfileId &&
+        _context.Store.TryGetCharacterAttributeState(out CharacterAttributeState attributes)
+            ? attributes : null;
 
     /// <summary>The fallback icon authored on the panels, used when a definition has no icon.</summary>
     private Sprite ResolvePlaceholderIcon() => _stashUI != null ? _stashUI.PlaceholderIcon : null;

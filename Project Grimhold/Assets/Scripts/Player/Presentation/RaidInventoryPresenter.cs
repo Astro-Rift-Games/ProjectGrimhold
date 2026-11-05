@@ -57,6 +57,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private IInventoryReadSource _inventorySource;
     private QuickSlotController _quickSlots;
     private IPreparedEquipmentReadSource _preparedEquipmentSource;
+    private Func<CharacterAttributeState?> _readTownAttributes;
     private ITownEquipmentMutationEndpoint _townEquipmentEndpoint;
     private PlayerLootReceiver _lootReceiver;
     private PlayerInputReader _inputReader;
@@ -224,7 +225,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         bool externallyHosted = false,
         QuickSlotController quickSlots = null,
         StashTransferCoordinator sortCoordinator = null,
-        Func<bool> canSort = null)
+        Func<bool> canSort = null,
+        Func<CharacterAttributeState?> readConfirmedAttributes = null)
     {
         Unbind();
 
@@ -240,6 +242,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _townSortCoordinator = sortCoordinator;
         _canSortTown = canSort;
         _preparedEquipmentSource = preparedEquipmentSource;
+        _readTownAttributes = readConfirmedAttributes;
         _townEquipmentEndpoint = equipmentEndpoint;
         _inputReader = inputReader;
         _townEquipActionProvider.Bind(equipmentEndpoint);
@@ -1247,7 +1250,9 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         }
 
         _lootCatalog.TryGet(entry.LootId.Value, out LootDefinition definition);
-        return RaidInventorySlotData.Create(entry, definition, null);
+        return RaidInventorySlotData.Create(entry, definition, null,
+            _isRaidBinding ? null : prepared.GetInstance(slot),
+            _isRaidBinding ? null : _readTownAttributes?.Invoke(), _lootCatalog);
     }
 
     private void OnDropTransportRejected(LootTransferTransportRejectionReason reason)
@@ -2038,6 +2043,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _downedReadOnly = false;
         _inventorySource = null;
         _preparedEquipmentSource = null;
+        _readTownAttributes = null;
         _townEquipmentEndpoint = null;
         _townEquipActionProvider.Bind(null);
         _lootReceiver = null;
