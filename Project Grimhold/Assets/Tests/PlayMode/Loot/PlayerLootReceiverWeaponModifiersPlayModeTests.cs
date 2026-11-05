@@ -277,6 +277,90 @@ namespace Tests.PlayMode.Loot
             });
         }
 
+        [UnityTest]
+        public IEnumerator AddressedUnitWithdrawal_TakesExactlyTheSelectedUnit()
+        {
+            NetworkLootContainer container = SpawnContainer(6, Array.Empty<LootEntry>());
+            LootTransferConfirmation confirmation = default;
+            yield return Execute(() =>
+            {
+                Assert.That(_receiver.TryInitializeRaidLoadout(LoadoutOf(_socketed, _scaled, 0),
+                    Participant(1), out string error), Is.True, error);
+                Deposit(container, 0);
+                Deposit(container, 1);
+                AssertUnit(container, 0, Sword, PlayerOrigin(1), _socketedData);
+                AssertUnit(container, 1, Sword, PlayerOrigin(1), _scaledData);
+                confirmation = Process(UnitWithdrawal(container, 1, _scaledData));
+            });
+
+            Assert.That(confirmation.Result.Success, Is.True, confirmation.Result.FailureReason.ToString());
+            Assert.That(confirmation.Result.TransferredAmount, Is.EqualTo(1));
+            AssertUnit(container, 0, Sword, PlayerOrigin(1), _socketedData);
+            Assert.That(container.TryGetWeaponUnit(1, out ContainerWeaponUnit taken), Is.True);
+            Assert.That(taken.IsEmpty, Is.True, "Only the addressed unit leaves the container.");
+            AssertModifiers(_receiver, 0, _scaledData);
+        }
+
+        [UnityTest]
+        public IEnumerator AddressedUnitWithdrawal_StaleModifiersRejectWithoutMutation()
+        {
+            NetworkLootContainer container = SpawnContainer(6, Array.Empty<LootEntry>());
+            LootTransferConfirmation confirmation = default;
+            int revision = 0;
+            yield return Execute(() =>
+            {
+                Assert.That(_receiver.TryInitializeRaidLoadout(LoadoutOf(_socketed, _scaled, 0),
+                    Participant(1), out string error), Is.True, error);
+                Deposit(container, 0);
+                revision = container.LootChangeSequence;
+                confirmation = Process(UnitWithdrawal(container, 0, _scaledData));
+            });
+
+            Assert.That(confirmation.Result.Success, Is.False);
+            Assert.That(confirmation.Result.FailureReason, Is.EqualTo(LootTransferFailureReason.ContainerUnavailable));
+            Assert.That(container.LootChangeSequence, Is.EqualTo(revision));
+            AssertUnit(container, 0, Sword, PlayerOrigin(1), _socketedData);
+            AssertModifiers(_receiver, 1, _scaledData);
+        }
+
+        [UnityTest]
+        public IEnumerator UnitAddress_OnADepositIsRejectedWithoutMutation()
+        {
+            NetworkLootContainer container = SpawnContainer(6, Array.Empty<LootEntry>());
+            LootTransferConfirmation confirmation = default;
+            yield return Execute(() =>
+            {
+                Assert.That(_receiver.TryInitializeRaidLoadout(LoadoutOf(_socketed, _scaled, 0),
+                    Participant(1), out string error), Is.True, error);
+                Assert.That(_catalog.TryGetIndex(Sword, out int swordIndex), Is.True);
+                confirmation = Process(LootTransferRequestIdentity.ForSourceUnit(1, _receiver.Id, container.Id, swordIndex,
+                    LootTransferQuantityMode.SingleUnit, 0, _socketedData));
+            });
+
+            Assert.That(confirmation.Result.Success, Is.False);
+            Assert.That(confirmation.Result.FailureReason, Is.EqualTo(LootTransferFailureReason.MissingAuthority));
+            Assert.That(container.GetLootAmount(Sword), Is.Zero);
+            AssertModifiers(_receiver, 0, _socketedData);
+        }
+
+        private LootTransferRequestIdentity UnitWithdrawal(NetworkLootContainer container, int unitIndex,
+            WeaponInstanceModifiersNetworkData expected)
+        {
+            Assert.That(_catalog.TryGetIndex(Sword, out int swordIndex), Is.True);
+            return LootTransferRequestIdentity.ForSourceUnit(1, container.Id, _receiver.Id, swordIndex,
+                LootTransferQuantityMode.SingleUnit, unitIndex, expected);
+        }
+
+        private LootTransferConfirmation Process(LootTransferRequestIdentity identity)
+        {
+            PlayerLootTransferNetworkController controller = _receiver.GetComponent<PlayerLootTransferNetworkController>();
+            SetField(controller, "_lootCatalog", _catalog);
+            MethodInfo process = controller.GetType().GetMethod("ProcessAuthoritativeRequest",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(process, Is.Not.Null);
+            return (LootTransferConfirmation)process.Invoke(controller, new object[] { identity });
+        }
+
         private NetworkLootContainer SpawnContainer(int slotCapacity, IReadOnlyList<LootEntry> content)
         {
             const string containerGuid = "2c19a78647c64b84a765ff0280706b7d";
@@ -295,6 +379,7 @@ namespace Tests.PlayMode.Loot
             Assert.That(initialized, Is.True);
             NetworkLootContainer container = instance.GetComponent<NetworkLootContainer>();
             Assert.That((bool)container.IsAvailable, Is.True);
+            Physics2D.SyncTransforms();
             return container;
         }
 

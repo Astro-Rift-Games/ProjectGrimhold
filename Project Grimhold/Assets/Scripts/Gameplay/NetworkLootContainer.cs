@@ -621,6 +621,13 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 
         LootTransferFailureReason failure =
             LootInventoryRules.ValidateExtraction(hasStack, currentAmount, request.RequestedAmount);
+        if (failure == LootTransferFailureReason.None && request.HasSourceUnitAddress)
+        {
+            if (!isWeapon || !request.IsValid) return LootTransferFailureReason.InvalidLoot;
+            // A stale address (taken or replaced unit) never substitutes another unit.
+            if (!TryGetAddressedUnit(request, index, out _)) return LootTransferFailureReason.ContainerUnavailable;
+        }
+
         // Several weapon units only move together as plain units; a modified unit moves alone.
         if (failure == LootTransferFailureReason.None && isWeapon && request.RequestedAmount > 1 &&
             CountWeaponUnits(index, plainOnly: true) < request.RequestedAmount)
@@ -854,6 +861,14 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         if (_raidOriginState == null || request.SourceId != Id || _lootCatalog == null ||
             !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex))
             return false;
+        if (request.HasSourceUnitAddress)
+        {
+            if (!IsWeapon(catalogIndex) || !TryGetAddressedUnit(request, catalogIndex, out ContainerWeaponUnit unit) ||
+                !RaidLootOriginTransfer.TryCreate(unit.Origin, 1, out transfer)) return false;
+            transfer = transfer.WithModifiers(unit.Modifiers);
+            return true;
+        }
+
         return IsWeapon(catalogIndex)
             ? TryResolveWeaponTransfer(catalogIndex, request.RequestedAmount, out transfer)
             : _raidOriginState.TryResolveTransfer(catalogIndex, request.RequestedAmount, out transfer);
@@ -893,7 +908,8 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 
         CommitExtractionQuantity(request);
         _raidOriginState.CommitExtraction(catalogIndex, transfer);
-        if (IsWeapon(catalogIndex) && !TryRemoveWeaponUnits(catalogIndex, transfer))
+        if (IsWeapon(catalogIndex) && !TryRemoveWeaponUnits(catalogIndex, transfer,
+                request.HasSourceUnitAddress ? request.SourceUnitIndex : -1))
         {
             FailExtractionCommitContract();
         }
@@ -1351,8 +1367,19 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         return true;
     }
 
-    /// <summary>Removes the lowest-address units matching each bucket's origin and the transfer's modifiers.</summary>
-    private bool TryRemoveWeaponUnits(int catalogIndex, RaidLootOriginTransfer transfer)
+    private bool TryGetAddressedUnit(in LootTransferRequest request, int catalogIndex, out ContainerWeaponUnit unit)
+    {
+        unit = default;
+        if (!LootTransferRequest.IsValidSourceUnitAddress(request.SourceUnitIndex)) return false;
+        unit = WeaponUnits[request.SourceUnitIndex];
+        return !unit.IsEmpty && unit.CatalogIndex == catalogIndex && unit.Modifiers.Equals(request.SourceUnitModifiers);
+    }
+
+    /// <summary>
+    /// Removes units matching each bucket's origin and the transfer's modifiers: the addressed unit
+    /// first when <paramref name="preferredIndex"/> holds a match, then the lowest addresses.
+    /// </summary>
+    private bool TryRemoveWeaponUnits(int catalogIndex, RaidLootOriginTransfer transfer, int preferredIndex = -1)
     {
         if (transfer == null) return false;
         NetworkArray<ContainerWeaponUnit> units = WeaponUnits;
@@ -1360,6 +1387,17 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         {
             RaidLootOriginBucket bucket = transfer.Buckets[bucketIndex];
             int remaining = bucket.Amount;
+            if (preferredIndex >= 0 && preferredIndex < MaxWeaponUnits && remaining > 0)
+            {
+                ContainerWeaponUnit preferred = units[preferredIndex];
+                if (!preferred.IsEmpty && preferred.CatalogIndex == catalogIndex && preferred.Origin == bucket.Origin &&
+                    preferred.Modifiers.Equals(transfer.Modifiers))
+                {
+                    units.Set(preferredIndex, default);
+                    remaining--;
+                }
+            }
+
             for (int index = 0; index < MaxWeaponUnits && remaining > 0; index++)
             {
                 ContainerWeaponUnit unit = units[index];

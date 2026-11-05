@@ -676,6 +676,7 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         if (request.DestinationId.Value == 0 || (receiving && request.DestinationId != Id)) return LootTransferFailureReason.DestinationNotFound;
         if (!request.LootId.IsValid || !LootTransferRequest.IsValidInventorySource(
             request.SourceInventorySlotIndex, request.ExpectedInventoryRevision)) return LootTransferFailureReason.InvalidLoot;
+        if (!receiving && request.HasSourceUnitAddress) return LootTransferFailureReason.InvalidLoot;
         // The token always belongs to SourceId, never to an incoming receiver.
         if (!receiving && request.HasInventorySlotAddress && request.ExpectedInventoryRevision != Revision)
             return LootTransferFailureReason.ContainerUnavailable;

@@ -12,7 +12,10 @@ public readonly struct LootTransferRequestIdentity : IEquatable<LootTransferRequ
     public LootTransferQuantityMode QuantityMode { get; }
     public int SourceInventorySlotIndex { get; }
     public int ExpectedInventoryRevision { get; }
+    public int SourceUnitIndex { get; }
+    public WeaponInstanceModifiersNetworkData SourceUnitModifiers { get; }
     public bool HasInventorySlotAddress => SourceInventorySlotIndex != -1 || ExpectedInventoryRevision != -1;
+    public bool HasSourceUnitAddress => SourceUnitIndex != -1;
 
     public LootTransferRequestIdentity(
         uint requestSequence,
@@ -35,12 +38,40 @@ public readonly struct LootTransferRequestIdentity : IEquatable<LootTransferRequ
     {
         SourceInventorySlotIndex = sourceInventorySlotIndex;
         ExpectedInventoryRevision = expectedInventoryRevision;
+        SourceUnitIndex = -1;
+        SourceUnitModifiers = default;
         RequestSequence = requestSequence;
         SourceId = sourceId;
         DestinationId = destinationId;
         CatalogIndex = catalogIndex;
         QuantityMode = quantityMode;
     }
+
+    private LootTransferRequestIdentity(
+        uint requestSequence,
+        EntityId sourceId,
+        EntityId destinationId,
+        int catalogIndex,
+        LootTransferQuantityMode quantityMode,
+        int sourceUnitIndex,
+        WeaponInstanceModifiersNetworkData sourceUnitModifiers,
+        bool _)
+        : this(requestSequence, sourceId, destinationId, catalogIndex, quantityMode)
+    {
+        SourceUnitIndex = sourceUnitIndex;
+        SourceUnitModifiers = sourceUnitModifiers;
+    }
+
+    /// <summary>A withdrawal of one addressed container weapon unit.</summary>
+    public static LootTransferRequestIdentity ForSourceUnit(
+        uint requestSequence,
+        EntityId sourceId,
+        EntityId destinationId,
+        int catalogIndex,
+        LootTransferQuantityMode quantityMode,
+        int sourceUnitIndex,
+        WeaponInstanceModifiersNetworkData sourceUnitModifiers) =>
+        new(requestSequence, sourceId, destinationId, catalogIndex, quantityMode, sourceUnitIndex, sourceUnitModifiers, true);
 
     public bool Equals(LootTransferRequestIdentity other) =>
         RequestSequence == other.RequestSequence &&
@@ -49,7 +80,9 @@ public readonly struct LootTransferRequestIdentity : IEquatable<LootTransferRequ
         CatalogIndex == other.CatalogIndex &&
         QuantityMode == other.QuantityMode &&
         SourceInventorySlotIndex == other.SourceInventorySlotIndex &&
-        ExpectedInventoryRevision == other.ExpectedInventoryRevision;
+        ExpectedInventoryRevision == other.ExpectedInventoryRevision &&
+        SourceUnitIndex == other.SourceUnitIndex &&
+        SourceUnitModifiers.Equals(other.SourceUnitModifiers);
 
     public override bool Equals(object obj) => obj is LootTransferRequestIdentity other && Equals(other);
 
@@ -63,7 +96,9 @@ public readonly struct LootTransferRequestIdentity : IEquatable<LootTransferRequ
             hashCode = (hashCode * 397) ^ CatalogIndex;
             hashCode = (hashCode * 397) ^ (int)QuantityMode;
             hashCode = (hashCode * 397) ^ SourceInventorySlotIndex;
-            return (hashCode * 397) ^ ExpectedInventoryRevision;
+            hashCode = (hashCode * 397) ^ ExpectedInventoryRevision;
+            hashCode = (hashCode * 397) ^ SourceUnitIndex;
+            return (hashCode * 397) ^ SourceUnitModifiers.PackedValue;
         }
     }
 

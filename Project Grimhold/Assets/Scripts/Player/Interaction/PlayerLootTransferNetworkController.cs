@@ -133,8 +133,19 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         TryRequestTransferCore(sourceId, destinationId, lootId, quantityMode,
             sourceInventorySlotIndex, expectedInventoryRevision);
 
+    /// <summary>
+    /// Requests exactly one addressed weapon unit from a container. The State Authority rejects the
+    /// request without mutation when that address no longer holds a unit with these modifiers.
+    /// </summary>
+    public bool TryRequestUnitTransfer(EntityId sourceId, EntityId destinationId, LootId lootId,
+        int sourceUnitIndex, WeaponInstanceModifiersNetworkData expectedModifiers) =>
+        LootTransferRequest.IsValidSourceUnitAddress(sourceUnitIndex) &&
+        TryRequestTransferCore(sourceId, destinationId, lootId, LootTransferQuantityMode.SingleUnit, -1, -1,
+            sourceUnitIndex, expectedModifiers);
+
     private bool TryRequestTransferCore(EntityId sourceId, EntityId destinationId, LootId lootId,
-        LootTransferQuantityMode quantityMode, int sourceInventorySlotIndex, int expectedInventoryRevision)
+        LootTransferQuantityMode quantityMode, int sourceInventorySlotIndex, int expectedInventoryRevision,
+        int sourceUnitIndex = -1, WeaponInstanceModifiersNetworkData expectedModifiers = default)
     {
         EntityId playerId = _character?.Id ?? default;
         bool playerIsSource = sourceId == playerId;
@@ -144,6 +155,7 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             destinationId.Value == 0 || sourceId == destinationId ||
             playerIsSource == playerIsDestination ||
             (sourceInventorySlotIndex != -1 && !playerIsSource) ||
+            (sourceUnitIndex != -1 && !playerIsDestination) ||
             !IsSupportedQuantityMode(quantityMode) ||
             (_extractionController != null && _extractionController.State == ExtractionState.Extracted) ||
             _lootCatalog == null || !_lootCatalog.TryGetIndex(lootId, out int catalogIndex))
@@ -152,10 +164,13 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         }
 
         LootTransferRequestIdentity identity;
-        bool created = sourceInventorySlotIndex == -1
-            ? _clientRequest.TryCreateCandidate(sourceId, destinationId, catalogIndex, quantityMode, out identity)
-            : _clientRequest.TryCreateCandidate(sourceId, destinationId, catalogIndex, quantityMode,
-                sourceInventorySlotIndex, expectedInventoryRevision, out identity);
+        bool created = sourceUnitIndex != -1
+            ? _clientRequest.TryCreateUnitCandidate(sourceId, destinationId, catalogIndex,
+                sourceUnitIndex, expectedModifiers, out identity)
+            : sourceInventorySlotIndex == -1
+                ? _clientRequest.TryCreateCandidate(sourceId, destinationId, catalogIndex, quantityMode, out identity)
+                : _clientRequest.TryCreateCandidate(sourceId, destinationId, catalogIndex, quantityMode,
+                    sourceInventorySlotIndex, expectedInventoryRevision, out identity);
         if (!created) return false;
 
         RpcInvokeInfo invokeInfo = RPC_RequestTransfer(
@@ -165,7 +180,9 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             (int)quantityMode,
             identity.RequestSequence,
             identity.SourceInventorySlotIndex,
-            identity.ExpectedInventoryRevision);
+            identity.ExpectedInventoryRevision,
+            identity.SourceUnitIndex,
+            identity.SourceUnitModifiers.PackedValue);
         if (!WasAccepted(invokeInfo, HasStateAuthority))
         {
             return false;
@@ -206,7 +223,9 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
                 (int)quantityMode,
                 requestSequence,
                 -1,
-                -1),
+                -1,
+                -1,
+                0),
             HasStateAuthority);
     }
 
@@ -303,6 +322,8 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         uint requestSequence,
         int sourceInventorySlotIndex,
         int expectedInventoryRevision,
+        int sourceUnitIndex,
+        int sourceUnitModifiers,
         RpcInfo info = default)
     {
         if (!HasStateAuthority || info.Source != Object.InputAuthority)
@@ -332,14 +353,24 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             return default;
         }
 
-        var identity = new LootTransferRequestIdentity(
-            requestSequence,
-            new EntityId(sourceIdValue),
-            new EntityId(destinationIdValue),
-            catalogIndex,
-            (LootTransferQuantityMode)quantityModeValue,
-            sourceInventorySlotIndex,
-            expectedInventoryRevision);
+        // A unit address never coexists with an Inventory address; ProcessAuthoritativeRequest rejects it.
+        var identity = sourceUnitIndex == -1
+            ? new LootTransferRequestIdentity(
+                requestSequence,
+                new EntityId(sourceIdValue),
+                new EntityId(destinationIdValue),
+                catalogIndex,
+                (LootTransferQuantityMode)quantityModeValue,
+                sourceInventorySlotIndex,
+                expectedInventoryRevision)
+            : LootTransferRequestIdentity.ForSourceUnit(
+                requestSequence,
+                new EntityId(sourceIdValue),
+                new EntityId(destinationIdValue),
+                catalogIndex,
+                (LootTransferQuantityMode)quantityModeValue,
+                sourceUnitIndex,
+                WeaponInstanceModifiersNetworkData.FromPacked(sourceUnitModifiers));
 
         LootTransferRequestState.Disposition disposition =
             _authoritativeRequests.TryEnqueue(identity, out LootTransferConfirmation cached);
@@ -475,6 +506,11 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         // An addressed source is always this authenticated actor's Inventory, never a container.
         if (identity.HasInventorySlotAddress && !isDeposit)
             return RejectedConfirmation(identity, tick, LootTransferFailureReason.MissingAuthority);
+        // A unit address always selects a container weapon unit for this actor to withdraw.
+        if (identity.HasSourceUnitAddress && (!isWithdrawal || identity.HasInventorySlotAddress))
+            return RejectedConfirmation(identity, tick, LootTransferFailureReason.MissingAuthority);
+        if (identity.HasSourceUnitAddress && !LootTransferRequest.IsValidSourceUnitAddress(identity.SourceUnitIndex))
+            return RejectedConfirmation(identity, tick, LootTransferFailureReason.InvalidLoot);
 
         EntityId containerId = isDeposit ? identity.DestinationId : identity.SourceId;
         if (!TryResolveContainer(containerId, out NetworkLootContainer container))
@@ -519,6 +555,12 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
         {
             quantityFailure = _lootReceiver.ResolveInventorySlotExtraction(identity.DestinationId, definition.LootId,
                 identity.QuantityMode, identity.SourceInventorySlotIndex, identity.ExpectedInventoryRevision, tick, out request);
+        }
+        else if (identity.HasSourceUnitAddress)
+        {
+            request = LootTransferRequest.ForSourceUnit(identity.SourceId, identity.DestinationId, definition.LootId,
+                tick, identity.SourceUnitIndex, identity.SourceUnitModifiers);
+            quantityFailure = LootTransferFailureReason.None;
         }
         else
         {
