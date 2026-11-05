@@ -25,6 +25,13 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     [Networked, Capacity(PhysicalSlotCount)]
     private NetworkArray<LootInventorySlot> LootInventory => default;
 
+    /// <summary>
+    /// Packed weapon modifiers per physical slot (ItemInstanceArchitecture section 6.3). Written only
+    /// together with <see cref="LootInventory"/>; empty for stacks, plain weapons and holes.
+    /// </summary>
+    [Networked, Capacity(PhysicalSlotCount)]
+    private NetworkArray<WeaponInstanceModifiersNetworkData> LootModifiers => default;
+
     [Networked] public int LootChangeSequence { get; private set; }
 
     private EntityRegistry _registry;
@@ -86,6 +93,15 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         if (slotIndex < 0 || slotIndex >= PhysicalSlotCount) return false;
         slot = LootInventory[slotIndex];
         return slot.IsEmpty || slot.IsValid;
+    }
+
+    /// <summary>Reads the packed weapon modifiers of one physical address without authority.</summary>
+    public bool TryGetInventorySlotModifiers(int slotIndex, out WeaponInstanceModifiersNetworkData modifiers)
+    {
+        modifiers = default;
+        if (slotIndex < 0 || slotIndex >= PhysicalSlotCount) return false;
+        modifiers = LootModifiers[slotIndex];
+        return true;
     }
 
     private void Awake()
@@ -202,27 +218,30 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     public void CommitReceive(in LootTransferRequest request)
     {
         Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
+        Span<WeaponInstanceModifiersNetworkData> modifiers = stackalloc WeaponInstanceModifiersNetworkData[PhysicalSlotCount];
         if (IsRaidLootOriginAware || ValidateReceive(request) != LootTransferFailureReason.None ||
-            !TryReadSlots(slots) || !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) ||
-            TryReceiveOrigin(slots, catalogIndex, RaidLootOrigin.Dungeon, request.RequestedAmount) != LootTransferFailureReason.None)
+            !TryReadState(slots, modifiers) || !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) ||
+            TryReceiveOrigin(slots, modifiers, catalogIndex, RaidLootOrigin.Dungeon, request.RequestedAmount, default) !=
+            LootTransferFailureReason.None)
         {
             FailCommitContract(nameof(CommitReceive));
             return;
         }
-        WriteSlots(slots);
+        WriteSlots(slots, modifiers);
     }
 
     public void CommitExtraction(in LootTransferRequest request)
     {
         Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
+        Span<WeaponInstanceModifiersNetworkData> modifiers = stackalloc WeaponInstanceModifiersNetworkData[PhysicalSlotCount];
         if (IsRaidLootOriginAware || ValidateExtraction(request) != LootTransferFailureReason.None ||
-            !TryReadSlots(slots) || !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) ||
-            !TryExtractInventoryRequest(slots, catalogIndex, request, null))
+            !TryReadState(slots, modifiers) || !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) ||
+            !TryExtractInventoryRequest(slots, modifiers, catalogIndex, request, null))
         {
             FailCommitContract(nameof(CommitExtraction));
             return;
         }
-        WriteSlots(slots);
+        WriteSlots(slots, modifiers);
     }
 
     public LootTransferFailureReason ValidateRaidLootOriginReceive(in LootTransferRequest request, RaidLootOriginTransfer transfer)
@@ -232,36 +251,39 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         if (!IsRaidLootOriginAware || !IsExactTransfer(transfer, request.RequestedAmount))
             return LootTransferFailureReason.ContainerUnavailable;
         Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
-        if (!TryReadSlots(slots) || !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex))
+        Span<WeaponInstanceModifiersNetworkData> modifiers = stackalloc WeaponInstanceModifiersNetworkData[PhysicalSlotCount];
+        if (!TryReadState(slots, modifiers) || !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex))
             return LootTransferFailureReason.ContainerUnavailable;
-        return TryReceiveTransfer(slots, catalogIndex, transfer);
+        return TryReceiveTransfer(slots, modifiers, catalogIndex, transfer);
     }
 
     public void CommitRaidLootReceive(in LootTransferRequest request, RaidLootOriginTransfer transfer)
     {
         Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
+        Span<WeaponInstanceModifiersNetworkData> modifiers = stackalloc WeaponInstanceModifiersNetworkData[PhysicalSlotCount];
         if (ValidateRaidLootOriginReceive(request, transfer) != LootTransferFailureReason.None ||
-            !TryReadSlots(slots) || !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) ||
-            TryReceiveTransfer(slots, catalogIndex, transfer) != LootTransferFailureReason.None)
+            !TryReadState(slots, modifiers) || !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) ||
+            TryReceiveTransfer(slots, modifiers, catalogIndex, transfer) != LootTransferFailureReason.None)
         {
             FailCommitContract(nameof(CommitRaidLootReceive));
             return;
         }
-        WriteSlots(slots);
+        WriteSlots(slots, modifiers);
     }
 
     public void CommitRaidLootExtraction(in LootTransferRequest request, RaidLootOriginTransfer transfer)
     {
         Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
+        Span<WeaponInstanceModifiersNetworkData> modifiers = stackalloc WeaponInstanceModifiersNetworkData[PhysicalSlotCount];
         if (!IsRaidLootOriginAware || ValidateExtraction(request) != LootTransferFailureReason.None ||
-            !IsExactTransfer(transfer, request.RequestedAmount) || !TryReadSlots(slots) ||
+            !IsExactTransfer(transfer, request.RequestedAmount) || !TryReadState(slots, modifiers) ||
             !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) ||
-            !TryExtractInventoryRequest(slots, catalogIndex, request, transfer))
+            !TryExtractInventoryRequest(slots, modifiers, catalogIndex, request, transfer))
         {
             FailCommitContract(nameof(CommitRaidLootExtraction));
             return;
         }
-        WriteSlots(slots);
+        WriteSlots(slots, modifiers);
     }
 
     /// <summary>
@@ -276,11 +298,12 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         if (IsExtractionLocked() || expectedInventoryRevision != Revision)
             return LootTransferFailureReason.ContainerUnavailable;
         Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
-        if (!TryReadSlots(slots)) return LootTransferFailureReason.ContainerUnavailable;
+        Span<WeaponInstanceModifiersNetworkData> modifiers = stackalloc WeaponInstanceModifiersNetworkData[PhysicalSlotCount];
+        if (!TryReadState(slots, modifiers)) return LootTransferFailureReason.ContainerUnavailable;
         LootTransferFailureReason failure = LootInventoryRules.TrySplit(
-            slots, sourceSlotIndex, splitAmount, destinationSlotIndex, _slotCapacity);
+            slots, modifiers, sourceSlotIndex, splitAmount, destinationSlotIndex, _slotCapacity);
         if (failure != LootTransferFailureReason.None) return failure;
-        WriteSlots(slots);
+        WriteSlots(slots, modifiers);
         return LootTransferFailureReason.None;
     }
 
@@ -300,8 +323,10 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
             Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
             if (!request.IsValid || request.ExpectedInventoryRevision != Revision || !TryReadSlots(slots) ||
                 ValidateAddressedSlot(slots, catalogIndex, request) != LootTransferFailureReason.None) return false;
-            return RaidLootOriginTransfer.TryCreate(slots[request.SourceInventorySlotIndex].Origin,
-                request.RequestedAmount, out transfer);
+            if (!RaidLootOriginTransfer.TryCreate(slots[request.SourceInventorySlotIndex].Origin,
+                request.RequestedAmount, out transfer)) return false;
+            transfer = transfer.WithModifiers(LootModifiers[request.SourceInventorySlotIndex]);
+            return true;
         }
         return TryResolveInventoryTransfer(catalogIndex, request.RequestedAmount, selectionOrder, out transfer);
     }
@@ -316,8 +341,15 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         Span<int> quantities = stackalloc int[OriginCount];
         quantities.Clear();
         if (!TryReadSlots(slots) || !TryGetTotal(slots, catalogIndex, out int total) || total < amount) return false;
-        foreach (LootInventorySlot slot in slots)
-            if (slot.IsValid && slot.CatalogIndex == catalogIndex) quantities[OriginIndex(slot.Origin)] += slot.Quantity;
+        bool isWeapon = IsWeapon(catalogIndex);
+        for (int index = 0; index < PhysicalSlotCount; index++)
+        {
+            LootInventorySlot slot = slots[index];
+            // Several weapon units can only move as plain units; one unit carries its own modifiers.
+            if (!slot.IsValid || slot.CatalogIndex != catalogIndex ||
+                (isWeapon && amount > 1 && !LootModifiers[index].IsEmpty)) continue;
+            quantities[OriginIndex(slot.Origin)] += slot.Quantity;
+        }
         Span<int> selected = stackalloc int[OriginCount];
         selected.Clear();
         int remaining = amount;
@@ -331,11 +363,24 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
             remaining -= taken;
             if (taken > 0) count++;
         }
+        if (remaining > 0) return false;
         var buckets = new RaidLootOriginBucket[count];
         int destination = 0;
         for (int index = 0; index < OriginCount; index++)
             if (selected[index] > 0) buckets[destination++] = new RaidLootOriginBucket(OriginAt(index), selected[index]);
-        transfer = new RaidLootOriginTransfer(buckets);
+        WeaponInstanceModifiersNetworkData unitModifiers = default;
+        if (isWeapon && amount == 1)
+        {
+            // The first unit of the selected origin is the one extraction removes.
+            for (int index = 0; index < PhysicalSlotCount; index++)
+            {
+                LootInventorySlot slot = slots[index];
+                if (!slot.IsValid || slot.CatalogIndex != catalogIndex || slot.Origin != buckets[0].Origin) continue;
+                unitModifiers = LootModifiers[index];
+                break;
+            }
+        }
+        transfer = new RaidLootOriginTransfer(buckets, unitModifiers);
         return true;
     }
 
@@ -367,21 +412,24 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         if (!HasStateAuthority || IsExtractionLocked() || !IsRaidLootOriginAware || incoming == null ||
             origins == null || incoming.Count != origins.Count) return false;
         Span<LootInventorySlot> slots = stackalloc LootInventorySlot[PhysicalSlotCount];
-        if (!TryReadSlots(slots)) return false;
+        Span<WeaponInstanceModifiersNetworkData> modifiers = stackalloc WeaponInstanceModifiersNetworkData[PhysicalSlotCount];
+        if (!TryReadState(slots, modifiers)) return false;
         if (outgoing.HasValue)
         {
             LootTransferRequest request = outgoing.Value;
             if (ValidateExtraction(request) != LootTransferFailureReason.None ||
                 !IsExactTransfer(transfer, request.RequestedAmount) ||
                 !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) ||
-                !TryExtractInventoryRequest(slots, catalogIndex, request, transfer)) return false;
+                !TryExtractInventoryRequest(slots, modifiers, catalogIndex, request, transfer)) return false;
         }
         for (int index = 0; index < incoming.Count; index++)
         {
             if (!incoming[index].HasValue) continue;
             LootEntry entry = incoming[index].Value;
             if (!entry.IsValid || !_lootCatalog.TryGetIndex(entry.LootId, out int incomingIndex) ||
-                TryReceiveOrigin(slots, incomingIndex, origins[index], entry.Amount) != LootTransferFailureReason.None)
+                !TryEncodeModifiers(entry, out WeaponInstanceModifiersNetworkData incomingModifiers) ||
+                TryReceiveOrigin(slots, modifiers, incomingIndex, origins[index], entry.Amount, incomingModifiers) !=
+                LootTransferFailureReason.None)
                 return false;
         }
         return true;
@@ -533,13 +581,17 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         }
         if (!RaidLoadoutRules.TryValidate(entries, _lootCatalog, _slotCapacity, out error)) return false;
         Span<LootInventorySlot> planned = stackalloc LootInventorySlot[PhysicalSlotCount];
+        Span<WeaponInstanceModifiersNetworkData> plannedModifiers = stackalloc WeaponInstanceModifiersNetworkData[PhysicalSlotCount];
         planned.Clear();
+        plannedModifiers.Clear();
         // Build and validate the complete physical loadout before writing any quantity/origin.
         for (int index = 0; index < entries.Count; index++)
         {
             LootEntry entry = entries[index];
             if (!_lootCatalog.TryGetIndex(entry.LootId, out int catalogIndex) ||
-                TryReceiveOrigin(planned, catalogIndex, origin, entry.Amount) != LootTransferFailureReason.None)
+                !TryEncodeModifiers(entry, out WeaponInstanceModifiersNetworkData entryModifiers) ||
+                TryReceiveOrigin(planned, plannedModifiers, catalogIndex, origin, entry.Amount, entryModifiers) !=
+                LootTransferFailureReason.None)
             {
                 error = "Loadout exceeds physical stack capacity or item transport limits.";
                 return false;
@@ -553,7 +605,7 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
             error = "Player loot inventory was already initialized.";
             return false;
         }
-        WriteSlots(planned, advanceIfUnchanged: replace);
+        WriteSlots(planned, plannedModifiers, advanceIfUnchanged: replace);
         return true;
     }
 
@@ -635,24 +687,58 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         return true;
     }
 
-    private LootTransferFailureReason TryReceiveOrigin(Span<LootInventorySlot> slots, int catalogIndex, RaidLootOrigin origin, int amount)
+    /// <summary>
+    /// Receives one quantity with its modifiers. Weapon units are individual: several units can only
+    /// arrive as plain weapons, one unit at a time; modifiers on non-weapons are rejected.
+    /// </summary>
+    private LootTransferFailureReason TryReceiveOrigin(Span<LootInventorySlot> slots,
+        Span<WeaponInstanceModifiersNetworkData> modifiers, int catalogIndex, RaidLootOrigin origin, int amount,
+        WeaponInstanceModifiersNetworkData incoming)
     {
         if (catalogIndex < 0 || catalogIndex >= MaxCatalogEntries ||
             !_lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition)) return LootTransferFailureReason.InvalidLoot;
-        return LootInventoryRules.TryReceive(slots, catalogIndex, origin, definition.StackMax,
-            definition.MaxTransportable, amount, _slotCapacity);
-    }
-
-    private LootTransferFailureReason TryReceiveTransfer(Span<LootInventorySlot> slots, int catalogIndex, RaidLootOriginTransfer transfer)
-    {
-        for (int index = 0; index < transfer.Count; index++)
+        bool isWeapon = definition.Category == LootCategory.Weapon;
+        if (!isWeapon || amount <= 1)
+            return LootInventoryRules.TryReceive(slots, modifiers, catalogIndex, origin, definition.StackMax,
+                definition.MaxTransportable, amount, isWeapon, incoming, _slotCapacity);
+        if (!incoming.IsEmpty) return LootTransferFailureReason.InvalidLoot;
+        for (int unit = 0; unit < amount; unit++)
         {
-            RaidLootOriginBucket bucket = transfer.Buckets[index];
-            LootTransferFailureReason failure = TryReceiveOrigin(slots, catalogIndex, bucket.Origin, bucket.Amount);
+            LootTransferFailureReason failure = LootInventoryRules.TryReceive(slots, modifiers, catalogIndex, origin,
+                definition.StackMax, definition.MaxTransportable, 1, true, default, _slotCapacity);
             if (failure != LootTransferFailureReason.None) return failure;
         }
         return LootTransferFailureReason.None;
     }
+
+    private LootTransferFailureReason TryReceiveTransfer(Span<LootInventorySlot> slots,
+        Span<WeaponInstanceModifiersNetworkData> modifiers, int catalogIndex, RaidLootOriginTransfer transfer)
+    {
+        if (!transfer.Modifiers.IsEmpty && (transfer.Count != 1 || transfer.Buckets[0].Amount != 1))
+            return LootTransferFailureReason.InvalidLoot;
+        for (int index = 0; index < transfer.Count; index++)
+        {
+            RaidLootOriginBucket bucket = transfer.Buckets[index];
+            LootTransferFailureReason failure = TryReceiveOrigin(slots, modifiers, catalogIndex, bucket.Origin,
+                bucket.Amount, transfer.Modifiers);
+            if (failure != LootTransferFailureReason.None) return failure;
+        }
+        return LootTransferFailureReason.None;
+    }
+
+    private bool TryEncodeModifiers(in LootEntry entry, out WeaponInstanceModifiersNetworkData data)
+    {
+        data = default;
+        if (!entry.Modifiers.HasValue) return true;
+        return _lootCatalog.TryGet(entry.LootId.Value, out LootDefinition definition) &&
+            definition.WeaponDefinition != null &&
+            WeaponInstanceModifiersNetworkData.TryCreate(entry.Modifiers.Value,
+                definition.WeaponDefinition.NaturalScalingAttribute, _lootCatalog, out data, out _);
+    }
+
+    private bool IsWeapon(int catalogIndex) =>
+        _lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition) &&
+        definition.Category == LootCategory.Weapon;
 
     private static LootTransferFailureReason ValidateAddressedSlot(ReadOnlySpan<LootInventorySlot> slots,
         int catalogIndex, in LootTransferRequest request)
@@ -665,42 +751,55 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
             ? LootTransferFailureReason.InsufficientAmount : LootTransferFailureReason.None;
     }
 
-    private static bool TryExtractInventoryRequest(Span<LootInventorySlot> slots, int catalogIndex,
+    private bool TryExtractInventoryRequest(Span<LootInventorySlot> slots,
+        Span<WeaponInstanceModifiersNetworkData> modifiers, int catalogIndex,
         in LootTransferRequest request, RaidLootOriginTransfer transfer)
     {
+        WeaponInstanceModifiersNetworkData unit = transfer?.Modifiers ?? default;
         if (!request.HasInventorySlotAddress)
             return transfer == null
-                ? TryExtractOrigin(slots, catalogIndex, RaidLootOrigin.Dungeon, request.RequestedAmount)
-                : TryExtractTransfer(slots, catalogIndex, transfer);
+                ? TryExtractOrigin(slots, modifiers, catalogIndex, RaidLootOrigin.Dungeon, request.RequestedAmount, unit)
+                : TryExtractTransfer(slots, modifiers, catalogIndex, transfer);
         if (!LootTransferRequest.IsValidInventorySlotAddress(request.SourceInventorySlotIndex, request.ExpectedInventoryRevision) ||
             ValidateAddressedSlot(slots, catalogIndex, request) != LootTransferFailureReason.None) return false;
         LootInventorySlot selected = slots[request.SourceInventorySlotIndex];
         if (transfer != null && (transfer.Count != 1 || transfer.Buckets[0].Origin != selected.Origin ||
-            transfer.Buckets[0].Amount != request.RequestedAmount)) return false;
-        return LootInventoryRules.TryExtract(slots, request.SourceInventorySlotIndex, request.RequestedAmount) ==
+            transfer.Buckets[0].Amount != request.RequestedAmount ||
+            !transfer.Modifiers.Equals(modifiers[request.SourceInventorySlotIndex]))) return false;
+        return LootInventoryRules.TryExtract(slots, modifiers, request.SourceInventorySlotIndex, request.RequestedAmount) ==
             LootTransferFailureReason.None;
     }
 
-    private static bool TryExtractOrigin(Span<LootInventorySlot> slots, int catalogIndex, RaidLootOrigin origin, int amount)
+    /// <summary>
+    /// Removes an origin's quantity in address order. For weapons, only units whose modifiers match
+    /// the resolved unit are removed, so a modified weapon is never consumed in place of another.
+    /// </summary>
+    private bool TryExtractOrigin(Span<LootInventorySlot> slots, Span<WeaponInstanceModifiersNetworkData> modifiers,
+        int catalogIndex, RaidLootOrigin origin, int amount, WeaponInstanceModifiersNetworkData unit)
     {
+        bool isWeapon = IsWeapon(catalogIndex);
+        if (!isWeapon && !unit.IsEmpty) return false;
         int remaining = amount;
         for (int index = 0; index < slots.Length && remaining > 0; index++)
         {
             LootInventorySlot slot = slots[index];
-            if (!slot.IsValid || slot.CatalogIndex != catalogIndex || slot.Origin != origin) continue;
+            if (!slot.IsValid || slot.CatalogIndex != catalogIndex || slot.Origin != origin ||
+                (isWeapon && !modifiers[index].Equals(unit))) continue;
             int taken = Math.Min(remaining, slot.Quantity);
-            if (LootInventoryRules.TryExtract(slots, index, taken) != LootTransferFailureReason.None) return false;
+            if (LootInventoryRules.TryExtract(slots, modifiers, index, taken) != LootTransferFailureReason.None) return false;
             remaining -= taken;
         }
         return remaining == 0;
     }
 
-    private static bool TryExtractTransfer(Span<LootInventorySlot> slots, int catalogIndex, RaidLootOriginTransfer transfer)
+    private bool TryExtractTransfer(Span<LootInventorySlot> slots, Span<WeaponInstanceModifiersNetworkData> modifiers,
+        int catalogIndex, RaidLootOriginTransfer transfer)
     {
         for (int index = 0; index < transfer.Count; index++)
         {
             RaidLootOriginBucket bucket = transfer.Buckets[index];
-            if (!TryExtractOrigin(slots, catalogIndex, bucket.Origin, bucket.Amount)) return false;
+            if (!TryExtractOrigin(slots, modifiers, catalogIndex, bucket.Origin, bucket.Amount, transfer.Modifiers))
+                return false;
         }
         return true;
     }
@@ -732,15 +831,38 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         return sum <= int.MaxValue;
     }
 
-    private void WriteSlots(ReadOnlySpan<LootInventorySlot> slots, bool advanceIfUnchanged = false)
+    private bool TryReadState(Span<LootInventorySlot> slots, Span<WeaponInstanceModifiersNetworkData> modifiers)
+    {
+        if (!TryReadSlots(slots)) return false;
+        for (int index = 0; index < PhysicalSlotCount; index++)
+        {
+            WeaponInstanceModifiersNetworkData unit = LootModifiers[index];
+            // Stored modifiers must belong to one weapon unit; anything else is corrupted lockstep.
+            if (!unit.IsEmpty && (!slots[index].IsValid || slots[index].Quantity != 1 ||
+                !IsWeapon(slots[index].CatalogIndex))) return false;
+            modifiers[index] = unit;
+        }
+        return true;
+    }
+
+    private void WriteSlots(ReadOnlySpan<LootInventorySlot> slots, ReadOnlySpan<WeaponInstanceModifiersNetworkData> modifiers,
+        bool advanceIfUnchanged = false)
     {
         bool changed = false;
         NetworkArray<LootInventorySlot> inventory = LootInventory;
+        NetworkArray<WeaponInstanceModifiersNetworkData> slotModifiers = LootModifiers;
         for (int index = 0; index < PhysicalSlotCount; index++)
         {
-            if (inventory[index] == slots[index]) continue;
-            inventory.Set(index, slots[index]);
-            changed = true;
+            if (inventory[index] != slots[index])
+            {
+                inventory.Set(index, slots[index]);
+                changed = true;
+            }
+            if (!slotModifiers[index].Equals(modifiers[index]))
+            {
+                slotModifiers.Set(index, modifiers[index]);
+                changed = true;
+            }
         }
         if (changed || advanceIfUnchanged) LootChangeSequence++;
     }
@@ -748,8 +870,10 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     private void ClearSlots()
     {
         Span<LootInventorySlot> empty = stackalloc LootInventorySlot[PhysicalSlotCount];
+        Span<WeaponInstanceModifiersNetworkData> emptyModifiers = stackalloc WeaponInstanceModifiersNetworkData[PhysicalSlotCount];
         empty.Clear();
-        WriteSlots(empty);
+        emptyModifiers.Clear();
+        WriteSlots(empty, emptyModifiers);
     }
 
     private static int OriginIndex(RaidLootOrigin origin) => origin.IsDungeon ? 0 : origin.PlayerParticipantId.Value;
