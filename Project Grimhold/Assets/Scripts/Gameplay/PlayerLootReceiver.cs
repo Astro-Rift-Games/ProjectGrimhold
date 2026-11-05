@@ -384,6 +384,20 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         return true;
     }
 
+    /// <summary>Finds the origin of the first unit of a template that carries exactly these modifiers.</summary>
+    internal bool TryFindInventoryUnit(int catalogIndex, WeaponInstanceModifiersNetworkData modifiers, out RaidLootOrigin origin)
+    {
+        origin = default;
+        for (int index = 0; index < PhysicalSlotCount; index++)
+        {
+            LootInventorySlot slot = LootInventory[index];
+            if (!slot.IsValid || slot.CatalogIndex != catalogIndex || !LootModifiers[index].Equals(modifiers)) continue;
+            origin = slot.Origin;
+            return true;
+        }
+        return false;
+    }
+
     /// <summary>
     /// Preflights the complete equipment exchange on stack-local storage. Container equip
     /// passes no outgoing Inventory item; addressed equip removes only its selected physical unit.
