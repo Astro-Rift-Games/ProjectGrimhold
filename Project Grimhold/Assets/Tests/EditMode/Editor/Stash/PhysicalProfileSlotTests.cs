@@ -114,7 +114,7 @@ public sealed class PhysicalProfileSlotTests
         snapshot.Stash.Add(new StashItem(Bone, 3, 7));
         snapshot.Stash.Add(new StashItem(new LootId("healthpotion"), 4, 11));
         snapshot.Loadout.Add(new StashItem(Bone, 5, 9));
-        string json = LocalProfileSaveCodec.Encode(snapshot).Replace("\"schemaVersion\": 10", "\"schemaVersion\": 9");
+        string json = LocalProfileSaveCodec.Encode(snapshot).Replace($"\"schemaVersion\": {LocalProfileSnapshot.CurrentSchemaVersion}", "\"schemaVersion\": 9");
         Assert.That(LocalProfileSaveCodec.TryDecode(json, id, Catalog, out var decoded, out _, out var error), Is.True, error);
         Assert.That(decoded.Stash, Is.EqualTo(new[] { new StashItem(Bone, 3, 0), new StashItem(new LootId("healthpotion"), 4, 1) }));
         Assert.That(decoded.Loadout.Single(), Is.EqualTo(new StashItem(Bone, 5, 0)));
@@ -122,7 +122,7 @@ public sealed class PhysicalProfileSlotTests
             out var roundTrip, out _, out error), Is.True, error);
         Assert.That(roundTrip.Stash, Is.EqualTo(decoded.Stash));
         Assert.That(decoded.InventorySchemaVersion, Is.EqualTo(1));
-        json = json.Replace("\"schemaVersion\": 9", "\"schemaVersion\": 11");
+        json = json.Replace("\"schemaVersion\": 9", $"\"schemaVersion\": {LocalProfileSnapshot.CurrentSchemaVersion + 1}");
         Assert.That(LocalProfileSaveCodec.TryDecode(json, id, Catalog, out _, out var status, out _), Is.False);
         Assert.That(status, Is.EqualTo(LocalProfilePersistenceStatus.UnsupportedVersion));
     }

@@ -2,6 +2,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
+using Newtonsoft.Json;
 
 namespace Grimhold.Backend
 {
@@ -21,12 +22,23 @@ namespace Grimhold.Backend
 
     public static class InventoryClient
     {
+        /// <summary>Installs one gem remotely; callers must confirm before invoking and apply only the returned snapshot.</summary>
+        public static Task<(bool success, MoveItemResult data, BackendError error)> InstallGemAsync(
+            BackendConfiguration config, string token, InstallGemRequest body)
+        {
+            if (!EquipmentInstance.IsValidId(body.instanceId))
+                return Task.FromResult((false, default(MoveItemResult), new BackendError
+                    { error = "INSTANCE_MISMATCH", message = "A backend-issued weapon instance is required." }));
+            return PostJson<InstallGemRequest, MoveItemResult>(config, token,
+                $"{config.BaseUrl}/character/me/inventory/gems/install", body);
+        }
+
         public static Task<(bool success, MoveItemResult data, BackendError error)> OrderSlotsAsync(
             BackendConfiguration config, string token, InventorySlotOrderRequest body) =>
             PutJson<InventorySlotOrderRequest, MoveItemResult>(config, token,
                 $"{config.BaseUrl}/character/me/inventory/order", body);
 
-        /// <summary>Splits one v2 stack in place; the shared POST path sends protocol header 2.</summary>
+        /// <summary>Splits one v2/v3 stack in place; the shared POST path sends minimum protocol header 3.</summary>
         public static Task<(bool success, MoveItemResult data, BackendError error)> SplitSlotAsync(
             BackendConfiguration config, string token, InventorySlotSplitRequest body) =>
             PostJson<InventorySlotSplitRequest, MoveItemResult>(config, token,
@@ -259,7 +271,7 @@ namespace Grimhold.Backend
         private static async Task<(bool success, TResult data, BackendError error)>
             PutJson<TRequest, TResult>(BackendConfiguration config, string token, string url, TRequest body)
         {
-            var json = JsonUtility.ToJson(body);
+            var json = InventoryRequestJson.Encode(body);
             using var request = InventoryProtocol.Create(url, "PUT");
             request.uploadHandler   = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(json));
             request.downloadHandler = new DownloadHandlerBuffer();
@@ -277,8 +289,15 @@ namespace Grimhold.Backend
         {
             if (request.result == UnityWebRequest.Result.Success)
             {
-                var result = JsonUtility.FromJson<T>(request.downloadHandler.text);
-                return (true, result, default);
+                try
+                {
+                    var result = JsonConvert.DeserializeObject<T>(request.downloadHandler.text);
+                    return (true, result, default);
+                }
+                catch (JsonException)
+                {
+                    return (false, default, new BackendError { error = "INVALID_INVENTORY", message = "Invalid inventory response." });
+                }
             }
 
             var err = ParseError(request);

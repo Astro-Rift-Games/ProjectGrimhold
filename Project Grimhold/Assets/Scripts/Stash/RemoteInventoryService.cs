@@ -77,7 +77,7 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, IS
         await _mutationLock.WaitAsync();
         try
         {
-            if (_store == null || _store.InventorySchemaVersion != 2)
+            if (_store == null || _store.InventorySchemaVersion < 2 || _store.InventorySchemaVersion > 3)
                 return (false, new BackendError { error = "INVENTORY_MIGRATION_REQUIRED", message = "Inventory migration required" });
             var (success, data, error) = await operation();
             if (!success && error.error == BackendErrorUtility.Unauthorized)
@@ -188,7 +188,9 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, IS
         await _mutationLock.WaitAsync();
         try
         {
-            int expectedRevision = _store?.RemoteRevision ?? 0;
+            if (_store == null || _store.RequiresEquipmentHydration)
+                return (false, new BackendError { error = "INVENTORY_MIGRATION_REQUIRED", message = "Equipment hydration required" });
+            int expectedRevision = _store.RemoteRevision;
             var request = new UpdatePreparedEquipmentRequest
             {
                 weaponSlot1 = equipment.WeaponSetAMainHand.IsValid ? equipment.WeaponSetAMainHand.Value : "",
@@ -201,6 +203,8 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, IS
                 offHand2    = equipment.WeaponSetBOffHand.IsValid ? equipment.WeaponSetBOffHand.Value : ""
             };
 
+            if (_store.InventorySchemaVersion == 3)
+                request.instanceEquipment = PreparedEquipmentData.FromLoadout(equipment);
             var (success, result, error) = await InventoryClient.UpdatePreparedEquipmentAsync(_backendConfig, AuthToken, request, expectedRevision);
             if (!success && error.error == BackendErrorUtility.Unauthorized)
             {

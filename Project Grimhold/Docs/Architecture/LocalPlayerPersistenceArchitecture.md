@@ -72,8 +72,11 @@ Codec v10 introduced physical `slot` positions and the separate backend `invento
 earlier decode assigns list indices as slots (including reservation items), retains the earlier
 schema-specific migrations and marks inventory as version 1. Local decode never migrates the backend.
 A v10 equipment stack decodes into plain instances without IDs only as transient cache state until
-backend hydration; legacy equipment-ownership repair never runs on v11. Whether any local-first
-Town path must be blocked until that hydration remains an open F2 check (Item Instances §9).
+backend hydration; legacy equipment-ownership repair never runs on v11. Cache-only initialization
+(including Editor domain reload) can publish the Store without backend hydration. Decoding schemas 1–10 therefore sets `RequiresEquipmentHydration`, preserved by subsequent
+v11 cache saves until an inventory hydration succeeds. Local Equip/Unequip, Stash Equip and remote
+prepared-equipment updates reject while it is set; gem install requires a backend-issued instance ID.
+Unity never synthesizes IDs for those transient entries (Item Instances §9).
 Pending extraction preserves per-unit modifiers. Older builds reject unsupported future cache
 versions as `UnsupportedVersion`; backend hydration remains authoritative.
 The atomic operation's boolean result is the acceptance boundary, not a claim of filesystem flush durability.
@@ -208,23 +211,27 @@ read repairs aliases, merges, migrates, increments revision or saves.
 
 The following v1/v2 protocol and gate notes describe the preceding physical-slot rollout; they do
 not authorize v2 data for instance-aware flows. Existing gate rules otherwise remain unchanged
-under Item Instances §4.1. This contract does not assign a new wire-protocol header value.
+under Item Instances §4.1. The header advertises minimum compatible capability: instance-capable
+Unity clients always send `3`, including before hydration, and select v2/v3 data behavior from
+`inventorySchemaVersion`. The v2 gate accepts `2` or `3`; the instance gate requires `3` and schema 3.
 
 Gate-off v1 retains lootId operations, but rejects ambiguous legacy duplicates rather than
 repairing them. Slot input on v1 rejects `409 INVENTORY_MIGRATION_REQUIRED`; v2 move/sell without
 `sourceSlot`, or order without `slotOrder`/with `lootIds`, rejects `409 INVENTORY_SLOT_ADDRESS_REQUIRED`.
 
-Unity backend clients send `X-Grimhold-Inventory-Protocol: 2`, including host calls.
-`INVENTORY_PROTOCOL_GATE` defaults off (header ignored); only `true` enforces protocol 2.
-On protected routes a missing/different header rejects `426 CLIENT_UPGRADE_REQUIRED` before body
-validation; a correct header with a non-v2 character rejects `409 INVENTORY_MIGRATION_REQUIRED`.
+Unity backend clients send `X-Grimhold-Inventory-Protocol: 3`, including host calls.
+`INVENTORY_PROTOCOL_GATE` defaults off; when true it accepts protocol 2 or 3 and schema 2 or 3.
+`INVENTORY_INSTANCE_PROTOCOL_GATE` takes precedence when true and requires protocol 3 and schema 3.
+On protected routes a missing/unsupported header rejects `426 CLIENT_UPGRADE_REQUIRED` before body
+validation; a compatible header with an unmigrated character rejects `409 INVENTORY_MIGRATION_REQUIRED`.
 Protection covers inventory reads/writes, prepared Equipment, reservations, extraction publish/commit,
 Raid admission ticket/verification and character creation, including the target participant/recipient
 checks. Metadata-only `GET /character/me` and `/me/profile`, profile edits, ability purchase,
 progression commit and Town tickets do not rewrite lists and are exempt. Debug/legacy extraction
 routes remain unavailable in production, regardless of header. Split has a separate default-off
 `INVENTORY_SPLIT_ENABLED` flag; `403 FEATURE_DISABLED` precedes protocol checks when off.
-New characters are v2 only with the gate on, otherwise v1. See the backend README for exact routes.
+New characters are v3 with the instance gate on, v2 with only the slot gate on, otherwise v1.
+See the backend README for exact routes.
 
 Hydration (`ApplicationStashServiceBootstrapper.HydrateSnapshot`, also used by reconciliation)
 validates lists before applying them: invalid/repeated slot addresses, unsupported inventory versions

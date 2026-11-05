@@ -1,5 +1,7 @@
 using System;
 using UnityEngine;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Grimhold.Backend
 {
@@ -47,6 +49,35 @@ namespace Grimhold.Backend
 
         public static string Encode<T>(T body)
         {
+            if (body is InstallGemRequest install)
+                return new JObject
+                {
+                    ["transactionId"] = install.transactionId, ["weaponList"] = ListName(install.weaponList),
+                    ["weaponSlot"] = install.weaponSlot, ["instanceId"] = install.instanceId,
+                    ["gemList"] = ListName(install.gemList), ["gemSlot"] = install.gemSlot,
+                    ["gemLootId"] = install.gemLootId, ["expectedRevision"] = install.expectedRevision
+                }.ToString(Formatting.None);
+            if (body is UpdatePreparedEquipmentRequest equipment && equipment.instanceEquipment.HasValue)
+            {
+                var json = new JObject();
+                foreach (var slot in EquipmentSlotRules.AllSlots)
+                {
+                    var data = equipment.instanceEquipment.Value;
+                    string id = data.Get(slot);
+                    JToken entry = JValue.CreateNull();
+                    if (!string.IsNullOrEmpty(id))
+                    {
+                        EquipmentInstanceData instance = null;
+                        data.instances?.TryGetValue(slot, out instance);
+                        if (instance == null || !EquipmentInstance.IsValidId(instance.instanceId))
+                            throw new ArgumentException("Prepared equipment requires a backend instance ID.");
+                        entry = new JObject { ["lootId"] = id, ["instanceId"] = instance.instanceId };
+                    }
+                    json[PreparedEquipmentJsonConverter.Name(slot)] = entry;
+                }
+                json["expectedRevision"] = equipment.expectedRevision;
+                return json.ToString(Formatting.None);
+            }
             if (body is CommitExtractionRequest legacy)
                 return JsonUtility.ToJson(new Extraction
                 { raidId = legacy.raidId, resultSequence = legacy.resultSequence, items = Aggregate(legacy.items) });
@@ -66,6 +97,12 @@ namespace Grimhold.Backend
                 });
             return JsonUtility.ToJson(body);
         }
+
+        private static string ListName(InventoryList list) => list switch
+        {
+            InventoryList.Stash => "stash", InventoryList.Loadout => "loadout",
+            _ => throw new ArgumentOutOfRangeException(nameof(list))
+        };
 
         private static AggregateItem[] Aggregate(InventoryItemData[] items)
         {

@@ -758,7 +758,10 @@ namespace Tests.EditMode.Equipment
             Assert.That(restored.SchemaVersion, Is.EqualTo(LocalProfileSnapshot.CurrentSchemaVersion));
             Assert.That(restored.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(Sword));
             Assert.That(restored.PreparedEquipment.Helmet, Is.EqualTo(Helmet));
-            Assert.That(restored.Loadout, Is.EqualTo(new[] { new StashItem(Sword, 1, 0) }));
+            Assert.That(restored.Loadout, Is.EqualTo(new[]
+            {
+                new StashItem(Sword, 1, 0, new EquipmentInstance(null, default(WeaponInstanceModifiers)))
+            }));
         }
 
         [Test]

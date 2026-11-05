@@ -1,8 +1,7 @@
 using System;
 
 /// <summary>
-/// Extensible model representing an item in a player's stash.
-/// Prepared for future expansion with instance-specific state (durability, affixes, etc.).
+/// One physical Town entry. Equipment carries one immutable instance; stackable loot has none.
 /// </summary>
 public readonly struct StashItem : IEquatable<StashItem>
 {
@@ -11,22 +10,24 @@ public readonly struct StashItem : IEquatable<StashItem>
     /// <summary>Physical Town location; -1 denotes an aggregate input awaiting placement.</summary>
     public int Slot { get; }
 
-    public bool IsValid => LootId.IsValid && Amount > 0;
+    public EquipmentInstance Instance { get; }
+    public bool IsValid => LootId.IsValid && Amount > 0 && (Instance == null || Amount == 1);
 
     public StashItem(LootId lootId, int amount) : this(lootId, amount, -1) { }
 
-    public StashItem(LootId lootId, int amount, int slot)
+    public StashItem(LootId lootId, int amount, int slot, EquipmentInstance instance = null)
     {
         LootId = lootId;
         Amount = amount;
         Slot = slot;
+        Instance = instance;
     }
 
-    public StashItem AtSlot(int slot) => new(LootId, Amount, slot);
+    public StashItem AtSlot(int slot) => new(LootId, Amount, slot, Instance);
 
     public bool Equals(StashItem other)
     {
-        return LootId.Equals(other.LootId) && Amount == other.Amount && Slot == other.Slot;
+        return LootId.Equals(other.LootId) && Amount == other.Amount && Slot == other.Slot && Equals(Instance, other.Instance);
     }
 
     public override bool Equals(object obj)
@@ -38,7 +39,7 @@ public readonly struct StashItem : IEquatable<StashItem>
     {
         unchecked
         {
-            return (((LootId.GetHashCode() * 397) ^ Amount) * 397) ^ Slot;
+            return ((((LootId.GetHashCode() * 397) ^ Amount) * 397) ^ Slot) * 397 ^ (Instance?.GetHashCode() ?? 0);
         }
     }
 

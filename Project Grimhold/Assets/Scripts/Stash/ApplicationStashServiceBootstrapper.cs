@@ -319,6 +319,7 @@ public static class ApplicationStashServiceBootstrapper
         System.Collections.Generic.List<StashItem> stash = null;
         System.Collections.Generic.List<StashItem> loadout = null;
         System.Collections.Generic.List<StashItem> reservationItems = null;
+        PreparedEquipmentLoadout equipment = default, reservedEquipment = default;
         if (inventoryData.HasValue)
         {
             var data = inventoryData.Value;
@@ -329,7 +330,7 @@ public static class ApplicationStashServiceBootstrapper
             }
 
             int schema = data.inventorySchemaVersion == 0 ? 1 : data.inventorySchemaVersion;
-            if ((schema != 1 && schema != 2) ||
+            if ((schema < 1 || schema > 3) ||
                 !TryNormalizeItems(data.stash, catalog, "stash", out stash, schema) ||
                 !TryNormalizeItems(data.loadout, catalog, "loadout", out loadout, schema) ||
                 (!string.IsNullOrEmpty(data.pendingReservation.reservationId) &&
@@ -337,12 +338,17 @@ public static class ApplicationStashServiceBootstrapper
             {
                 return false;
             }
+            if (!data.preparedEquipment.TryToLoadout(catalog, schema == 3, out equipment, out _) ||
+                (!string.IsNullOrEmpty(data.pendingReservation.reservationId) &&
+                 !data.pendingReservation.preparedEquipment.TryToLoadout(catalog, schema == 3, out reservedEquipment, out _))) return false;
+            if (schema == 3 && !HaveUniqueInstanceIds(stash, loadout, reservationItems, equipment, reservedEquipment)) return false;
         }
 
         if (inventoryData.HasValue)
         {
             var data = inventoryData.Value;
             snapshot.Currency = data.currency;
+            snapshot.RequiresEquipmentHydration = false;
             snapshot.InventorySchemaVersion = data.inventorySchemaVersion == 0 ? 1 : data.inventorySchemaVersion;
             snapshot.Stash.Clear();
             snapshot.Stash.AddRange(stash);
@@ -355,35 +361,13 @@ public static class ApplicationStashServiceBootstrapper
 
             if (snapshot.PendingExtractionCommit == null)
             {
-                var eq = data.preparedEquipment;
-                snapshot.PreparedEquipment = new PreparedEquipmentLoadout(
-                    string.IsNullOrEmpty(eq.weaponSlot1) ? default : new LootId(eq.weaponSlot1),
-                    string.IsNullOrEmpty(eq.weaponSlot2) ? default : new LootId(eq.weaponSlot2),
-                    string.IsNullOrEmpty(eq.helmet) ? default : new LootId(eq.helmet),
-                    string.IsNullOrEmpty(eq.armor) ? default : new LootId(eq.armor),
-                    string.IsNullOrEmpty(eq.gloves) ? default : new LootId(eq.gloves),
-                    string.IsNullOrEmpty(eq.boots) ? default : new LootId(eq.boots),
-                    string.IsNullOrEmpty(eq.offHand1) ? default : new LootId(eq.offHand1),
-                    string.IsNullOrEmpty(eq.offHand2) ? default : new LootId(eq.offHand2)
-                );
+                snapshot.PreparedEquipment = equipment;
             }
 
             if (!string.IsNullOrEmpty(data.pendingReservation.reservationId))
             {
                 var res = data.pendingReservation;
-                var resEq = res.preparedEquipment;
-                var preparedResEq = new PreparedEquipmentLoadout(
-                    string.IsNullOrEmpty(resEq.weaponSlot1) ? default : new LootId(resEq.weaponSlot1),
-                    string.IsNullOrEmpty(resEq.weaponSlot2) ? default : new LootId(resEq.weaponSlot2),
-                    string.IsNullOrEmpty(resEq.helmet) ? default : new LootId(resEq.helmet),
-                    string.IsNullOrEmpty(resEq.armor) ? default : new LootId(resEq.armor),
-                    string.IsNullOrEmpty(resEq.gloves) ? default : new LootId(resEq.gloves),
-                    string.IsNullOrEmpty(resEq.boots) ? default : new LootId(resEq.boots),
-                    string.IsNullOrEmpty(resEq.offHand1) ? default : new LootId(resEq.offHand1),
-                    string.IsNullOrEmpty(resEq.offHand2) ? default : new LootId(resEq.offHand2)
-                );
-
-                snapshot.PendingReservation = new PendingLoadoutReservation(res.reservationId, reservationItems, preparedResEq);
+                snapshot.PendingReservation = new PendingLoadoutReservation(res.reservationId, reservationItems, reservedEquipment);
             }
             else if (snapshot.PendingExtractionCommit == null)
             {
@@ -445,7 +429,7 @@ public static class ApplicationStashServiceBootstrapper
         return true;
     }
 
-    private static bool TryNormalizeItems(
+    public static bool TryNormalizeItems(
         InventoryItemData[] items,
         LootDefinitionCatalog catalog,
         string label,
@@ -459,18 +443,46 @@ public static class ApplicationStashServiceBootstrapper
         for (int index = 0; index < items.Length; index++)
         {
             var item = items[index];
-            int slot = inventorySchemaVersion == 2 ? item.slot : index;
+            int slot = inventorySchemaVersion >= 2 ? item.slot : index;
             if (slot < 0 || !slots.Add(slot))
             {
                 Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Hydration failed: {label} has invalid or duplicate slots.");
                 return false;
             }
-            if (item.amount <= 0 || string.IsNullOrWhiteSpace(item.lootId) || catalog == null || !catalog.TryGet(item.lootId, out _))
+            if (string.IsNullOrWhiteSpace(item.lootId) || catalog == null || !catalog.TryGet(item.lootId, out var definition))
                 continue;
-            normalized.Add(new StashItem(new LootId(item.lootId), item.amount, slot));
+            EquipmentInstance instance = null;
+            if (inventorySchemaVersion == 3 &&
+                ((EquipmentInstance.IsEquipment(definition) != (item.instance != null)) ||
+                 (item.instance != null && item.amount != 1))) return false;
+            if (item.amount <= 0) continue;
+            if (item.instance != null && !item.instance.TryToInstance(definition, inventorySchemaVersion == 3, out instance, out _, catalog)) return false;
+            normalized.Add(new StashItem(new LootId(item.lootId), item.amount, slot, instance));
         }
         normalized.Sort((a, b) => a.Slot.CompareTo(b.Slot));
 
+        return true;
+    }
+
+    public static bool HaveUniqueInstanceIds(
+        System.Collections.Generic.IReadOnlyList<StashItem> stash,
+        System.Collections.Generic.IReadOnlyList<StashItem> loadout,
+        System.Collections.Generic.IReadOnlyList<StashItem> reservation,
+        PreparedEquipmentLoadout equipment, PreparedEquipmentLoadout reservedEquipment)
+    {
+        var ids = new System.Collections.Generic.HashSet<string>(System.StringComparer.Ordinal);
+        foreach (var list in new[] { stash, loadout, reservation })
+        {
+            if (list == null) continue;
+            foreach (var item in list)
+                if (item.Instance != null && item.Instance.HasIdentity && !ids.Add(item.Instance.InstanceId)) return false;
+        }
+        foreach (var prepared in new[] { equipment, reservedEquipment })
+            foreach (var slot in EquipmentSlotRules.AllSlots)
+            {
+                var instance = prepared.GetInstance(slot);
+                if (instance != null && instance.HasIdentity && !ids.Add(instance.InstanceId)) return false;
+            }
         return true;
     }
 

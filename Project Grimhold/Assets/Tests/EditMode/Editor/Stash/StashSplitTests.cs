@@ -153,10 +153,10 @@ namespace Tests.EditMode.Stash
         }
 
         [Test]
-        public void SplitTransport_UsesProtocolTwoHeader()
+        public void SplitTransport_UsesMinimumProtocolThreeHeader_ForV2Stacks()
         {
             using var request = InventoryProtocol.Create("https://example.invalid/character/me/inventory/slots/split", "POST");
-            Assert.That(request.GetRequestHeader("X-Grimhold-Inventory-Protocol"), Is.EqualTo("2"));
+            Assert.That(request.GetRequestHeader("X-Grimhold-Inventory-Protocol"), Is.EqualTo("3"));
         }
 
         private void AssertRejectedUnchanged(InventoryList list, int source, int amount, int destination, LootId guard,
