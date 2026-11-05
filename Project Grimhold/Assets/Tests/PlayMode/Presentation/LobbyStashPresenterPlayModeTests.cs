@@ -411,6 +411,8 @@ namespace Tests.PlayMode.Presentation
             Assert.That(background.sprite, Is.SameAs(invalidSprite));
             cell.OnPointerEnter(new PointerEventData(null));
             Assert.That(background.sprite, Is.SameAs(invalidSprite), "Hover must not erase the overflow marker.");
+            _store.SetRemoteRevision(1);
+            Assert.That(background.sprite, Is.SameAs(invalidSprite), "Confirmed refresh must preserve overflow after gem binding.");
             ClickMoveAll(StashPanel());
             yield return null;
             Assert.That(_remote.TransferSlots, Is.EqualTo(new[] { 64 }));
@@ -542,6 +544,169 @@ namespace Tests.PlayMode.Presentation
             }
         }
 
+        private void SeedGemScreen(int sockets = 1)
+        {
+            _catalog.TryGet("rapier", out var weapon);
+            Assert.That(WeaponInstanceModifiers.TryCreate(default, default, weapon.WeaponDefinition.NaturalScalingAttribute,
+                sockets, default, default, out var modifiers, out _), Is.True);
+            CreateScreen(snapshot =>
+            {
+                snapshot.InventorySchemaVersion = 3;
+                snapshot.Stash.Add(new StashItem(new LootId("RES_ATTUNEMENT_GEM"), 2, 2));
+                snapshot.Loadout.Add(new StashItem(new LootId("rapier"), 1, 4,
+                    new EquipmentInstance("123456789012345678901234", modifiers)));
+            });
+        }
+
+        [UnityTest]
+        public IEnumerator GemDrop_ConfirmsBeforeRemote_LocksUntilSnapshot_RefreshesInstanceTooltip()
+        {
+            SeedGemScreen(); yield return null;
+            var source = StashPanel().GetComponentsInChildren<RaidInventorySlotView>(true)[2];
+            var target = LoadoutPanel().GetComponentsInChildren<RaidInventorySlotView>(true)[4];
+            Drag(source, target);
+            var modal = _instance.GetComponentInChildren<GemInstallConfirmationView>(true);
+            Assert.That(modal, Is.Not.Null);
+            Assert.That(modal.IsOpen, Is.True);
+            Assert.That(modal.GetComponentsInChildren<TMPro.TMP_Text>(true).Any(t =>
+                t.text.StartsWith("¿Incrustar ") && t.text.EndsWith("? Es permanente.")), Is.True);
+            Assert.That(_remote.Calls, Is.Empty);
+            Assert.That(_store.GetStash().Single().Amount, Is.EqualTo(2));
+            var gate = new TaskCompletionSource<bool>(); _remote.Gates.Enqueue(gate.Task);
+            modal.transform.Find("Modal/Confirm").GetComponent<Button>().onClick.Invoke();
+            yield return null;
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "gem:Stash:2:Loadout:4" }));
+            Assert.That(source.GetComponent<Button>().IsInteractable(), Is.False);
+            Assert.That(_store.GetStash().Single().Amount, Is.EqualTo(2));
+            gate.SetResult(true);
+            for (int frame = 0; frame < 5; frame++) yield return null;
+            Assert.That(_store.GetStash().Single().Amount, Is.EqualTo(1));
+            Assert.That(_store.GetLoadout().Single().Instance.Modifiers.Value.TryGetGemSocket(0, out var socket), Is.True);
+            Assert.That(socket.GemLootId, Is.EqualTo(new LootId("RES_ATTUNEMENT_GEM")));
+            Assert.That(modal.IsOpen, Is.False);
+            var tooltip = (EquipmentTooltipView)typeof(LobbyStashUI).GetField("_tooltipView",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(_view);
+            target.OnPointerEnter(new PointerEventData(null));
+            Assert.That(tooltip.gameObject.activeSelf, Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator GemContext_SelectsHighlightedTarget_CancelDoesNotSend_ExistingMoveContextPreserved()
+        {
+            SeedGemScreen(); yield return null;
+            var source = StashPanel().GetComponentsInChildren<RaidInventorySlotView>(true)[2];
+            var target = LoadoutPanel().GetComponentsInChildren<RaidInventorySlotView>(true)[4];
+            source.OnPointerClick(new PointerEventData(null) { button = PointerEventData.InputButton.Right });
+            var menu = _instance.GetComponentInChildren<RaidLootContextMenuView>(true);
+            var action = menu.GetComponentsInChildren<RaidLootContextActionButton>(true).FirstOrDefault(a =>
+                a.gameObject.activeSelf && a.GetComponentInChildren<TMPro.TMP_Text>(true).text == "Incrustar");
+            Assert.That(action, Is.Not.Null);
+            Assert.That(menu.GetComponentsInChildren<TMPro.TMP_Text>(true).Any(t => t.text == "Mover todo al Inventario"), Is.True);
+            action.GetComponent<Button>().onClick.Invoke();
+            var background = (UnityEngine.UI.Image)new SerializedObject(target).FindProperty("_background").objectReferenceValue;
+            var hovered = (Sprite)new SerializedObject(target).FindProperty("_hoveredSprite").objectReferenceValue;
+            Assert.That(background.sprite, Is.SameAs(hovered));
+            target.OnPointerClick(new PointerEventData(null) { button = PointerEventData.InputButton.Left });
+            var modal = _instance.GetComponentInChildren<GemInstallConfirmationView>(true);
+            Assert.That(modal.IsOpen, Is.True);
+            modal.transform.Find("Modal/Cancel").GetComponent<Button>().onClick.Invoke();
+            Assert.That(modal.IsOpen, Is.False);
+            Assert.That(_remote.Calls, Is.Empty);
+            Assert.That(_store.GetStash().Single().Amount, Is.EqualTo(2));
+            Assert.That(source.GetComponent<Button>().IsInteractable(), Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator GemDrop_NoSockets_ShowsBriefNotice_NoMoveOrConfirmation()
+        {
+            SeedGemScreen(0); yield return null;
+            var source = StashPanel().GetComponentsInChildren<RaidInventorySlotView>(true)[2];
+            var target = LoadoutPanel().GetComponentsInChildren<RaidInventorySlotView>(true)[4];
+            Drag(source, target);
+            Assert.That(_remote.Calls, Is.Empty);
+            var modal = _instance.GetComponentInChildren<GemInstallConfirmationView>(true);
+            Assert.That(modal != null && modal.IsOpen, Is.False);
+            Assert.That(_instance.GetComponentsInChildren<TMPro.TMP_Text>(true)
+                .Any(t => t.gameObject.activeSelf && t.text == "Esta arma no tiene ranuras libres"), Is.True);
+            Assert.That(_store.GetStash().Single().Amount, Is.EqualTo(2));
+        }
+
+        [UnityTest]
+        public IEnumerator TownPersonalInventory_GemDropConfirms_CancelRestoresInputs_UnbindClosesDialog()
+        {
+            _catalog.TryGet("rapier", out var weapon);
+            WeaponInstanceModifiers.TryCreate(default, default, weapon.WeaponDefinition.NaturalScalingAttribute,
+                1, default, default, out var modifiers, out _);
+            CreateScreen(snapshot =>
+            {
+                snapshot.InventorySchemaVersion = 3;
+                snapshot.Loadout.Add(new StashItem(new LootId("RES_ATTUNEMENT_GEM"), 2, 2));
+                snapshot.Loadout.Add(new StashItem(new LootId("rapier"), 1, 4,
+                    new EquipmentInstance("123456789012345678901234", modifiers)));
+            });
+            _instance.SetActive(false);
+            var context = _contextObject.GetComponent<ApplicationStashContext>();
+            var source = new LocalLoadoutInventoryReadSource(context, context.ProfileId);
+            var session = new TownGemInstallSession(_store, context.GetTransferCoordinator(), _catalog);
+            var town = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Prefabs/UI/PlayerUI/RaidInventoryUI.prefab"), _canvasObject.transform);
+            var reader = _contextObject.AddComponent<PlayerInputReader>();
+            var presenter = town.GetComponent<RaidInventoryPresenter>();
+            var view = town.GetComponent<RaidInventoryView>();
+            try
+            {
+                presenter.BindTown(source, source, new TownEquipmentMutationEndpoint(context.LoadoutService,
+                    context.ProfileId, _catalog, () => true), reader, true, null,
+                    context.GetTransferCoordinator(), () => true, source.ReadConfirmedAttributes, session);
+                presenter.ShowHosted();
+                yield return null;
+                Drag(view.PlayerPanel.GetAuthoredSlot(2), view.PlayerPanel.GetAuthoredSlot(4));
+                var modal = town.GetComponentInChildren<GemInstallConfirmationView>(true);
+                Assert.That(modal, Is.Not.Null);
+                Assert.That(modal.IsOpen, Is.True);
+                Assert.That(_remote.Calls, Is.Empty);
+                modal.transform.Find("Modal/Cancel").GetComponent<Button>().onClick.Invoke();
+                Assert.That(session.LocksMutations, Is.False);
+                Assert.That(view.PlayerPanel.GetAuthoredSlot(2).GetComponent<Button>().IsInteractable(), Is.True);
+                presenter.Unbind();
+                Assert.That(modal.IsOpen, Is.False);
+            }
+            finally { source.Dispose(); session.Dispose(); Object.DestroyImmediate(town); }
+        }
+
+        [UnityTest]
+        public IEnumerator GemContext_PagingKeepsEligibleHighlightsAndExactTargetSlot()
+        {
+            _catalog.TryGet("rapier", out var weapon);
+            WeaponInstanceModifiers.TryCreate(default, default, weapon.WeaponDefinition.NaturalScalingAttribute,
+                1, default, default, out var modifiers, out _);
+            CreateScreen(snapshot =>
+            {
+                snapshot.InventorySchemaVersion = 3;
+                snapshot.Loadout.Add(new StashItem(new LootId("RES_ATTUNEMENT_GEM"), 2, 2));
+                snapshot.Stash.Add(new StashItem(new LootId("rapier"), 1, 19,
+                    new EquipmentInstance("123456789012345678901234", modifiers)));
+            });
+            yield return null;
+            LoadoutPanel().GetAuthoredSlot(2).OnPointerClick(new PointerEventData(null) { button = PointerEventData.InputButton.Right });
+            var menu = _instance.GetComponentInChildren<RaidLootContextMenuView>(true);
+            var action = menu.GetComponentsInChildren<RaidLootContextActionButton>(true).Single(a =>
+                a.gameObject.activeSelf && a.GetComponentInChildren<TMPro.TMP_Text>(true).text == "Incrustar");
+            action.GetComponent<Button>().onClick.Invoke();
+            ClickButton(GetButton("_stashNextPage"));
+            var target = StashPanel().GetAuthoredSlot(3);
+            var serialized = new SerializedObject(target);
+            Assert.That(((UnityEngine.UI.Image)serialized.FindProperty("_background").objectReferenceValue).sprite,
+                Is.SameAs(serialized.FindProperty("_hoveredSprite").objectReferenceValue));
+            target.OnPointerClick(new PointerEventData(null) { button = PointerEventData.InputButton.Left });
+            var modal = _instance.GetComponentInChildren<GemInstallConfirmationView>(true);
+            Assert.That(modal.IsOpen, Is.True);
+            modal.transform.Find("Modal/Confirm").GetComponent<Button>().onClick.Invoke();
+            yield return null;
+            Assert.That(_remote.Calls.Single(), Is.EqualTo("gem:Loadout:2:Stash:19"));
+            Assert.That(_store.GetLoadout().Single().Amount, Is.EqualTo(1));
+        }
+
         private static void Drag(RaidInventorySlotView source, RaidInventorySlotView target)
         {
             var pointer = new PointerEventData(null) { button = PointerEventData.InputButton.Left };
@@ -662,9 +827,32 @@ namespace Tests.PlayMode.Presentation
         private static RaidInventorySlotView FindOccupiedSlot(RaidLootPanelView panel) =>
             Array.Find(panel.GetComponentsInChildren<RaidInventorySlotView>(true), slot => slot.IsOccupied);
 
-        public sealed class FakeRemoteComponent : MonoBehaviour, IRemoteInventoryService, ISlotRemoteInventoryService
+        public sealed class FakeRemoteComponent : MonoBehaviour, IRemoteInventoryService, ISlotRemoteInventoryService, IRemoteGemInstallService
         {
             public readonly List<int> TransferSlots = new();
+            public async Task<(bool success, MoveItemResult data, BackendError error)> InstallGemAsync(InstallGemRequest request)
+            {
+                await Run($"gem:{request.gemList}:{request.gemSlot}:{request.weaponList}:{request.weaponSlot}");
+                var store = GetComponent<ApplicationStashContext>().Store;
+                var catalog = store.LootCatalog;
+                catalog.TryGet(request.gemLootId, out var gem);
+                InventoryItemData[] Map(IReadOnlyList<StashItem> items, InventoryList list) => items.Select(item =>
+                {
+                    var instance = item.Instance;
+                    int amount = item.Amount;
+                    if (list == request.weaponList && item.Slot == request.weaponSlot)
+                    {
+                        instance.Modifiers.Value.TryInstallGem(gem, out var installed, out _);
+                        instance = new EquipmentInstance(instance.InstanceId, installed);
+                    }
+                    if (list == request.gemList && item.Slot == request.gemSlot) amount--;
+                    return new InventoryItemData { slot = item.Slot, lootId = item.LootId.Value,
+                        amount = amount, instance = EquipmentInstanceData.FromInstance(instance) };
+                }).Where(item => item.amount > 0).ToArray();
+                return (true, new MoveItemResult { stash = Map(store.GetStash(), InventoryList.Stash),
+                    loadout = Map(store.GetLoadout(), InventoryList.Loadout), revision = store.RemoteRevision + 1 }, default);
+            }
+
 
             public Task<(bool success, BackendError error)> SplitSlotAsync(
                 InventoryList list, int sourceSlot, int amount, int destinationSlot, LootId lootId) =>

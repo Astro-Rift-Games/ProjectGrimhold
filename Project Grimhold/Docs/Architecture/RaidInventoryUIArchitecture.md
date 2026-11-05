@@ -152,8 +152,11 @@ Revisions are opaque integers except reserved `-1`, matching `LootTransferReques
 `WithDisplayName` preserves all metadata. These disposable values never own inventory state.
 Aggregate `TryGetLootContent` remains the read contract for total value, Quick Slot quantities,
 backend/persistence and legacy feedback. It is not used to reconstruct Raid cell positions.
-Town preserves stored Loadout order; container panels preserve their aggregate snapshot order.
-Those paths retain `RaidInventoryProjection`, including capacity checks and appended empties.
+Town's `TownInventoryProjection` retains confirmed instances/attributes and projects each stored
+`StashItem.Slot` to its exact Loadout cell, including interior holes. These Town addresses remain
+separate from Raid address/revision/origin metadata. Out-of-range Town addresses make the panel
+unavailable without changing stored data. Container panels preserve aggregate snapshot order and
+retain `RaidInventoryProjection`, including capacity checks and appended empties.
 
 Every occupied slot whose `LootDefinition` resolves carries an immutable equipment-tooltip
 presentation built from definition-owned data. Weapons expose base damage/type, interval, range,
@@ -230,6 +233,60 @@ In Town the personal-inventory screen is a tab of the Town player menu (`TownPla
 mode the presenter does not subscribe to Tab or Escape and does not acquire the input-suppression token;
 the menu owns both and drives the screen through `ShowHosted` and `HideHosted`. Raid binding and
 unwired Town binding are unchanged.
+
+## Town gem installation (TASK-283 / F4)
+
+Only Town bindings compose `TownGemInstallSession` and the gem `ILootContextActionProvider`.
+Dragging a gem onto a weapon in Inventory (Loadout) or Stash opens the screen-local confirmation;
+other targets keep their normal move/merge/swap route. Equipped weapons and all Raid bindings
+are excluded. Right-clicking a gem offers **Incrustar**; choosing it highlights stored weapons
+with at least one free socket, including targets on subsequent Stash pages. Picking a highlighted
+weapon opens `¿Incrustar {gema} en {arma}? Es permanente.` Cancel, Escape or screen close abandons
+an unsent intention without touching ownership. A gem dropped onto a weapon with no sockets or
+with all sockets full opens no confirmation and briefly shows `Esta arma no tiene ranuras libres`; neither item
+moves or changes.
+
+`Assets/Prefabs/UI/GemInstallConfirmation.prefab` is authored once and nested independently in
+`RaidInventoryUI.prefab` and `StashInventory.prefab`. Its gem-specific view references `Modal`,
+`Modal/Message`, `Modal/Confirm` and `Modal/Cancel`. Opening selects Cancel. It borrows the recovery
+consent visual structure, not its coordinator or behavior; `Systems.prefab` and
+`RecoveryWeaponConsentView` are unchanged. The existing screen feedback channels show selection,
+pending, success and refusal messages; no cells or modal hierarchy are generated at runtime.
+
+Confirmation captures both list/slot addresses, backend weapon instance ID, gem LootId, expected
+revision and a new transaction ID. `StashTransferCoordinator.InstallGemAsync` shares the existing
+application-owned exclusive queue and calls `InventoryClient.InstallGemAsync` through
+`IRemoteGemInstallService` / `RemoteInventoryService`. No local `TryInstallGem` result is committed:
+it is only an eligibility preview. After remote success, `LocalProfileStore.ApplyConfirmedGemInstall`
+passes the returned Stash/Loadout/revision through the existing `ReconcileRemoteState` hydration
+transaction, preserving unrelated aggregate fields and publishing one confirmed commit. Inventory,
+weapon instance and tooltip refresh from that commit. A backend rejection leaves the local lists
+and revision untouched. An unknown remote result or a failed local apply follows existing queue
+reconciliation, never an automatic mutation retry.
+
+Selection/confirmation blocks other item intentions. Pending installation blocks item inputs across
+both screens and close/reopen through the shared coordinator; disposal only detaches presentation,
+never cancels an already-sent irreversible request. A profile commit invalidates any unsent selection
+or confirmation. Installation requires schema 3, hydrated equipment, no pending Raid reservation and
+the captured revision; the existing move/order/transfer queue supports both schema 2 and schema 3.
+
+| Refusal | Spanish screen feedback |
+| --- | --- |
+| `INSTANCE_MISMATCH` | El arma ya no está disponible |
+| `GEM_NOT_AVAILABLE` | La gema ya no está disponible |
+| `GEM_NO_SOCKETS`, `GEM_NO_EMPTY_SOCKET` | Esta arma no tiene ranuras libres |
+| `REVISION_CONFLICT` | El inventario cambió. Vuelve a intentarlo |
+| `RESERVATION_PENDING` | No se puede modificar el inventario mientras hay una reserva de Raid pendiente |
+| `INVENTORY_MIGRATION_REQUIRED` / hydration guard | El inventario debe sincronizarse antes de incrustar gemas |
+| Other / unavailable endpoint | No se pudo incrustar la gema |
+
+EditMode session/request tests cover exact addresses, confirmation, free/full/absent sockets,
+remote-first application, rejection invariance, shared pending locks, authoritative tooltip data
+and preservation of unrelated aggregate fields. Coordinator cases preserve schema-2 behavior while
+enabling schema-3 move, swap, order and transfer. PlayMode exercises the authored dialogs, drag,
+context selection/cancel, Stash page addresses and Town personal-inventory lifecycle alongside the
+existing Raid and inventory interaction suites. Visual scaling, actual pointer raycasts, keyboard/
+controller navigation and an authenticated backend session still require manual checks.
 
 ## Runner-scoped binding and lifecycle
 

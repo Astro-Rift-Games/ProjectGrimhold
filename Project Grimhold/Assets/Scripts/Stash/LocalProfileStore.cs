@@ -747,6 +747,27 @@ public sealed class LocalProfileStore
         }
     }
 
+    /// <summary>Applies the gem endpoint's authoritative lists through the existing hydration transaction.</summary>
+    public StashOperationResult ApplyConfirmedGemInstall(Grimhold.Backend.MoveItemResult result, int expectedRevision)
+    {
+        lock (_sync)
+        {
+            var current = _repository.Snapshot;
+            if (!IsAvailable || current == null || current.RemoteRevision != expectedRevision ||
+                current.InventorySchemaVersion != 3 || current.RequiresEquipmentHydration ||
+                current.PendingReservation != null || current.PendingExtractionCommit != null ||
+                result.stash == null || result.loadout == null || result.revision <= expectedRevision)
+                return StashOperationResult.InvalidInventory;
+            // The endpoint changes only these lists and revision. Retain the aggregate's other fields.
+            return ReconcileRemoteState(new Grimhold.Backend.InventoryData
+            {
+                inventorySchemaVersion = 3, stash = result.stash, loadout = result.loadout,
+                revision = result.revision, currency = current.Currency,
+                preparedEquipment = Grimhold.Backend.PreparedEquipmentData.FromLoadout(current.PreparedEquipment)
+            }, null, _lootCatalog, _abilityCatalog);
+        }
+    }
+
     public void SetRemoteRevision(int revision)
     {
         lock (_sync)

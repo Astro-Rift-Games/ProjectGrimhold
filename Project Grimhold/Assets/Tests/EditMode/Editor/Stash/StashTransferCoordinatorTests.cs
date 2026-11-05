@@ -1217,6 +1217,33 @@ namespace Tests.EditMode.Stash
             Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Bone, 13, 9) }));
         }
 
+        [TestCase(2)]
+        [TestCase(3)]
+        public async Task SupportedSchema_MoveSwapOrderAndTransfer_PreserveInstancesRemoteFirst(int schema)
+        {
+            var instance = new EquipmentInstance("123456789012345678901234");
+            var coordinator = Create(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Sword, 1, 3, schema == 3 ? instance : null));
+                snapshot.Stash.Add(new StashItem(Bone, 4, 7));
+            }, schemaVersion: schema);
+            var before = _store.GetStash().ToArray();
+            _remote.OnCall = _ => Assert.That(_store.GetStash(), Is.EqualTo(before));
+            Assert.That((await coordinator.MoveAsync(InventoryList.Stash, 3, InventoryList.Stash, 7, Sword)).IsSuccess, Is.True);
+            Assert.That(_store.GetStash().Single(x => x.Slot == 7).Instance, Is.EqualTo(schema == 3 ? instance : null));
+            Assert.That(_store.GetStash().Single(x => x.Slot == 3).Amount, Is.EqualTo(4));
+            before = _store.GetStash().ToArray();
+            Assert.That((await coordinator.OrderAsync(InventoryList.Stash, new[] { 7, 3 })).IsSuccess, Is.True);
+            Assert.That(_store.GetStash().Select(x => x.Slot), Is.EqualTo(new[] { 0, 1 }));
+            Assert.That(_store.GetStash()[0].Instance, Is.EqualTo(schema == 3 ? instance : null));
+            before = _store.GetStash().ToArray();
+            Assert.That((await coordinator.TransferAsync(0, Sword, true, LootTransferQuantityMode.FullStack)).IsSuccess, Is.True);
+            Assert.That(_store.GetLoadout().Single().Instance, Is.EqualTo(schema == 3 ? instance : null));
+            Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Bone, 4, 1) }));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "slotMove", "order", "toLoadout:rapier:1" }));
+            Assert.That(_reconciliation.Calls, Is.Zero);
+        }
+
         private static async Task YieldSeveralTimes()
         {
             for (int index = 0; index < 5; index++)

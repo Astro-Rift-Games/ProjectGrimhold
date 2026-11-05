@@ -194,6 +194,24 @@ public sealed class RaidLootPanelPresenter
                 instance, town?.ConfirmedAttributes, catalog));
         }
 
+        if (content is TownInventoryProjection physicalTown)
+        {
+            // Town positions are persistent addresses, not indices into an occupied-only snapshot.
+            _slotData.Clear();
+            for (int i = 0; i < slotCapacity; i++) _slotData.Add(RaidInventorySlotData.Empty);
+            foreach (var item in physicalTown.PhysicalItems)
+            {
+                if (item.Slot < 0 || item.Slot >= slotCapacity)
+                {
+                    view.ShowUnavailable();
+                    return false;
+                }
+                catalog.TryGet(item.LootId.Value, out var definition);
+                _slotData[item.Slot] = RaidInventorySlotData.Create(new LootEntry(item.LootId, item.Amount),
+                    definition, view.PlaceholderIcon, item.Instance, physicalTown.ConfirmedAttributes, catalog);
+            }
+        }
+
         bool showEmpty = showEmptyState && content.Count == 0;
         if (!view.Present(_slotData, totalValue, showEmpty, interactionMode, selectedLootId))
         {

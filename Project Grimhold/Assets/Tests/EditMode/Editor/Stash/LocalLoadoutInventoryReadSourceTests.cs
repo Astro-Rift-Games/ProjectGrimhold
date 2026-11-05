@@ -109,10 +109,11 @@ public sealed class LocalLoadoutInventoryReadSourceTests
         var presenter = new RaidLootPanelPresenter();
         Assert.That(presenter.Refresh(_source, catalog, view, null, false,
             RaidLootSlotInteractionMode.ReadOnly, default, root), Is.True);
-        Assert.That(presenter.Slots[0].Tooltip.Body, Does.Contain("Ruby"));
-        Assert.That(presenter.Slots[0].Tooltip.Body, Does.Contain("Daño efectivo: 42"));
-        Assert.That(presenter.Slots[1].Tooltip.Body, Does.Contain("Daño efectivo: 30"));
-        Assert.That(presenter.Slots[1].Tooltip.Body, Does.Not.Contain("Ruby"));
+        Assert.That(presenter.Slots[0].IsOccupied || presenter.Slots[1].IsOccupied, Is.False);
+        Assert.That(presenter.Slots[2].Tooltip.Body, Does.Contain("Ruby"));
+        Assert.That(presenter.Slots[2].Tooltip.Body, Does.Contain("Daño efectivo: 42"));
+        Assert.That(presenter.Slots[7].Tooltip.Body, Does.Contain("Daño efectivo: 30"));
+        Assert.That(presenter.Slots[7].Tooltip.Body, Does.Not.Contain("Ruby"));
         Assert.That(_source.TryGetLootContent(out var content), Is.True);
         var physical = ((TownInventoryProjection)content).PhysicalItems;
         Assert.That(physical[0].Instance, Is.SameAs(first));

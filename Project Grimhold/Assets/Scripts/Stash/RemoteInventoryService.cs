@@ -6,8 +6,26 @@ using Grimhold.Backend;
 /// Handles backend synchronization for the stash/loadout inventory system.
 /// Intended to be called by Presenters before applying local state changes.
 /// </summary>
-public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, ISlotRemoteInventoryService
+public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, ISlotRemoteInventoryService, IRemoteGemInstallService
 {
+    public async Task<(bool success, MoveItemResult data, BackendError error)> InstallGemAsync(InstallGemRequest request)
+    {
+        if (string.IsNullOrEmpty(AuthToken))
+            return (false, default, new BackendError { error = "UNAUTHORIZED" });
+        await _mutationLock.WaitAsync();
+        try
+        {
+            if (_store == null || _store.InventorySchemaVersion != 3 || _store.RequiresEquipmentHydration)
+                return (false, default, new BackendError { error = "INVENTORY_MIGRATION_REQUIRED" });
+            var result = await InventoryClient.InstallGemAsync(_backendConfig, AuthToken, request);
+            if (!result.success && result.error.error == BackendErrorUtility.Unauthorized)
+                ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+            // No revision-only commit: the coordinator applies both authoritative lists atomically.
+            return result;
+        }
+        finally { _mutationLock.Release(); }
+    }
+
     public Task<(bool success, BackendError error)> OrderAsync(
         InventoryList list, System.Collections.Generic.IReadOnlyList<LootId> lootIds)
     {

@@ -65,6 +65,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     public bool IsTransferFeedbackActive => _transferPulseRemaining > 0f;
 
+    public event Action PrimaryClicked;
     public event Action<LootId, LootTransferQuantityMode> SelectionRequested;
     public event Action<LootId, RectTransform> ContextRequested;
     public event Action<RaidInventorySlotData, LootTransferQuantityMode> InventorySelectionRequested;
@@ -299,6 +300,12 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
     /// </summary>
     public void OnPointerClick(PointerEventData eventData)
     {
+        if (eventData != null && eventData.button == PointerEventData.InputButton.Left &&
+            _isOccupied && _button != null && _button.interactable)
+        {
+            PrimaryClicked?.Invoke();
+            return;
+        }
         if (eventData == null || eventData.button != PointerEventData.InputButton.Right ||
             !_isOccupied || _button == null || !_button.interactable || !_lootId.IsValid)
         {
