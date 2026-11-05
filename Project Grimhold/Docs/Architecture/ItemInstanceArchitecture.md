@@ -197,6 +197,9 @@ Raid state carries `WeaponInstanceModifiersNetworkData` per weapon unit, never i
   The catalog stays under 128 entries (`RaidLootOriginPackedBuffer`), so the highest supported
   gem index is 126 (encoded as 127). Encoding and decoding reject unsupported attributes/grades,
   invalid socket combinations, reserved bits, and missing/non-gem catalog references.
+- Container presentation: every weapon unit in a container, enemy drop or corpse is its own cell
+  with its own tooltip, and the player takes exactly the selected unit (addressed by its unit
+  position, like Inventory slots).
 - Container capacity: world and enemy containers keep their limit of 6 distinct entries, and each
   weapon unit counts as one entry. Player corpses use their own capacity for every weapon the
   player carried (30 inventory slots + 4 hand slots).

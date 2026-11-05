@@ -206,6 +206,123 @@ namespace Tests.PlayMode.Loot
             AssertModifiers(restored, 2, default);
         }
 
+        [UnityTest]
+        public IEnumerator Deposit_StoresEachWeaponUnitWithItsModifiersAndOrigin()
+        {
+            NetworkLootContainer container = SpawnContainer(6, Array.Empty<LootEntry>());
+            yield return Execute(() =>
+            {
+                Assert.That(_receiver.TryInitializeRaidLoadout(LoadoutOf(_socketed, _scaled, 0),
+                    Participant(1), out string error), Is.True, error);
+                Deposit(container, 1);
+                Deposit(container, 0);
+            });
+
+            Assert.That(container.GetLootAmount(Sword), Is.EqualTo(2));
+            AssertUnit(container, 0, Sword, PlayerOrigin(1), _scaledData);
+            AssertUnit(container, 1, Sword, PlayerOrigin(1), _socketedData);
+            AssertModifiers(_receiver, 0, default);
+            AssertModifiers(_receiver, 1, default);
+        }
+
+        [UnityTest]
+        public IEnumerator Withdrawal_ReturnsTheResolvedUnitWithItsModifiers()
+        {
+            NetworkLootContainer container = SpawnContainer(6, Array.Empty<LootEntry>());
+            yield return Execute(() =>
+            {
+                Assert.That(_receiver.TryInitializeRaidLoadout(LoadoutOf(_socketed, _scaled, 0),
+                    Participant(1), out string error), Is.True, error);
+                Deposit(container, 0);
+                var request = new LootTransferRequest(container.Id, _receiver.Id, Sword, 1, _runner.Tick);
+                Assert.That(LootTransferTransaction.Execute(container, _receiver, request).Success, Is.True);
+            });
+
+            Assert.That(container.GetLootAmount(Sword), Is.Zero);
+            Assert.That(container.TryGetWeaponUnit(0, out ContainerWeaponUnit unit), Is.True);
+            Assert.That(unit.IsEmpty, Is.True);
+            AssertModifiers(_receiver, 0, _socketedData);
+            AssertModifiers(_receiver, 1, _scaledData);
+        }
+
+        [UnityTest]
+        public IEnumerator MultiUnitWithdrawal_RejectsModifiedUnitsWithoutMutation()
+        {
+            NetworkLootContainer container = SpawnContainer(6, new[] { new LootEntry(Sword, 1) });
+            yield return Execute(() =>
+            {
+                Assert.That(_receiver.TryInitializeRaidLoadout(LoadoutOf(_socketed, _scaled, 0),
+                    Participant(1), out string error), Is.True, error);
+                Deposit(container, 0);
+                int revision = container.LootChangeSequence;
+                var request = new LootTransferRequest(container.Id, _receiver.Id, Sword, 2, _runner.Tick);
+                Assert.That(container.ValidateExtraction(request), Is.EqualTo(LootTransferFailureReason.InsufficientAmount),
+                    "Two swords can only move together as plain units.");
+                Assert.That(container.LootChangeSequence, Is.EqualTo(revision));
+                Assert.That(container.GetLootAmount(Sword), Is.EqualTo(2));
+            });
+        }
+
+        [UnityTest]
+        public IEnumerator WorldContainer_CountsEveryWeaponUnitAsOneEntry()
+        {
+            NetworkLootContainer container = SpawnContainer(2, new[] { new LootEntry(Sword, 2) });
+            yield return Execute(() =>
+            {
+                AssertUnit(container, 0, Sword, RaidLootOrigin.Dungeon, default);
+                AssertUnit(container, 1, Sword, RaidLootOrigin.Dungeon, default);
+                var request = new LootTransferRequest(_receiver.Id, container.Id, Bone, 1, _runner.Tick);
+                Assert.That(container.ValidateReceive(request), Is.EqualTo(LootTransferFailureReason.InventoryFull),
+                    "Two sword units already fill a two-entry container.");
+            });
+        }
+
+        private NetworkLootContainer SpawnContainer(int slotCapacity, IReadOnlyList<LootEntry> content)
+        {
+            const string containerGuid = "2c19a78647c64b84a765ff0280706b7d";
+            NetworkPrefabId prefabId = _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(containerGuid));
+            Assert.That(prefabId.IsValid, Is.True);
+            NetworkObject prefab = _runner.Config.PrefabTable.Load(prefabId, true);
+            bool initialized = false;
+            NetworkObject instance = _runner.Spawn(prefab, Vector3.right, Quaternion.identity, inputAuthority: null,
+                onBeforeSpawned: (runner, spawned) =>
+                {
+                    var spawnedContainer = spawned.GetComponent<NetworkLootContainer>();
+                    SetField(spawnedContainer, "_lootCatalog", _catalog);
+                    SetField(spawnedContainer, "_slotCapacity", slotCapacity);
+                    initialized = spawnedContainer.TrySetInitialContentOverride(runner, spawned, content);
+                });
+            Assert.That(initialized, Is.True);
+            NetworkLootContainer container = instance.GetComponent<NetworkLootContainer>();
+            Assert.That((bool)container.IsAvailable, Is.True);
+            return container;
+        }
+
+        private void Deposit(NetworkLootContainer container, int slot)
+        {
+            Assert.That(_receiver.ResolveInventorySlotExtraction(container.Id, Sword, LootTransferQuantityMode.FullStack,
+                slot, _receiver.Revision, _runner.Tick, out LootTransferRequest request),
+                Is.EqualTo(LootTransferFailureReason.None));
+            Assert.That(LootTransferTransaction.Execute(_receiver, container, request).Success, Is.True);
+        }
+
+        private static void AssertUnit(NetworkLootContainer container, int index, LootId lootId,
+            RaidLootOrigin origin, WeaponInstanceModifiersNetworkData modifiers)
+        {
+            Assert.That(container.TryGetWeaponUnit(index, out ContainerWeaponUnit unit), Is.True);
+            Assert.That(unit.IsEmpty, Is.False, $"Weapon unit {index} is empty.");
+            Assert.That(container.LootCatalog.TryGetByIndex(unit.CatalogIndex, out LootDefinition definition), Is.True);
+            Assert.That(definition.LootId, Is.EqualTo(lootId));
+            Assert.That(unit.Origin, Is.EqualTo(origin));
+            Assert.That(unit.Modifiers, Is.EqualTo(modifiers), $"Modifiers of weapon unit {index}.");
+        }
+
+        private static RaidLootOrigin PlayerOrigin(int value)
+        {
+            Assert.That(RaidLootOrigin.TryCreatePlayer(Participant(value), out RaidLootOrigin origin), Is.True);
+            return origin;
+        }
+
         private IReadOnlyList<LootEntry> LoadoutOf(WeaponInstanceModifiers first, WeaponInstanceModifiers second, int bones)
         {
             var entries = new List<LootEntry>

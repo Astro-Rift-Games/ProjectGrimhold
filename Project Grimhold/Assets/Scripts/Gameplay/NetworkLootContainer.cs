@@ -34,6 +34,9 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     public const int MaxCatalogEntries = RaidLootOriginPackedBuffer.MaximumCatalogEntries;
     public const int MaxDistinctLootTypes = RaidLootOriginPackedBuffer.MaximumStacks;
 
+    /// <summary>Every weapon a defeated player carried: 30 Inventory slots plus 4 hand slots.</summary>
+    public const int MaxWeaponUnits = LootInventoryRules.PhysicalSlotCount + 4;
+
     [SerializeField]
     private LootDefinitionCatalog _lootCatalog;
 
@@ -58,6 +61,13 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 
     [Networked, Capacity(MaxDistinctLootTypes)]
     private NetworkDictionary<int, int> FirstAcquisitionEligibleInventory => default;
+
+    /// <summary>
+    /// One record per held weapon unit with its origin and modifiers (ItemInstanceArchitecture section
+    /// 6.3). Always written together with <see cref="LootInventory"/> and the origin state.
+    /// </summary>
+    [Networked, Capacity(MaxWeaponUnits)]
+    private NetworkArray<ContainerWeaponUnit> WeaponUnits => default;
 
     [Networked]
     public NetworkBool IsInitialized { get; private set; }
@@ -111,7 +121,18 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     public bool StartsAvailable => _startsAvailable;
     public bool StartsLocked => _startsLocked;
     public bool SupportsFullPlayerInventory => _supportsFullPlayerInventory;
-    public int OccupiedSlotCount => LootInventory.Count;
+    /// <summary>World containers count every weapon unit as one entry; full-inventory containers count types.</summary>
+    public int OccupiedSlotCount => CountOccupiedEntries();
+    public int WeaponUnitCapacity => MaxWeaponUnits;
+
+    /// <summary>Reads one stable weapon unit address, including an empty one, without authority.</summary>
+    public bool TryGetWeaponUnit(int unitIndex, out ContainerWeaponUnit unit)
+    {
+        unit = default;
+        if (unitIndex < 0 || unitIndex >= MaxWeaponUnits) return false;
+        unit = WeaponUnits[unitIndex];
+        return true;
+    }
     public bool IsEmpty => LootInventory.Count == 0;
     public bool IsRaidLootOriginAware => _raidOriginState != null;
 
@@ -332,7 +353,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         try
         {
             if (LootInventory.Count != 0 || FirstAcquisitionEligibleInventory.Count != 0 ||
-                _raidOriginState == null ||
+                CountWeaponUnits() != 0 || _raidOriginState == null ||
                 !_raidOriginState.TryGetEntries(_lootCatalog, out IReadOnlyList<RaidLootOriginEntry> origins) ||
                 origins.Count != 0)
             {
@@ -422,10 +443,16 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             return false;
         }
 
+        if (!CanHoldWeaponUnits(resolvedEntries, out error))
+        {
+            return false;
+        }
+
         NetworkDictionary<int, int> inventory = LootInventory;
         NetworkDictionary<int, int> eligibleInventory = FirstAcquisitionEligibleInventory;
         inventory.Clear();
         eligibleInventory.Clear();
+        ClearWeaponUnits();
         try
         {
             for (int index = 0; index < resolvedEntries.Count; index++)
@@ -441,11 +468,21 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                 eligibleInventory.Clear();
                 return false;
             }
+
+            for (int index = 0; index < resolvedEntries.Count; index++)
+            {
+                KeyValuePair<int, int> entry = resolvedEntries[index];
+                if (IsWeapon(entry.Key) && !TryAddWeaponUnits(entry.Key, RaidLootOriginTransfer.Dungeon(entry.Value)))
+                {
+                    throw new InvalidOperationException("Validated natural weapon units could not be committed.");
+                }
+            }
         }
         catch (Exception exception)
         {
             inventory.Clear();
             eligibleInventory.Clear();
+            ClearWeaponUnits();
             error = exception.Message;
             return false;
         }
@@ -575,7 +612,20 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             return LootTransferFailureReason.ContainerUnavailable;
         }
 
-        return LootInventoryRules.ValidateExtraction(hasStack, currentAmount, request.RequestedAmount);
+        bool isWeapon = IsWeapon(index);
+        if (isWeapon && CountWeaponUnits(index, plainOnly: false) != currentAmount)
+        {
+            Debug.LogError($"{nameof(NetworkLootContainer)} has inconsistent weapon units for '{name}'.", this);
+            return LootTransferFailureReason.ContainerUnavailable;
+        }
+
+        LootTransferFailureReason failure =
+            LootInventoryRules.ValidateExtraction(hasStack, currentAmount, request.RequestedAmount);
+        // Several weapon units only move together as plain units; a modified unit moves alone.
+        if (failure == LootTransferFailureReason.None && isWeapon && request.RequestedAmount > 1 &&
+            CountWeaponUnits(index, plainOnly: true) < request.RequestedAmount)
+            return LootTransferFailureReason.InsufficientAmount;
+        return failure;
     }
 
     /// <summary>
@@ -645,12 +695,20 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             return LootTransferFailureReason.ContainerUnavailable;
         }
 
-        LootTransferFailureReason failure = LootInventoryRules.ValidateReceive(
-            alreadyHeld,
-            currentAmount,
-            inventory.Count,
-            _slotCapacity,
-            request.RequestedAmount);
+        LootTransferFailureReason failure;
+        if (IsWeapon(index))
+        {
+            failure = ValidateWeaponUnitReceive(alreadyHeld, currentAmount, request.RequestedAmount);
+        }
+        else
+        {
+            failure = LootInventoryRules.ValidateReceive(
+                alreadyHeld,
+                currentAmount,
+                CountOccupiedEntries(),
+                _slotCapacity,
+                request.RequestedAmount);
+        }
 
         if (failure != LootTransferFailureReason.None)
         {
@@ -688,6 +746,12 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         LootInventory.Set(
             index,
             LootInventoryRules.CalculateReceivedAmount(currentAmount, request.RequestedAmount));
+        if (_raidOriginState == null && IsWeapon(index) &&
+            !TryAddWeaponUnits(index, RaidLootOriginTransfer.Dungeon(request.RequestedAmount)))
+        {
+            FailReceiveCommitContract();
+        }
+
         LootChangeSequence++;
     }
 
@@ -723,6 +787,12 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             _registry.TryGetDungeonInstabilitySink(out IDungeonInstabilitySink containerInstabilitySink))
         {
             containerInstabilitySink.TryRecordTreasureFirstAcquisition(extractedDef.Family);
+        }
+
+        if (_raidOriginState == null && IsWeapon(index) &&
+            !TryRemoveWeaponUnits(index, RaidLootOriginTransfer.Dungeon(request.RequestedAmount)))
+        {
+            FailExtractionCommitContract();
         }
 
         if (remainingAmount == 0)
@@ -781,9 +851,12 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         out RaidLootOriginTransfer transfer)
     {
         transfer = null;
-        return _raidOriginState != null && request.SourceId == Id && _lootCatalog != null &&
-            _lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) &&
-            _raidOriginState.TryResolveTransfer(catalogIndex, request.RequestedAmount, out transfer);
+        if (_raidOriginState == null || request.SourceId != Id || _lootCatalog == null ||
+            !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex))
+            return false;
+        return IsWeapon(catalogIndex)
+            ? TryResolveWeaponTransfer(catalogIndex, request.RequestedAmount, out transfer)
+            : _raidOriginState.TryResolveTransfer(catalogIndex, request.RequestedAmount, out transfer);
     }
 
     public LootTransferFailureReason ValidateRaidLootOriginReceive(
@@ -795,12 +868,16 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             return LootTransferFailureReason.MissingAuthority;
         }
 
-        return _raidOriginState != null && request.DestinationId == Id && _lootCatalog != null &&
-            _lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) &&
-            transfer != null && transfer.TryGetTotal(out int total) && total == request.RequestedAmount &&
-            _raidOriginState.CanReceive(catalogIndex, transfer)
-                ? LootTransferFailureReason.None
-                : LootTransferFailureReason.ContainerUnavailable;
+        if (_raidOriginState == null || request.DestinationId != Id || _lootCatalog == null ||
+            !_lootCatalog.TryGetIndex(request.LootId, out int catalogIndex) ||
+            transfer == null || !transfer.TryGetTotal(out int total) || total != request.RequestedAmount)
+            return LootTransferFailureReason.ContainerUnavailable;
+        // Modifiers belong to exactly one weapon unit.
+        if (!transfer.Modifiers.IsEmpty && (!IsWeapon(catalogIndex) || total != 1))
+            return LootTransferFailureReason.InvalidLoot;
+        return _raidOriginState.CanReceive(catalogIndex, transfer)
+            ? LootTransferFailureReason.None
+            : LootTransferFailureReason.ContainerUnavailable;
     }
 
     public void CommitRaidLootExtraction(
@@ -816,6 +893,10 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 
         CommitExtractionQuantity(request);
         _raidOriginState.CommitExtraction(catalogIndex, transfer);
+        if (IsWeapon(catalogIndex) && !TryRemoveWeaponUnits(catalogIndex, transfer))
+        {
+            FailExtractionCommitContract();
+        }
     }
 
     public void CommitRaidLootReceive(
@@ -831,6 +912,10 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 
         CommitReceiveQuantity(request);
         _raidOriginState.CommitReceive(catalogIndex, transfer);
+        if (IsWeapon(catalogIndex) && !TryAddWeaponUnits(catalogIndex, transfer))
+        {
+            FailReceiveCommitContract();
+        }
     }
 
     internal bool TryGetRaidLootOriginEntries(out IReadOnlyList<RaidLootOriginEntry> entries)
@@ -915,7 +1000,8 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             return false;
         }
 
-        if (!TryValidateExactOriginTotals(resolvedEntries, origins, out error))
+        if (!TryValidateExactOriginTotals(resolvedEntries, origins, out error) ||
+            !CanHoldWeaponUnits(resolvedEntries, out error))
         {
             return false;
         }
@@ -934,10 +1020,24 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                 inventory.Clear();
                 return false;
             }
+
+            // Snapshot entries are plain until corpse snapshots carry modifiers (T7d4).
+            for (int index = 0; index < origins.Count; index++)
+            {
+                RaidLootOriginEntry origin = origins[index];
+                _lootCatalog.TryGetIndex(origin.LootId, out int catalogIndex);
+                if (IsWeapon(catalogIndex) &&
+                    (!RaidLootOriginTransfer.TryCreate(origin.Origin, origin.Amount, out RaidLootOriginTransfer units) ||
+                     !TryAddWeaponUnits(catalogIndex, units)))
+                {
+                    throw new InvalidOperationException("Validated exact weapon units could not be committed.");
+                }
+            }
         }
         catch (Exception exception)
         {
             inventory.Clear();
+            ClearWeaponUnits();
             error = $"Exact content could not be committed before provenance. {exception.Message}";
             return false;
         }
@@ -1048,6 +1148,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 
         LootInventory.Clear();
         FirstAcquisitionEligibleInventory.Clear();
+        ClearWeaponUnits();
         RuneCompassCooldown = TickTimer.None;
         ArcaneDetectorCooldown = TickTimer.None;
         LootChangeSequence++;
@@ -1109,6 +1210,176 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         {
             FailExtractionCommitContract();
         }
+    }
+
+    private bool IsWeapon(int catalogIndex) =>
+        _lootCatalog != null && _lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition) &&
+        definition != null && definition.Category == LootCategory.Weapon;
+
+    private int CountWeaponUnits()
+    {
+        int count = 0;
+        for (int index = 0; index < MaxWeaponUnits; index++)
+            if (!WeaponUnits[index].IsEmpty) count++;
+        return count;
+    }
+
+    private int CountWeaponUnits(int catalogIndex, bool plainOnly)
+    {
+        int count = 0;
+        for (int index = 0; index < MaxWeaponUnits; index++)
+        {
+            ContainerWeaponUnit unit = WeaponUnits[index];
+            if (!unit.IsEmpty && unit.CatalogIndex == catalogIndex && (!plainOnly || unit.Modifiers.IsEmpty)) count++;
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// Entries occupied for capacity. Full-inventory containers keep counting distinct types; world
+    /// containers count every weapon unit as one entry (ItemInstanceArchitecture section 6.3).
+    /// </summary>
+    private int CountOccupiedEntries()
+    {
+        if (_supportsFullPlayerInventory) return LootInventory.Count;
+        int entries = 0;
+        foreach (KeyValuePair<int, int> pair in LootInventory)
+            entries += IsWeapon(pair.Key) ? 0 : 1;
+        return entries + CountWeaponUnits();
+    }
+
+    private LootTransferFailureReason ValidateWeaponUnitReceive(bool alreadyHeld, int currentAmount, int amount)
+    {
+        if (amount <= 0) return LootTransferFailureReason.InvalidAmount;
+        if (CountWeaponUnits() > MaxWeaponUnits - amount) return LootTransferFailureReason.InventoryFull;
+        if (_supportsFullPlayerInventory)
+            return LootInventoryRules.ValidateReceive(alreadyHeld, currentAmount, LootInventory.Count, _slotCapacity, amount);
+        if (CountOccupiedEntries() > _slotCapacity - amount) return LootTransferFailureReason.InventoryFull;
+        return currentAmount > int.MaxValue - amount ? LootTransferFailureReason.Overflow : LootTransferFailureReason.None;
+    }
+
+    /// <summary>Validates that resolved content fits the weapon unit storage and the entry capacity.</summary>
+    private bool CanHoldWeaponUnits(IReadOnlyList<KeyValuePair<int, int>> resolvedEntries, out string error)
+    {
+        error = null;
+        long units = 0;
+        int nonWeaponTypes = 0;
+        for (int index = 0; index < resolvedEntries.Count; index++)
+        {
+            if (IsWeapon(resolvedEntries[index].Key)) units += resolvedEntries[index].Value;
+            else nonWeaponTypes++;
+        }
+
+        if (units > MaxWeaponUnits || (!_supportsFullPlayerInventory && nonWeaponTypes + units > _slotCapacity))
+        {
+            error = "Content exceeds the container's weapon unit or entry capacity.";
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves the weapon units an extraction removes. One unit is the lowest-address unit of the
+    /// canonical (lowest) origin and carries its modifiers; several units are plain units only, taken
+    /// Dungeon-first like the origin state.
+    /// </summary>
+    private bool TryResolveWeaponTransfer(int catalogIndex, int amount, out RaidLootOriginTransfer transfer)
+    {
+        transfer = null;
+        if (amount <= 0) return false;
+        if (amount == 1)
+        {
+            int selected = -1;
+            for (int index = 0; index < MaxWeaponUnits; index++)
+            {
+                ContainerWeaponUnit unit = WeaponUnits[index];
+                if (unit.IsEmpty || unit.CatalogIndex != catalogIndex) continue;
+                if (selected < 0 || unit.Origin.CompareTo(WeaponUnits[selected].Origin) < 0) selected = index;
+            }
+
+            if (selected < 0 || !RaidLootOriginTransfer.TryCreate(WeaponUnits[selected].Origin, 1, out transfer))
+                return false;
+            transfer = transfer.WithModifiers(WeaponUnits[selected].Modifiers);
+            return true;
+        }
+
+        var origins = new SortedDictionary<RaidLootOrigin, int>();
+        for (int index = 0; index < MaxWeaponUnits; index++)
+        {
+            ContainerWeaponUnit unit = WeaponUnits[index];
+            if (unit.IsEmpty || unit.CatalogIndex != catalogIndex || !unit.Modifiers.IsEmpty) continue;
+            origins.TryGetValue(unit.Origin, out int count);
+            origins[unit.Origin] = count + 1;
+        }
+
+        var buckets = new List<RaidLootOriginBucket>(origins.Count);
+        int remaining = amount;
+        foreach (KeyValuePair<RaidLootOrigin, int> origin in origins)
+        {
+            if (remaining == 0) break;
+            int taken = Math.Min(remaining, origin.Value);
+            buckets.Add(new RaidLootOriginBucket(origin.Key, taken));
+            remaining -= taken;
+        }
+
+        if (remaining > 0) return false;
+        transfer = new RaidLootOriginTransfer(buckets);
+        return true;
+    }
+
+    /// <summary>Adds one unit per transferred quantity into the lowest free addresses.</summary>
+    private bool TryAddWeaponUnits(int catalogIndex, RaidLootOriginTransfer transfer)
+    {
+        if (transfer == null || !transfer.TryGetTotal(out int total) ||
+            (!transfer.Modifiers.IsEmpty && total != 1) || CountWeaponUnits() > MaxWeaponUnits - total)
+            return false;
+        NetworkArray<ContainerWeaponUnit> units = WeaponUnits;
+        int address = 0;
+        for (int bucketIndex = 0; bucketIndex < transfer.Count; bucketIndex++)
+        {
+            RaidLootOriginBucket bucket = transfer.Buckets[bucketIndex];
+            for (int unitIndex = 0; unitIndex < bucket.Amount; unitIndex++)
+            {
+                while (!units[address].IsEmpty) address++;
+                if (!ContainerWeaponUnit.TryCreate(catalogIndex, bucket.Origin, transfer.Modifiers,
+                        out ContainerWeaponUnit unit)) return false;
+                units.Set(address, unit);
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Removes the lowest-address units matching each bucket's origin and the transfer's modifiers.</summary>
+    private bool TryRemoveWeaponUnits(int catalogIndex, RaidLootOriginTransfer transfer)
+    {
+        if (transfer == null) return false;
+        NetworkArray<ContainerWeaponUnit> units = WeaponUnits;
+        for (int bucketIndex = 0; bucketIndex < transfer.Count; bucketIndex++)
+        {
+            RaidLootOriginBucket bucket = transfer.Buckets[bucketIndex];
+            int remaining = bucket.Amount;
+            for (int index = 0; index < MaxWeaponUnits && remaining > 0; index++)
+            {
+                ContainerWeaponUnit unit = units[index];
+                if (unit.IsEmpty || unit.CatalogIndex != catalogIndex || unit.Origin != bucket.Origin ||
+                    !unit.Modifiers.Equals(transfer.Modifiers)) continue;
+                units.Set(index, default);
+                remaining--;
+            }
+
+            if (remaining > 0) return false;
+        }
+
+        return true;
+    }
+
+    private void ClearWeaponUnits()
+    {
+        NetworkArray<ContainerWeaponUnit> units = WeaponUnits;
+        for (int index = 0; index < MaxWeaponUnits; index++)
+            if (!units[index].IsEmpty) units.Set(index, default);
     }
 
     private int GetEligibleAmount(int index)
