@@ -86,7 +86,8 @@ public readonly struct AuthoritativeRaidAdmissionTicket : IEquatable<Authoritati
     {
     }
 
-    public bool TryToRaidAdmissionData(out RaidAdmissionData data, PreparedAbilityLoadout fallbackAbilities = default)
+    public bool TryToRaidAdmissionData(out RaidAdmissionData data, PreparedAbilityLoadout fallbackAbilities = default,
+        LootDefinitionCatalog catalog = null)
     {
         data = default;
         if (!IsValid)
@@ -94,35 +95,31 @@ public readonly struct AuthoritativeRaidAdmissionTicket : IEquatable<Authoritati
             return false;
         }
 
-        var entries = new List<LootEntry>(ReservedItems != null ? ReservedItems.Length : 0);
-        if (ReservedItems != null)
+        List<LootEntry> entries;
+        if (catalog == null) entries = new List<LootEntry>(ReservedItems ?? Array.Empty<LootEntry>());
+        else
         {
-            entries.AddRange(ReservedItems);
+            // Classify plain equipment against the owning catalog; the ID-free JSON intentionally
+            // has no durable instance marker. Reuse the Town-to-Raid projection for ordering and folding.
+            var physical = new StashItem[ReservedItems?.Length ?? 0];
+            for (int index = 0; index < physical.Length; index++)
+            {
+                LootEntry entry = ReservedItems[index];
+                if (!entry.IsValid || !catalog.TryGet(entry.LootId.Value, out var definition)) return false;
+                EquipmentInstance instance = null;
+                if (EquipmentInstance.IsEquipment(definition))
+                {
+                    if (entry.Amount != 1) return false;
+                    instance = entry.Modifiers.HasValue ? new EquipmentInstance(null, entry.Modifiers) : EquipmentInstance.PlainCache(definition);
+                }
+                else if (entry.IsEquipmentUnit || entry.Modifiers.HasValue) return false;
+                physical[index] = new StashItem(entry.LootId, entry.Amount, index, instance);
+            }
+            if (!ProfileInventoryRules.TryAggregate(physical, out entries)) return false;
         }
 
-        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
-        var indices = new int[slots.Length];
-        for (int index = 0; index < slots.Length; index++)
-        {
-            LootId eqLootId = PreparedEquipment.Get(slots[index]);
-            if (eqLootId.IsValid)
-            {
-                int entryIndex = FindEntryIndexPlusOne(entries, eqLootId) - 1;
-                if (entryIndex >= 0)
-                {
-                    entries[entryIndex] = new LootEntry(eqLootId, entries[entryIndex].Amount + 1);
-                }
-                else
-                {
-                    entries.Add(new LootEntry(eqLootId, 1));
-                }
-                indices[index] = FindEntryIndexPlusOne(entries, eqLootId);
-            }
-            else
-            {
-                indices[index] = 0;
-            }
-        }
+        if (!RaidAdmissionData.TryAppendPreparedEquipment(entries, PreparedEquipment, out int[] indices))
+            return false;
 
         PreparedAbilityLoadout effectiveAbilities =
             (PreparedAbilities.Slot1.IsValid || PreparedAbilities.Slot2.IsValid)
@@ -144,24 +141,6 @@ public readonly struct AuthoritativeRaidAdmissionTicket : IEquatable<Authoritati
                 : WeaponSetSlot.SetB,
             effectiveAbilities);
         return data.IsValid;
-    }
-
-    private static int FindEntryIndexPlusOne(IReadOnlyList<LootEntry> entries, LootId lootId)
-    {
-        if (!lootId.IsValid || entries == null)
-        {
-            return 0;
-        }
-
-        for (int index = 0; index < entries.Count; index++)
-        {
-            if (entries[index].LootId == lootId)
-            {
-                return index + 1;
-            }
-        }
-
-        return -1;
     }
 
     public bool Equals(AuthoritativeRaidAdmissionTicket other) =>

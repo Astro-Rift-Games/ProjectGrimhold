@@ -10,6 +10,7 @@ using System.Text;
 public static class RaidAdmissionDataCodec
 {
     private const byte CanonicalVersion = 11;
+    private const byte InstanceVersion = 12;
     private static readonly Encoding Utf8 = new UTF8Encoding(false, true);
 
     public static bool TryEncode(in RaidAdmissionData data, out byte[] token)
@@ -24,7 +25,9 @@ public static class RaidAdmissionDataCodec
         {
             using var stream = new MemoryStream();
             using var writer = new BinaryWriter(stream, Utf8, true);
-            writer.Write(CanonicalVersion);
+            bool instanceFormat = false;
+            foreach (LootEntry entry in data.ReservedLoadout) instanceFormat |= entry.IsEquipmentUnit;
+            writer.Write(instanceFormat ? InstanceVersion : CanonicalVersion);
             
             if (!TryWriteText(writer, data.RaidCode.Value))
             {
@@ -71,6 +74,17 @@ public static class RaidAdmissionDataCodec
                 }
 
                 writer.Write(entry.Amount);
+                if (instanceFormat)
+                {
+                    writer.Write(entry.IsEquipmentUnit);
+                    writer.Write(entry.Modifiers.HasValue);
+                    if (entry.Modifiers.HasValue)
+                    {
+                        var dto = Grimhold.Backend.WeaponInstanceModifiersData.FromModifiers(entry.Modifiers.Value);
+                        if (!dto.TryToTransportModifiers(out _, out _)) return false;
+                        writer.Write(Newtonsoft.Json.JsonConvert.SerializeObject(dto));
+                    }
+                }
             }
 
             IReadOnlyList<int> indices = data.EntryIndicesPlusOne;
@@ -108,7 +122,7 @@ public static class RaidAdmissionDataCodec
             using var stream = new MemoryStream(token, false);
             using var reader = new BinaryReader(stream, Utf8, true);
             byte version = reader.ReadByte();
-            if (version != CanonicalVersion)
+            if (version != CanonicalVersion && version != InstanceVersion)
             {
                 return false;
             }
@@ -175,7 +189,22 @@ public static class RaidAdmissionDataCodec
                 }
 
                 int amount = reader.ReadInt32();
-                entries[index] = new LootEntry(new LootId(lootIdValue), amount);
+                bool isUnit = false;
+                WeaponInstanceModifiers? modifiers = null;
+                if (version == InstanceVersion)
+                {
+                    int unitFlag = reader.ReadByte();
+                    int modifierFlag = reader.ReadByte();
+                    if (unitFlag > 1 || modifierFlag > 1 || modifierFlag == 1 && unitFlag != 1) return false;
+                    isUnit = unitFlag == 1;
+                    if (modifierFlag == 1)
+                    {
+                        var dto = Newtonsoft.Json.JsonConvert.DeserializeObject<Grimhold.Backend.WeaponInstanceModifiersData>(reader.ReadString());
+                        if (dto == null || !dto.TryToTransportModifiers(out var parsed, out _)) return false;
+                        modifiers = parsed;
+                    }
+                }
+                entries[index] = new LootEntry(new LootId(lootIdValue), amount, modifiers, isUnit);
             }
 
             var indices = new int[EquipmentSlotRules.AllSlots.Length];
@@ -208,7 +237,11 @@ public static class RaidAdmissionDataCodec
         {
             return false;
         }
-        catch (EndOfStreamException)
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (Newtonsoft.Json.JsonException)
         {
             return false;
         }

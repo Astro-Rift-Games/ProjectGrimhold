@@ -66,46 +66,9 @@ public sealed class BackendRaidAdmissionVerifier : IRaidAdmissionVerifier
         }
 
         var snapshot = data.snapshot;
-        CharacterAttributeState.TryCreate(
-            snapshot.characterAttributes.vitality,
-            snapshot.characterAttributes.resistance,
-            snapshot.characterAttributes.strength,
-            snapshot.characterAttributes.dexterity,
-            snapshot.characterAttributes.intelligence,
-            snapshot.characterAttributes.luck,
-            snapshot.characterAttributes.availablePoints,
-            out CharacterAttributeState attributes);
-
-        AbilityId.TryCreate(snapshot.preparedAbilities.slot1, out AbilityId slot1Id);
-        AbilityId.TryCreate(snapshot.preparedAbilities.slot2, out AbilityId slot2Id);
-        var abilities = new PreparedAbilityLoadout(slot1Id, slot2Id);
-
-        var items = new LootEntry[snapshot.items != null ? snapshot.items.Length : 0];
-        if (snapshot.items != null)
-        {
-            for (int i = 0; i < snapshot.items.Length; i++)
-            {
-                items[i] = new LootEntry(new LootId(snapshot.items[i].lootId), snapshot.items[i].amount);
-            }
-        }
-
-        LootId weapon1 = ParseOptionalLootId(snapshot.preparedEquipment.weaponSlot1);
-        LootId weapon2 = ParseOptionalLootId(snapshot.preparedEquipment.weaponSlot2);
-        LootId offHand1 = ParseOptionalLootId(snapshot.preparedEquipment.offHand1);
-        LootId helmet = ParseOptionalLootId(snapshot.preparedEquipment.helmet);
-        LootId armor = ParseOptionalLootId(snapshot.preparedEquipment.armor);
-        LootId gloves = ParseOptionalLootId(snapshot.preparedEquipment.gloves);
-        LootId boots = ParseOptionalLootId(snapshot.preparedEquipment.boots);
-        LootId offHand2 = ParseOptionalLootId(snapshot.preparedEquipment.offHand2);
-        var preparedEquipment = new PreparedEquipmentLoadout(
-            weaponSetAMainHand: weapon1,
-            weaponSetBMainHand: weapon2,
-            helmet: helmet,
-            armor: armor,
-            gloves: gloves,
-            boots: boots,
-            weaponSetAOffHand: offHand1,
-            weaponSetBOffHand: offHand2);
+        if (!RaidAdmissionSnapshotMapper.TryProject(snapshot, out var attributes, out var abilities,
+            out var items, out var preparedEquipment))
+            return (false, default, "INVALID_ADMISSION_SNAPSHOT");
 
         RaidCode.TryParse(data.raidCode, out RaidCode parsedRaidCode);
         if (!parsedRaidCode.IsValid)
@@ -130,8 +93,6 @@ public sealed class BackendRaidAdmissionVerifier : IRaidAdmissionVerifier
         return (true, ticket, null);
     }
 
-    private static LootId ParseOptionalLootId(string str) =>
-        string.IsNullOrWhiteSpace(str) ? default : new LootId(str);
 }
 
 public sealed class LocalDeterministicRaidAdmissionVerifier : IRaidAdmissionVerifier

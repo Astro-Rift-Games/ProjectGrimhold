@@ -69,6 +69,16 @@ token containing:
 Raid admission validates the token against the frozen launch context and prepared Loadout rules;
 it does not accept an open late-join roster.
 
+The backend signs an ID-free admission projection: items are `{ lootId, amount, modifiers? }`
+(one entry per equipment unit) and prepared slots are `null | { lootId, modifiers? }`.
+Durable `pendingReservation` retains its full instances and Town slot addresses unchanged.
+The opaque signed ticket travels in reliable RPC chunks of at most **384 bytes**. Reassembly is
+bounded to **16,384 bytes (16 KiB)** and the derived **43 chunks**; the measured 30-inventory +
+4-hand dual-scaling/two-gem ticket is 10,423 bytes. Empty, malformed, duplicate, inconsistent and
+oversized streams are rejected; a legal chunk count cannot bypass the total-byte limit.
+Reassembly does not authenticate or rewrite the ticket: backend signature verification remains
+required before State Authority admits the verified snapshot.
+
 For a fresh player spawn, State Authority creates `NetworkRaidParticipant` first and initializes it
 from the admitted identity, progression baseline and attributes. The participant copies all six
 attributes plus available points into its replicated state and publishes its initialization marker

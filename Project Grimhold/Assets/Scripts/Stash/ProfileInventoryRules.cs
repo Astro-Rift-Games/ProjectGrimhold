@@ -167,7 +167,7 @@ public static class ProfileInventoryRules
         return true;
     }
 
-    /// <summary>Raid boundary only: fold definitions in ascending physical-slot order, overflow checked.</summary>
+    /// <summary>Raid boundary: preserve ID-free equipment units; fold other loot in physical-slot order.</summary>
     public static bool TryAggregate(IReadOnlyList<StashItem> items, out List<LootEntry> entries)
     {
         entries = new List<LootEntry>();
@@ -178,6 +178,11 @@ public static class ProfileInventoryRules
         foreach (StashItem item in ordered)
         {
             if (!item.IsValid) return false;
+            if (item.Instance != null)
+            {
+                entries.Add(new LootEntry(item.LootId, 1, item.Instance.Modifiers, isEquipmentUnit: true));
+                continue;
+            }
             if (indices.TryGetValue(item.LootId, out int index))
             {
                 if (entries[index].Amount > int.MaxValue - item.Amount) return false;

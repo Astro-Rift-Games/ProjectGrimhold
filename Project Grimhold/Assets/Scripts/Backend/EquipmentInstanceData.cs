@@ -84,6 +84,19 @@ namespace Grimhold.Backend
             return WeaponInstanceModifiers.TryCreate(first, second, naturalAttribute, gemSocketCount, socket0, socket1, out value, out error);
         }
 
+        /// <summary>Transport shape only; admission must subsequently validate against the template/catalog.</summary>
+        public bool TryToTransportModifiers(out WeaponInstanceModifiers value, out string error)
+        {
+            value = default;
+            CharacterAttribute natural = CharacterAttribute.Strength;
+            if (primary != null)
+            {
+                if (!primary.TryToModifier(out var scaling, out error)) return false;
+                natural = scaling.Attribute;
+            }
+            return TryToModifiers(natural, out value, out error);
+        }
+
         public static WeaponInstanceModifiersData FromModifiers(WeaponInstanceModifiers value)
         {
             var gems = new string[value.GemSocketCount];

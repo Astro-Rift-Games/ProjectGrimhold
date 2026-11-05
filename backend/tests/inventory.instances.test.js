@@ -182,9 +182,19 @@ test('v3 instance public HTTP/service contract', async t => {
     const reserved = await Inventory.savePendingReservation(accountId, 'reserve');
     assert.deepEqual(reserved.pendingReservation.items, [unit(3, 'shield', 2)]);
     assert.deepEqual(reserved.pendingReservation.preparedEquipment.weaponSlot1, equipment('arming_sword', 1, mods()));
+    const beforeTicket = structuredClone(stored);
+    const counters = [writes, claims, publications];
     const ticket = await Session.issueRaidAdmissionTicket(accountId, 'ABC123', 'reserve');
-    assert.deepEqual(ticket.snapshot.items, [unit(3, 'shield', 2)]);
-    assert.deepEqual(ticket.snapshot.preparedEquipment, reserved.pendingReservation.preparedEquipment);
+    assert.deepEqual(ticket.snapshot.items, [{ lootId: 'shield', amount: 1 }]);
+    assert.deepEqual(ticket.snapshot.preparedEquipment, {
+      ...emptyEquipment(), weaponSlot1: { lootId: 'arming_sword', modifiers: mods() }
+    });
+    assert.deepEqual(Session.verifyRaidAdmissionTicket(ticket.ticket, 'ABC123').snapshot, ticket.snapshot);
+    const signedSnapshot = JSON.parse(Buffer.from(ticket.ticket.split('.')[0], 'base64url').toString('utf8')).snapshot;
+    assert.deepEqual(signedSnapshot, ticket.snapshot);
+    assert.equal(JSON.stringify(signedSnapshot).includes('instanceId'), false);
+    assert.deepEqual(stored, beforeTicket);
+    assert.deepEqual([writes, claims, publications], counters);
     const admitted = await Inventory.admitPendingReservation(accountId, 'reserve');
     assert.deepEqual(admitted.pendingReservation.items, reserved.pendingReservation.items); assert.equal(admitted.revision, 6);
     await rejected(() => Inventory.clearPendingReservation(accountId, { rollback: true }), 'RESERVATION_ADMITTED');
@@ -195,6 +205,60 @@ test('v3 instance public HTTP/service contract', async t => {
     assert.deepEqual(weapon.instance.modifiers, plain());
     await Inventory.clearPendingReservation(accountId, { rollback: true });
     assert.deepEqual((await snapshot()).preparedEquipment.weaponSlot1, weapon);
+  });
+
+  await t.test('admission signs ID-free individual weapons in slot order without changing the reservation', async () => {
+    const first = mods(['RES_RUBY_GEM', null]);
+    const second = mods([null, 'RES_SAPPHIRE_GEM']);
+    stored.inventory.pendingReservation = { reservationId: 'reserve', admittedAt: null,
+      items: [unit(9, 'arming_sword', 1, first), { slot: 5, lootId: 'bone', amount: 7 },
+        unit(2, 'arming_sword', 2, second), unit(7, 'arming_sword', 3)],
+      preparedEquipment: { ...emptyEquipment(), weaponSlot1: equipment('arming_sword', 4, first),
+        offHand2: equipment('shield', 5) } };
+    const before = structuredClone(stored);
+    const ticket = await Session.issueRaidAdmissionTicket(accountId, 'ABC123', 'reserve');
+    assert.deepEqual(ticket.snapshot.items, [
+      { lootId: 'arming_sword', amount: 1, modifiers: second },
+      { lootId: 'bone', amount: 7 },
+      { lootId: 'arming_sword', amount: 1, modifiers: plain() },
+      { lootId: 'arming_sword', amount: 1, modifiers: first }
+    ]);
+    assert.deepEqual(ticket.snapshot.preparedEquipment, { ...emptyEquipment(),
+      weaponSlot1: { lootId: 'arming_sword', modifiers: first }, offHand2: { lootId: 'shield' } });
+    const verified = Session.verifyRaidAdmissionTicket(ticket.ticket, 'ABC123');
+    assert.equal(verified.valid, true);
+    assert.deepEqual(verified.snapshot, ticket.snapshot);
+    assert.equal(JSON.stringify(verified.snapshot).includes('instanceId'), false);
+    assert.equal(JSON.stringify(verified.snapshot).includes('"slot":'), false);
+    assert.deepEqual(stored, before);
+    assert.deepEqual([writes, claims, publications], [0, 0, 0]);
+    // Response consumers cannot mutate the durable reservation or the signed snapshot.
+    ticket.snapshot.items[0].modifiers.gems[1] = null;
+    assert.deepEqual(stored, before);
+    assert.deepEqual(Session.verifyRaidAdmissionTicket(ticket.ticket, 'ABC123').snapshot, verified.snapshot);
+  });
+
+  await t.test('full carried weapon admission preserves all 34 ID-free units and reports signed transport size', async t => {
+    const modifiers = { ...mods(['RES_RUBY_GEM', 'RES_SAPPHIRE_GEM']),
+      secondary: { attribute: 'intelligence', grade: 'S' } };
+    stored.inventory.pendingReservation = { reservationId: '0123456789abcdef0123456789abcdef', admittedAt: null,
+      items: Array.from({ length: 30 }, (_, slot) => unit(slot, 'arming_sword', slot + 1, modifiers)),
+      preparedEquipment: { ...emptyEquipment(), weaponSlot1: equipment('arming_sword', 31, modifiers),
+        weaponSlot2: equipment('arming_sword', 32, modifiers), offHand1: equipment('arming_sword', 33, modifiers),
+        offHand2: equipment('arming_sword', 34, modifiers) } };
+    const before = structuredClone(stored);
+    const ticket = await Session.issueRaidAdmissionTicket(accountId, '123456', stored.inventory.pendingReservation.reservationId);
+    const verified = Session.verifyRaidAdmissionTicket(ticket.ticket, '123456');
+    assert.equal(verified.valid, true);
+    assert.deepEqual(verified.snapshot, ticket.snapshot);
+    assert.deepEqual(ticket.snapshot.items, Array.from({ length: 30 }, () =>
+      ({ lootId: 'arming_sword', amount: 1, modifiers })));
+    for (const slot of ['weaponSlot1', 'weaponSlot2', 'offHand1', 'offHand2'])
+      assert.deepEqual(ticket.snapshot.preparedEquipment[slot], { lootId: 'arming_sword', modifiers });
+    assert.equal(JSON.stringify(ticket.snapshot).includes('instanceId'), false);
+    assert.deepEqual(stored, before);
+    assert.deepEqual([writes, claims, publications], [0, 0, 0]);
+    t.diagnostic(`34-weapon signed admission payload: ${Buffer.byteLength(ticket.ticket, 'utf8')} bytes`);
   });
 
   const installBody = () => ({ transactionId: 'install', weaponList: 'stash', weaponSlot: 9, instanceId: id(1),

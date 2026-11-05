@@ -11,7 +11,7 @@ public static class RaidAdmissionPayloadChunking
     public const int MaxChunkBytes = 384;
 
     /// <summary>Upper bound for a reassembled admission payload accepted by State Authority.</summary>
-    public const int MaxPayloadBytes = 8192;
+    public const int MaxPayloadBytes = 16384;
 
     public const int MaxChunkCount = (MaxPayloadBytes + MaxChunkBytes - 1) / MaxChunkBytes;
 
