@@ -496,6 +496,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _equipmentController.EquipRequestResolved += OnEquipRequestResolved;
         _view.PlayerPanel.InventorySelectionRequested += OnPlayerInventorySlotSelected;
         _view.ContainerPanel.SelectionRequested += OnContainerSlotSelected;
+        _view.ContainerPanel.InventorySelectionRequested += OnContainerUnitSelected;
         _view.TakeAllRequested += OnTakeAllRequested;
         _isSubscribed = true;
     }
@@ -600,6 +601,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         if (_view != null && _view.ContainerPanel != null)
         {
             _view.ContainerPanel.SelectionRequested -= OnContainerSlotSelected;
+            _view.ContainerPanel.InventorySelectionRequested -= OnContainerUnitSelected;
         }
 
         if (_view != null)
@@ -774,6 +776,29 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _view.SetScreenVisible(true);
     }
 
+    /// <summary>Withdraws exactly the selected container weapon unit.</summary>
+    private void OnContainerUnitSelected(RaidInventorySlotData data, LootTransferQuantityMode quantityMode)
+    {
+        if (!data.HasSourceUnitAddress || MutationsBlocked || _mode != ScreenMode.ContainerLoot || _container == null ||
+            _takeAllState.IsActive || _transferController.HasRequestInFlight ||
+            !_containerSelection.TrySelect(data.LootId, _containerPanelPresenter.OccupiedEntries))
+        {
+            return;
+        }
+
+        _playerSelection.Clear();
+        _view.HideTransferFeedback();
+        if (!TryRequestTransferWithFeedback(_container.Id, _lootReceiver.Id, data.LootId,
+                LootTransferQuantityMode.SingleUnit, sourceUnitIndex: data.SourceUnitIndex,
+                sourceUnitModifiers: data.SourceUnitModifiers))
+        {
+            _containerSelection.Reconcile(_containerPanelPresenter.OccupiedEntries);
+            _view.ShowTransferFeedback("No se pudo solicitar la transferencia");
+        }
+
+        RefreshTransferInteraction();
+    }
+
     private void OnContainerSlotSelected(LootId lootId, LootTransferQuantityMode quantityMode)
     {
         if (MutationsBlocked || _mode != ScreenMode.ContainerLoot || _container == null ||
@@ -895,7 +920,9 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         else if (payload.Source == DragSlotLocation.Container && targetLocation == DragSlotLocation.Inventory)
         {
             if (_container != null && _transferController != null)
-                TryRequestTransferWithFeedback(_container.Id, _lootReceiver.Id, payload.LootId, LootTransferQuantityMode.FullStack);
+                TryRequestTransferWithFeedback(_container.Id, _lootReceiver.Id, payload.LootId,
+                    payload.HasSourceUnitAddress ? LootTransferQuantityMode.SingleUnit : LootTransferQuantityMode.FullStack,
+                    sourceUnitIndex: payload.SourceUnitIndex, sourceUnitModifiers: payload.SourceUnitModifiers);
         }
         else if (payload.Source == DragSlotLocation.Inventory && targetLocation == DragSlotLocation.Equipment)
         {
@@ -1388,7 +1415,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private bool TryRequestTransferWithFeedback(
         EntityId sourceId, EntityId destinationId, LootId lootId, LootTransferQuantityMode mode,
-        int sourceInventorySlotIndex = -1, int expectedInventoryRevision = -1)
+        int sourceInventorySlotIndex = -1, int expectedInventoryRevision = -1,
+        int sourceUnitIndex = -1, WeaponInstanceModifiersNetworkData sourceUnitModifiers = default)
     {
         // Capture the displayed destination before either snapshots or confirmation can arrive.
         LootTransferFeedbackState feedback = destinationId == _container.Id
@@ -1396,10 +1424,13 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         if (_transferController.HasRequestInFlight) return false;
         feedback.CaptureRequest(lootId);
         bool addressed = sourceInventorySlotIndex != -1 || expectedInventoryRevision != -1;
-        bool accepted = addressed
-            ? _transferController.TryRequestTransfer(sourceId, destinationId, lootId, mode,
-                sourceInventorySlotIndex, expectedInventoryRevision)
-            : _transferController.TryRequestTransfer(sourceId, destinationId, lootId, mode);
+        bool accepted = sourceUnitIndex != -1
+            ? _transferController.TryRequestUnitTransfer(sourceId, destinationId, lootId,
+                sourceUnitIndex, sourceUnitModifiers)
+            : addressed
+                ? _transferController.TryRequestTransfer(sourceId, destinationId, lootId, mode,
+                    sourceInventorySlotIndex, expectedInventoryRevision)
+                : _transferController.TryRequestTransfer(sourceId, destinationId, lootId, mode);
         if (accepted) return true;
         feedback.CompleteRequest(null, false);
         return false;
@@ -1494,7 +1525,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         if (MutationsBlocked || _mode != ScreenMode.ContainerLoot || _container == null ||
             _transferController == null || _transferController.HasRequestInFlight ||
             _takeAllState.IsActive ||
-            !_takeAllState.TryBegin(_containerPanelPresenter.OccupiedEntries))
+            !_takeAllState.TryBegin(_containerPanelPresenter.Slots))
         {
             RefreshTransferInteraction();
             return;
@@ -1527,11 +1558,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             }
 
             LootId lootId = _takeAllState.CurrentLootId;
+            bool unit = _takeAllState.CurrentHasUnitAddress;
             if (TryRequestTransferWithFeedback(
                     _container.Id,
                     _lootReceiver.Id,
                     lootId,
-                    LootTransferQuantityMode.FullStack))
+                    unit ? LootTransferQuantityMode.SingleUnit : LootTransferQuantityMode.FullStack,
+                    sourceUnitIndex: _takeAllState.CurrentUnitIndex,
+                    sourceUnitModifiers: _takeAllState.CurrentUnitModifiers))
             {
                 if (!_takeAllState.TryMarkRequestSent(lootId))
                 {
@@ -1702,7 +1736,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         UpdateSortInteractable();
         bool refreshed = _isRaidBinding
             ? _playerPanelPresenter.RefreshInventory(_lootReceiver, _lootCatalog, _view.PlayerPanel,
-                totalValue, interactionMode, _playerSelection.SelectedLootId, _playerSelection.SelectedInventorySlotIndex)
+                totalValue, interactionMode, _playerSelection.SelectedLootId, _playerSelection.SelectedInventorySlotIndex,
+                ReadRaidAttributes())
             : _playerPanelPresenter.Refresh(_inventorySource, _lootCatalog, _view.PlayerPanel,
                 totalValue, false, interactionMode, _playerSelection.SelectedLootId, this);
 
@@ -1840,15 +1875,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
         _observedContainerLootSequence = _container.LootChangeSequence;
         bool interactive = !MutationsBlocked && !_transferController.HasRequestInFlight && !_takeAllState.IsActive;
-        bool refreshed = _containerPanelPresenter.Refresh(
-            _container,
+        bool refreshed = _containerPanelPresenter.RefreshContainer(
             _container,
             _lootCatalog,
             _view.ContainerPanel,
-            null,
             true,
-            interactive,
+            interactive ? RaidLootSlotInteractionMode.Transfer : RaidLootSlotInteractionMode.ReadOnly,
             _containerSelection.SelectedLootId,
+            ReadRaidAttributes(),
             this);
 
         if (!refreshed)
@@ -1861,6 +1895,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         PresentTransferFeedback(_containerTransferFeedback, _containerPanelPresenter, _view.ContainerPanel);
         RefreshTransferInteraction();
     }
+
+    /// <summary>The local participant's confirmed attributes for Raid weapon tooltips, when admitted.</summary>
+    private CharacterAttributeState? ReadRaidAttributes() =>
+        _isRaidBinding && _lootReceiver != null &&
+        _lootReceiver.TryGetComponent(out RaidAvatarParticipantLink link) &&
+        link.TryGetCharacterAttributeState(out CharacterAttributeState attributes)
+            ? attributes
+            : null;
 
     private void RefreshTransferInteraction()
     {

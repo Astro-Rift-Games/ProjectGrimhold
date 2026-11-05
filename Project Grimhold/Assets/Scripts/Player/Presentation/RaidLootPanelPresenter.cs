@@ -18,7 +18,8 @@ public sealed class RaidLootPanelPresenter
     public bool RefreshInventory(
         PlayerLootReceiver receiver, LootDefinitionCatalog catalog, RaidLootPanelView view,
         long? totalValue, RaidLootSlotInteractionMode interactionMode,
-        LootId selectedLootId, int selectedInventorySlotIndex)
+        LootId selectedLootId, int selectedInventorySlotIndex,
+        CharacterAttributeState? attributes = null)
     {
         _slotData.Clear();
         _occupiedEntries = null;
@@ -51,9 +52,10 @@ public sealed class RaidLootPanelPresenter
                 view.ShowUnavailable();
                 return false;
             }
+            receiver.TryGetInventorySlotModifiers(index, out WeaponInstanceModifiersNetworkData modifiers);
             _slotData.Add(RaidInventorySlotData.CreateInventorySlot(
                 new LootEntry(definition.LootId, slot.Quantity), definition, view.PlaceholderIcon,
-                index, revision, slot.Origin));
+                index, revision, slot.Origin, modifiers, attributes, catalog));
         }
 
         _occupiedEntries = aggregate;
@@ -143,6 +145,77 @@ public sealed class RaidLootPanelPresenter
             interactionMode,
             selectedLootId,
             logContext);
+    }
+
+    /// <summary>
+    /// Raid container cells: stacks keep one aggregate cell, and every weapon unit has its own cell
+    /// addressed by unit position, with its own tooltip (ItemInstanceArchitecture section 6.3).
+    /// </summary>
+    public bool RefreshContainer(
+        NetworkLootContainer container, LootDefinitionCatalog catalog, RaidLootPanelView view,
+        bool showEmptyState, RaidLootSlotInteractionMode interactionMode, LootId selectedLootId,
+        CharacterAttributeState? attributes, Object logContext)
+    {
+        _slotData.Clear();
+        _occupiedEntries = null;
+        if (container == null || catalog == null || view == null ||
+            !view.EnsureSlotCount(container.SlotCapacity) ||
+            !container.TryGetLootContent(out IReadOnlyList<LootEntry> content))
+        {
+            view?.ShowUnavailable();
+            return false;
+        }
+
+        for (int i = 0; i < content.Count; i++)
+        {
+            LootEntry entry = content[i];
+            if (!catalog.TryGet(entry.LootId.Value, out LootDefinition definition) &&
+                _reportedMissingDefinitions.Add(entry.LootId))
+            {
+                Debug.LogError($"{nameof(RaidLootPanelPresenter)} could not resolve metadata for loot '{entry.LootId.Value}'.", logContext);
+            }
+
+            if (definition == null || definition.Category != LootCategory.Weapon ||
+                !catalog.TryGetIndex(entry.LootId, out int catalogIndex))
+            {
+                _slotData.Add(RaidInventorySlotData.Create(entry, definition, view.PlaceholderIcon));
+                continue;
+            }
+
+            int units = 0;
+            for (int unitIndex = 0; unitIndex < container.WeaponUnitCapacity; unitIndex++)
+            {
+                if (!container.TryGetWeaponUnit(unitIndex, out ContainerWeaponUnit unit) || unit.IsEmpty ||
+                    unit.CatalogIndex != catalogIndex) continue;
+                _slotData.Add(RaidInventorySlotData.CreateContainerUnit(definition, view.PlaceholderIcon,
+                    unitIndex, unit.Modifiers, attributes, catalog));
+                units++;
+            }
+
+            if (units != entry.Amount)
+            {
+                _slotData.Clear();
+                view.ShowUnavailable();
+                return false;
+            }
+        }
+
+        if (_slotData.Count > container.SlotCapacity)
+        {
+            _slotData.Clear();
+            view.ShowUnavailable();
+            return false;
+        }
+
+        while (_slotData.Count < container.SlotCapacity) _slotData.Add(RaidInventorySlotData.Empty);
+        _occupiedEntries = content;
+        if (!view.Present(_slotData, null, showEmptyState && content.Count == 0, interactionMode, selectedLootId))
+        {
+            view.ShowUnavailable();
+            return false;
+        }
+
+        return true;
     }
 
     private delegate bool TryReadContent(out IReadOnlyList<LootEntry> content);

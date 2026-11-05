@@ -16,10 +16,16 @@ public readonly struct DragPayload
     public int SourceInventorySlotIndex => _sourceInventorySlotIndex ?? -1;
     public int ExpectedInventoryRevision => _expectedInventoryRevision ?? -1;
     public bool HasInventorySlotAddress => SourceInventorySlotIndex != -1 || ExpectedInventoryRevision != -1;
+    private readonly int? _sourceUnitIndex;
+    public int SourceUnitIndex => _sourceUnitIndex ?? -1;
+    public readonly WeaponInstanceModifiersNetworkData SourceUnitModifiers;
+    public bool HasSourceUnitAddress => SourceUnitIndex != -1;
 
     public bool IsValid => LootId.IsValid && Source != DragSlotLocation.None &&
         LootTransferRequest.IsValidInventorySource(SourceInventorySlotIndex, ExpectedInventoryRevision) &&
-        (!HasInventorySlotAddress || Source == DragSlotLocation.Inventory);
+        (!HasInventorySlotAddress || Source == DragSlotLocation.Inventory) &&
+        (!HasSourceUnitAddress || (Source == DragSlotLocation.Container && !HasInventorySlotAddress &&
+            LootTransferRequest.IsValidSourceUnitAddress(SourceUnitIndex)));
 
     public static DragPayload Empty => default;
 
@@ -36,8 +42,11 @@ public readonly struct DragPayload
     public DragPayload(
         LootId lootId, DragSlotLocation source, EquipmentSlot equipmentSlot, Sprite icon,
         int amount, LootCategory category, WeaponHandedness weaponHandedness,
-        int sourceInventorySlotIndex, int expectedInventoryRevision)
+        int sourceInventorySlotIndex, int expectedInventoryRevision,
+        int sourceUnitIndex = -1, WeaponInstanceModifiersNetworkData sourceUnitModifiers = default)
     {
+        _sourceUnitIndex = sourceUnitIndex;
+        SourceUnitModifiers = sourceUnitModifiers;
         _sourceInventorySlotIndex = sourceInventorySlotIndex;
         _expectedInventoryRevision = expectedInventoryRevision;
         LootId = lootId;
@@ -60,7 +69,9 @@ public readonly struct DragPayload
             data.Category,
             data.WeaponHandedness,
             data.SourceInventorySlotIndex,
-            data.ExpectedInventoryRevision
+            data.ExpectedInventoryRevision,
+            data.SourceUnitIndex,
+            data.SourceUnitModifiers
         );
     }
 }

@@ -13,7 +13,7 @@ public readonly struct RaidInventorySlotData
     public int Amount { get; }
     public bool UsesFallback { get; }
     public EquipmentTooltipPresentation Tooltip { get; }
-    /// <summary>Confirmed Town equipment only. Raid transport is deferred to T7.</summary>
+    /// <summary>Town equipment instance, or an ID-less Raid weapon unit carrying its modifiers.</summary>
     public EquipmentInstance Instance { get; }
     // Nullable backing keeps default(struct) unaddressed without offsetting opaque revision tokens.
     private readonly int? _sourceInventorySlotIndex;
@@ -22,6 +22,11 @@ public readonly struct RaidInventorySlotData
     public int ExpectedInventoryRevision => _expectedInventoryRevision ?? -1;
     public RaidLootOrigin? Origin { get; }
     public bool HasInventorySlotAddress => SourceInventorySlotIndex != -1 || ExpectedInventoryRevision != -1;
+    // Container weapon unit address, guarded by the unit's observed modifiers.
+    private readonly int? _sourceUnitIndex;
+    public int SourceUnitIndex => _sourceUnitIndex ?? -1;
+    public WeaponInstanceModifiersNetworkData SourceUnitModifiers { get; }
+    public bool HasSourceUnitAddress => SourceUnitIndex != -1;
 
     /// <summary>Catalog classification of the unit, or None when its definition is unresolved.</summary>
     public LootCategory Category { get; }
@@ -42,8 +47,12 @@ public readonly struct RaidInventorySlotData
         int sourceInventorySlotIndex = -1,
         int expectedInventoryRevision = -1,
         RaidLootOrigin? origin = null,
-        EquipmentInstance instance = null)
+        EquipmentInstance instance = null,
+        int sourceUnitIndex = -1,
+        WeaponInstanceModifiersNetworkData sourceUnitModifiers = default)
     {
+        _sourceUnitIndex = sourceUnitIndex;
+        SourceUnitModifiers = sourceUnitModifiers;
         IsOccupied = isOccupied;
         LootId = lootId;
         Icon = icon;
@@ -66,7 +75,7 @@ public readonly struct RaidInventorySlotData
     public RaidInventorySlotData WithDisplayName(string displayName) => new(
         IsOccupied, LootId, Icon, displayName, Amount, UsesFallback, Tooltip,
         Category, WeaponHandedness, HasWeaponDefinition,
-        SourceInventorySlotIndex, ExpectedInventoryRevision, Origin, Instance);
+        SourceInventorySlotIndex, ExpectedInventoryRevision, Origin, Instance, SourceUnitIndex, SourceUnitModifiers);
 
     public static RaidInventorySlotData EmptyInventorySlot(int index, int revision) =>
         LootTransferRequest.IsValidInventorySlotAddress(index, revision)
@@ -76,14 +85,45 @@ public readonly struct RaidInventorySlotData
 
     public static RaidInventorySlotData CreateInventorySlot(
         LootEntry entry, LootDefinition definition, Sprite placeholder,
-        int index, int revision, RaidLootOrigin origin)
+        int index, int revision, RaidLootOrigin origin,
+        WeaponInstanceModifiersNetworkData modifiers = default,
+        CharacterAttributeState? attributes = null, LootDefinitionCatalog catalog = null)
     {
         if (!entry.IsValid || !origin.IsValid || !LootTransferRequest.IsValidInventorySlotAddress(index, revision))
             return Empty;
-        RaidInventorySlotData data = Create(entry, definition, placeholder);
+        RaidInventorySlotData data = Create(entry, definition, placeholder,
+            ResolveRaidInstance(definition, modifiers, catalog), attributes, catalog);
         return new RaidInventorySlotData(data.IsOccupied, data.LootId, data.Icon, data.DisplayName,
             data.Amount, data.UsesFallback, data.Tooltip, data.Category, data.WeaponHandedness,
-            data.HasWeaponDefinition, index, revision, origin);
+            data.HasWeaponDefinition, index, revision, origin, data.Instance);
+    }
+
+    /// <summary>
+    /// One container weapon unit cell (ItemInstanceArchitecture section 6.3), addressed by its unit
+    /// position and observed modifiers. A modified unit shows its own instance tooltip.
+    /// </summary>
+    public static RaidInventorySlotData CreateContainerUnit(
+        LootDefinition definition, Sprite placeholder, int unitIndex, WeaponInstanceModifiersNetworkData modifiers,
+        CharacterAttributeState? attributes, LootDefinitionCatalog catalog)
+    {
+        if (definition == null || !LootTransferRequest.IsValidSourceUnitAddress(unitIndex)) return Empty;
+        RaidInventorySlotData data = Create(new LootEntry(definition.LootId, 1), definition, placeholder,
+            ResolveRaidInstance(definition, modifiers, catalog), attributes, catalog);
+        return new RaidInventorySlotData(data.IsOccupied, data.LootId, data.Icon, data.DisplayName,
+            data.Amount, data.UsesFallback, data.Tooltip, data.Category, data.WeaponHandedness,
+            data.HasWeaponDefinition, instance: data.Instance, sourceUnitIndex: unitIndex,
+            sourceUnitModifiers: modifiers);
+    }
+
+    /// <summary>Plain units keep the definition tooltip; modified units decode an ID-less instance.</summary>
+    private static EquipmentInstance ResolveRaidInstance(LootDefinition definition,
+        WeaponInstanceModifiersNetworkData modifiers, LootDefinitionCatalog catalog)
+    {
+        if (modifiers.IsEmpty || definition?.WeaponDefinition == null || catalog == null ||
+            !modifiers.TryResolve(catalog, definition.WeaponDefinition.NaturalScalingAttribute,
+                out WeaponInstanceModifiers decoded, out _))
+            return null;
+        return new EquipmentInstance(null, decoded);
     }
 
     public static RaidInventorySlotData Create(

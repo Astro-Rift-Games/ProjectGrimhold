@@ -325,7 +325,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
         if (_interactionMode == RaidLootSlotInteractionMode.Transfer)
         {
-            if (_slotData.HasInventorySlotAddress)
+            if (_slotData.HasInventorySlotAddress || _slotData.HasSourceUnitAddress)
                 InventorySelectionRequested?.Invoke(_slotData, LootTransferQuantityMode.FullStack);
             else
                 SelectionRequested?.Invoke(_lootId, LootTransferQuantityMode.FullStack);
