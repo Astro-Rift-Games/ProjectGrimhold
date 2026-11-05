@@ -188,7 +188,20 @@ Raid state carries `WeaponInstanceModifiersNetworkData` per weapon unit, never i
 - `NetworkLootPickup`, `NetworkLootContainer` and corpses keep the modifiers of every weapon unit
   they hold. Containers store weapon units individually, not in the catalog-index aggregate.
 - Host Migration restores these networked fields with the existing `CopyStateFrom` path.
-- Measured network budgets (`RaidLootOriginWordCountTests`) are updated with the new size.
+- Modifiers travel packed in one 32-bit word per weapon unit: primary attribute and grade (6 bits),
+  secondary attribute and grade (6 bits), socket count (2 bits) and two gem catalog indices + 1
+  (7 bits each): **28 bits total**, with the upper four bits reserved and required to be zero.
+  The packed order, from least significant bit, is primary attribute (0–2), primary grade (3–5),
+  secondary attribute (6–8), secondary grade (9–11), socket count (12–13), first gem (14–20),
+  second gem (21–27). An absent scaling slot is canonical zero; gem zero means an empty socket.
+  The catalog stays under 128 entries (`RaidLootOriginPackedBuffer`), so the highest supported
+  gem index is 126 (encoded as 127). Encoding and decoding reject unsupported attributes/grades,
+  invalid socket combinations, reserved bits, and missing/non-gem catalog references.
+- Container capacity: world and enemy containers keep their limit of 6 distinct entries, and each
+  weapon unit counts as one entry. Player corpses use their own capacity for every weapon the
+  player carried (30 inventory slots + 4 hand slots).
+- Measured network budgets (`RaidLootOriginWordCountTests`) are re-measured after implementation
+  and the test ceilings are set to the measured values.
 
 ## 7. Extraction and reservation
 

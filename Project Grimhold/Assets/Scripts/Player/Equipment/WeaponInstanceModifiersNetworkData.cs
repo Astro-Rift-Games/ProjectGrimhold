@@ -1,155 +1,106 @@
+using System;
 using Fusion;
 
 /// <summary>
-/// Blittable network form of <see cref="WeaponInstanceModifiers"/>. Installed gems use the
-/// catalog's deterministic network index, offset by one so the default value is an empty socket.
-/// It is not replicated by any runtime object until unique Item Instances exist end to end.
+/// One Fusion word per weapon unit. Scaling slots use attribute(3)+grade(3) bits each,
+/// socket count uses 2 bits and gem catalog indices plus one use 7 bits each (28 bits total).
+/// Zero is a plain, unscaled, socketless instance. Backend identity never enters this value.
 /// </summary>
-public struct WeaponInstanceModifiersNetworkData : INetworkStruct
+public struct WeaponInstanceModifiersNetworkData : INetworkStruct, IEquatable<WeaponInstanceModifiersNetworkData>
 {
-    private byte _primaryAttribute;
-    private byte _primaryGrade;
-    private byte _secondaryAttribute;
-    private byte _secondaryGrade;
-    private byte _gemSocketCount;
-    private int _firstGemCatalogIndexPlusOne;
-    private int _secondGemCatalogIndexPlusOne;
+    private int _packedValue;
+    private const int UsedBits = 28;
+    public int PackedValue => _packedValue;
+    public bool IsEmpty => _packedValue == 0;
 
-    public static bool TryCreate(
-        in WeaponInstanceModifiers modifiers,
-        CharacterAttribute naturalAttribute,
-        LootDefinitionCatalog catalog,
-        out WeaponInstanceModifiersNetworkData data,
-        out string error)
+    /// <summary>Untrusted wire data must pass TryResolve before being committed.</summary>
+    public static WeaponInstanceModifiersNetworkData FromPacked(int value) => new() { _packedValue = value };
+
+    public static bool TryCreate(in WeaponInstanceModifiers modifiers, CharacterAttribute naturalAttribute,
+        LootDefinitionCatalog catalog, out WeaponInstanceModifiersNetworkData data, out string error)
     {
         data = default;
-        if (catalog == null)
-        {
-            error = "A loot catalog is required to encode weapon instance gems.";
+        if (!ValidateCatalog(catalog, out error) || !modifiers.TryValidate(naturalAttribute, out error))
             return false;
-        }
-
-        if (!modifiers.TryValidate(naturalAttribute, out error))
-        {
+        if (!TryEncodeGem(modifiers, 0, catalog, out int first, out error) ||
+            !TryEncodeGem(modifiers, 1, catalog, out int second, out error))
             return false;
-        }
-
-        WeaponScalingModifier primary = modifiers.Primary;
-        WeaponScalingModifier secondary = modifiers.Secondary;
-        if (!TryEncodeGem(modifiers, 0, catalog, out int firstGem, out error) ||
-            !TryEncodeGem(modifiers, 1, catalog, out int secondGem, out error))
-        {
-            return false;
-        }
-
-        data = new WeaponInstanceModifiersNetworkData
-        {
-            _primaryAttribute = (byte)primary.Attribute,
-            _primaryGrade = (byte)primary.Grade,
-            _secondaryAttribute = (byte)secondary.Attribute,
-            _secondaryGrade = (byte)secondary.Grade,
-            _gemSocketCount = (byte)modifiers.GemSocketCount,
-            _firstGemCatalogIndexPlusOne = firstGem,
-            _secondGemCatalogIndexPlusOne = secondGem
-        };
+        data._packedValue = EncodeScaling(modifiers.Primary) | (EncodeScaling(modifiers.Secondary) << 6) |
+            (modifiers.GemSocketCount << 12) | (first << 14) | (second << 21);
         return true;
     }
 
-    public readonly bool TryResolve(
-        LootDefinitionCatalog catalog,
-        CharacterAttribute naturalAttribute,
-        out WeaponInstanceModifiers modifiers,
-        out string error)
+    public readonly bool TryResolve(LootDefinitionCatalog catalog, CharacterAttribute naturalAttribute,
+        out WeaponInstanceModifiers modifiers, out string error)
     {
         modifiers = default;
-        if (catalog == null)
+        if (!ValidateCatalog(catalog, out error)) return false;
+        if (((uint)_packedValue >> UsedBits) != 0)
         {
-            error = "A loot catalog is required to decode weapon instance gems.";
+            error = "Weapon modifier word contains reserved bits.";
             return false;
         }
-
-        if (!TryDecodeModifier(_primaryAttribute, _primaryGrade, out WeaponScalingModifier primary, out error) ||
-            !TryDecodeModifier(_secondaryAttribute, _secondaryGrade, out WeaponScalingModifier secondary, out error) ||
-            !TryDecodeGem(_firstGemCatalogIndexPlusOne, catalog, out WeaponGemSocket firstGem, out error) ||
-            !TryDecodeGem(_secondGemCatalogIndexPlusOne, catalog, out WeaponGemSocket secondGem, out error))
-        {
+        if (!TryDecodeScaling(_packedValue & 63, out var primary, out error) ||
+            !TryDecodeScaling((_packedValue >> 6) & 63, out var secondary, out error) ||
+            !TryDecodeGem((_packedValue >> 14) & 127, catalog, out var first, out error) ||
+            !TryDecodeGem((_packedValue >> 21) & 127, catalog, out var second, out error))
             return false;
-        }
-
-        return WeaponInstanceModifiers.TryCreate(
-            primary,
-            secondary,
-            naturalAttribute,
-            _gemSocketCount,
-            firstGem,
-            secondGem,
-            out modifiers,
-            out error);
+        return WeaponInstanceModifiers.TryCreate(primary, secondary, naturalAttribute,
+            (_packedValue >> 12) & 3, first, second, out modifiers, out error);
     }
 
-    private static bool TryEncodeGem(
-        in WeaponInstanceModifiers modifiers,
-        int socketIndex,
-        LootDefinitionCatalog catalog,
-        out int catalogIndexPlusOne,
-        out string error)
+    public bool Equals(WeaponInstanceModifiersNetworkData other) => _packedValue == other._packedValue;
+    public override bool Equals(object obj) => obj is WeaponInstanceModifiersNetworkData other && Equals(other);
+    public override int GetHashCode() => _packedValue;
+
+    private static bool ValidateCatalog(LootDefinitionCatalog catalog, out string error)
     {
-        catalogIndexPlusOne = 0;
         error = null;
-        if (!modifiers.TryGetGemSocket(socketIndex, out WeaponGemSocket socket) || !socket.IsOccupied)
-        {
+        if (catalog != null && catalog.DefinitionCount < RaidLootOriginPackedBuffer.MaximumCatalogEntries)
             return true;
-        }
-
-        if (!catalog.TryGetIndex(socket.GemLootId, out int catalogIndex))
-        {
-            error = $"Installed gem '{socket.GemLootId}' is not present in the loot catalog.";
-            return false;
-        }
-
-        catalogIndexPlusOne = catalogIndex + 1;
-        return true;
+        error = "Weapon modifier transport requires a loot catalog with fewer than 128 entries.";
+        return false;
     }
 
-    private static bool TryDecodeGem(
-        int catalogIndexPlusOne,
-        LootDefinitionCatalog catalog,
-        out WeaponGemSocket socket,
-        out string error)
-    {
-        socket = default;
-        error = null;
-        if (catalogIndexPlusOne == 0)
-        {
-            return true;
-        }
+    private static int EncodeScaling(WeaponScalingModifier value) =>
+        value.IsPresent ? (int)value.Attribute | ((int)value.Grade << 3) : 0;
 
-        if (!catalog.TryGetByIndex(catalogIndexPlusOne - 1, out LootDefinition gem) || gem == null)
-        {
-            error = $"Installed gem catalog index '{catalogIndexPlusOne - 1}' is not present in the loot catalog.";
-            return false;
-        }
-
-        return WeaponGemSocket.TryCreateOccupied(gem.LootId, out socket, out error);
-    }
-
-    private static bool TryDecodeModifier(
-        byte attribute,
-        byte grade,
-        out WeaponScalingModifier modifier,
-        out string error)
+    private static bool TryDecodeScaling(int bits, out WeaponScalingModifier modifier, out string error)
     {
         modifier = default;
         error = null;
-        if (grade == (byte)WeaponScalingGrade.None)
-        {
-            return true;
-        }
+        if (bits == 0) return true;
+        return WeaponScalingModifier.TryCreate((CharacterAttribute)(bits & 7),
+            (WeaponScalingGrade)(bits >> 3), out modifier, out error);
+    }
 
-        return WeaponScalingModifier.TryCreate(
-            (CharacterAttribute)attribute,
-            (WeaponScalingGrade)grade,
-            out modifier,
-            out error);
+    private static bool TryEncodeGem(in WeaponInstanceModifiers modifiers, int socketIndex,
+        LootDefinitionCatalog catalog, out int indexPlusOne, out string error)
+    {
+        indexPlusOne = 0;
+        error = null;
+        if (!modifiers.TryGetGemSocket(socketIndex, out var socket) || !socket.IsOccupied) return true;
+        if (!catalog.TryGetIndex(socket.GemLootId, out int index) || index < 0 || index >= 127 ||
+            !catalog.TryGetByIndex(index, out LootDefinition gem) || gem.GemDefinition == null)
+        {
+            error = $"Installed gem '{socket.GemLootId}' is missing or outside the packed catalog range.";
+            return false;
+        }
+        indexPlusOne = index + 1;
+        return true;
+    }
+
+    private static bool TryDecodeGem(int indexPlusOne, LootDefinitionCatalog catalog,
+        out WeaponGemSocket socket, out string error)
+    {
+        socket = default;
+        error = null;
+        if (indexPlusOne == 0) return true;
+        if (!catalog.TryGetByIndex(indexPlusOne - 1, out LootDefinition gem) || gem == null || gem.GemDefinition == null)
+        {
+            error = $"Installed gem catalog index '{indexPlusOne - 1}' is not present in the loot catalog.";
+            return false;
+        }
+        return WeaponGemSocket.TryCreateOccupied(gem.LootId, out socket, out error);
     }
 }

@@ -8,6 +8,55 @@ public static class LootInventoryRules
 {
     public const int PhysicalSlotCount = 30;
 
+    /// <summary>Joint quantity/origin/modifier reception. Weapons are individual units, never stacks.</summary>
+    public static LootTransferFailureReason TryReceive(Span<LootInventorySlot> slots,
+        Span<WeaponInstanceModifiersNetworkData> modifiers, int catalogIndex, RaidLootOrigin origin,
+        int stackMax, int maxTransportable, int requestedAmount, bool isWeapon,
+        WeaponInstanceModifiersNetworkData incoming, int slotCapacity = PhysicalSlotCount)
+    {
+        if (modifiers.Length != slots.Length) return LootTransferFailureReason.ContainerUnavailable;
+        if (isWeapon && requestedAmount != 1) return LootTransferFailureReason.InvalidAmount;
+        if (!isWeapon && !incoming.IsEmpty) return LootTransferFailureReason.InvalidLoot;
+        int target = -1;
+        if (isWeapon)
+        {
+            for (int i = 0; i < slots.Length; i++)
+                if (slots[i].IsEmpty) { target = i; break; }
+        }
+        LootTransferFailureReason failure = TryReceive(slots, catalogIndex, origin,
+            isWeapon ? 1 : stackMax, maxTransportable, requestedAmount, slotCapacity);
+        if (failure != LootTransferFailureReason.None) return failure;
+        if (isWeapon) modifiers[target] = incoming;
+        else
+            for (int i = 0; i < slots.Length; i++)
+                if (slots[i].IsValid && slots[i].CatalogIndex == catalogIndex) modifiers[i] = default;
+        return LootTransferFailureReason.None;
+    }
+
+    /// <summary>Clears a depleted unit's modifiers with its physical slot.</summary>
+    public static LootTransferFailureReason TryExtract(Span<LootInventorySlot> slots,
+        Span<WeaponInstanceModifiersNetworkData> modifiers, int slotIndex, int requestedAmount)
+    {
+        if (modifiers.Length != slots.Length) return LootTransferFailureReason.ContainerUnavailable;
+        LootTransferFailureReason failure = TryExtract(slots, slotIndex, requestedAmount);
+        if (failure == LootTransferFailureReason.None && slots[slotIndex].IsEmpty) modifiers[slotIndex] = default;
+        return failure;
+    }
+
+    /// <summary>A non-weapon split never manufactures a weapon modifier.</summary>
+    public static LootTransferFailureReason TrySplit(Span<LootInventorySlot> slots,
+        Span<WeaponInstanceModifiersNetworkData> modifiers, int sourceSlotIndex, int splitAmount,
+        int destinationSlotIndex, int slotCapacity = PhysicalSlotCount)
+    {
+        if (modifiers.Length != slots.Length) return LootTransferFailureReason.ContainerUnavailable;
+        LootTransferFailureReason failure = ValidateSplit(slots, sourceSlotIndex, splitAmount, destinationSlotIndex, slotCapacity);
+        if (failure != LootTransferFailureReason.None) return failure;
+        if (!modifiers[sourceSlotIndex].IsEmpty) return LootTransferFailureReason.InvalidLoot;
+        failure = TrySplit(slots, sourceSlotIndex, splitAmount, destinationSlotIndex, slotCapacity);
+        if (failure == LootTransferFailureReason.None) modifiers[destinationSlotIndex] = default;
+        return failure;
+    }
+
     /// <summary>
     /// Validates a complete reception without mutation. The caller supplies the target
     /// definition's StackMax (1 for nonstackables) and MaxTransportable (0 for unlimited).
