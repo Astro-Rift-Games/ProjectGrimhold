@@ -3508,7 +3508,14 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     }
                     else
                     {
-                        Debug.LogError("[NetworkSpawnManager] Spawned enemy has no EnemyMovementAIController.", instance);
+                        if (instance.TryGetBehaviour(out ProjectGrimhold.Gameplay.Enemies.Specter.SpecterAIController _))
+                        {
+                            // Specter uses leashed floating locomotion and annular displacement
+                        }
+                        else
+                        {
+                            Debug.LogError("[NetworkSpawnManager] Spawned enemy has no EnemyMovementAIController or SpecterAIController.", instance);
+                        }
                     }
                 }
             });

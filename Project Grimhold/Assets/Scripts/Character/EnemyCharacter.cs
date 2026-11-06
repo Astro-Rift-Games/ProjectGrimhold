@@ -8,7 +8,7 @@ using Spawning;
 /// loot container without spawning a replacement corpse object.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class EnemyCharacter : CharacterBase, IAbilityEnemyTarget
+public class EnemyCharacter : CharacterBase, IAbilityEnemyTarget
 {
     [Networked]
     public EnemyPopulationOrigin PopulationOrigin { get; set; }
@@ -22,6 +22,13 @@ public sealed class EnemyCharacter : CharacterBase, IAbilityEnemyTarget
         get => _creatureTier;
         set => _creatureTier = value;
     }
+
+    [Header("Specter Integration")]
+    [SerializeField]
+    private ProjectGrimhold.Gameplay.Enemies.Specter.SpecterAIController _specterController;
+
+    public ProjectGrimhold.Gameplay.Enemies.Specter.SpecterAIController SpecterController => _specterController;
+
     [Header("Death Dependencies")]
     [SerializeField]
     private EnemyMovementAIController _movementController;
@@ -40,8 +47,41 @@ public sealed class EnemyCharacter : CharacterBase, IAbilityEnemyTarget
 
     private bool _deathDependenciesValid;
 
+    protected NetworkLootContainer LootContainer => _lootContainer;
+
+    public override bool CanReceiveDamage =>
+        IsAlive &&
+        (_specterController == null || ProjectGrimhold.Gameplay.Enemies.Specter.SpecterRules.CanReceiveDamage(_specterController.CurrentState));
+
     /// <summary>Resolves this enemy's configured knockback resistance (RE).</summary>
     protected override float ResolveKnockbackResistance() => _knockbackResistance;
+
+    protected override float CalculateMitigatedDamage(in DamageRequest request)
+    {
+        if (_specterController != null)
+        {
+            return ProjectGrimhold.Gameplay.Enemies.Specter.SpecterRules.CalculateMitigatedDamage(
+                _specterController.CurrentState,
+                request.Amount,
+                request.DamageType);
+        }
+
+        return base.CalculateMitigatedDamage(request);
+    }
+
+    protected override void OnDamageApplied(in DamageRequest request, float amount)
+    {
+        base.OnDamageApplied(request, amount);
+
+        if (_specterController != null)
+        {
+            _specterController.OnDamageReceived(
+                request.AttackerId,
+                amount,
+                request.DamageType,
+                Health <= 0f);
+        }
+    }
 
     protected override void Awake()
     {
@@ -54,6 +94,15 @@ public sealed class EnemyCharacter : CharacterBase, IAbilityEnemyTarget
         base.Spawned();
         CacheDeathDependencies();
         _deathDependenciesValid = ValidateDeathDependencies();
+
+        if (_specterController != null)
+        {
+            if (_movementController != null) _movementController.enabled = false;
+            if (_combatController != null) _combatController.enabled = false;
+            if (_fsm != null) _fsm.enabled = false;
+            var pathfinding = GetComponent<EnemyPathfindingNavigator>();
+            if (pathfinding != null) pathfinding.enabled = false;
+        }
 
         if (HasStateAuthority && IsAlive)
         {
@@ -89,6 +138,26 @@ public sealed class EnemyCharacter : CharacterBase, IAbilityEnemyTarget
             return;
         }
 
+        if (_specterController != null)
+        {
+            _specterController.TransitionTo(ProjectGrimhold.Gameplay.Enemies.Specter.SpecterStateType.Muerte);
+
+            if (_lootContainer != null && _lootContainer.IsInitialized)
+            {
+                _lootContainer.SetAvailability(true);
+            }
+
+            if (HasStateAuthority)
+            {
+                var spawnManager = Runner.GetComponent<NetworkSpawnManager>();
+                if (spawnManager != null)
+                {
+                    spawnManager.PopulationTracker.Unregister(Object.Id.Raw);
+                }
+            }
+            return;
+        }
+
         // Authoritatively transition the FSM to Dead.
         // The FSM states (specifically EnemyDeadState) will manage disabling
         // movement and combat control authoritatively.
@@ -116,8 +185,23 @@ public sealed class EnemyCharacter : CharacterBase, IAbilityEnemyTarget
         }
     }
 
-    private void CacheDeathDependencies()
+    protected virtual void CacheDeathDependencies()
     {
+        if (_specterController == null)
+        {
+            _specterController = GetComponent<ProjectGrimhold.Gameplay.Enemies.Specter.SpecterAIController>();
+        }
+
+        if (_lootContainer == null)
+        {
+            _lootContainer = GetComponent<NetworkLootContainer>();
+        }
+
+        if (_specterController != null)
+        {
+            return;
+        }
+
         if (_movementController == null)
         {
             _movementController = GetComponent<EnemyMovementAIController>();
@@ -128,19 +212,27 @@ public sealed class EnemyCharacter : CharacterBase, IAbilityEnemyTarget
             _combatController = GetComponent<EnemyCombatAIController>();
         }
 
-        if (_lootContainer == null)
-        {
-            _lootContainer = GetComponent<NetworkLootContainer>();
-        }
-
         if (_fsm == null)
         {
             _fsm = GetComponent<EnemyFSM>();
         }
     }
 
-    private bool ValidateDeathDependencies()
+    protected virtual bool ValidateDeathDependencies()
     {
+        if (_specterController != null)
+        {
+            if (_lootContainer != null)
+            {
+                return true;
+            }
+
+            Debug.LogError(
+                $"{nameof(EnemyCharacter)} requires loot-container dependency on the same enemy.",
+                this);
+            return false;
+        }
+
         if (_movementController != null && _combatController != null && _lootContainer != null && _fsm != null)
         {
             return true;
