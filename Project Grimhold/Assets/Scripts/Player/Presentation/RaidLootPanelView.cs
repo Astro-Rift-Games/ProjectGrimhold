@@ -67,6 +67,8 @@ public sealed class RaidLootPanelView : MonoBehaviour
 
     /// <summary>The complete slot pool authored in the prefab, shown or hidden but never created.</summary>
     public int AuthoredSlotCount => _authoredSlots?.Length ?? 0;
+    public RaidInventorySlotView GetAuthoredSlot(int index) =>
+        index >= 0 && index < AuthoredSlotCount ? _authoredSlots[index] : null;
 
     /// <summary>An ID-only confirmation cannot identify a physical destination cell.</summary>
     public bool ShowTransferSuccess(LootId lootId)

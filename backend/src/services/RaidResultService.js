@@ -8,7 +8,15 @@ const Character = require('../models/Character');
 const { buildCanonicalResultString } = require('../utils/raidResultCanonicalizer');
 const { normalizeItems, normalizePreparedEquipment } = require('./InventoryLootIdNormalizer');
 const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
-const { requireMigratedInventory } = require('./InventoryEntries');
+const { requireMigratedInventory, inventoryVersion } = require('./InventoryEntries');
+const { validateResultItems, validateResultEquipment } = require('./ItemInstances');
+// Payload equality includes instance modifiers; the legacy HMAC wire contract is unchanged.
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  if (value && typeof value === 'object') return `{${Object.keys(value).sort().filter(key => value[key] !== undefined)
+    .map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`;
+  return JSON.stringify(value);
+}
 
 const MAX_EXTRACTION_ITEMS = 30;
 const MAX_RAID_EXPERIENCE_BUDGET = 5000;
@@ -180,6 +188,10 @@ class RaidResultService {
     // including signed dedicated-server publications, before accepting rewards.
     if (recipientChar) requireMigratedInventory(recipientChar);
 
+    const instanceFormat = recipientChar && inventoryVersion(recipientChar) === 3;
+    const resultItems = instanceFormat ? validateResultItems(items || []) : items || [];
+    const resultEquipment = instanceFormat ? validateResultEquipment(preparedEquipment || {}) : preparedEquipment || {};
+
     // Under Bounded Player-Host Authority (TASK-223 / SEC-223):
     if (!isDedicatedServerVerified) {
       // 1. Caller identity
@@ -267,7 +279,7 @@ class RaidResultService {
       }
 
       // 5. Equipment slot format check
-      if (preparedEquipment && typeof preparedEquipment === 'object') {
+      if (!instanceFormat && preparedEquipment && typeof preparedEquipment === 'object') {
         for (const slot of EQUIPMENT_SLOTS) {
           const val = preparedEquipment[slot];
           if (val !== undefined && val !== null && val !== '') {
@@ -332,8 +344,10 @@ class RaidResultService {
 
       const isIdentical = (
         existing.experienceGranted === (experienceGranted || 0) &&
-        areItemsEquivalent(existing.items, items || []) &&
-        areEquipmentEquivalent(existing.preparedEquipment, preparedEquipment || {})
+        (instanceFormat
+          ? stableStringify(validateResultItems(existing.items).map(stableStringify).sort()) === stableStringify(resultItems.map(stableStringify).sort()) &&
+            stableStringify(validateResultEquipment(existing.preparedEquipment || {})) === stableStringify(resultEquipment)
+          : areItemsEquivalent(existing.items, items || []) && areEquipmentEquivalent(existing.preparedEquipment, preparedEquipment || {}))
       );
 
       if (!isIdentical) {
@@ -359,8 +373,8 @@ class RaidResultService {
       raidId,
       accountId: recipientAccountId,
       ...(characterId ? { characterId } : {}),
-      items: items || [],
-      preparedEquipment: preparedEquipment || {},
+      items: resultItems,
+      preparedEquipment: resultEquipment,
       experienceGranted: experienceGranted || 0,
       hostSignature: rawSignature,
       consumed: false,

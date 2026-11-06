@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
+using Grimhold.Backend;
+using Newtonsoft.Json;
 
 /// <summary>
 /// Encodes and validates the versioned local profile JSON DTOs.
@@ -12,6 +13,8 @@ public static class LocalProfileSaveCodec
     {
         public int schemaVersion;
         public int inventorySchemaVersion;
+        public bool requiresEquipmentHydration;
+        public PreparedEquipmentData? preparedEquipment;
         public string profileId;
         public long currency;
         public int guildReputation;
@@ -60,12 +63,14 @@ public static class LocalProfileSaveCodec
         public int slot;
         public string lootId;
         public int amount;
+        public EquipmentInstanceData instance;
     }
 
     [Serializable]
     private sealed class ReservationData
     {
         public string reservationId;
+        public PreparedEquipmentData? preparedEquipment;
         public ItemData[] items;
         public string preparedWeaponSlot1;
         public string preparedWeaponSlot2;
@@ -85,6 +90,7 @@ public static class LocalProfileSaveCodec
         public string raidId;
         public string profileId;
         public int resultSequence;
+        public PreparedEquipmentData? preparedEquipment;
         public ItemData[] items;
         public string preparedWeaponSlot1;
         public string preparedWeaponSlot2;
@@ -149,6 +155,8 @@ public static class LocalProfileSaveCodec
         {
             schemaVersion = LocalProfileSnapshot.CurrentSchemaVersion,
             inventorySchemaVersion = snapshot.InventorySchemaVersion,
+            requiresEquipmentHydration = snapshot.RequiresEquipmentHydration,
+            preparedEquipment = PreparedEquipmentData.FromLoadout(snapshot.PreparedEquipment),
             profileId = snapshot.ProfileId.Value,
             currency = snapshot.Currency,
             guildReputation = snapshot.GuildReputation,
@@ -172,6 +180,7 @@ public static class LocalProfileSaveCodec
             pendingReservation = snapshot.PendingReservation == null ? null : new ReservationData
             {
                 reservationId = snapshot.PendingReservation.ReservationId,
+                preparedEquipment = PreparedEquipmentData.FromLoadout(snapshot.PendingReservation.PreparedEquipment),
                 items = ToItems(snapshot.PendingReservation.Items),
                 preparedWeaponSetAMainHand = snapshot.PendingReservation.PreparedEquipment.WeaponSetAMainHand.Value,
                 preparedWeaponSetAOffHand = snapshot.PendingReservation.PreparedEquipment.WeaponSetAOffHand.Value,
@@ -185,6 +194,7 @@ public static class LocalProfileSaveCodec
             pendingExtractionCommit = snapshot.PendingExtractionCommit == null ? null : new PendingExtractionCommitData
             {
                 raidId = snapshot.PendingExtractionCommit.Receipt.RaidId,
+                preparedEquipment = PreparedEquipmentData.FromLoadout(snapshot.PendingExtractionCommit.PreparedEquipment),
                 profileId = snapshot.PendingExtractionCommit.Receipt.ProfileId.Value,
                 resultSequence = snapshot.PendingExtractionCommit.Receipt.ResultSequence,
                 items = ToItems(snapshot.PendingExtractionCommit.Items),
@@ -204,8 +214,8 @@ public static class LocalProfileSaveCodec
             appliedShopTransactionReceipts = ToShopReceipts(snapshot.AppliedShopTransactionReceipts),
             activeMissions = ToMissions(snapshot.ActiveMissions),
             unlockedAbilityIds = ToAbilityIds(snapshot.UnlockedAbilities),
-            preparedAbilitySlot1 = snapshot.PreparedAbilities.Slot1.Value,
-            preparedAbilitySlot2 = snapshot.PreparedAbilities.Slot2.Value,
+            preparedAbilitySlot1 = snapshot.PreparedAbilities.Slot1.Value ?? string.Empty,
+            preparedAbilitySlot2 = snapshot.PreparedAbilities.Slot2.Value ?? string.Empty,
             quickSlot1 = snapshot.QuickSlots.Get(0).Value,
             quickSlot2 = snapshot.QuickSlots.Get(1).Value,
             quickSlot3 = snapshot.QuickSlots.Get(2).Value,
@@ -218,7 +228,7 @@ public static class LocalProfileSaveCodec
             luck = snapshot.CharacterAttributes.Luck,
             availableAttributePoints = snapshot.CharacterAttributes.AvailablePoints
         };
-        return JsonUtility.ToJson(data, true);
+        return JsonConvert.SerializeObject(data, Formatting.Indented);
     }
 
     public static bool TryDecode(
@@ -259,7 +269,17 @@ public static class LocalProfileSaveCodec
         SaveData data;
         try
         {
-            data = JsonUtility.FromJson<SaveData>(json);
+            // Inspect the envelope before interpreting instance fields. Future caches must never
+            // become eligible for corrupt-cache reset merely because their item format evolved.
+            var document = Newtonsoft.Json.Linq.JObject.Parse(json);
+            int version = document.Value<int>("schemaVersion");
+            if (version > LocalProfileSnapshot.CurrentSchemaVersion)
+            {
+                status = LocalProfilePersistenceStatus.UnsupportedVersion;
+                error = $"Unsupported profile schema version {version}.";
+                return false;
+            }
+            data = document.ToObject<SaveData>();
         }
         catch (Exception exception)
         {
@@ -270,13 +290,6 @@ public static class LocalProfileSaveCodec
         if (data == null)
         {
             error = "Profile JSON produced no data.";
-            return false;
-        }
-
-        if (data.schemaVersion > LocalProfileSnapshot.CurrentSchemaVersion)
-        {
-            status = LocalProfilePersistenceStatus.UnsupportedVersion;
-            error = $"Unsupported profile schema version {data.schemaVersion}.";
             return false;
         }
 
@@ -296,9 +309,10 @@ public static class LocalProfileSaveCodec
         {
             SchemaVersion = LocalProfileSnapshot.CurrentSchemaVersion,
             ProfileId = expectedProfileId,
-            InventorySchemaVersion = data.schemaVersion >= 10 ? data.inventorySchemaVersion : 1
+            InventorySchemaVersion = data.schemaVersion >= 10 ? data.inventorySchemaVersion : 1,
+            RequiresEquipmentHydration = data.schemaVersion <= 10 || data.requiresEquipmentHydration
         };
-        if (candidate.InventorySchemaVersion != 1 && candidate.InventorySchemaVersion != 2)
+        if (candidate.InventorySchemaVersion < 1 || candidate.InventorySchemaVersion > 3)
         {
             error = "Invalid backend inventory schema version.";
             return false;
@@ -400,6 +414,14 @@ public static class LocalProfileSaveCodec
             return false;
         }
 
+        bool hasPendingExtractionData = data.pendingExtractionCommit != null &&
+            (!string.IsNullOrWhiteSpace(data.pendingExtractionCommit.raidId) ||
+             !string.IsNullOrWhiteSpace(data.pendingExtractionCommit.profileId) ||
+             data.pendingExtractionCommit.resultSequence != 0 ||
+             (data.pendingExtractionCommit.items != null && data.pendingExtractionCommit.items.Length > 0) ||
+             data.pendingExtractionCommit.consolidatedExperience != 0 ||
+             data.pendingExtractionCommit.resultingLevel != 0);
+
         // Loadout slot capacity is a Store rule, not a storage rule: backend data over capacity
         // must stay persistable so operations that reduce the excess can still commit.
         candidate.PreparedEquipment = ReadPreparedEquipment(
@@ -411,6 +433,13 @@ public static class LocalProfileSaveCodec
             data.preparedBoots,
             data.schemaVersion >= 4 ? data.preparedWeaponSetAOffHand : null,
             data.schemaVersion >= 4 ? data.preparedWeaponSetBOffHand : null);
+        if (data.schemaVersion >= 11 && data.preparedEquipment.HasValue)
+        {
+            if (!data.preparedEquipment.Value.TryToLoadout(catalog,
+                candidate.InventorySchemaVersion == 3 && !candidate.RequiresEquipmentHydration && !hasPendingExtractionData,
+                out var prepared, out error)) return false;
+            candidate.PreparedEquipment = prepared;
+        }
         if (data.schemaVersion < 3)
         {
             TryMigrateLegacyEquipmentOwnership(candidate.Loadout, candidate.PreparedEquipment);
@@ -424,7 +453,7 @@ public static class LocalProfileSaveCodec
             return false;
         }
 
-        // JsonUtility materializes an empty nested DTO for a serialized null
+        // Legacy JsonUtility saves can contain an empty nested DTO for a null
         // reference. Treat that exact empty shape as "no reservation"; any
         // reservation carrying data still requires a valid identity.
         bool hasPendingReservationData = data.pendingReservation != null &&
@@ -461,6 +490,9 @@ public static class LocalProfileSaveCodec
                 data.pendingReservation.preparedBoots,
                 data.schemaVersion >= 4 ? data.pendingReservation.preparedWeaponSetAOffHand : null,
                 data.schemaVersion >= 4 ? data.pendingReservation.preparedWeaponSetBOffHand : null);
+            if (data.schemaVersion >= 11 && data.pendingReservation.preparedEquipment.HasValue &&
+                !data.pendingReservation.preparedEquipment.Value.TryToLoadout(catalog,
+                    candidate.InventorySchemaVersion == 3 && !candidate.RequiresEquipmentHydration, out reservedEquipment, out error)) return false;
             if (data.schemaVersion < 3)
             {
                 TryMigrateLegacyEquipmentOwnership(reservationItems, reservedEquipment);
@@ -479,13 +511,6 @@ public static class LocalProfileSaveCodec
                 reservedEquipment);
         }
 
-        bool hasPendingExtractionData = data.pendingExtractionCommit != null &&
-            (!string.IsNullOrWhiteSpace(data.pendingExtractionCommit.raidId) ||
-             !string.IsNullOrWhiteSpace(data.pendingExtractionCommit.profileId) ||
-             data.pendingExtractionCommit.resultSequence != 0 ||
-             (data.pendingExtractionCommit.items != null && data.pendingExtractionCommit.items.Length > 0) ||
-             data.pendingExtractionCommit.consolidatedExperience != 0 ||
-             data.pendingExtractionCommit.resultingLevel != 0);
         if (hasPendingExtractionData)
         {
             var receipt = new ExtractionReceipt(
@@ -514,6 +539,8 @@ public static class LocalProfileSaveCodec
                 data.schemaVersion >= 4 ? data.pendingExtractionCommit.preparedWeaponSetAOffHand : null,
                 data.schemaVersion >= 4 ? data.pendingExtractionCommit.preparedWeaponSetBOffHand : null);
 
+            if (data.schemaVersion >= 11 && data.pendingExtractionCommit.preparedEquipment.HasValue &&
+                !data.pendingExtractionCommit.preparedEquipment.Value.TryToLoadout(catalog, false, out extractionEquipment, out error)) return false;
             candidate.PendingExtractionCommit = new PendingExtractionCommit(
                 receipt,
                 extractionItems,
@@ -591,6 +618,32 @@ public static class LocalProfileSaveCodec
             }
         }
 
+        if (data.schemaVersion >= 11 && candidate.InventorySchemaVersion == 3 && !candidate.RequiresEquipmentHydration)
+        {
+            if (!ValidateInstanceItems(candidate.Stash, catalog) ||
+                (candidate.PendingExtractionCommit == null &&
+                 (!ValidateInstanceItems(candidate.Loadout, catalog) ||
+                  !PreparedEquipmentData.FromLoadout(candidate.PreparedEquipment).TryToLoadout(catalog, true, out _, out _))) ||
+                (candidate.PendingReservation != null &&
+                 (!ValidateInstanceItems(candidate.PendingReservation.Items, catalog) ||
+                  !PreparedEquipmentData.FromLoadout(candidate.PendingReservation.PreparedEquipment).TryToLoadout(catalog, true, out _, out _))) ||
+                !ApplicationStashServiceBootstrapper.HaveUniqueInstanceIds(candidate.Stash, candidate.Loadout,
+                    candidate.PendingReservation?.Items, candidate.PreparedEquipment, candidate.PendingReservation?.PreparedEquipment ?? default))
+            { error = "Invalid or duplicate equipment instances."; return false; }
+        }
+        if (data.schemaVersion <= 10)
+        {
+            ExpandLegacyEquipment(candidate.Stash, catalog);
+            ExpandLegacyEquipment(candidate.Loadout, catalog);
+            candidate.PreparedEquipment = PlainCacheEquipment(candidate.PreparedEquipment, catalog);
+            if (candidate.PendingReservation != null)
+            {
+                var items = new List<StashItem>(candidate.PendingReservation.Items);
+                ExpandLegacyEquipment(items, catalog);
+                candidate.PendingReservation = new PendingLoadoutReservation(candidate.PendingReservation.ReservationId, items,
+                    PlainCacheEquipment(candidate.PendingReservation.PreparedEquipment, catalog));
+            }
+        }
         snapshot = candidate;
         status = LocalProfilePersistenceStatus.Ready;
         return true;
@@ -769,7 +822,8 @@ public static class LocalProfileSaveCodec
         var result = new ItemData[items?.Count ?? 0];
         for (int i = 0; i < result.Length; i++)
         {
-            result[i] = new ItemData { slot = items[i].Slot, lootId = items[i].LootId.Value, amount = items[i].Amount };
+            result[i] = new ItemData { slot = items[i].Slot, lootId = items[i].LootId.Value, amount = items[i].Amount,
+                instance = EquipmentInstanceData.FromInstance(items[i].Instance) };
         }
         return result;
     }
@@ -1023,10 +1077,49 @@ public static class LocalProfileSaveCodec
                 error = physical ? $"{label} contains invalid or duplicate slots." : $"{label} contains duplicate loot IDs.";
                 return false;
             }
-            destination.Add(new StashItem(lootId, item.amount, aggregate ? -1 : slot));
+            EquipmentInstance instance = null;
+            if (item.instance != null &&
+                (item.amount != 1 || !catalog.TryGet(lootId.Value, out var definition) ||
+                 !item.instance.TryToInstance(definition, false, out instance, out error, catalog))) return false;
+            destination.Add(new StashItem(lootId, item.amount, aggregate ? -1 : slot, instance));
             index++;
         }
         return true;
+    }
+
+    private static bool ValidateInstanceItems(IReadOnlyList<StashItem> items, LootDefinitionCatalog catalog)
+    {
+        foreach (var item in items)
+        {
+            if (!catalog.TryGet(item.LootId.Value, out var definition)) return false;
+            if (EquipmentInstance.IsEquipment(definition) != (item.Instance != null)) return false;
+            if (item.Instance != null && (item.Amount != 1 || !item.Instance.HasIdentity)) return false;
+        }
+        return true;
+    }
+
+    private static PreparedEquipmentLoadout PlainCacheEquipment(PreparedEquipmentLoadout equipment, LootDefinitionCatalog catalog)
+    {
+        foreach (var slot in EquipmentSlotRules.AllSlots)
+            if (equipment.Get(slot).IsValid && catalog.TryGet(equipment.Get(slot).Value, out var definition))
+                equipment = equipment.With(slot, equipment.Get(slot), EquipmentInstance.PlainCache(definition));
+        return equipment;
+    }
+
+    private static void ExpandLegacyEquipment(List<StashItem> items, LootDefinitionCatalog catalog)
+    {
+        // Reserve every original address before allocating extras, including overflow.
+        var extras = new List<StashItem>();
+        for (int i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            if (!catalog.TryGet(item.LootId.Value, out var definition) || !EquipmentInstance.IsEquipment(definition)) continue;
+            var plain = EquipmentInstance.PlainCache(definition);
+            items[i] = new StashItem(item.LootId, 1, item.Slot, plain);
+            for (int unit = 1; unit < item.Amount; unit++) extras.Add(new StashItem(item.LootId, 1, -1, plain));
+        }
+        foreach (var item in extras) items.Add(item.AtSlot(ProfileInventoryRules.LowestFreeSlot(items)));
+        items.Sort((a, b) => a.Slot.CompareTo(b.Slot));
     }
 
     private static bool TryReadItems(ItemData[] data, LootDefinitionCatalog catalog, out List<StashItem> items, string label, out string error, bool physical = false, bool aggregate = false)

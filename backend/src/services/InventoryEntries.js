@@ -1,7 +1,8 @@
 'use strict';
 
-const env = require('../config/env');
 const { normalizeLootId } = require('./InventoryLootIdNormalizer');
+const { getEquipmentTemplate } = require('../config/shopCatalog');
+const { validInventory, invalidInventory, createEquipment } = require('./ItemInstances');
 
 function inventoryVersion(character) {
   return character.inventory?.inventorySchemaVersion ?? 1;
@@ -10,7 +11,7 @@ function inventoryVersion(character) {
 // Copy declared subdocument fields together; never reconstruct a stored entry
 // from just lootId/amount. Future schema additions travel with the entry too.
 function copyEntry(item) {
-  return typeof item.toObject === 'function' ? item.toObject() : { ...item };
+  return typeof item.toObject === 'function' ? item.toObject() : structuredClone(item);
 }
 
 function serializeItems(items, sorted = false) {
@@ -19,9 +20,13 @@ function serializeItems(items, sorted = false) {
 }
 
 function requireMigratedInventory(character) {
-  if (env.inventoryProtocolGate && inventoryVersion(character) !== 2) {
+  const env = require('../config/env');
+  const version = inventoryVersion(character);
+  if ((env.inventoryInstanceProtocolGate && version !== 3) ||
+      (!env.inventoryInstanceProtocolGate && env.inventoryProtocolGate && version !== 2 && version !== 3)) {
     throw { statusCode: 409, errorCode: 'INVENTORY_MIGRATION_REQUIRED', message: 'Inventory migration is required.' };
   }
+  if (version === 3 && !validInventory(character.inventory)) invalidInventory();
 }
 
 const CAPACITIES = Object.freeze({ loadout: 30, stash: 60 });
@@ -31,21 +36,21 @@ function inventoryFull() {
 }
 
 function requireSplitEnabled() {
-  if (!env.inventorySplitEnabled) {
+  if (!require('../config/env').inventorySplitEnabled) {
     throw { statusCode: 403, errorCode: 'FEATURE_DISABLED', message: 'Inventory split is disabled.' };
   }
 }
 
 function requireSlotInventory(character) {
   requireMigratedInventory(character);
-  if (inventoryVersion(character) !== 2) {
+  if (![2, 3].includes(inventoryVersion(character))) {
     throw { statusCode: 409, errorCode: 'INVENTORY_MIGRATION_REQUIRED', message: 'Inventory migration is required.' };
   }
 }
 
 function requireSourceSlot(character, sourceSlot) {
   requireMigratedInventory(character);
-  if (inventoryVersion(character) !== 2) {
+  if (![2, 3].includes(inventoryVersion(character))) {
     if (sourceSlot !== undefined) requireSlotInventory(character);
     return;
   }
@@ -88,14 +93,22 @@ function addAmount(item, amount) {
 // Copies travel whole when changing list; new aggregate rewards have no slot yet.
 function receiveItem(items, list, item, version) {
   const capacity = CAPACITIES[list];
-  const index = version === 2 ? lowestItemIndex(items, item.lootId, capacity)
+  const isInstance = version === 3 && Boolean(getEquipmentTemplate(item.lootId));
+  // Receivers of newly issued units use the same issuer and placement as all other writers.
+  if (isInstance && !item.instance) {
+    for (let unit = 0; unit < item.amount; unit++) {
+      receiveItem(items, list, { amount: 1, ...createEquipment(item.lootId, item.modifiers) }, version);
+    }
+    return;
+  }
+  const index = isInstance ? -1 : version >= 2 ? lowestItemIndex(items, item.lootId, capacity)
     : items.findIndex(existing => matchesLootId(existing, item.lootId));
   if (index !== -1) {
-    if (version === 2) addAmount(items[index], item.amount);
+    if (version >= 2) addAmount(items[index], item.amount);
     else items[index].amount += item.amount;
     return;
   }
-  if (version !== 2) { items.push(copyEntry(item)); return; }
+  if (version < 2) { items.push(copyEntry(item)); return; }
   const slot = lowestFreeSlot(items, capacity);
   if (items.length >= capacity || slot === -1) inventoryFull();
   items.push({ ...copyEntry(item), slot });

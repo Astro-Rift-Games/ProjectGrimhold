@@ -38,6 +38,13 @@ router.get('/me/inventory', inventoryProtocol, async (req, res, next) => {
   }
 });
 
+// POST /character/me/inventory/gems/install (v3 only)
+// Body: { transactionId, weaponList, weaponSlot, instanceId, gemList, gemSlot, gemLootId, expectedRevision }
+router.post('/me/inventory/gems/install', inventoryProtocol, async (req, res, next) => {
+  try { res.json(await InventoryService.installGem(req.accountId, req.body)); }
+  catch (err) { next(err); }
+});
+
 // PUT /character/me/inventory/order
 // Body v1: { list, lootIds, expectedRevision }; v2: { list, slotOrder, expectedRevision }
 router.put('/me/inventory/order', inventoryProtocol, inventoryOrderValidator, async (req, res, next) => {

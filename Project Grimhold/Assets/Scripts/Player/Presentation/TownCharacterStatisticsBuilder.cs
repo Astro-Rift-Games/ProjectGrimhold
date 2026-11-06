@@ -108,7 +108,7 @@ public static class TownCharacterStatisticsBuilder
             MitigationPercent(runtimeStatistics.PhysicalDefense, defenseMitigationConstant),
             MitigationPercent(runtimeStatistics.MagicalDefense, defenseMitigationConstant),
             runtimeStatistics.AdditionalLootChanceBasisPoints / 100f,
-            BuildWeapons(attributes, equipment, definitions),
+            BuildWeapons(attributes, equipment, definitions, resolveLoot),
             slots);
         return true;
     }
@@ -133,7 +133,8 @@ public static class TownCharacterStatisticsBuilder
     private static TownWeaponStatistics[] BuildWeapons(
         in CharacterAttributeState attributes,
         in PreparedEquipmentLoadout equipment,
-        Dictionary<EquipmentSlot, LootDefinition> definitions)
+        Dictionary<EquipmentSlot, LootDefinition> definitions,
+        Func<LootId, LootDefinition> resolveLoot)
     {
         var weapons = new List<TownWeaponStatistics>(EquipmentSlotRules.HandSlots.Length);
         EquipmentSlot[] handSlots = EquipmentSlotRules.HandSlots;
@@ -155,13 +156,18 @@ public static class TownCharacterStatisticsBuilder
             }
 
             WeaponDefinition weapon = definition.WeaponDefinition;
-            // Same pure resolution path as PlayerWeaponEquipmentNetworkController.TryResolveEffectiveDamage.
+            WeaponInstanceModifiers instance = (equipment.GetInstance(slot) ?? EquipmentInstance.PlainCache(definition))
+                .Modifiers ?? default;
+            // Same canonical calculation as equipment and the instance tooltip; the template is not runtime scaling.
             float effectiveDamage =
                 WeaponScalingContributionsResolver.TryResolve(
-                    weapon.OffensiveScaling,
+                    instance,
+                    weapon.NaturalScalingAttribute,
                     out WeaponScalingContributions contributions) &&
+                WeaponGemDamageBonusResolver.TryResolveWithLookup(instance, resolveLoot, out int gemBonus) &&
                 WeaponDamageCalculator.TryCalculate(
                     weapon.BaseDamage,
+                    gemBonus,
                     attributes,
                     contributions,
                     out float calculated)

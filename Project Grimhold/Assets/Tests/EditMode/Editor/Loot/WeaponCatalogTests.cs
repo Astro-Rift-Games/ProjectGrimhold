@@ -225,7 +225,7 @@ namespace Tests.EditMode.Loot
             Assert.That(table.MinimumDistinctStacks, Is.EqualTo(2));
             Assert.That(table.MaximumDistinctStacks, Is.EqualTo(3));
             Assert.That(table.AllowEmpty, Is.False);
-            Assert.That(table.Entries.Count, Is.EqualTo(63));
+            Assert.That(table.Entries.Count, Is.EqualTo(65));
 
             foreach (string id in EquipmentIds)
             {
@@ -250,6 +250,19 @@ namespace Tests.EditMode.Loot
             AssertTableEntry(table, "bone", 40, 1, 3);
             AssertTableEntry(table, "healthpotion", 30, 1, 2);
             AssertTableEntry(table, "RES_BLACK_IRON", 20, 1, 3);
+        }
+
+        [TestCase("RES_ATTUNEMENT_GEM")]
+        [TestCase("RES_RUBY_GEM")]
+        [TestCase("RES_SAPPHIRE_GEM")]
+        public void LootTables_IncludeProvisionalGems(string id)
+        {
+            AssertTableEntry(
+                AssetDatabase.LoadAssetAtPath<LootContainerContentTable>(TablePath), id, 3, 1, 1);
+            AssertTableEntry(
+                AssetDatabase.LoadAssetAtPath<LootContainerContentTable>(
+                    "Assets/Scriptable Objects/Loot/Tables/EnemyLootContainerContentTable.asset"),
+                id, 1, 1, 1);
         }
 
         [Test]
@@ -285,7 +298,7 @@ namespace Tests.EditMode.Loot
                 AssertTableEntry(table, id, 1, 1, 1);
             }
 
-            Assert.That(table.Entries.Count, Is.EqualTo(61));
+            Assert.That(table.Entries.Count, Is.EqualTo(63));
             Assert.That(table.Entries.Select(entry => entry.Definition.Id).Distinct().Count(),
                 Is.EqualTo(table.Entries.Count));
             Assert.That(_catalog.TryValidate(out string catalogError), Is.True, catalogError);

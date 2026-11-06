@@ -85,7 +85,7 @@ test('inventory protocol B1', async t => {
   });
 
   for (const [method, path] of gatedRoutes) {
-    for (const header of [undefined, '1', '3']) {
+    for (const header of [undefined, '1', '4']) {
       await t.test(`gate on rejects ${method.toUpperCase()} ${path} header ${header}`, async () => {
         process.env.INVENTORY_PROTOCOL_GATE = 'true';
         const before = JSON.stringify(character);
@@ -96,6 +96,14 @@ test('inventory protocol B1', async t => {
         assert.equal(writes + saves + claims, 0);
       });
     }
+    await t.test(`gate on accepts a v3-capable client (header 3) at ${method.toUpperCase()} ${path}`, async () => {
+      process.env.INVENTORY_PROTOCOL_GATE = 'true';
+      const before = JSON.stringify(character);
+      const res = await auth(method, path, '3').send({});
+      assert.equal(res.status, 409);
+      assert.deepEqual(res.body, { error: 'INVENTORY_MIGRATION_REQUIRED', message: 'Inventory migration is required.' });
+      assert.equal(JSON.stringify(character), before);
+    });
     await t.test(`gate on rejects v1 at ${method.toUpperCase()} ${path}`, async () => {
       process.env.INVENTORY_PROTOCOL_GATE = 'true';
       const before = JSON.stringify(character);

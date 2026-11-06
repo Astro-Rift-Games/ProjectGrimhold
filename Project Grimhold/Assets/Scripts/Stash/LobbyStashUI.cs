@@ -55,6 +55,39 @@ public sealed class LobbyStashUI : MonoBehaviour
     [SerializeField] private RaidLootContextMenuView _contextMenu;
     [SerializeField] private EquipmentTooltipView _tooltipView;
     [SerializeField] private DragPreviewView _dragPreview;
+    [SerializeField] private GemInstallConfirmationView _gemInstallView;
+    [SerializeField] private TMP_Text _gemFeedbackText;
+    private float _gemFeedbackRemaining;
+    public GemInstallConfirmationView GemInstallView => _gemInstallView;
+    public RaidLootPanelView StashPanel => _stashPanel;
+    public RaidLootPanelView LoadoutPanel => _loadoutPanel;
+    public int StashPageStart => _stashPanel != null ? _stashPage * _stashPanel.AuthoredSlotCount : 0;
+    public event Action<InventoryList, int, LootId, List<LootContextActionDescriptor>> ContextActionsRequested;
+    public event Action StashPageChanged;
+    private bool _gemLocksMutations;
+
+    public void PresentGemFeedback(string message, bool persistent)
+    {
+        if (_gemFeedbackText == null) return;
+        _gemFeedbackText.text = message ?? string.Empty;
+        _gemFeedbackText.gameObject.SetActive(!string.IsNullOrEmpty(message));
+        _gemFeedbackRemaining = persistent ? 0f : 1.5f;
+    }
+
+    private void Update()
+    {
+        if (_gemFeedbackRemaining <= 0f) return;
+        _gemFeedbackRemaining -= Time.unscaledDeltaTime;
+        if (_gemFeedbackRemaining <= 0f && _gemFeedbackText != null) _gemFeedbackText.gameObject.SetActive(false);
+    }
+
+    public void SetGemLocksMutations(bool locked)
+    {
+        _gemLocksMutations = locked;
+        if (locked) { _contextMenu?.Hide(); _tooltipView?.Hide(); }
+        if (_equipmentSlotViews != null) foreach (var cell in _equipmentSlotViews)
+            if (cell != null && locked) cell.SetInteraction(false, false);
+    }
 
     private readonly List<RaidInventorySlotData> _stashProjection = new();
     private readonly List<RaidInventorySlotData> _loadoutProjection = new();
@@ -78,6 +111,7 @@ public sealed class LobbyStashUI : MonoBehaviour
     public event Action TakeAllRequested;
     public event Action LeaveAllRequested;
     public event Action<InventoryList> SortRequested;
+    public event Action<LootContextActionDescriptor> GemContextActionRequested;
 
     public event Action<DragPayload> DragStarted;
     public event Action DragUpdated;
@@ -205,6 +239,7 @@ public sealed class LobbyStashUI : MonoBehaviour
     {
         _stashPage = Mathf.Clamp(_stashPage + delta, 0, StashPageCount - 1);
         PresentStashPage();
+        StashPageChanged?.Invoke();
     }
 
     private void DismissStashInteraction()
@@ -251,6 +286,12 @@ public sealed class LobbyStashUI : MonoBehaviour
             _loadoutProjection,
             RaidLootSlotInteractionMode.TransferWithContextMenu,
             ref _hasReportedLoadoutOverflow);
+        MarkOverflow(_loadoutCells, _loadoutProjection, 0, LocalProfileSnapshot.MaxLoadoutSlots);
+    }
+
+    public void RestoreOverflowHighlights()
+    {
+        MarkOverflow(_stashCells, _stashProjection, StashPageStart, _stashCapacity);
         MarkOverflow(_loadoutCells, _loadoutProjection, 0, LocalProfileSnapshot.MaxLoadoutSlots);
     }
 
@@ -509,7 +550,7 @@ public sealed class LobbyStashUI : MonoBehaviour
     private void OpenPanelContext(LootId lootId, RectTransform anchor, bool isFromStash)
     {
         _tooltipView?.Hide();
-        if (_contextMenu == null || !lootId.IsValid)
+        if (_gemLocksMutations || _contextMenu == null || !lootId.IsValid)
         {
             return;
         }
@@ -543,6 +584,8 @@ public sealed class LobbyStashUI : MonoBehaviour
                 null));
         }
 
+        ContextActionsRequested?.Invoke(isFromStash ? InventoryList.Stash : InventoryList.Loadout,
+            _contextSlot, lootId, _contextActions);
         _contextMenu.Show(_contextActions, anchor);
     }
 
@@ -595,7 +638,15 @@ public sealed class LobbyStashUI : MonoBehaviour
     private void OnContextActionRequested(LootContextActionId actionId)
     {
         _contextMenu?.Hide();
-        if (!_contextLootId.IsValid) return;
+        if (_gemLocksMutations || !_contextLootId.IsValid) return;
+        foreach (var action in _contextActions)
+        {
+            if (action.Id != actionId || !action.IsEnabled || action.Provider == null) continue;
+            // The provider captures the exact Town list/slot; definition resolution belongs to the presenter.
+            GemContextActionRequested?.Invoke(action);
+            _contextLootId = default;
+            return;
+        }
         if (actionId == MoveAllId)
         {
             LootId lootId = _contextLootId;

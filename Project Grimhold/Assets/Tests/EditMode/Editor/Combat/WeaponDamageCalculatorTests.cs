@@ -5,6 +5,40 @@ namespace Tests.EditMode.Combat
 {
     public sealed class WeaponDamageCalculatorTests
     {
+        [Test]
+        public void PlainTemplateProjection_ProductionWeaponsPreserveLegacyDamageUntilRaidTransport()
+        {
+            var catalog = UnityEditor.AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(
+                "Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset");
+            Assert.That(catalog, Is.Not.Null);
+            CharacterAttributeState attributes = CreateAttributes(10, 20, 30, 40, 50, 60);
+            int weapons = 0;
+            for (int i = 0; i < catalog.DefinitionCount; i++)
+            {
+                Assert.That(catalog.TryGetByIndex(i, out LootDefinition loot), Is.True);
+                if (loot.Category != LootCategory.Weapon) continue;
+                weapons++;
+                WeaponDefinition weapon = loot.WeaponDefinition;
+                Assert.That(weapon, Is.Not.Null);
+                EquipmentInstance plain = EquipmentInstance.PlainCache(weapon);
+                Assert.That(plain.HasIdentity, Is.False);
+                Assert.That(plain.Modifiers.HasValue, Is.True);
+                var modifiers = plain.Modifiers.Value;
+                Assert.That(modifiers.GemSocketCount, Is.Zero);
+                Assert.That(WeaponScalingContributionsResolver.TryResolve(weapon.OffensiveScaling,
+                    out var legacy), Is.True);
+                Assert.That(WeaponDamageCalculator.TryCalculate(weapon.BaseDamage, attributes, legacy,
+                    out float previousDamage), Is.True);
+                Assert.That(WeaponScalingContributionsResolver.TryResolve(modifiers, weapon.NaturalScalingAttribute,
+                    out var contributions), Is.True);
+                Assert.That(WeaponGemDamageBonusResolver.TryResolve(modifiers, catalog, out int bonus), Is.True);
+                Assert.That(WeaponDamageCalculator.TryCalculate(weapon.BaseDamage, bonus, attributes, contributions,
+                    out float damage), Is.True);
+                Assert.That(damage, Is.EqualTo(previousDamage), loot.LootId.Value);
+            }
+            Assert.That(weapons, Is.GreaterThan(0));
+        }
+
         [TestCase(100f, CharacterAttribute.Strength, 20, 0.7f, 114f)]
         [TestCase(22f, CharacterAttribute.Intelligence, 0, 0.85f, 22f)]
         [TestCase(40f, CharacterAttribute.Luck, 12, 0.55f, 42f)]

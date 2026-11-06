@@ -82,7 +82,7 @@ test('E2E Persistence across restarts (US-45)', async (t) => {
       .send({ transactionId: 'tx1', lootId: 'healthpotion', amount: 5, declaredPrice: 100, expectedRevision: 2 });
     
     assert.strictEqual(res.status, 200);
-    assert.strictEqual(res.body.currency, 900);
+    assert.strictEqual(res.body.currency, 800);
     assert.strictEqual(res.body.loadout.find(i => i.lootId === 'healthpotion').amount, 5);
   });
 

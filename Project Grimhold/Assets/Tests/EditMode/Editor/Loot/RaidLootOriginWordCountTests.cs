@@ -10,10 +10,12 @@ namespace Tests.EditMode.Loot
     {
         // Player's old exact 1884-word layout included the removed packed Inventory.
         // Report the actual newly woven layout; retain the approved upper bound, not a guessed total.
+        // TASK-283 S18: container, enemy and pickup ceilings are the measured sizes with weapon instance
+        // modifiers (receiver array, hand words, 34 container weapon units, pickup word).
         [TestCase("Assets/Prefabs/NetworkPlayer.prefab", 1289, null, 1884)]
-        [TestCase("Assets/Prefabs/LootContainer.prefab", 820, 983, 1025)]
-        [TestCase("Assets/Prefabs/Enemies/NetworkEnemy.prefab", 844, 1007, 1055)]
-        [TestCase("Assets/Prefabs/LootPickup.prefab", 6, 22, 192)]
+        [TestCase("Assets/Prefabs/LootContainer.prefab", 820, 1230, 1230)]
+        [TestCase("Assets/Prefabs/Enemies/NetworkEnemy.prefab", 844, 1291, 1291)]
+        [TestCase("Assets/Prefabs/LootPickup.prefab", 6, 24, 192)]
         public void ProductivePrefab_UsesMeasuredCompactBudget(
             string prefabPath,
             int baselineWords,
@@ -69,6 +71,54 @@ namespace Tests.EditMode.Loot
             Assert.That(tableEndpoint, Is.GreaterThan(packedEndpoint));
             Assert.That(tablePlayer, Is.GreaterThan(packedPlayer));
             Assert.That(tablePickup, Is.GreaterThan(16));
+        }
+
+        [Test]
+        public void WeaponInstanceTransport_ReportsPackedStrideAndCurrentPrefabSizes()
+        {
+            // Current measurements only: productive ceilings change after component integration.
+            int modifiers = NetworkStructUtils.GetWordCount<WeaponInstanceModifiersNetworkData>();
+            int inventorySlot = NetworkStructUtils.GetWordCount<LootInventorySlot>();
+            Assert.That(modifiers, Is.EqualTo(1));
+            Assert.That(inventorySlot, Is.EqualTo(2));
+            TestContext.Out.WriteLine($"F5 modifiers per unit: {modifiers} words");
+            TestContext.Out.WriteLine($"F5 receiver parallel array (30): +{30 * modifiers} words");
+            TestContext.Out.WriteLine($"F5 four equipment hands: +{4 * modifiers} words");
+            TestContext.Out.WriteLine($"F5 pickup: +{modifiers} words");
+
+            // Candidate separate weapon storage: catalog/origin key, eligibility flag, modifiers.
+            // Amount is implicitly one. Existing non-weapon aggregates/provenance are retained.
+            int weaponUnit = 2 + modifiers;
+            foreach (int capacity in new[] { 6, 34 })
+                TestContext.Out.WriteLine(
+                    $"F5 separate weapon array ({capacity}): +{capacity * weaponUnit} words " +
+                    $"({weaponUnit} per unit), before any additional lifecycle fields");
+
+            foreach (string prefabPath in new[]
+            {
+                "Assets/Prefabs/NetworkPlayer.prefab",
+                "Assets/Prefabs/LootContainer.prefab",
+                "Assets/Prefabs/Enemies/NetworkEnemy.prefab",
+                "Assets/Prefabs/LootPickup.prefab"
+            })
+            {
+                NetworkObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath)
+                    .GetComponent<NetworkObject>();
+                int total = 0;
+                foreach (NetworkBehaviour behaviour in prefab.NetworkedBehaviours)
+                {
+                    if (behaviour is NetworkTransform)
+                        continue;
+                    int words = NetworkBehaviourUtils.GetWordCount(behaviour);
+                    total += words;
+                    if (behaviour is PlayerLootReceiver ||
+                        behaviour is PlayerWeaponEquipmentNetworkController ||
+                        behaviour is NetworkLootContainer ||
+                        behaviour is ContainerRaidLootOriginState)
+                        TestContext.Out.WriteLine($"F5 {prefabPath} {behaviour.GetType().Name}: {words} words");
+                }
+                TestContext.Out.WriteLine($"F5 {prefabPath} current total: {total} words (excluding TRSP)");
+            }
         }
 
         private static void AssertCandidateWords<T>(int expectedWords) where T : NetworkBehaviour

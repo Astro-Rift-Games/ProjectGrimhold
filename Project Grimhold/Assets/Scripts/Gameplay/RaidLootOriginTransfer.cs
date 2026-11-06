@@ -1,14 +1,24 @@
 using System;
 using System.Collections.Generic;
 
-/// <summary>Immutable origin breakdown for one transferred LootId quantity.</summary>
+/// <summary>
+/// Immutable origin breakdown for one transferred LootId quantity. A weapon unit (always one
+/// unit) also carries its packed instance modifiers, resolved by the source's State Authority.
+/// </summary>
 public sealed class RaidLootOriginTransfer
 {
     private static readonly RaidLootOriginTransfer EmptyTransfer = new(Array.Empty<RaidLootOriginBucket>());
     private readonly RaidLootOriginBucket[] _buckets;
 
     public RaidLootOriginTransfer(IReadOnlyList<RaidLootOriginBucket> buckets)
+        : this(buckets, default)
     {
+    }
+
+    public RaidLootOriginTransfer(IReadOnlyList<RaidLootOriginBucket> buckets,
+        WeaponInstanceModifiersNetworkData modifiers)
+    {
+        Modifiers = modifiers;
         if (buckets == null)
         {
             throw new ArgumentNullException(nameof(buckets));
@@ -22,6 +32,11 @@ public sealed class RaidLootOriginTransfer
     }
 
     public IReadOnlyList<RaidLootOriginBucket> Buckets => _buckets;
+    /// <summary>Modifiers of the transferred weapon unit; empty for stacks and plain weapons.</summary>
+    public WeaponInstanceModifiersNetworkData Modifiers { get; }
+
+    public RaidLootOriginTransfer WithModifiers(WeaponInstanceModifiersNetworkData modifiers) =>
+        new(_buckets, modifiers);
     public int Count => _buckets.Length;
     public static RaidLootOriginTransfer Empty => EmptyTransfer;
 
@@ -85,7 +100,8 @@ public sealed class RaidLootOriginTransfer
             }
         }
 
-        taken = new RaidLootOriginTransfer(takenBuckets);
+        // Only a whole transfer keeps its modifiers: a weapon unit cannot be divided.
+        taken = new RaidLootOriginTransfer(takenBuckets, remainderBuckets.Count == 0 ? Modifiers : default);
         remainder = remainderBuckets.Count == 0 ? EmptyTransfer : new RaidLootOriginTransfer(remainderBuckets);
         return true;
     }

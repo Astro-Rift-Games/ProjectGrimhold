@@ -8,9 +8,10 @@ const catalog = require('../src/config/shopCatalog');
 test('buyback classification normalizes aliases and excludes resources', () => {
   assert.equal(catalog.BUYBACK_PRICE_MULTIPLIER, 1.5);
   assert.equal(catalog.BUYBACK_MAX_ENTRIES, 16);
-  assert.equal(catalog.isBuybackEligible('placeholder_helmet'), true);
-  assert.equal(catalog.isBuybackEligible('training_sword'), true);
-  assert.equal(catalog.isBuybackEligible('heavy_armor_legplate'), true);
+  for (const lootId of ['placeholder_helmet', 'training_sword', 'heavy_armor_legplate']) {
+    assert.equal(catalog.isBuybackEligible(lootId), false);
+    assert.equal(catalog.isBuybackEligible(lootId, 2), true);
+  }
   for (const id of ['coins', 'bone', 'healthpotion', '', null]) assert.equal(catalog.isBuybackEligible(id), false);
 });
 

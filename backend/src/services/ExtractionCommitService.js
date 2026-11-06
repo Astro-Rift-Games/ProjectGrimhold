@@ -17,6 +17,7 @@ const {
 } = require('./InventoryLootIdNormalizer');
 const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
 const { serializeItems, requireMigratedInventory, inventoryVersion, receiveItem } = require('./InventoryEntries');
+const { validateResultItems, resultEquipmentToInstances, equipmentToResult } = require('./ItemInstances');
 const {
   computeLevelAndExperience,
   computeAttributePointsGranted,
@@ -114,9 +115,12 @@ class ExtractionCommitService {
     // must leave both the character and authoritative consumption state intact.
     const newLoadout = [];
     const version = inventoryVersion(character);
-    for (const item of normalizeItems(authResult.items)) {
-      receiveItem(newLoadout, 'loadout', item, version);
-    }
+    const rewards = version === 3 ? validateResultItems(authResult.items) : normalizeItems(authResult.items);
+    for (const item of rewards) receiveItem(newLoadout, 'loadout', item, version);
+    // Equipment is validated and IDs issued before claiming, just like reward capacity.
+    const newPreparedEquipment = version === 3
+      ? resultEquipmentToInstances(authResult.preparedEquipment || equipmentToResult(character.inventory.pendingReservation?.preparedEquipment))
+      : sanitizePreparedEquipment(authResult.preparedEquipment || character.inventory.pendingReservation?.preparedEquipment);
 
     // ------------------------------------------------------------------
     // 3. Atomically claim authoritative result (distributed lock)
@@ -181,11 +185,6 @@ class ExtractionCommitService {
       resultingLevel: computed.resultingLevel,
     };
 
-    // Prepared Equipment
-    const newPreparedEquipment = sanitizePreparedEquipment(
-      authResult.preparedEquipment || 
-      character.inventory.pendingReservation?.preparedEquipment
-    );
 
     // ------------------------------------------------------------------
     // 5. Atomic Database Update on Character

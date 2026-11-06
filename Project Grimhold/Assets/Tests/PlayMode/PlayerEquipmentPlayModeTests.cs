@@ -30,6 +30,8 @@ namespace Tests.PlayMode.Equipment
             "Assets/Scriptable Objects/Loot/Definitions/Shield.asset";
         private const string GreatswordPath =
             "Assets/Scriptable Objects/Loot/Definitions/LongSwordLoot.asset";
+        private const string RubyPath =
+            "Assets/Scriptable Objects/Loot/Definitions/RES_RUBY_GEM.asset";
 
         private NetworkRunner _runner;
         private PlayerEquipmentSimulationDriver _driver;
@@ -52,6 +54,7 @@ namespace Tests.PlayMode.Equipment
         private LootDefinition _gloves;
         private LootDefinition _boots;
         private LootDefinition _trinket;
+        private LootDefinition _ruby;
         private LootDefinitionCatalog _catalog;
         private readonly List<Object> _ownedDefinitions = new();
 
@@ -277,7 +280,7 @@ namespace Tests.PlayMode.Equipment
             EquipmentTestContent.SetField(weapon, "_executionWindowSeconds", 0.1f);
             EquipmentTestContent.SetField(sword, "_weaponDefinition", weapon);
             _catalog = EquipmentTestContent.CreateCatalog(sword, _rangedWeapon, _greatsword,
-                _helmet, _armor, _gloves, _boots, _trinket, _shield);
+                _helmet, _armor, _gloves, _boots, _trinket, _shield, _ruby);
             EquipmentTestContent.SetField(_equipment, "_lootCatalog", _catalog);
             EquipmentTestContent.SetField(_receiver, "_lootCatalog", _catalog);
             yield return EquipThroughAuthority(sword, EquipmentSlot.WeaponSetAMainHand, EquipmentOperationResult.Succeeded);
@@ -1146,6 +1149,87 @@ namespace Tests.PlayMode.Equipment
         }
 
         [UnityTest]
+        public IEnumerator AddressedEquip_ModifiedWeaponAddsGemDamageAndUnequipReturnsItsModifiers()
+        {
+            yield return StartRaidPlayer(CreateAttributes(strength: 10));
+            WeaponInstanceModifiers socketed = CreateRubySocketedSword();
+            WeaponInstanceModifiersNetworkData socketedData = EncodeSword(socketed);
+            yield return SyncInventory(new[]
+            {
+                new LootEntry(_meleeWeapon.LootId, 1, isEquipmentUnit: true),
+                new LootEntry(_meleeWeapon.LootId, 1, socketed, isEquipmentUnit: true)
+            });
+
+            yield return EquipInventorySlot(1, _receiver.Revision, EquipmentOperationResult.Succeeded);
+
+            Assert.That(_equipment.TryGetSlotModifiers(EquipmentSlot.WeaponSetAMainHand,
+                out WeaponInstanceModifiersNetworkData equipped), Is.True);
+            Assert.That(equipped, Is.EqualTo(socketedData));
+            float expectedDamage = Mathf.Floor(_meleeWeapon.WeaponDefinition.BaseDamage + 5f);
+            Assert.That(TryGetRuntimeDamage(_equipment.GetComponent<MeleeAttack>(), out float damage), Is.True);
+            Assert.That(damage, Is.EqualTo(expectedDamage).Within(0.0001f), "The installed Ruby adds +5 before scaling.");
+            Assert.That(_receiver.TryGetInventorySlotModifiers(0, out WeaponInstanceModifiersNetworkData plain), Is.True);
+            Assert.That(plain.IsEmpty, Is.True, "The plain sword stays in its slot.");
+
+            yield return Unequip(EquipmentSlot.WeaponSetAMainHand, EquipmentOperationResult.Succeeded);
+            Assert.That(_equipment.TryGetSlotModifiers(EquipmentSlot.WeaponSetAMainHand,
+                out WeaponInstanceModifiersNetworkData cleared), Is.True);
+            Assert.That(cleared.IsEmpty, Is.True);
+            Assert.That(CountInventoryUnits(socketedData), Is.EqualTo(1), "Unequip returns the exact modified unit.");
+        }
+
+        [UnityTest]
+        public IEnumerator PreparedEquipment_EquipsTheReferencedUnitWithItsModifiers()
+        {
+            yield return StartRaidPlayer(CreateAttributes(strength: 10));
+            WeaponInstanceModifiers socketed = CreateRubySocketedSword();
+            WeaponInstanceModifiersNetworkData socketedData = EncodeSword(socketed);
+            var reserved = new[]
+            {
+                new LootEntry(_meleeWeapon.LootId, 1, isEquipmentUnit: true),
+                new LootEntry(_meleeWeapon.LootId, 1, socketed, isEquipmentUnit: true)
+            };
+            yield return SyncInventory(reserved);
+
+            Assert.That(_equipment.TryInitializePreparedEquipment(
+                reserved, new[] { 2, 0, 0, 0, 0, 0, 0, 0 }, WeaponSetSlot.SetA, out string error), Is.True, error);
+
+            Assert.That(_equipment.TryGetSlotModifiers(EquipmentSlot.WeaponSetAMainHand,
+                out WeaponInstanceModifiersNetworkData equipped), Is.True);
+            Assert.That(equipped, Is.EqualTo(socketedData));
+            Assert.That(CountInventoryUnits(socketedData), Is.Zero, "The referenced modified unit left the inventory.");
+            Assert.That(_receiver.GetLootAmount(_meleeWeapon.LootId), Is.EqualTo(1), "The plain sword stays in inventory.");
+        }
+
+        private WeaponInstanceModifiers CreateRubySocketedSword()
+        {
+            Assert.That(WeaponGemSocket.TryCreateOccupied(_ruby.LootId, out WeaponGemSocket socket, out string error), Is.True, error);
+            Assert.That(WeaponInstanceModifiers.TryCreate(default, default,
+                _meleeWeapon.WeaponDefinition.NaturalScalingAttribute, 1, socket, default,
+                out WeaponInstanceModifiers modifiers, out error), Is.True, error);
+            return modifiers;
+        }
+
+        private WeaponInstanceModifiersNetworkData EncodeSword(in WeaponInstanceModifiers modifiers)
+        {
+            Assert.That(WeaponInstanceModifiersNetworkData.TryCreate(modifiers,
+                _meleeWeapon.WeaponDefinition.NaturalScalingAttribute, _catalog,
+                out WeaponInstanceModifiersNetworkData data, out string error), Is.True, error);
+            return data;
+        }
+
+        private int CountInventoryUnits(WeaponInstanceModifiersNetworkData modifiers)
+        {
+            int count = 0;
+            for (int index = 0; index < PlayerLootReceiver.PhysicalSlotCount; index++)
+                if (_receiver.TryGetInventorySlot(index, out LootInventorySlot slot) && slot.IsValid &&
+                    _receiver.TryGetInventorySlotModifiers(index, out WeaponInstanceModifiersNetworkData current) &&
+                    current.Equals(modifiers))
+                    count++;
+            return count;
+        }
+
+        [UnityTest]
         public IEnumerator ExpeditionSnapshot_AggregatesAndClearsAllEightSlots()
         {
             yield return StartRaidPlayer();
@@ -1273,7 +1357,7 @@ namespace Tests.PlayMode.Equipment
             EquipmentTestContent.SetField(loot, "_weaponDefinition", weapon);
             _rangedWeapon = loot;
             _catalog = EquipmentTestContent.CreateCatalog(_meleeWeapon, _rangedWeapon, _greatsword,
-                _helmet, _armor, _gloves, _boots, _trinket, _shield);
+                _helmet, _armor, _gloves, _boots, _trinket, _shield, _ruby);
             EquipmentTestContent.SetField(_equipment, "_lootCatalog", _catalog);
             EquipmentTestContent.SetField(_receiver, "_lootCatalog", _catalog);
             yield return EquipThroughAuthority(_rangedWeapon, EquipmentSlot.WeaponSetAMainHand, EquipmentOperationResult.Succeeded);
@@ -1325,10 +1409,12 @@ namespace Tests.PlayMode.Equipment
             _boots = EquipmentTestContent.CreateArmorDefinition(
                 "test_boots", LootCategory.Boots, 4, 40, MaximumResourceType.Health, 5);
             _trinket = EquipmentTestContent.CreateNonEquippableDefinition("test_trinket");
+            _ruby = AssetDatabase.LoadAssetAtPath<LootDefinition>(RubyPath);
+            Assert.That(_ruby, Is.Not.Null, RubyPath);
 
             _catalog = EquipmentTestContent.CreateCatalog(
                 _meleeWeapon, _rangedWeapon, _greatsword,
-                _helmet, _armor, _gloves, _boots, _trinket, _shield);
+                _helmet, _armor, _gloves, _boots, _trinket, _shield, _ruby);
         }
 
         private NetworkObject SpawnParticipant(CharacterAttributeState attributes)

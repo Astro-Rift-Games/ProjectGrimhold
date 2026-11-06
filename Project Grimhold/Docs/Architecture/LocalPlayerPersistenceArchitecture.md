@@ -66,11 +66,19 @@ and request-identity ownership belong to `CommerceArchitecture.md`.
 
 The productive `LocalProfileRepository` validates candidate identity and codec compatibility,
 then calls the file store's atomic-write operation before publishing a cloned Snapshot as Ready.
-The current save schema is 10; schemas 1–9 remain readable. Codec v10 stores physical `slot`
-positions and the separate backend `inventorySchemaVersion`. Legacy decode assigns list indices
-as slots (including reservation items), retains the earlier schema-specific migrations and marks
-inventory as version 1; it does not migrate the backend. Pending extraction items remain aggregate.
-An older build rejects a v10 cache as `UnsupportedVersion`; backend hydration remains authoritative.
+The current save contract is schema **11**; schemas 1–10 remain readable. Item data and prepared
+Equipment retain the instance block from [Item Instances §§4.1, 6.1](ItemInstanceArchitecture.md#61-local-persistence).
+Codec v10 introduced physical `slot` positions and the separate backend `inventorySchemaVersion`;
+earlier decode assigns list indices as slots (including reservation items), retains the earlier
+schema-specific migrations and marks inventory as version 1. Local decode never migrates the backend.
+A v10 equipment stack decodes into plain instances without IDs only as transient cache state until
+backend hydration; legacy equipment-ownership repair never runs on v11. Cache-only initialization
+(including Editor domain reload) can publish the Store without backend hydration. Decoding schemas 1–10 therefore sets `RequiresEquipmentHydration`, preserved by subsequent
+v11 cache saves until an inventory hydration succeeds. Local Equip/Unequip, Stash Equip and remote
+prepared-equipment updates reject while it is set; gem install requires a backend-issued instance ID.
+Unity never synthesizes IDs for those transient entries (Item Instances §9).
+Pending extraction preserves per-unit modifiers. Older builds reject unsupported future cache
+versions as `UnsupportedVersion`; backend hydration remains authoritative.
 The atomic operation's boolean result is the acceptance boundary, not a claim of filesystem flush durability.
 
 ### Authenticated corrupt-cache recovery
@@ -99,12 +107,15 @@ an unsaved profile. Authentication/fetch failures never authorize local fallback
 
 ### Stash capacity admission
 
-D1 replaces the TASK-218 compact exception with persistent physical entries
-`{ slot, lootId, amount }`: `slot` is a nonnegative integer unique within its list, `amount` is
-positive, and `lootId` may repeat. Slot is a location, not item identity. Removal leaves a hole;
-other entries are never implicitly merged or renumbered. Backend writers copy stored subdocuments
-whole when moving them. The Mongoose schema is strict: future fields require their own expand
-release, not arbitrary unknown-field persistence. Unity currently represents only these three fields.
+D1 replaces the TASK-218 compact exception with persistent physical entries. The instance-aware
+shape is `{ slot, lootId, amount, instance? }`: `slot` is a nonnegative integer unique within its
+list, `amount` is positive, and `lootId` may repeat. Slot is a location, not item identity.
+Equipment requires `instance` and `amount == 1`; non-equipment has no instance. Equipment never
+stacks, merges or splits. See [Item Instances §§2, 4.1](ItemInstanceArchitecture.md#41-schema-v3)
+for the instance block and validation. Removal leaves a hole; other entries are never implicitly
+merged or renumbered. Backend writers copy stored subdocuments whole when moving them. The
+Mongoose schema is strict: future fields require their own expand release, not arbitrary
+unknown-field persistence.
 
 Capacity counts occupied entries, not distinct IDs or quantities: Loadout 30, Stash 60.
 Town Inventory (Loadout) has exactly 30 slots (`0..29`), all visible, with no pagination and no
@@ -117,27 +128,32 @@ other callers default to 60 and nonpositive constructor capacity throws. Hydrati
 legacy server excess without truncation. Overflow addresses (`slot >= capacity`) are reducing-only
 sources, never ordinary placement/merge targets. Migration preserves legacy excess; the defensive
 lossless rollback fallback below is not permission to expand normal Loadout capacity.
-Town `StackMax` remains deferred (L2); only integer-overflow checks bound merges.
+Town `StackMax` remains deferred (L2) for non-equipment; only integer-overflow checks bound its
+merges. Equipment always occupies one entry per unit.
 Town persists no Origin under D2 = O1 for MVP, **pending reconciliation of Game Design doc 07 by its
 owner (G1)**. Raid provenance stays expedition-scoped; this is not a claim that Doc 07 is reconciled.
 
-Backend v2 reception adds to the lowest-slot matching `lootId` inside capacity, otherwise uses
-the lowest free slot below capacity when occupied count is below capacity, otherwise rejects
-`409 INVENTORY_FULL`. Shop buy/buyback, transfers, unequip and extraction use this rule. Unity
-`ProfileInventoryRules.TryMerge`/`ExceedsCapacity` use the same placement order except when the
-only matching stack is in overflow: they reject rather than falling back to an in-capacity hole.
-This is an implementation difference, not an additional approved rule. An in-capacity matching
-stack can still receive without adding an occupied slot, even at/above the occupancy limit.
+Backend v3 reception preserves the v2 placement rule for non-equipment: add to the lowest-slot
+matching `lootId` inside capacity, otherwise use the lowest free slot below capacity when occupied
+count is below capacity, otherwise reject `409 INVENTORY_FULL`. Equipment never merges; each
+unit needs its own lowest free slot ([Item Instances §4.1](ItemInstanceArchitecture.md#41-schema-v3)).
+Shop buys, transfers, unequip and extraction use these category-specific rules; equipment buy-back
+is disabled. For non-equipment, Unity `ProfileInventoryRules.TryMerge`/`ExceedsCapacity` have the
+previous implementation difference when the only matching stack is in overflow: they reject
+rather than falling back to an in-capacity hole. This is not an additional approved rule. An
+in-capacity matching non-equipment stack can still receive without adding an occupied slot,
+even at/above the occupancy limit.
 
 The Store preflights transfers, secure-loot packages and mission rewards on cloned candidates.
 Rejection changes no ownership, currency, receipts or mission claim state and publishes no commit;
-a refused mission package stays pending. The secure-loot boundary still rejects duplicate input
-IDs as `InvalidInventory`; this aggregate-input check does not forbid duplicate IDs in stored slots.
+a refused mission package stays pending. Non-equipment aggregate inputs retain the secure-loot
+duplicate-input `lootId` check (`InvalidInventory`); equipment entries remain individual instances,
+including repeated template IDs. Stored slots may also repeat `lootId`.
 Extraction and unequip still target Loadout, not Stash.
 
 ### Inventory order
 
-Physical Town positions persist through the Store, codec v10 and backend v2. Responses and local
+Physical Town positions persist through the Store, codec v11 and backend v3. Responses and local
 lists are ordered by slot, but array index is not a slot address. The Stash screen projects holes
 and pages by slot ranges. Take All / Leave All snapshot `(slot, lootId)` entries in ascending slot
 order, including duplicates and entries outside the visible pool; each transfer is independent.
@@ -154,17 +170,22 @@ backend confirmation, then local apply; failure/divergence reconciles once and s
 
 Slot-addressed transfers/sales carry `sourceSlot` plus a `lootId` guard. Whole-stack
 `POST /character/me/inventory/slots/move` takes
-`{ fromList, fromSlot, toList, toSlot, lootId, expectedRevision }`: empty target moves, same ID
-merges all, another ID swaps atomically, within or between lists. Destinations must be inside
+`{ fromList, fromSlot, toList, toSlot, lootId, expectedRevision }`: empty target moves, matching
+non-equipment `lootId` merges all, a different `lootId` swaps atomically, within or between lists.
+Equipment moves with its instance and never merges, even for matching templates
+([Item Instances §4.3](ItemInstanceArchitecture.md#43-operations)). Destinations must be inside
 capacity; a cross-list insertion requires free occupancy and a swap cannot return a displaced
 entry to an overflow source. A backend move to the same address is a no-op without revision change.
 These operations leave unrelated slots unchanged.
 
-Reservation items retain exact Town entries, but admission aggregates by `lootId` in both
-`SessionTicketService` and `RaidAdmissionData.TryCreate`; Raid repartitions them under the
-[Player Inventory rules](LootInteractionArchitecture.md#player-physical-inventory). Raid Sort stays
-disabled and exact Raid positions never enter the cache/backend. Extraction keeps its aggregate
-payload and places it into fresh Loadout slots rather than restoring Raid addresses.
+Reservation items retain exact Town entries and instances, including prepared Equipment slots
+shaped as `null | { lootId, instance }`. Admission preserves per-unit weapon modifiers but never
+transports backend instance IDs; Raid partitions entries under the
+[Player Inventory rules](LootInteractionArchitecture.md#player-physical-inventory) and
+[Item Instances §§4.3, 6.3](ItemInstanceArchitecture.md#63-raid-transport). Raid Sort stays disabled
+and exact Raid positions never enter the cache/backend. Extraction sends
+`{ lootId, amount, modifiers? }`, keeps equipment units separate and places the result into fresh
+Loadout slots rather than restoring Raid addresses.
 D1 supersedes the compact/no-hole exception; Game Design doc 16 reconciliation (G2) remains an
 owner action, not a completed documentation change.
 
@@ -181,29 +202,42 @@ The exact HTTP DTOs, route surface, environment flags and error codes belong to 
 [backend contract](../../../backend/README.md#inventario-b2-t3--contrato-v2).
 `ProfileCommitted` means local transaction acceptance, not durable backend acknowledgement.
 
-`inventory.inventorySchemaVersion` absent or 1 means legacy aggregate lists; 2 means physical slots.
-`GET /character/me/inventory` returns the version and, for v2, lists/reservation items sorted by
-slot without changing storage. No backend read repairs aliases, merges, migrates, increments revision
-or saves. Gate-off v1 retains lootId operations, but rejects ambiguous legacy duplicates rather than
+`inventory.inventorySchemaVersion` absent or 1 means legacy aggregate lists; 2 means physical
+slots; **3** gates the instance-aware format, including prepared Equipment
+`null | { lootId, instance }` and instance-preserving reservation entries. Instance-aware flows
+require v3; see [Item Instances §4.1](ItemInstanceArchitecture.md#41-schema-v3). Inventory reads
+return the version and slot-ordered lists/reservation items without changing storage. No backend
+read repairs aliases, merges, migrates, increments revision or saves.
+
+The following v1/v2 protocol and gate notes describe the preceding physical-slot rollout; they do
+not authorize v2 data for instance-aware flows. Existing gate rules otherwise remain unchanged
+under Item Instances §4.1. The header advertises minimum compatible capability: instance-capable
+Unity clients always send `3`, including before hydration, and select v2/v3 data behavior from
+`inventorySchemaVersion`. The v2 gate accepts `2` or `3`; the instance gate requires `3` and schema 3.
+
+Gate-off v1 retains lootId operations, but rejects ambiguous legacy duplicates rather than
 repairing them. Slot input on v1 rejects `409 INVENTORY_MIGRATION_REQUIRED`; v2 move/sell without
 `sourceSlot`, or order without `slotOrder`/with `lootIds`, rejects `409 INVENTORY_SLOT_ADDRESS_REQUIRED`.
 
-Unity backend clients send `X-Grimhold-Inventory-Protocol: 2`, including host calls.
-`INVENTORY_PROTOCOL_GATE` defaults off (header ignored); only `true` enforces protocol 2.
-On protected routes a missing/different header rejects `426 CLIENT_UPGRADE_REQUIRED` before body
-validation; a correct header with a non-v2 character rejects `409 INVENTORY_MIGRATION_REQUIRED`.
+Unity backend clients send `X-Grimhold-Inventory-Protocol: 3`, including host calls.
+`INVENTORY_PROTOCOL_GATE` defaults off; when true it accepts protocol 2 or 3 and schema 2 or 3.
+`INVENTORY_INSTANCE_PROTOCOL_GATE` takes precedence when true and requires protocol 3 and schema 3.
+On protected routes a missing/unsupported header rejects `426 CLIENT_UPGRADE_REQUIRED` before body
+validation; a compatible header with an unmigrated character rejects `409 INVENTORY_MIGRATION_REQUIRED`.
 Protection covers inventory reads/writes, prepared Equipment, reservations, extraction publish/commit,
 Raid admission ticket/verification and character creation, including the target participant/recipient
 checks. Metadata-only `GET /character/me` and `/me/profile`, profile edits, ability purchase,
 progression commit and Town tickets do not rewrite lists and are exempt. Debug/legacy extraction
 routes remain unavailable in production, regardless of header. Split has a separate default-off
 `INVENTORY_SPLIT_ENABLED` flag; `403 FEATURE_DISABLED` precedes protocol checks when off.
-New characters are v2 only with the gate on, otherwise v1. See the backend README for exact routes.
+New characters are v3 with the instance gate on, v2 with only the slot gate on, otherwise v1.
+See the backend README for exact routes.
 
 Hydration (`ApplicationStashServiceBootstrapper.HydrateSnapshot`, also used by reconciliation)
 validates lists before applying them: invalid/repeated slot addresses, unsupported inventory versions
-or negative currency reject the payload. Unknown IDs and nonpositive amounts are skipped; valid v2
-entries retain duplicate IDs, holes and overflow without merge. V1 hydration assigns list indices as
+or negative currency reject the payload. Unknown IDs and nonpositive amounts are skipped; valid v3
+entries retain instances, duplicate template IDs, holes and overflow without merge; invalid equipment
+instance/amount shapes reject under Item Instances §4.1. V1 hydration assigns list indices as
 slots, not a persistent migration. Login hydrates a clone and saves through the repository before
 publication; pending extraction and local-only state retain their existing preservation rules.
 The coordinator makes Unity Town inventory mutations unavailable on v1; remote slot mutations and
@@ -215,7 +249,7 @@ pool displays only `0..29`, all at once. Legacy Loadout excess requires test-dat
 the migration dry run, not pagination or a prefab change (see
 [Loadout presentation policy](RaidInventoryUIArchitecture.md#stash-screen-composition)).
 
-Migration is explicit and one-time via
+The historical v1 → v2 migration is explicit and one-time via
 [`backend/scripts/migrate_inventory_slots.js`](../../../backend/scripts/migrate_inventory_slots.js),
 never a GET side effect. It folds legacy duplicate/alias IDs into their first stored occurrence,
 assigns slots `0..n-1` separately to Stash, Loadout and reservation items, retains unknown IDs and
@@ -223,9 +257,19 @@ overflow, then sets version 2 in one revision-guarded write per character. It ch
 re-reads/recomputes revision conflicts (up to three retries), aborts invalid/mismatched characters
 without writing, and skips v2 on rerun. `--dry-run` reports duplicates, counts, overflow and totals
 without writes; unknown-ID diagnostics use backend catalogs only, not Unity's complete catalog.
-Raid results and pending extraction item payloads remain aggregate; receipts are not rewritten.
+That migration left Raid results and pending extraction item payloads aggregate; receipts were not
+rewritten.
 
-Cutover is pending: V10 requires a dry run on a database copy; A3 requires the owner/team window.
+The explicit **v2 → v3** migration is owned by
+[Item Instances §4.2](ItemInstanceArchitecture.md#42-migration-v2--v3): an equipment stack of N
+becomes N plain instances with backend-issued IDs, preserving the original slot for the first
+and using lowest free slots, then reducing-only overflow addresses, for the rest. Nothing is
+discarded. Prepared Equipment, pending reservations and stored extraction results migrate under
+that same contract; reruns skip migrated characters and each accepted write advances revision once.
+The script follows the existing migration pattern, not a GET side effect. Plain instances,
+including the fallback, follow [§4.4](ItemInstanceArchitecture.md#44-plain-instances).
+
+Historical v2 cutover notes: V10 requires a dry run on a database copy; A3 requires the owner/team window.
 Use the dry-run findings to correct legacy Loadout excess in the test data (move excess to Stash or
 reset the character); no Loadout overflow UI is planned. This documentation does not perform that
 cleanup. Complete the slot-aware B1/B2 rollout and drain old backend instances, distribute U2 clients/hosts,
@@ -265,7 +309,9 @@ Stash and loadout transfers, prepared Equipment assignments, loadout reservation
 receipt application are complete aggregate transactions. `PreparedEquipmentLoadout` covers eight
 slots: Set A and Set B each own Main Hand and Off Hand, plus Helmet, Armor, Gloves and Boots.
 Inventory and prepared Equipment are mutually exclusive ownership locations. Equip moves one
-`LootId + Amount` unit from Inventory to its Equipment slot, while Unequip moves it back;
+`{ lootId, instance }` unit from Inventory to its Equipment slot, while Unequip moves it back;
+identity and modifiers remain attached
+([Item Instances §4.3](ItemInstanceArchitecture.md#43-operations)). Equip requires `instanceId`;
 `EquipmentSlotRules` decides which slot an identity may occupy and weapon slots additionally require
 a usable Weapon definition. A weapon assignment also evaluates its `WeaponAttributeRequirements` against the
 confirmed `CharacterAttributeState` already owned by the aggregate. The same pure eligibility
@@ -275,8 +321,9 @@ also supports direct Stash Equip through `EvaluateEquipFromStash` / `TryEquipFro
 one planner over an isolated snapshot clone. It removes exactly one Stash unit, returns displaced
 units (including same-ID replacement and both hands for a two-handed weapon) to Loadout, and checks
 final occupied-slot capacity before any commit. A full 30-slot Loadout can equip into an empty
-Equipment slot or merge displaced units into matching in-capacity stacks, but cannot add another
-occupied Loadout slot. Backend-hydrated excess remains accepted; this operation cannot grow it. Evaluation publishes nothing;
+Equipment slot only if no displaced unit needs another occupied Loadout slot; equipment cannot
+merge into matching-template entries. Backend-hydrated excess remains accepted; this operation
+cannot grow it. Evaluation publishes nothing;
 application replans against current state and commits the whole candidate once.
 
 The Stash coordinator checks the Ready gate, availability and Store rules, then sends an addressed
@@ -325,7 +372,8 @@ the same migration. Earlier schemas did not distinguish
 the former exclusive implementation from the temporary non-owning implementation. Decoding treats
 a complete Inventory reference set as the latter and subtracts one unit per prepared slot; if the
 complete set is absent, it preserves Inventory unchanged as an earlier exclusive save. The check is
-all-or-nothing. This describes the schema-4 migration; new saves now write schema 10.
+all-or-nothing. This describes the schema-4 migration; new saves write schema 11 and never run
+this legacy ownership repair ([Item Instances §6.1](ItemInstanceArchitecture.md#61-local-persistence)).
 
 TASK-330 originally kept this migration local. The current prepared-Equipment adapter sends all
 eight slots: `weaponSlot1` / `weaponSlot2` map to Set A / B Main Hand, `offHand1` / `offHand2`
@@ -374,8 +422,10 @@ deterministic and idempotent, so retrying a launch never grants or duplicates an
   Set B active.
 * When no weapon is prepared, Town grants exactly one configured recovery weapon
   (`LocalProfilePersistenceConfiguration.RecoveryWeaponLootId`), reusing a unit the profile
-  already owns before minting the guaranteed one. Without that configuration the preparation is
-  rejected as `RecoveryWeaponUnavailable`; it never falls back to another weapon.
+  already owns before requesting a backend-issued plain fallback instance
+  ([Item Instances §§1, 4.4](ItemInstanceArchitecture.md#44-plain-instances)). Unity never issues an
+  instance ID; the later training-weapon task is not redesigned here. Without that configuration
+  preparation is rejected as `RecoveryWeaponUnavailable`; it never falls back to another weapon.
 * A persisted assignment that no longer resolves to a usable weapon fails explicitly as
   `InvalidPreparedWeapon` without mutating the aggregate. Corruption is never overwritten and
   never hidden behind a recovery grant.
@@ -397,7 +447,8 @@ reservation owns Inventory and Equipment, so `LocalProfileStore` rejects every S
 would overwrite their result and a non-empty Loadout would make `TryCommitExtraction` fail. The same
 operations also fail with `InvalidInventory` instead of throwing when the profile is unavailable.
 The same reservation id is idempotent; a different id is rejected while pending. Pre-admission failure restores items and assignments in
-one rollback. The reservation stores complete items with exact Town slots. Backend v2 rollback
+one rollback. The reservation stores complete instances with exact Town slots; admission omits
+IDs but retains modifiers ([Item Instances §§4.3, 6.3](ItemInstanceArchitecture.md#63-raid-transport)). Backend rollback
 first restores every free original address, then places collisions in the lowest free in-capacity
 slot and finally the lowest free overflow slot, never merging or dropping units. That last branch
 is defensive lossless restoration, not a normal operation allowed to exceed the 30-slot Loadout
@@ -439,9 +490,13 @@ and left the backend Loadout empty for the next Raid.
 
 State Authority retains the raid result snapshot while Input Authority commits it to its
 application-level Loadout. A valid admission consumes the pending reservation and leaves
-that Loadout empty during the raid; extraction folds the authoritative item payload by `lootId`
-and receives it into physical Town slots `0..n-1`. Equipment remains separately assigned; Raid slot
-positions and provenance are not persisted. Stash is not an automatic extraction destination.
+that Loadout empty during the raid. Result items are `{ lootId, amount, modifiers? }`; equipment
+units remain separate with `amount = 1`, while non-equipment may fold by `lootId`. The backend
+validates legal modifiers against template rules and the gem set, never regenerates seeds, and
+issues new equipment instance IDs on commit
+([Item Instances §7](ItemInstanceArchitecture.md#7-extraction-and-reservation)). Reception uses
+physical Town slots `0..n-1`; Equipment remains separately assigned. Raid slot positions and
+provenance are not persisted, and instances carry no provenance. Stash is not an automatic extraction destination.
 A new receipt is accepted only when the Loadout is empty and fits its capacity, so an unexpected pre-existing Loadout
 fails without changing either inventory. An ACK is sent only after the current aggregate accepts
 the transaction, and the raid inventory is cleared only after the ACK. Transport duplicates cannot
@@ -451,7 +506,7 @@ durable guarantee.
 
 ## Temporary limitations and failure policy
 
-- The per-profile schema-10 file cache survives process exit but is not backend authority.
+- The per-profile schema-11 file cache survives process exit but is not backend authority.
 - PlayerPrefs never supplies a productive identity. Unsupported or unreadable caches block hydration;
   confirmed corruption can be replaced only through the explicit authenticated flow above.
 - A backend load failure must remain visible and must not be replaced by a generated identity or

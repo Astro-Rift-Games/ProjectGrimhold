@@ -95,7 +95,7 @@ test('split HTTP and atomic Mongo persistence', async t => {
   });
   await t.test('enabled split uses protocol gate: 426 before body validation, v1 409, v2 succeeds', async () => {
     process.env.INVENTORY_PROTOCOL_GATE = 'true';
-    for (const header of [undefined, '1', '3']) await rejected({ amount: 0 }, 426, 'CLIENT_UPGRADE_REQUIRED', header);
+    for (const header of [undefined, '1', '4']) await rejected({ amount: 0 }, 426, 'CLIENT_UPGRADE_REQUIRED', header);
     await Character.updateOne({ accountId }, { $set: { 'inventory.inventorySchemaVersion': 1 } });
     await rejected({}, 409, 'INVENTORY_MIGRATION_REQUIRED', '2');
     await Character.updateOne({ accountId }, { $set: { 'inventory.inventorySchemaVersion': 2 } });

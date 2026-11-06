@@ -60,19 +60,16 @@ namespace Grimhold.Backend
     {
         public string lootId;
         public int amount;
+        public WeaponInstanceModifiersData modifiers;
     }
 
     [Serializable]
+    [Newtonsoft.Json.JsonConverter(typeof(RaidPreparedEquipmentJsonConverter))]
     public struct PreparedEquipmentDto
     {
-        public string weaponSlot1;
-        public string weaponSlot2;
-        public string offHand1;
-        public string helmet;
-        public string armor;
-        public string gloves;
-        public string boots;
-        public string offHand2;
+        public PreparedEquipmentData Definitions;
+        // Presence distinguishes a v3 plain equipment unit from a legacy string slot.
+        public System.Collections.Generic.Dictionary<EquipmentSlot, WeaponInstanceModifiersData> Units;
     }
 
     [Serializable]

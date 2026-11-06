@@ -6,7 +6,7 @@ namespace Grimhold.Backend
     public static class InventoryProtocol
     {
         public const string Header = "X-Grimhold-Inventory-Protocol";
-        public const string Version = "2";
+        public const string Version = "3";
 
         public static UnityWebRequest Create(string url, string method)
         {

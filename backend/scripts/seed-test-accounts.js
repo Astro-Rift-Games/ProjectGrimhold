@@ -39,7 +39,7 @@ async function runSeed() {
       const character = await Character.findOneAndUpdate(
         { accountId: account._id },
         { $setOnInsert: { name: data.charName,
-          'inventory.inventorySchemaVersion': env.inventoryProtocolGate ? 2 : 1 } }, // Existing inventory is never replaced
+          'inventory.inventorySchemaVersion': env.newInventorySchemaVersion } }, // Existing inventory is never replaced
         { upsert: true, returnDocument: 'after' }
       );
       console.log(`[Seed] Character '${character.name}' listo.`);

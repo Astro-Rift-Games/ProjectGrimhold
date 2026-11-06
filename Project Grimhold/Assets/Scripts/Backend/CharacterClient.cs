@@ -164,7 +164,12 @@ namespace Grimhold.Backend
         {
             if (request.result == UnityWebRequest.Result.Success)
             {
-                var result = JsonUtility.FromJson<T>(request.downloadHandler.text);
+                // Admission prepared slots are a legacy string / ID-free object union.
+                // Other character endpoints retain their existing Unity serializer behavior.
+                var result = typeof(T) == typeof(AuthoritativeRaidAdmissionTicketResponse) ||
+                    typeof(T) == typeof(VerifyRaidAdmissionTicketResponse)
+                    ? Newtonsoft.Json.JsonConvert.DeserializeObject<T>(request.downloadHandler.text)
+                    : JsonUtility.FromJson<T>(request.downloadHandler.text);
                 return (true, result, default);
             }
             

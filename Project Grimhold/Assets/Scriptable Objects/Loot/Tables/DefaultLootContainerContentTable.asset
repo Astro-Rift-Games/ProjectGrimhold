@@ -253,16 +253,24 @@ MonoBehaviour:
     _weight: 10
     _minimumAmount: 1
     _maximumAmount: 2
-  - _definition: {fileID: 11400000, guid: 39dd186c5f60dec42fc90e161fd5bfc1, type: 2}
-    _weight: 4
-    _minimumAmount: 1
-    _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: a8446c75cc962743d3093d8f1564073b, type: 2}
     _weight: 4
     _minimumAmount: 1
     _maximumAmount: 1
   - _definition: {fileID: 11400000, guid: a1aa261e12a045cf2810ff19a2a8352f, type: 2}
     _weight: 4
+    _minimumAmount: 1
+    _maximumAmount: 1
+  - _definition: {fileID: 11400000, guid: 39dd186c5f60dec42fc90e161fd5bfc1, type: 2}
+    _weight: 3
+    _minimumAmount: 1
+    _maximumAmount: 1
+  - _definition: {fileID: 11400000, guid: b4df2ba373b64cc40aec721f2b1af364, type: 2}
+    _weight: 3
+    _minimumAmount: 1
+    _maximumAmount: 1
+  - _definition: {fileID: 11400000, guid: c3a938a66f2e47540b9ce57f7bb9cdfb, type: 2}
+    _weight: 3
     _minimumAmount: 1
     _maximumAmount: 1
   _minimumDistinctStacks: 2

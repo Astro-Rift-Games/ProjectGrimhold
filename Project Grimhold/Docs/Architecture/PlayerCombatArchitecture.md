@@ -238,7 +238,9 @@ does not overwrite those networked snapshots.
 `PlayerWeaponEquipmentNetworkController` is the single authoritative source of the Raid avatar's
 Equipment. It owns two Weapon Sets (`Main Hand + Off Hand`) plus `Helmet`, `Armor`, `Gloves`
 and `Boots`, and one active Set selection that requires an eligible weapon in at least one hand. Each
-slot replicates only the deterministic `LootDefinitionCatalog` index plus one (`0` means empty).
+slot replicates the deterministic `LootDefinitionCatalog` index plus one (`0` means empty), with
+weapon modifiers alongside it, never backend instance IDs
+([Item Instances §6.3](ItemInstanceArchitecture.md#63-raid-transport)).
 Every Equip intention names its exact `EquipmentSlot`. One-handed weapons may occupy either hand;
 two-handed weapons may occupy only Main Hand and derive the blocked state of the matching Off Hand.
 Equipping a two-handed weapon displaces both hands in that Set, while the other Set is untouched.
@@ -254,8 +256,8 @@ unit (`Weapon`, `Shield`, `Helmet`, `Armor`, `Gloves`, `Boots`); deciding which 
 Equipment rule. `PlayerLootReceiver` is never the source of truth for what is equipped.
 
 Each offensive hand of the active Weapon Set resolves `LootDefinition -> WeaponDefinition -> AttackConfig` together
-with the participant's effective `CharacterAttributeState`. Equipment adapts the current legacy
-`WeaponOffensiveScaling` to resolved runtime contributions, calculates effective damage through the
+with the participant's effective `CharacterAttributeState`. Equipment resolves the weapon's
+`WeaponInstanceModifiers` to runtime contributions, calculates effective damage through the
 single canonical `WeaponDamageCalculator`, and builds a
 local, non-replicated `AttackExecutionParameters` value from the active weapon's damage, type,
 interval, effective range and knockback (original PE, not world units/s), configures the shared `MeleeAttack` or `RangedAttack`
@@ -274,8 +276,10 @@ selection without removing the equipped unit.
 
 On Host Migration restore, State Authority resolves the replicated slot identities and the active
 slot again, rebuilding the strategy and recalculating effective damage from the restored effective
-attributes without replaying equipment requests. Effective damage, equipment modifiers and final
-player runtime statistics are derived local state and are not generally replicated or persisted.
+attributes without replaying equipment requests. Effective damage, armor-statistics projections and
+final player runtime statistics are derived local state and are not generally replicated or persisted.
+Weapon instance modifiers are persisted and transported under
+[Item Instances §§4, 6](ItemInstanceArchitecture.md#6-unity-runtime).
 An already accepted ranged shot is the narrow exception: the combat snapshot copies its resolved
 projectile payload, so rebuilding Equipment cannot recalculate that shot. The armor
 slots need no dedicated restore logic — they are ordinary `[Networked]` properties. Restored slots,
@@ -454,34 +458,43 @@ its strike hold at 0.65 seconds. The VFX keeps its authored clip start because
 `ReleaseLeadSeconds = AttackReleaseSeconds - StartSeconds`.
 Weapon-specific projectile manifestation remains outside this contract.
 
-The canonical future instance contract is `WeaponInstanceModifiers`: optional primary and secondary
-`WeaponScalingModifier` slots using grades E through S. `WeaponScalingGrade.None` is only the default
-serialization sentinel and normalizes to an absent slot. A present primary must match the weapon's
-natural Strength, Dexterity or Intelligence attribute. A present secondary requires a primary and may
-use any other character attribute. Coefficients are fixed by grade: E=0.25, D=0.40, C=0.55, B=0.70,
-A=0.85 and S=1.00. These values are not stored in `LootEntry`, Equipment or persistence until unique
-item identity is integrated end to end.
+`WeaponInstanceModifiers` is the active runtime source for player weapons, including persistence
+and Equipment, under [Item Instances §§2, 6.2](ItemInstanceArchitecture.md#62-damage). It has optional
+primary and secondary `WeaponScalingModifier` slots using grades E through S.
+`WeaponScalingGrade.None` is only the default serialization sentinel and normalizes to an absent
+slot. A present primary must match the weapon's natural Strength, Dexterity or Intelligence attribute.
+A present secondary requires a primary and may use any other character attribute. Coefficients are
+fixed by grade: E=0.25, D=0.40, C=0.55, B=0.70, A=0.85 and S=1.00.
 
-`WeaponOffensiveScaling` remains only the legacy runtime representation for the current
-`LootId`-based model. It is not the canonical instance contract and must not evolve as a parallel
-source of truth. A zero coefficient means no legacy scaling. A positive coefficient accepts only
-Strength, Dexterity or Intelligence. `WeaponScalingContributionsResolver` adapts it to zero or one
-resolved `(CharacterAttribute, Coefficient)` contribution without converting arbitrary legacy
-coefficients into grades. A separate pure resolver can translate `WeaponInstanceModifiers` into up
-to two contributions for tests and future integration, but instances are not an active runtime
-source until unique Item Instances exist end to end. Both forms resolve values from the confirmed
-`CharacterAttributeState` already owned by the Raid participant. The canonical runtime rule is:
+`WeaponOffensiveScaling` is legacy template configuration, not a parallel runtime source. Plain
+instances (purchase, migration, fallback) inherit a primary grade equal to that template coefficient;
+zero means no scaling. They have no sockets or gems
+([Item Instances §4.4](ItemInstanceArchitecture.md#44-plain-instances)). All 14 current weapon
+templates have coefficient 0, so plain instances preserve their current damage. Runtime contributions resolve
+values from the confirmed `CharacterAttributeState` already owned by the Raid participant.
+`WeaponGemDamageBonusResolver` sums installed gems through the loot catalog. The canonical runtime
+rule, also used by Town statistics and the instance tooltip, is:
 
 ```text
-EffectiveDamage = floor(BaseDamage * (1 + sum((AttributeValue / 100) * Coefficient)))
+EffectiveDamage = floor((BaseDamage + GemDamageBonus) * (1 + sum(AttributeValue/100 * Coefficient)))
 ```
+
+**Current rollout (F3/T5):** Town inventory, stash and prepared Equipment retain their confirmed
+`EquipmentInstance`; Town statistics and their tooltips resolve its scaling and installed gems using
+the character's confirmed attributes and the existing loot catalog. Definition-only merchant offers
+and remote Town preparation inspection remain template-only (remote instances/attributes are not
+available). Raid combat reads the hand unit's own modifiers: the equipment controller replicates one
+packed modifier word per hand slot (cleared whenever the slot is reassigned or emptied), and effective
+damage resolves instance scaling and installed gems from that word through the loot catalog. An empty
+word projects the plain template instance, so plain weapons keep their damage ([Item Instances
+§6.3](ItemInstanceArchitecture.md#63-raid-transport)). A local Town instance is never borrowed.
 
 `WeaponDamageCalculator` is the only implementation of this pure arithmetic. Equipment performs the calculation when it
 configures or rebuilds the active player weapon. `MeleeAttack` and `RangedAttack` retain the resolved
 runtime value without modifying their shared `AttackConfig`. Non-player executors serialize their
 own `AttackExecutionParameters`, keeping their existing behavior independent from Equipment.
-The common runtime representation is the removal boundary for the legacy source; the complete
-Template/Instance migration remains separate from US-36.
+The complete Template/Instance migration is owned by
+[Item Instances](ItemInstanceArchitecture.md), separate from the historical US-36 scope.
 
 `PlayerRuntimeStatistics` combines character-derived maximums with the current equipment defenses.
 Its resource formulas add the aggregated equipment modifiers to maximum Health, Stamina and Mana.
@@ -1201,8 +1214,8 @@ reachable through `DefaultLootContainerContentTable`; `arming_sword` is addition
 recovery weapon configured by `LocalProfilePersistenceConfiguration.RecoveryWeaponLootId`.
 
 The base templates have no offensive scaling coefficient. Their configured requirements, damage,
-interval, range and Stamina cost are static playtest baselines. Weapon instances remain the owner
-of future scaling variation.
+interval, range and Stamina cost are static playtest baselines. Weapon instances own scaling
+variation under [Item Instances §6.2](ItemInstanceArchitecture.md#62-damage).
 
 | Loot id | Hands | Attack config | Attack animation |
 | :--- | :---: | :--- | :--- |
@@ -1448,12 +1461,12 @@ for in-flight replication; local persistence stores `LootId` strings.
 
 ## Known Limitations and Technical Debt
 
-* **Load state identity is template-based**: a hand's Unloaded state belongs to the weapon catalog identity that fired. Replacing that slot's weapon resets the state to Loaded, because unique weapon instances are not transported yet. Reload has no dedicated presentation; HUD availability reflects it through `TryGetAttackStatus`.
+* **Load state identity is template-based**: a hand's Unloaded state belongs to the weapon catalog identity that fired. Replacing that slot's weapon resets the state to Loaded. Raid carries weapon modifiers, never backend instance IDs ([Item Instances §6.3](ItemInstanceArchitecture.md#63-raid-transport)); this does not define a new reload-identity rule. Reload has no dedicated presentation; HUD availability reflects it through `TryGetAttackStatus`.
 
 * **Layer Configuration Dependency**: The system requires strict layer separation. If targets or obstacles are not on the correct layers specified in `MeleeAttackConfig` and `RangedAttackConfig`, collision queries will fail to report hits.
 * **Component Casting**: Configured strategies rely on a serialized `MonoBehaviour` cast to `IAttack`. An empty source is a valid neutral state; a non-empty source must implement the contract.
-* **Equipment Instances Remain Template-Based**: armor statistics and maximum-resource modifiers are applied through the equipped `LootId` definitions, and inventory tooltips expose those same definition-owned values. Unique per-instance armor modifiers remain unavailable until instance identity is transported end to end.
-* **No Unique Equipment Instances Yet**: current inventory, Equipment, world and persistence paths identify items by `LootId` plus quantity. `WeaponInstanceModifiers` defines the canonical scaling payload but is not transported or stored yet, so multiple runtime variants of one template do not exist.
+* **Armor modifiers remain template-owned**: armor statistics and maximum-resource modifiers are applied through the equipped `LootId` definitions, and inventory tooltips expose those same definition-owned values. Armor and shields are unique instances but have no instance modifiers ([Item Instances §§1–2](ItemInstanceArchitecture.md#2-model)).
+* **Equipment instance boundary**: every equipment unit is a non-stackable instance. Town/backend persist backend-issued IDs; Raid Inventory, Equipment and world loot carry modifiers, not those IDs ([Item Instances §§2, 6.3](ItemInstanceArchitecture.md#63-raid-transport)).
 * **Town preparation covers all eight slots**: `PreparedEquipmentLoadout` and `TryInitializePreparedEquipment` carry both hands of Set A and Set B plus Helmet, Armor, Gloves and Boots. A valid weapon in either hand is required to launch (`04 - Character Build Design` §15.1); armor and Off Hand are optional and are never granted by the recovery guarantee.
 * **Free-aim visual tip versus projectile spawn**: the spawn point is a per-weapon distance along the aim, while the posed weapon is a rigid, hand-anchored visual that cannot match a fixed distance at every aim. The gap is measured per weapon and bounded by `FreeAimSpawnConsistencyTests` with a per-weapon tolerance, measured in the fully drawn aim-driven state. Unaimed shots, fired before the stance is drawn or with the stance released, are posed differently from aimed ones and are not covered by that tolerance.
 * **Game Design conflict (pending a Game Design update)**: "09 - Diseño de Equipamiento" maps the Off Hand to the secondary attack input, but for two-handed ranged weapons `SecondaryAction` now means "aim". Game Design is not edited by this contract.

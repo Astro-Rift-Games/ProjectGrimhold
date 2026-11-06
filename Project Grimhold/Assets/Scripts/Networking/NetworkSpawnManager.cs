@@ -2735,7 +2735,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 activeVerifier,
                 player.ToString(),
                 out RaidAdmissionData resolvedAdmission,
-                out Task<(bool valid, AuthoritativeRaidAdmissionTicket ticket, string error)> pendingVerificationTask))
+                out Task<(bool valid, AuthoritativeRaidAdmissionTicket ticket, string error)> pendingVerificationTask,
+                _lootCatalog))
         {
             if (pendingVerificationTask != null)
             {
@@ -2755,7 +2756,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         IRaidAdmissionVerifier verifier,
         string playerIdentifierForLogging,
         out RaidAdmissionData resolvedAdmission,
-        out Task<(bool valid, AuthoritativeRaidAdmissionTicket ticket, string error)> pendingVerificationTask)
+        out Task<(bool valid, AuthoritativeRaidAdmissionTicket ticket, string error)> pendingVerificationTask,
+        LootDefinitionCatalog catalog = null)
     {
         resolvedAdmission = default;
         pendingVerificationTask = null;
@@ -2807,7 +2809,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             }
 
             // Hydrate state exclusively from backend verified snapshot
-            if (!authTicket.TryToRaidAdmissionData(out resolvedAdmission) || !resolvedAdmission.IsValid)
+            if (!authTicket.TryToRaidAdmissionData(out resolvedAdmission, catalog: catalog) || !resolvedAdmission.IsValid)
             {
                 Debug.LogWarning($"[SECURITY] Failed to hydrate canonical RaidAdmissionData from authoritative ticket for player {playerIdentifierForLogging}.");
                 return false;
@@ -2847,7 +2849,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             if (!valid ||
                 !RaidAdmissionRules.IsAdmitted(_launchContext, verifiedTicket) ||
                 verifiedTicket.IsExpired(DateTimeOffset.UtcNow.ToUnixTimeSeconds()) ||
-                !verifiedTicket.TryToRaidAdmissionData(out resolvedAdmission) ||
+                !verifiedTicket.TryToRaidAdmissionData(out resolvedAdmission, catalog: _lootCatalog) ||
                 !TryFinalizeRemoteAdmission(player, resolvedAdmission))
             {
                 Debug.LogWarning($"[SECURITY] Deferred authoritative ticket verification failed for player {player}: {error ?? "ADMISSION_FINALIZATION_FAILED"}. Disconnecting.");
@@ -3610,7 +3612,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
-        if (!container.TrySetInitialContentOverride(runner, instance, content))
+        if (!container.TrySetInitialContentOverride(runner, instance, content, seed))
         {
             error = "The enemy NetworkLootContainer rejected its authoritative pre-spawn content.";
             return false;

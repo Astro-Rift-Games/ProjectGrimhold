@@ -10,6 +10,21 @@ public readonly struct PreparedEquipmentLoadout
     public LootId Gloves { get; }
     public LootId Boots { get; }
 
+    private readonly EquipmentInstance _mainA, _offA, _mainB, _offB, _helmet, _armor, _gloves, _boots;
+
+    public EquipmentInstance GetInstance(EquipmentSlot slot) => slot switch
+    {
+        EquipmentSlot.WeaponSetAMainHand => _mainA,
+        EquipmentSlot.WeaponSetAOffHand => _offA,
+        EquipmentSlot.WeaponSetBMainHand => _mainB,
+        EquipmentSlot.WeaponSetBOffHand => _offB,
+        EquipmentSlot.Helmet => _helmet,
+        EquipmentSlot.Armor => _armor,
+        EquipmentSlot.Gloves => _gloves,
+        EquipmentSlot.Boots => _boots,
+        _ => null
+    };
+
     public bool HasAnyMainHand => WeaponSetAMainHand.IsValid || WeaponSetBMainHand.IsValid;
     public bool HasWeaponSetAMainHand => WeaponSetAMainHand.IsValid;
     public bool HasWeaponSetBMainHand => WeaponSetBMainHand.IsValid;
@@ -39,7 +54,11 @@ public readonly struct PreparedEquipmentLoadout
         LootId gloves = default,
         LootId boots = default,
         LootId weaponSetAOffHand = default,
-        LootId weaponSetBOffHand = default)
+        LootId weaponSetBOffHand = default,
+        EquipmentInstance mainAInstance = null, EquipmentInstance mainBInstance = null,
+        EquipmentInstance helmetInstance = null, EquipmentInstance armorInstance = null,
+        EquipmentInstance glovesInstance = null, EquipmentInstance bootsInstance = null,
+        EquipmentInstance offAInstance = null, EquipmentInstance offBInstance = null)
     {
         WeaponSetAMainHand = weaponSetAMainHand;
         WeaponSetAOffHand = weaponSetAOffHand;
@@ -49,6 +68,9 @@ public readonly struct PreparedEquipmentLoadout
         Armor = armor;
         Gloves = gloves;
         Boots = boots;
+        _mainA = mainAInstance; _mainB = mainBInstance;
+        _helmet = helmetInstance; _armor = armorInstance; _gloves = glovesInstance; _boots = bootsInstance;
+        _offA = offAInstance; _offB = offBInstance;
     }
 
     public LootId Get(EquipmentSlot slot) => slot switch
@@ -64,7 +86,7 @@ public readonly struct PreparedEquipmentLoadout
         _ => default
     };
 
-    public PreparedEquipmentLoadout With(EquipmentSlot slot, LootId lootId) => new(
+    public PreparedEquipmentLoadout With(EquipmentSlot slot, LootId lootId, EquipmentInstance instance = null) => new(
         slot == EquipmentSlot.WeaponSetAMainHand ? lootId : WeaponSetAMainHand,
         slot == EquipmentSlot.WeaponSetBMainHand ? lootId : WeaponSetBMainHand,
         slot == EquipmentSlot.Helmet ? lootId : Helmet,
@@ -72,7 +94,15 @@ public readonly struct PreparedEquipmentLoadout
         slot == EquipmentSlot.Gloves ? lootId : Gloves,
         slot == EquipmentSlot.Boots ? lootId : Boots,
         slot == EquipmentSlot.WeaponSetAOffHand ? lootId : WeaponSetAOffHand,
-        slot == EquipmentSlot.WeaponSetBOffHand ? lootId : WeaponSetBOffHand);
+        slot == EquipmentSlot.WeaponSetBOffHand ? lootId : WeaponSetBOffHand,
+        slot == EquipmentSlot.WeaponSetAMainHand ? instance : _mainA,
+        slot == EquipmentSlot.WeaponSetBMainHand ? instance : _mainB,
+        slot == EquipmentSlot.Helmet ? instance : _helmet,
+        slot == EquipmentSlot.Armor ? instance : _armor,
+        slot == EquipmentSlot.Gloves ? instance : _gloves,
+        slot == EquipmentSlot.Boots ? instance : _boots,
+        slot == EquipmentSlot.WeaponSetAOffHand ? instance : _offA,
+        slot == EquipmentSlot.WeaponSetBOffHand ? instance : _offB);
 
     public PreparedEquipmentLoadout Without(EquipmentSlot slot) => With(slot, default);
 

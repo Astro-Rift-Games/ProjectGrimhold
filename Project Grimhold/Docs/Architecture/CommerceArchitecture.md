@@ -67,7 +67,10 @@ Merchant interaction
   preview. The preview may display them but they are never trusted as authoritative transaction
   input.
 - That configuration is currently owned by `LootDefinition`: `BuyValuePerUnit` is the buy price and
-  `SellValuePerUnit` the sell value, resolved through the merchant's `LootDefinitionCatalog`.
+  `SellValuePerUnit` the template sell value, resolved through the merchant's `LootDefinitionCatalog`.
+  Equipment instance sell price is the template sell value plus the sell value of each installed
+  gem (*provisional*); backend pricing stays authoritative
+  ([Item Instances §4.3](ItemInstanceArchitecture.md#43-operations)).
   `ExtractionValuePerUnit` is extraction progress only and is never a Commerce price or fallback.
   Every merchant stock item must reference a valid definition with a positive buy value.
 - The preview is advisory. The persistent transaction revalidates everything.
@@ -107,7 +110,8 @@ selected-item panel in the center, merchant stock grid on the right) and an inde
 grids use five fixed columns aligned from the top inside a vertical `ScrollRect` that only scrolls
 when the content exceeds it, so slots keep their size. The Inventory grid always renders
 `SlotCapacity` slots (or more when rows exceed it): empty slots show only their background and raise
-no selection or intention; the merchant grid shows authored offering rows followed by account-local buy-back rows. The center panel separates
+no selection or intention; the merchant grid shows authored offering rows followed by eligible
+account-local buy-back rows. Equipment buy-back rows are hidden under the rule below. The center panel separates
 identity (icon, name, category, rarity), a scrollable block with properties/requirements and
 description, and the line editor (unit price, quantity, line total, line state, Add/Update, Remove)
 that stays in place. The line total is `MerchantShopInteraction.LineTotal`, read from the row view
@@ -261,19 +265,26 @@ profile nor publishes `ProfileCommitted`.
 
 ### Buy-back
 
-Source: live Game Design **GD UI.1.4 §7.1**. Buy-back lets only the selling account
-recover equipment/weapons sold during its current Town session. It is not an extension of the
-shared merchant offering.
+**Equipment buy-back is disabled until Game Design redefines it.** Equipment sales push no
+ledger entry, backend `isBuybackEligible` returns false for equipment, and the UI hides equipment
+buy-back rows ([Item Instances §§1, 4.3](ItemInstanceArchitecture.md#43-operations)). The approved
+TASK-283 rule supersedes the equipment eligibility in live Game Design **GD UI.1.4 §7.1**; correcting
+that Game Design is a separate final step, not completed by this document. On inventory schema v3
+every equipment instance is sellable, even for 0 gold; the provisional instance sell price is the
+template sell value plus the sell value of every installed gem (Item Instances §4.3), independent
+of the inactive buy-back pricing below.
+
+The existing ledger infrastructure below is retained for context, not as an active equipment
+buy-back path. It is account-local, never an extension of the shared merchant offering.
 
 - **Ownership:** the backend owns the per-account ledger and validates
   `POST /character/me/inventory/shop/buyback` (`transactionId`, `entryId`, `amount`,
   `expectedRevision`). Unity's application-owned `BuybackLedger` is a memory-only read model,
   replaced by hydration, reconciliation and shop acknowledgements; it is never persisted locally
   or replicated through Fusion.
-- **Eligibility:** backend `isBuybackEligible` currently accepts LootCategory Weapon, Helmet,
-  Armor, Gloves, Boots and Shield. Unity `IBuybackEligibilityPolicy` is presentation-only, not
-  authorization. Both are extension points for a future rule accepting only upgraded equipment
-  or items the market does not sell; that stricter rule is not active today.
+- **Eligibility:** backend `isBuybackEligible` returns false for Weapon, Helmet, Armor, Gloves,
+  Boots and Shield. Unity `IBuybackEligibilityPolicy` is presentation-only, not authorization.
+  No future eligibility rule is defined here.
 - **Price:** `ceil(sellValue * BUYBACK_PRICE_MULTIPLIER)`, currently **1.5**, frozen per unit at
   sale time. The ledger's unit price, not the catalog's normal purchase price, drives the preview;
   the backend resolves the entry again on confirmation.
@@ -361,8 +372,9 @@ resolved record the follow-up task that closed them.
    and confirms it as one multi-line trade.
 2. **Resolved in COM-04:** State Authority gate, shared replicated stock, reservation until the
    persistence outcome, and authority-resolved prices returned in the response.
-3. **Resolved for eligible equipment by the per-account buy-back (GD UI.1.4 §7.1).** Sold equipment outside
-   the offering enters the selling account's buy-back ledger, not shared stock; see **Buy-back**.
+3. **Equipment buy-back disabled (TASK-283).** Sold equipment outside the offering enters neither
+   the selling account's buy-back ledger nor shared stock; see **Buy-back** and
+   [Item Instances §4.3](ItemInstanceArchitecture.md#43-operations).
    Offered items still restock the existing shared stock on persisted sales. Non-eligible items
    outside the offering do not become purchasable. Dynamic shared slots, rotation and replenishment
    remain out of scope pending Game Design.

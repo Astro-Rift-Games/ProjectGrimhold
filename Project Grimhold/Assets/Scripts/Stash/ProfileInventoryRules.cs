@@ -13,7 +13,8 @@ public static class ProfileInventoryRules
         foreach (StashItem item in incoming)
         {
             if (!item.IsValid) return false;
-            int index = FindIndex(next, item.LootId);
+            int index = item.Instance == null ? FindIndex(next, item.LootId) : -1;
+            if (index >= 0 && next[index].Instance != null) index = -1;
             if (index >= 0)
             {
                 StashItem existing = next[index];
@@ -101,9 +102,9 @@ public static class ProfileInventoryRules
     public static int CountNewSlots(IReadOnlyList<StashItem> destination, IReadOnlyList<StashItem> incoming)
     {
         var ids = new HashSet<LootId>();
-        foreach (StashItem item in destination) ids.Add(item.LootId);
+        foreach (StashItem item in destination) if (item.Instance == null) ids.Add(item.LootId);
         int count = 0;
-        foreach (StashItem item in incoming) if (ids.Add(item.LootId)) count++;
+        foreach (StashItem item in incoming) if (item.Instance != null || ids.Add(item.LootId)) count++;
         return count;
     }
 
@@ -114,7 +115,8 @@ public static class ProfileInventoryRules
         // Capacity and reducing-only overflow rules are the same rules used by receive.
         foreach (StashItem item in incoming)
         {
-            int index = FindIndex(next, item.LootId);
+            int index = item.Instance == null ? FindIndex(next, item.LootId) : -1;
+            if (index >= 0 && next[index].Instance != null) index = -1;
             if (index >= 0)
             {
                 if (next[index].Slot >= slotCapacity) return true;
@@ -146,7 +148,7 @@ public static class ProfileInventoryRules
             source.RemoveAt(from);
             target.Add(moving.AtSlot(toSlot));
         }
-        else if (target[to].LootId == guard)
+        else if (target[to].LootId == guard && moving.Instance == null && target[to].Instance == null)
         {
             StashItem receiving = target[to];
             if (receiving.Amount > int.MaxValue - moving.Amount) return false;
@@ -165,7 +167,7 @@ public static class ProfileInventoryRules
         return true;
     }
 
-    /// <summary>Raid boundary only: fold definitions in ascending physical-slot order, overflow checked.</summary>
+    /// <summary>Raid boundary: preserve ID-free equipment units; fold other loot in physical-slot order.</summary>
     public static bool TryAggregate(IReadOnlyList<StashItem> items, out List<LootEntry> entries)
     {
         entries = new List<LootEntry>();
@@ -176,6 +178,11 @@ public static class ProfileInventoryRules
         foreach (StashItem item in ordered)
         {
             if (!item.IsValid) return false;
+            if (item.Instance != null)
+            {
+                entries.Add(new LootEntry(item.LootId, 1, item.Instance.Modifiers, isEquipmentUnit: true));
+                continue;
+            }
             if (indices.TryGetValue(item.LootId, out int index))
             {
                 if (entries[index].Amount > int.MaxValue - item.Amount) return false;

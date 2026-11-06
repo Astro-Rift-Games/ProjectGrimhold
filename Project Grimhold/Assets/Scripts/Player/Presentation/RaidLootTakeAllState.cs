@@ -7,6 +7,9 @@ using System.Collections.Generic;
 public sealed class RaidLootTakeAllState
 {
     private readonly List<LootId> _lootIds = new();
+    // Parallel to _lootIds: a container weapon unit address and its observed modifiers, or -1.
+    private readonly List<int> _unitIndices = new();
+    private readonly List<WeaponInstanceModifiersNetworkData> _unitModifiers = new();
     private int _currentIndex;
     private bool _awaitingCompletion;
 
@@ -18,6 +21,10 @@ public sealed class RaidLootTakeAllState
 
     /// <summary>Gets the identity currently being sent or awaited.</summary>
     public LootId CurrentLootId => IsActive ? _lootIds[_currentIndex] : default;
+    public int CurrentUnitIndex => IsActive ? _unitIndices[_currentIndex] : -1;
+    public WeaponInstanceModifiersNetworkData CurrentUnitModifiers =>
+        IsActive ? _unitModifiers[_currentIndex] : default;
+    public bool CurrentHasUnitAddress => CurrentUnitIndex != -1;
 
     /// <summary>
     /// Captures the valid stacks visible when the operation begins, preserving their presentation order.
@@ -35,11 +42,41 @@ public sealed class RaidLootTakeAllState
             LootEntry entry = visibleEntries[i];
             if (entry.IsValid)
             {
-                _lootIds.Add(entry.LootId);
+                Add(entry.LootId, -1, default);
             }
         }
 
         return IsActive;
+    }
+
+    /// <summary>
+    /// Captures the visible cells in presentation order: one step per stack identity and one per
+    /// addressed weapon unit, so every unit moves alone with its own modifiers.
+    /// </summary>
+    public bool TryBegin(IReadOnlyList<RaidInventorySlotData> visibleCells)
+    {
+        Cancel();
+        if (visibleCells == null)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < visibleCells.Count; i++)
+        {
+            RaidInventorySlotData cell = visibleCells[i];
+            if (!cell.IsOccupied || !cell.LootId.IsValid) continue;
+            if (cell.HasSourceUnitAddress) Add(cell.LootId, cell.SourceUnitIndex, cell.SourceUnitModifiers);
+            else if (!_lootIds.Contains(cell.LootId)) Add(cell.LootId, -1, default);
+        }
+
+        return IsActive;
+    }
+
+    private void Add(LootId lootId, int unitIndex, WeaponInstanceModifiersNetworkData modifiers)
+    {
+        _lootIds.Add(lootId);
+        _unitIndices.Add(unitIndex);
+        _unitModifiers.Add(modifiers);
     }
 
     /// <summary>Marks the current identity as having an accepted request awaiting finalization.</summary>
@@ -78,6 +115,8 @@ public sealed class RaidLootTakeAllState
     public void Cancel()
     {
         _lootIds.Clear();
+        _unitIndices.Clear();
+        _unitModifiers.Clear();
         _currentIndex = 0;
         _awaitingCompletion = false;
     }

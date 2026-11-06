@@ -312,7 +312,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 }
                 else if (ticketOk && !string.IsNullOrEmpty(ticketData.ticket) &&
                          AuthoritativeRaidAdmissionTicketCodec.TryDecode(ticketData.ticket, out AuthoritativeRaidAdmissionTicket decodedAuthTicket) &&
-                         decodedAuthTicket.TryToRaidAdmissionData(out RaidAdmissionData canonicalAdmissionData, preparedAbilities))
+                         decodedAuthTicket.TryToRaidAdmissionData(out RaidAdmissionData canonicalAdmissionData, preparedAbilities, profileContext.Store.LootCatalog))
                 {
                     authoritativeAdmissionTicket = decodedAuthTicket;
                     admissionData = canonicalAdmissionData;
@@ -641,14 +641,15 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             return false;
         }
 
+        var matched = new bool[actual.Count];
         for (int index = 0; index < expected.Count; index++)
         {
             bool found = false;
             for (int actualIndex = 0; actualIndex < actual.Count; actualIndex++)
             {
-                if (expected[index].LootId == actual[actualIndex].LootId &&
-                    expected[index].Amount == actual[actualIndex].Amount)
+                if (!matched[actualIndex] && expected[index].Equals(actual[actualIndex]))
                 {
+                    matched[actualIndex] = true;
                     found = true;
                     break;
                 }

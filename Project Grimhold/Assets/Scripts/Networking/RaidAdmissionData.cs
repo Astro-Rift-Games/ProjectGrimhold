@@ -140,11 +140,31 @@ public readonly struct RaidAdmissionData
         if (!ProfileInventoryRules.TryAggregate(reservation.Items, out List<LootEntry> entries))
             return false;
 
+        if (!TryAppendPreparedEquipment(entries, reservation.PreparedEquipment, out int[] indices)) return false;
+
+        data = new RaidAdmissionData(
+            raidCode, profileId, reservation.ReservationId, entries, characterAttributes, indices,
+            level, currentExperience, lastAppliedProgressionResultSequence,
+            (reservation.PreparedEquipment.HasWeaponSetAMainHand || reservation.PreparedEquipment.WeaponSetAOffHand.IsValid)
+                ? WeaponSetSlot.SetA : WeaponSetSlot.SetB, preparedAbilities);
+        return data.IsValid;
+    }
+
+    internal static bool TryAppendPreparedEquipment(List<LootEntry> entries, in PreparedEquipmentLoadout prepared,
+        out int[] indices)
+    {
         EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
-        var indices = new int[slots.Length];
+        indices = new int[slots.Length];
         for (int index = 0; index < slots.Length; index++)
         {
-            LootId eqLootId = reservation.PreparedEquipment.Get(slots[index]);
+            LootId eqLootId = prepared.Get(slots[index]);
+            EquipmentInstance instance = prepared.GetInstance(slots[index]);
+            if (eqLootId.IsValid && instance != null)
+            {
+                entries.Add(new LootEntry(eqLootId, 1, instance.Modifiers, isEquipmentUnit: true));
+                indices[index] = entries.Count;
+                continue;
+            }
             if (eqLootId.IsValid)
             {
                 int entryIndex = FindEntryIndexPlusOne(entries, eqLootId) - 1;
@@ -165,21 +185,7 @@ public readonly struct RaidAdmissionData
             }
         }
 
-        data = new RaidAdmissionData(
-            raidCode,
-            profileId,
-            reservation.ReservationId,
-            entries,
-            characterAttributes,
-            indices,
-            level,
-            currentExperience,
-            lastAppliedProgressionResultSequence,
-            (reservation.PreparedEquipment.HasWeaponSetAMainHand || reservation.PreparedEquipment.WeaponSetAOffHand.IsValid)
-                ? WeaponSetSlot.SetA
-                : WeaponSetSlot.SetB,
-            preparedAbilities);
-        return data.IsValid;
+        return true;
     }
 
     public PlayerJoinData ToPlayerJoinData()
@@ -230,7 +236,7 @@ public readonly struct RaidAdmissionData
 
         for (int index = 0; index < entries.Count; index++)
         {
-            if (entries[index].LootId == lootId)
+            if (entries[index].LootId == lootId && !entries[index].IsEquipmentUnit)
             {
                 return index + 1;
             }
@@ -279,7 +285,7 @@ public static class RaidLoadoutRules
 {
     public const int MaximumEntries = LocalProfileSnapshot.MaxLoadoutSlots + 8;
     public const int MaximumAmountPerEntry = 9999;
-    public const int MaximumTokenBytes = 1024;
+    public const int MaximumTokenBytes = RaidAdmissionPayloadChunking.MaxPayloadBytes;
     public const int MaximumTextBytes = 64;
 
     public static bool TryValidateShape(IReadOnlyList<LootEntry> entries, out string error)
@@ -309,8 +315,14 @@ public static class RaidLoadoutRules
 
             if (!seen.Add(entry.LootId))
             {
-                error = "Loadout contains duplicate loot IDs.";
-                return false;
+                // Only explicit amount-one equipment units may repeat a template.
+                for (int previous = 0; previous < index; previous++)
+                    if (entries[previous].LootId == entry.LootId &&
+                        (!entry.IsEquipmentUnit || !entries[previous].IsEquipmentUnit))
+                    {
+                        error = "Loadout contains duplicate loot IDs.";
+                        return false;
+                    }
             }
         }
 
@@ -354,9 +366,22 @@ public static class RaidLoadoutRules
                 error = $"Loadout references unknown loot '{entries[index].LootId.Value}'.";
                 return false;
             }
+            LootEntry entry = entries[index];
+            if (entry.IsEquipmentUnit && !EquipmentInstance.IsEquipment(definition))
+            {
+                error = "Loadout equipment unit references non-equipment loot.";
+                return false;
+            }
+            if (entry.Modifiers.HasValue && (definition.WeaponDefinition == null ||
+                !WeaponInstanceModifiersNetworkData.TryCreate(entry.Modifiers.Value,
+                    definition.WeaponDefinition.NaturalScalingAttribute, catalog, out _, out error)))
+            {
+                error ??= "Loadout modifiers require a weapon.";
+                return false;
+            }
 
             int stackMax = definition.StackMax > 0 ? definition.StackMax : 1;
-            int slotsForEntry = (entries[index].Amount + stackMax - 1) / stackMax;
+            int slotsForEntry = (entry.Amount + stackMax - 1) / stackMax;
             physicalSlotsUsed += slotsForEntry;
         }
 

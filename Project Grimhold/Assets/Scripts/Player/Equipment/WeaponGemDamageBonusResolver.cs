@@ -1,7 +1,6 @@
 /// <summary>
 /// Resolves the total flat damage bonus of the gems installed in a weapon instance.
-/// Like the instance scaling resolver, it is not an active runtime source until unique
-/// Item Instances exist end to end.
+/// Used by Town statistics, instance tooltips and equipment damage.
 /// </summary>
 public static class WeaponGemDamageBonusResolver
 {
@@ -14,6 +13,21 @@ public static class WeaponGemDamageBonusResolver
         LootDefinitionCatalog catalog,
         out int damageBonus)
     {
+        return TryResolveCore(instance, catalog, null, out damageBonus);
+    }
+
+    /// <summary>Uses an explicit template lookup when the caller already owns one (Town statistics).</summary>
+    public static bool TryResolveWithLookup(
+        in WeaponInstanceModifiers instance,
+        System.Func<LootId, LootDefinition> resolveLoot,
+        out int damageBonus) => TryResolveCore(instance, null, resolveLoot, out damageBonus);
+
+    private static bool TryResolveCore(
+        in WeaponInstanceModifiers instance,
+        LootDefinitionCatalog catalog,
+        System.Func<LootId, LootDefinition> resolveLoot,
+        out int damageBonus)
+    {
         damageBonus = 0;
         int total = 0;
         for (int index = 0; index < instance.GemSocketCount; index++)
@@ -23,7 +37,14 @@ public static class WeaponGemDamageBonusResolver
                 continue;
             }
 
-            if (!TryGetGem(socket.GemLootId, catalog, out GemDefinition gem))
+            LootDefinition loot = resolveLoot != null ? resolveLoot(socket.GemLootId) : null;
+            GemDefinition gem;
+            if (resolveLoot != null)
+            {
+                gem = loot != null ? loot.GemDefinition : null;
+                if (gem == null || !gem.TryValidate(out _)) return false;
+            }
+            else if (!TryGetGem(socket.GemLootId, catalog, out gem))
             {
                 return false;
             }

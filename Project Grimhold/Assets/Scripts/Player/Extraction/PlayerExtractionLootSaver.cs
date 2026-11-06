@@ -54,6 +54,11 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
     private int _pendingArmorIdx = -1;
     private int _pendingGlovesIdx = -1;
     private int _pendingBootsIdx = -1;
+    private int _pendingOffHandAIdx = -1;
+    private int _pendingOffHandBIdx = -1;
+    private int[] _pendingModifiedIndices = System.Array.Empty<int>();
+    private int[] _pendingModifiedPacked = System.Array.Empty<int>();
+    private int[] _pendingHandPacked = new int[ExtractionPayloadBuilder.HandCount];
     private bool _localCommitAttempted;
     private int _authorityResultPublishedSequence;
     private bool _authorityPublishInFlight;
@@ -305,6 +310,17 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
 
         int GetEqIdx(LootEntry? entry) => (entry.HasValue && entry.Value.IsValid && catalog.TryGetIndex(entry.Value.LootId, out int idx)) ? idx : -1;
 
+        if (!TryCaptureModifiers(out int[] modifiedIndices, out int[] modifiedPacked, out int[] handPacked))
+        {
+            Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: Weapon modifiers cannot be captured.", this);
+            return false;
+        }
+
+        _pendingModifiedIndices = modifiedIndices;
+        _pendingModifiedPacked = modifiedPacked;
+        _pendingHandPacked = handPacked;
+        _pendingOffHandAIdx = GetEqIdx(ownershipSnapshot.WeaponSetAOffHand);
+        _pendingOffHandBIdx = GetEqIdx(ownershipSnapshot.WeaponSetBOffHand);
         _pendingWeaponSlot1Idx = GetEqIdx(ownershipSnapshot.WeaponSetAMainHand);
         _pendingWeaponSlot2Idx = GetEqIdx(ownershipSnapshot.WeaponSetBMainHand);
         _pendingHelmetIdx = GetEqIdx(ownershipSnapshot.Helmet);
@@ -321,6 +337,75 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         LocalSaveStatus = ExtractionLootSaveStatus.Pending;
         _localCommitAttempted = false;
         return true;
+    }
+
+    /// <summary>
+    /// Reads the weapon units that carry modifiers: one entry per backpack unit plus the four hand
+    /// words. Plain units are implied by the aggregate amounts.
+    /// </summary>
+    private bool TryCaptureModifiers(out int[] indices, out int[] packed, out int[] handPacked)
+    {
+        var unitIndices = new List<int>();
+        var unitPacked = new List<int>();
+        handPacked = new int[ExtractionPayloadBuilder.HandCount];
+        indices = null;
+        packed = null;
+        for (int slotIndex = 0; slotIndex < PlayerLootReceiver.PhysicalSlotCount; slotIndex++)
+        {
+            if (!_lootReceiver.TryGetInventorySlotModifiers(slotIndex, out WeaponInstanceModifiersNetworkData modifiers))
+            {
+                return false;
+            }
+
+            if (modifiers.IsEmpty)
+            {
+                continue;
+            }
+
+            if (!_lootReceiver.TryGetInventorySlot(slotIndex, out LootInventorySlot slot) ||
+                !slot.IsValid || slot.Quantity != 1)
+            {
+                return false;
+            }
+
+            unitIndices.Add(slot.CatalogIndex);
+            unitPacked.Add(modifiers.PackedValue);
+        }
+
+        for (int hand = 0; hand < handPacked.Length; hand++)
+        {
+            if (!_weaponEquipment.TryGetSlotModifiers(ExtractionPayloadBuilder.HandSlots[hand], out var modifiers))
+            {
+                return false;
+            }
+
+            handPacked[hand] = modifiers.PackedValue;
+        }
+
+        indices = unitIndices.ToArray();
+        packed = unitPacked.ToArray();
+        return true;
+    }
+
+    private int[] PendingSlotIndices() => new[]
+    {
+        _pendingWeaponSlot1Idx, _pendingWeaponSlot2Idx, _pendingHelmetIdx, _pendingArmorIdx,
+        _pendingGlovesIdx, _pendingBootsIdx, _pendingOffHandAIdx, _pendingOffHandBIdx
+    };
+
+    private bool TryBuildPendingPayload(
+        out List<StashItem> items,
+        out PreparedEquipmentLoadout preparedEquipment)
+    {
+        preparedEquipment = default;
+        items = null;
+        LootDefinitionCatalog catalog = _lootReceiver?.LootCatalog;
+        return catalog != null &&
+            ExtractionPayloadBuilder.TryBuildItems(
+                catalog, _pendingCatalogIndices, _pendingAmounts,
+                _pendingModifiedIndices, _pendingModifiedPacked, out items) &&
+            ExtractionPayloadBuilder.TryBuildPrepared(
+                catalog, PendingSlotIndices(), _pendingHandPacked, out preparedEquipment);
     }
 
     /// <summary>
@@ -393,16 +478,10 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         }
 
         int resultSequence = _pendingResultSequence;
-        LootDefinitionCatalog catalog = _lootReceiver.LootCatalog;
-        var items = new List<StashItem>(_pendingCatalogIndices.Length);
-        for (int i = 0; i < _pendingCatalogIndices.Length; i++)
+        if (!TryBuildPendingPayload(out List<StashItem> items, out PreparedEquipmentLoadout preparedEquipment))
         {
-            if (!catalog.TryGetByIndex(_pendingCatalogIndices[i], out LootDefinition definition))
-            {
-                return;
-            }
-
-            items.Add(new StashItem(definition.LootId, _pendingAmounts[i]));
+            Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: The extraction payload cannot be built.", this);
+            return;
         }
 
         ProfileId targetProfileId = new ProfileId(_participant.ProfileId.Value);
@@ -410,15 +489,6 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             _participant.RaidGenerationId.ToString(),
             targetProfileId,
             resultSequence);
-
-        LootId GetEqLootId(int idx) => idx >= 0 && catalog.TryGetByIndex(idx, out LootDefinition def) ? def.LootId : default;
-        PreparedEquipmentLoadout preparedEquipment = new PreparedEquipmentLoadout(
-            GetEqLootId(_pendingWeaponSlot1Idx),
-            GetEqLootId(_pendingWeaponSlot2Idx),
-            GetEqLootId(_pendingHelmetIdx),
-            GetEqLootId(_pendingArmorIdx),
-            GetEqLootId(_pendingGlovesIdx),
-            GetEqLootId(_pendingBootsIdx));
 
         long experienceGranted = _pendingExperienceCandidate.HasValue
             ? _pendingExperienceCandidate.Value.AwardedExperience
@@ -469,7 +539,15 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             _pendingHelmetIdx,
             _pendingArmorIdx,
             _pendingGlovesIdx,
-            _pendingBootsIdx);
+            _pendingBootsIdx,
+            _pendingOffHandAIdx,
+            _pendingOffHandBIdx,
+            _pendingModifiedIndices,
+            _pendingModifiedPacked,
+            _pendingHandPacked[0],
+            _pendingHandPacked[1],
+            _pendingHandPacked[2],
+            _pendingHandPacked[3]);
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]
@@ -482,9 +560,22 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         int helmetIdx,
         int armorIdx,
         int glovesIdx,
-        int bootsIdx)
+        int bootsIdx,
+        int offHandAIdx,
+        int offHandBIdx,
+        int[] modifiedIndices,
+        int[] modifiedPacked,
+        int handAMainPacked,
+        int handBMainPacked,
+        int handAOffPacked,
+        int handBOffPacked)
     {
-        if (!ValidateIncomingPayload(catalogIndices, amounts))
+        int[] handPacked = { handAMainPacked, handBMainPacked, handAOffPacked, handBOffPacked };
+        if (!ValidateIncomingPayload(catalogIndices, amounts) ||
+            !ValidateIncomingModifiers(
+                catalogIndices, amounts, modifiedIndices, modifiedPacked,
+                new[] { weaponSlot1Idx, weaponSlot2Idx, helmetIdx, armorIdx, glovesIdx, bootsIdx, offHandAIdx, offHandBIdx },
+                handPacked))
         {
             LocalSaveStatus = ExtractionLootSaveStatus.PersistenceFailed;
             return;
@@ -517,6 +608,11 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         _pendingArmorIdx = armorIdx;
         _pendingGlovesIdx = glovesIdx;
         _pendingBootsIdx = bootsIdx;
+        _pendingOffHandAIdx = offHandAIdx;
+        _pendingOffHandBIdx = offHandBIdx;
+        _pendingModifiedIndices = (int[])modifiedIndices.Clone();
+        _pendingModifiedPacked = (int[])modifiedPacked.Clone();
+        _pendingHandPacked = handPacked;
 
         _localCommitAttempted = false;
         LocalSaveStatus = ExtractionLootSaveStatus.Pending;
@@ -549,17 +645,10 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
 
         ProfileId localProfileId = context.Store.ProfileId;
 
-        LootDefinitionCatalog catalog = _lootReceiver.LootCatalog;
-        var items = new List<StashItem>(_pendingCatalogIndices.Length);
-        for (int i = 0; i < _pendingCatalogIndices.Length; i++)
+        if (!TryBuildPendingPayload(out List<StashItem> items, out PreparedEquipmentLoadout preparedEquipment))
         {
-            if (!catalog.TryGetByIndex(_pendingCatalogIndices[i], out LootDefinition definition))
-            {
-                LocalSaveStatus = ExtractionLootSaveStatus.PersistenceFailed;
-                return;
-            }
-
-            items.Add(new StashItem(definition.LootId, _pendingAmounts[i]));
+            LocalSaveStatus = ExtractionLootSaveStatus.PersistenceFailed;
+            return;
         }
 
         ExtractionReceipt receipt = new ExtractionReceipt(
@@ -594,16 +683,6 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
                 resultingExperience = application.Result.ResultingExperience;
             }
         }
-
-        LootId GetEqLootId(int idx) => idx >= 0 && catalog.TryGetByIndex(idx, out LootDefinition def) ? def.LootId : default;
-
-        PreparedEquipmentLoadout preparedEquipment = new PreparedEquipmentLoadout(
-            GetEqLootId(_pendingWeaponSlot1Idx),
-            GetEqLootId(_pendingWeaponSlot2Idx),
-            GetEqLootId(_pendingHelmetIdx),
-            GetEqLootId(_pendingArmorIdx),
-            GetEqLootId(_pendingGlovesIdx),
-            GetEqLootId(_pendingBootsIdx));
 
         StashOperationResult result = context.Store.TryCommitExtraction(
             receipt,
@@ -739,6 +818,27 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             MaximumSnapshotEntries,
             PlayerLootReceiver.MaxCatalogEntries,
             index => _lootReceiver.LootCatalog.TryGetByIndex(index, out _));
+    }
+
+    private bool ValidateIncomingModifiers(
+        int[] catalogIndices,
+        int[] amounts,
+        int[] modifiedIndices,
+        int[] modifiedPacked,
+        int[] slotIndices,
+        int[] handPacked)
+    {
+        if (modifiedIndices == null || modifiedPacked == null ||
+            modifiedIndices.Length != modifiedPacked.Length ||
+            modifiedIndices.Length > PlayerLootReceiver.PhysicalSlotCount)
+        {
+            return false;
+        }
+
+        LootDefinitionCatalog catalog = _lootReceiver.LootCatalog;
+        return ExtractionPayloadBuilder.TryBuildItems(
+                catalog, catalogIndices, amounts, modifiedIndices, modifiedPacked, out _) &&
+            ExtractionPayloadBuilder.TryBuildPrepared(catalog, slotIndices, handPacked, out _);
     }
 
     /// <summary>
@@ -886,6 +986,11 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         _pendingOwnershipSnapshot = null;
         _pendingCatalogIndices = null;
         _pendingAmounts = null;
+        _pendingModifiedIndices = System.Array.Empty<int>();
+        _pendingModifiedPacked = System.Array.Empty<int>();
+        _pendingHandPacked = new int[ExtractionPayloadBuilder.HandCount];
+        _pendingOffHandAIdx = -1;
+        _pendingOffHandBIdx = -1;
         _pendingResultSequence = 0;
         _pendingExperienceCandidate = null;
         _authorityResultPublishedSequence = 0;

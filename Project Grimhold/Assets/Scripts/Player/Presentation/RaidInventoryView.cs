@@ -41,6 +41,9 @@ public sealed class RaidInventoryView : MonoBehaviour
     [SerializeField]
     private DragPreviewView _dragPreview;
 
+    [SerializeField] private GemInstallConfirmationView _gemInstallView;
+    public GemInstallConfirmationView GemInstallView => _gemInstallView;
+
     [SerializeField]
     private GameObject _equipmentPanelRoot;
 

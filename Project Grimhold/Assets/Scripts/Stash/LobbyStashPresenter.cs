@@ -24,6 +24,10 @@ public class LobbyStashPresenter : MonoBehaviour
     private DragPayload _activeDrag = DragPayload.Empty;
     private int _activeDragSlot = -1;
     private int _pendingActions;
+    private TownGemInstallSession _gemSession;
+    private TownGemInstallUIBinding _gemBinding;
+    private readonly TownLootGemInstallContextActionProvider _gemProvider = new();
+    private LootContextActionContext _gemContext;
     private Func<bool> _canMutateEquipment = AllowEquipmentMutation;
 
     /// <summary>
@@ -43,6 +47,9 @@ public class LobbyStashPresenter : MonoBehaviour
 
         if (_stashUI != null)
         {
+            _stashUI.StashPageChanged += OnGemPageChanged;
+            _stashUI.ContextActionsRequested += CollectGemActions;
+            _stashUI.GemContextActionRequested += ExecuteGemAction;
             _stashUI.SlotTransferRequested += OnTransferRequested;
             _stashUI.SlotDragStarted += OnSlotDragStarted;
             _stashUI.SlotDropReceived += OnSlotDropReceived;
@@ -64,6 +71,14 @@ public class LobbyStashPresenter : MonoBehaviour
             _stashService = _context.StashService;
             _loadoutService = _context.LoadoutService;
             ResolveCoordinator();
+            if (_context.Store != null && _stashUI != null)
+            {
+                _gemSession = new TownGemInstallSession(_context.Store, _coordinator, _lootCatalog);
+                _gemBinding = new TownGemInstallUIBinding(_gemSession, _stashUI.GemInstallView);
+                _gemBinding.BindPanel(_stashUI.StashPanel, InventoryList.Stash, () => _stashUI.StashPageStart);
+                _gemBinding.BindPanel(_stashUI.LoadoutPanel, InventoryList.Loadout, () => 0);
+                _gemSession.Changed += OnGemChanged;
+            }
             _context.ProfileCommitted += OnProfileCommitted;
             RefreshUI();
         }
@@ -77,8 +92,13 @@ public class LobbyStashPresenter : MonoBehaviour
     private void OnDisable()
     {
         CancelActiveDrag();
+        _gemBinding?.Dispose(); _gemBinding = null;
+        if (_gemSession != null) { _gemSession.Changed -= OnGemChanged; _gemSession.Dispose(); _gemSession = null; }
         if (_stashUI != null)
         {
+            _stashUI.StashPageChanged -= OnGemPageChanged;
+            _stashUI.ContextActionsRequested -= CollectGemActions;
+            _stashUI.GemContextActionRequested -= ExecuteGemAction;
             _stashUI.SlotTransferRequested -= OnTransferRequested;
             _stashUI.SlotDragStarted -= OnSlotDragStarted;
             _stashUI.SlotDropReceived -= OnSlotDropReceived;
@@ -131,7 +151,7 @@ public class LobbyStashPresenter : MonoBehaviour
 
     private void OnDragStarted(DragPayload payload)
     {
-        if (!payload.IsValid) return;
+        if (!payload.IsValid || _gemSession?.LocksMutations == true) return;
 
         _activeDrag = payload;
         _activeDragSlot = -1;
@@ -157,6 +177,8 @@ public class LobbyStashPresenter : MonoBehaviour
         InventoryList sourceList = payload.Source == DragSlotLocation.Stash ? InventoryList.Stash : InventoryList.Loadout;
         int sourceSlot = _activeDragSlot;
         CancelActiveDrag();
+        if (_gemSession?.LocksMutations == true) return;
+        if (_gemSession != null && _gemSession.Drop(sourceList, sourceSlot, targetList, targetSlot)) return;
         Run(coordinator => coordinator.MoveAsync(sourceList, sourceSlot, targetList, targetSlot, payload.LootId));
     }
 
@@ -212,14 +234,14 @@ public class LobbyStashPresenter : MonoBehaviour
     /// <summary>Queues one action on the coordinator and reports, without throwing, how it ended.</summary>
     private void Run(Func<StashTransferCoordinator, Task<StashTransferOutcome>> action)
     {
-        if (_coordinator == null) return;
+        if (_coordinator == null || _gemSession?.LocksMutations == true) return;
         _pendingActions++;
         UpdateActions();
         _ = ObserveAsync(action, _coordinator);
     }
 
     private void UpdateActions() =>
-        _stashUI?.SetActionsInteractable(isActiveAndEnabled && _context != null && _coordinator != null && _pendingActions == 0);
+        _stashUI?.SetActionsInteractable(isActiveAndEnabled && _context != null && _coordinator != null && _pendingActions == 0 && _gemSession?.LocksMutations != true);
 
     private async Task ObserveAsync(
         Func<StashTransferCoordinator, Task<StashTransferOutcome>> action, StashTransferCoordinator coordinator)
@@ -241,6 +263,40 @@ public class LobbyStashPresenter : MonoBehaviour
             _pendingActions--;
             if (this != null) UpdateActions();
         }
+    }
+
+    private void Update()
+    {
+        if (_gemSession?.LocksMutations == true && !_gemSession.IsPending &&
+            UnityEngine.InputSystem.Keyboard.current?.escapeKey.wasPressedThisFrame == true) _gemSession.Cancel();
+    }
+
+    private void OnGemPageChanged()
+    {
+        if (_gemSession?.LocksMutations != true) return;
+        _gemBinding?.RefreshPanel(_stashUI.StashPanel, InventoryList.Stash, _stashUI.StashPageStart);
+        if (!_gemSession.IsSelecting) _stashUI.RestoreOverflowHighlights();
+    }
+
+    private void CollectGemActions(InventoryList list, int slot, LootId id, List<LootContextActionDescriptor> actions)
+    {
+        if (_gemSession == null || _pendingActions > 0 || !_lootCatalog.TryGet(id.Value, out var definition)) return;
+        var items = list == InventoryList.Stash ? _context.Store.GetStash() : _context.Store.GetLoadout();
+        foreach (var item in items)
+        {
+            if (item.Slot != slot || item.LootId != id) continue;
+            _gemContext = new LootContextActionContext(new LootEntry(id, item.Amount), definition);
+            _gemProvider.Bind(_gemSession, list, slot);
+            _gemProvider.CollectActions(_gemContext, actions);
+            return;
+        }
+    }
+    private void ExecuteGemAction(LootContextActionDescriptor action) => action.Provider?.TryExecute(action.Id, _gemContext);
+    private void OnGemChanged()
+    {
+        CancelActiveDrag();
+        RefreshUI();
+        _stashUI?.PresentGemFeedback(_gemSession.Message, _gemSession.IsSelecting || _gemSession.IsPending);
     }
 
     private void OnProfileCommitted(ProfileId updatedProfileId)
@@ -276,7 +332,7 @@ public class LobbyStashPresenter : MonoBehaviour
             _preparedProjection.Clear();
             for (int index = 0; index < slots.Length; index++)
             {
-                _preparedProjection.Add(MapPreparedUnit(prepared.Get(slots[index])));
+                _preparedProjection.Add(MapPreparedUnit(prepared.Get(slots[index]), prepared.GetInstance(slots[index])));
             }
 
             _stashUI.DisplayPreparedEquipment(
@@ -284,6 +340,11 @@ public class LobbyStashPresenter : MonoBehaviour
                 PreparedEquipmentLoadout.IsOffHandBlocked(prepared, WeaponSetSlot.SetA, _lootCatalog),
                 PreparedEquipmentLoadout.IsOffHandBlocked(prepared, WeaponSetSlot.SetB, _lootCatalog));
         }
+        _stashUI.SetGemLocksMutations(_gemSession?.LocksMutations == true);
+        _gemBinding?.RefreshPanel(_stashUI.StashPanel, InventoryList.Stash, _stashUI.StashPageStart);
+        _gemBinding?.RefreshPanel(_stashUI.LoadoutPanel, InventoryList.Loadout);
+        if (_gemSession?.IsSelecting != true) _stashUI.RestoreOverflowHighlights();
+        UpdateActions();
     }
 
     private IReadOnlyList<RaidInventorySlotData> MapToPresentation(IReadOnlyList<StashItem> items)
@@ -296,7 +357,8 @@ public class LobbyStashPresenter : MonoBehaviour
             while (result.Count <= item.Slot) result.Add(RaidInventorySlotData.Empty);
             LootDefinition definition = null;
             if (_lootCatalog != null) _lootCatalog.TryGet(item.LootId.Value, out definition);
-            var slot = RaidInventorySlotData.Create(new LootEntry(item.LootId, item.Amount), definition, ResolvePlaceholderIcon());
+            var slot = RaidInventorySlotData.Create(new LootEntry(item.LootId, item.Amount), definition,
+                ResolvePlaceholderIcon(), item.Instance, ReadConfirmedAttributes(), _lootCatalog);
             if (slot.IsOccupied && string.IsNullOrWhiteSpace(slot.DisplayName))
                 slot = slot.WithDisplayName(item.LootId.Value);
             result[item.Slot] = slot;
@@ -304,7 +366,7 @@ public class LobbyStashPresenter : MonoBehaviour
         return result;
     }
 
-    private RaidInventorySlotData MapPreparedUnit(LootId lootId)
+    private RaidInventorySlotData MapPreparedUnit(LootId lootId, EquipmentInstance instance)
     {
         if (!lootId.IsValid)
         {
@@ -316,8 +378,14 @@ public class LobbyStashPresenter : MonoBehaviour
         {
             _lootCatalog.TryGet(lootId.Value, out definition);
         }
-        return RaidInventorySlotData.Create(new LootEntry(lootId, 1), definition, ResolvePlaceholderIcon());
+        return RaidInventorySlotData.Create(new LootEntry(lootId, 1), definition,
+            ResolvePlaceholderIcon(), instance, ReadConfirmedAttributes(), _lootCatalog);
     }
+
+    private CharacterAttributeState? ReadConfirmedAttributes() =>
+        _context?.Store != null && _context.ProfileId == _localProfileId &&
+        _context.Store.TryGetCharacterAttributeState(out CharacterAttributeState attributes)
+            ? attributes : null;
 
     /// <summary>The fallback icon authored on the panels, used when a definition has no icon.</summary>
     private Sprite ResolvePlaceholderIcon() => _stashUI != null ? _stashUI.PlaceholderIcon : null;

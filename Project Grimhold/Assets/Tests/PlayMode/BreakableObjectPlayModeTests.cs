@@ -156,6 +156,73 @@ namespace Tests.PlayMode.Loot
         }
 
         [UnityTest]
+        public IEnumerator RandomDrops_SingleWeaponsRollDeterministicDungeonVariants()
+        {
+            yield return StartRunner();
+
+            BreakableObject template = _prefab.GetComponent<BreakableObject>();
+            Assert.That(LootContainerContentTableValidation.TryCreateSnapshot(
+                template.LootTable, template.LootCatalog, template.DropCapacity,
+                NetworkLootContainer.MaxDistinctLootTypes,
+                out ValidatedLootContainerContentSnapshot snapshot, out string error), Is.True, error);
+
+            ulong seed = 0;
+            IReadOnlyList<LootEntry> rolled = null;
+            for (ulong candidate = 1; candidate <= 5000 && seed == 0; candidate++)
+            {
+                if (!LootContainerContentRoller.TryRoll(snapshot, candidate, 0,
+                        out IReadOnlyList<LootEntry> content, out _))
+                {
+                    continue;
+                }
+
+                foreach (LootEntry entry in content)
+                {
+                    if (entry.Amount == 1 && template.LootCatalog.TryGet(entry.LootId.Value, out LootDefinition definition) &&
+                        definition.Category == LootCategory.Weapon)
+                    {
+                        seed = candidate;
+                        rolled = content;
+                        break;
+                    }
+                }
+            }
+
+            Assert.That(seed, Is.Not.Zero, "The breakable table must be able to roll a single weapon.");
+            BreakableObject target = SpawnRandomBreakable(seed, 0, Vector3.zero);
+            _damageDriver.Target = target;
+            _damageDriver.DamageAmount = 1000f;
+            _damageDriver.RequestedHits = 1;
+            yield return WaitForRequests(1);
+            yield return null;
+
+            var expected = new List<WeaponInstanceModifiersNetworkData>();
+            for (int index = 0; index < rolled.Count; index++)
+            {
+                LootEntry entry = rolled[index];
+                if (template.LootCatalog.TryGet(entry.LootId.Value, out LootDefinition definition) &&
+                    definition.Category == LootCategory.Weapon)
+                {
+                    Assert.That(WeaponInstanceGenerationDefaults.TryRollPickupModifiers(
+                        template.LootCatalog, entry, seed, index,
+                        out WeaponInstanceModifiersNetworkData data, out error), Is.True, error);
+                    expected.Add(data);
+                }
+            }
+
+            var actual = new List<WeaponInstanceModifiersNetworkData>();
+            foreach (NetworkLootPickup pickup in FindSpawnedPickups())
+            {
+                if (pickup.LootDefinition.Category == LootCategory.Weapon)
+                {
+                    actual.Add(pickup.Modifiers);
+                }
+            }
+
+            Assert.That(actual, Is.EquivalentTo(expected));
+        }
+
+        [UnityTest]
         public IEnumerator RandomDrops_FailureStillDestroysAndNeverRetries()
         {
             yield return StartRunner();

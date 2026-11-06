@@ -44,6 +44,12 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     [Networked] private int ArmorCatalogIndexPlusOne { get; set; }
     [Networked] private int GlovesCatalogIndexPlusOne { get; set; }
     [Networked] private int BootsCatalogIndexPlusOne { get; set; }
+    // Packed weapon modifiers per hand (ItemInstanceArchitecture section 6.3). SetCatalogIndexPlusOne
+    // clears them; the operation that equips a unit writes its modifiers right after.
+    [Networked] private WeaponInstanceModifiersNetworkData WeaponSetAMainHandModifiers { get; set; }
+    [Networked] private WeaponInstanceModifiersNetworkData WeaponSetBMainHandModifiers { get; set; }
+    [Networked] private WeaponInstanceModifiersNetworkData WeaponSetAOffHandModifiers { get; set; }
+    [Networked] private WeaponInstanceModifiersNetworkData WeaponSetBOffHandModifiers { get; set; }
     [Networked] private int ActiveWeaponSetSlotValue { get; set; }
     [Networked] private NetworkButtons PreviousButtons { get; set; }
     [Networked] public int EquipmentRevision { get; private set; }
@@ -66,10 +72,12 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     private int _appliedOffHandA = int.MinValue;
     private int _appliedOffHandB = int.MinValue;
     private int _appliedActiveSlot = int.MinValue;
+    private readonly WeaponInstanceModifiersNetworkData[] _appliedModifiers = new WeaponInstanceModifiersNetworkData[4];
     private int _appliedAttributeRevision = int.MinValue;
     private bool _initializedBeforeSpawn;
     private bool _reportedUnavailableWeaponAttributes;
     private WeaponDefinition _preparedWeapon;
+    private WeaponInstanceModifiersNetworkData _preparedModifiers;
     private MonoBehaviour _preparedSource;
     private int _preparedAttributeRevision = int.MinValue;
     private readonly Queue<EquipmentOperationResult> _pendingPresentationResults = new();
@@ -302,6 +310,13 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
     public bool TryGetSlotLoot(WeaponSetSlot slot, out LootEntry entry) =>
         TryGetSlotLoot(EquipmentSlotRules.GetMainHandSlot(slot), out entry);
 
+    /// <summary>Reads the packed modifiers of a hand slot; non-hand slots never carry modifiers.</summary>
+    public bool TryGetSlotModifiers(EquipmentSlot slot, out WeaponInstanceModifiersNetworkData modifiers)
+    {
+        modifiers = GetSlotModifiers(slot);
+        return EquipmentSlotRules.IsEquipmentSlot(slot);
+    }
+
     public bool TryGetSlotRaidOrigin(EquipmentSlot slot, out RaidLootOrigin origin)
     {
         origin = default;
@@ -390,8 +405,10 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         int revision = _participantLink != null && _participantLink.TryGetCharacterAttributeRevision(out int value)
             ? value : int.MinValue;
         MonoBehaviour source = _preparedSource;
-        if (_preparedWeapon != loot.WeaponDefinition || _preparedAttributeRevision != revision || source == null)
-            if (!TryConfigureStrategy(loot.WeaponDefinition, config, attributes, out source)) return false;
+        WeaponInstanceModifiersNetworkData modifiers = GetSlotModifiers(slot);
+        if (_preparedWeapon != loot.WeaponDefinition || !_preparedModifiers.Equals(modifiers) ||
+            _preparedAttributeRevision != revision || source == null)
+            if (!TryConfigureStrategy(loot.WeaponDefinition, modifiers, config, attributes, out source)) return false;
         attack = source as IAttack;
         weapon = loot.WeaponDefinition;
         return attack != null;
@@ -430,6 +447,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         }
 
         var catalogIndices = new int[slots.Length];
+        var slotModifiers = new WeaponInstanceModifiersNetworkData[slots.Length];
         for (int index = 0; index < slots.Length; index++)
         {
             if (!TryResolveAdmissionSlot(
@@ -440,6 +458,14 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
                     out catalogIndices[index],
                     out error))
             {
+                return false;
+            }
+
+            int entryIndex = entryIndicesPlusOne[index] - 1;
+            if (entryIndex >= 0 && entryIndex < reservedLoadout.Count &&
+                !TryEncodeEntryModifiers(reservedLoadout[entryIndex], out slotModifiers[index]))
+            {
+                error = "Prepared weapon modifiers are invalid for their weapon.";
                 return false;
             }
         }
@@ -480,15 +506,20 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
 
         for (int index = 0; index < catalogIndices.Length; index++)
         {
-            if (!TryValidateInventoryUnit(catalogIndices[index], out _, out error))
+            if (!TryValidateInventoryUnit(catalogIndices[index], slotModifiers[index], out _, out error))
             {
                 return false;
             }
         }
 
-        int activeCatalog = activeWeaponSet == WeaponSetSlot.SetA ? slot1Catalog : slot2Catalog;
-        int activeOffCatalog = catalogIndices[activeWeaponSet == WeaponSetSlot.SetA ? 6 : 7];
-        if (TryResolveEligibleWeapon(activeCatalog - 1, attributes, out _, out _) != WeaponEligibilityFailure.None) activeCatalog = activeOffCatalog;
+        int activeIndex = activeWeaponSet == WeaponSetSlot.SetA ? 0 : 1;
+        int activeCatalog = catalogIndices[activeIndex];
+        int activeOffIndex = activeWeaponSet == WeaponSetSlot.SetA ? 6 : 7;
+        if (TryResolveEligibleWeapon(activeCatalog - 1, attributes, out _, out _) != WeaponEligibilityFailure.None)
+        {
+            activeIndex = activeOffIndex;
+            activeCatalog = catalogIndices[activeOffIndex];
+        }
         if (TryResolveEligibleWeapon(
                 activeCatalog - 1,
                 attributes,
@@ -497,6 +528,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
                 WeaponEligibilityFailure.None ||
             !TryConfigureStrategy(
                 activeDefinition.WeaponDefinition,
+                slotModifiers[activeIndex],
                 activeConfig,
                 attributes,
                 out _))
@@ -508,7 +540,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         for (int index = 0; index < catalogIndices.Length; index++)
         {
             if (!TryCommitInventoryExtraction(
-                    catalogIndices[index], out RaidLootOriginTransfer originTransfer, out error))
+                    catalogIndices[index], slotModifiers[index], out RaidLootOriginTransfer originTransfer, out error))
             {
                 throw new InvalidOperationException(error ?? "Validated prepared equipment could not be committed.");
             }
@@ -523,6 +555,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         for (int index = 0; index < slots.Length; index++)
         {
             SetCatalogIndexPlusOne(slots[index], catalogIndices[index]);
+            SetSlotModifiers(slots[index], slotModifiers[index]);
         }
 
         ActiveWeaponSetSlotValue = (int)activeWeaponSet;
@@ -827,7 +860,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             becomesActive = EquipmentSlotRules.IsHandSlot(slot) &&
                 (ActiveWeaponSetSlot == WeaponSetSlot.None ||
                  ActiveWeaponSetSlot == EquipmentSlotRules.GetWeaponSet(slot));
-            if (becomesActive && !TryConfigureStrategy(definition.WeaponDefinition, attackConfig, attributes, out _))
+            if (becomesActive && !TryConfigureStrategy(definition.WeaponDefinition, default, attackConfig, attributes, out _))
             {
                 error = "The weapon cannot configure a combat strategy.";
                 return false;
@@ -956,8 +989,13 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
                  ActiveWeaponSetSlot == EquipmentSlotRules.GetWeaponSet(targetSlot));
             if (becomesActive && _abilityRuntime != null && _abilityRuntime.HasActiveExecution)
                 return EquipmentOperationResult.PlayerUnavailable;
+            // Read-only preview of the unit that will move; its own ownership check follows below.
+            WeaponInstanceModifiersNetworkData incoming =
+                _lootReceiver.TryResolveRaidLootOriginTransfer(extraction, out RaidLootOriginTransfer preview)
+                    ? preview.Modifiers : default;
             if (becomesActive && !TryConfigureStrategy(
                     definition.WeaponDefinition,
+                    incoming,
                     attackConfig,
                     attributes,
                     out _))
@@ -992,7 +1030,8 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             }
 
             if (!TryGetSlotRaidOrigin(displacedSlot, out displacedOrigins[index]) ||
-                !RaidLootOriginTransfer.TryCreate(displacedOrigins[index], 1, out displacedTransfers[index]))
+                !TryCreateSlotTransfer(displacedSlot, displacedOrigins[index], out displacedTransfers[index]) ||
+                !TryGetSlotUnit(displacedSlot, out displaced))
             {
                 return EquipmentOperationResult.DependenciesUnavailable;
             }
@@ -1025,6 +1064,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             throw new InvalidOperationException("Validated Equipment provenance could not be committed.");
         }
         SetCatalogIndexPlusOne(targetSlot, catalogIndex + 1);
+        SetSlotModifiers(targetSlot, originTransfer.Modifiers);
         EquipmentRevision++;
         if (becomesActive)
         {
@@ -1051,6 +1091,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         if (!_lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition definition) || definition == null || !EquipmentSlotRules.IsCompatible(definition, targetSlot)) return EquipmentOperationResult.InvalidEquipment;
         if (!TryResolveTargetSlot(definition.LootId, targetSlot, out int resolvedIndex, out _) || resolvedIndex != catalogIndex) return EquipmentOperationResult.IncompatibleHandConfiguration;
 
+        LootTransferRequest extraction = new LootTransferRequest(container.Id, _lootReceiver.Id, definition.LootId, 1, Runner != null ? Runner.Tick : 0);
         bool becomesActive = false;
         if (definition.Category == LootCategory.Weapon)
         {
@@ -1062,10 +1103,12 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             becomesActive = EquipmentSlotRules.IsHandSlot(targetSlot) && (ActiveWeaponSetSlot == WeaponSetSlot.None || ActiveWeaponSetSlot == EquipmentSlotRules.GetWeaponSet(targetSlot));
             if (becomesActive && _abilityRuntime != null && _abilityRuntime.HasActiveExecution)
                 return EquipmentOperationResult.PlayerUnavailable;
-            if (becomesActive && !TryConfigureStrategy(definition.WeaponDefinition, attackConfig, attributes, out _)) return EquipmentOperationResult.InvalidEquipment;
+            // Read-only preview of the container unit; its own ownership check follows below.
+            WeaponInstanceModifiersNetworkData incoming =
+                container.TryResolveRaidLootOriginTransfer(extraction, out RaidLootOriginTransfer preview) ? preview.Modifiers : default;
+            if (becomesActive && !TryConfigureStrategy(definition.WeaponDefinition, incoming, attackConfig, attributes, out _)) return EquipmentOperationResult.InvalidEquipment;
         }
 
-        LootTransferRequest extraction = new LootTransferRequest(container.Id, _lootReceiver.Id, definition.LootId, 1, Runner != null ? Runner.Tick : 0);
         if (container.ValidateExtraction(extraction) != LootTransferFailureReason.None || !container.TryResolveRaidLootOriginTransfer(extraction, out RaidLootOriginTransfer originTransfer)) return EquipmentOperationResult.ItemNotOwned;
 
         EquipmentSlot secondDisplacedSlot = EquipmentSlot.None;
@@ -1078,7 +1121,9 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         {
             EquipmentSlot displacedSlot = displacedSlots[index];
             if (displacedSlot == EquipmentSlot.None || !TryGetSlotLoot(displacedSlot, out LootEntry displaced)) continue;
-            if (!TryGetSlotRaidOrigin(displacedSlot, out displacedOrigins[index]) || !RaidLootOriginTransfer.TryCreate(displacedOrigins[index], 1, out displacedTransfers[index])) return EquipmentOperationResult.DependenciesUnavailable;
+            if (!TryGetSlotRaidOrigin(displacedSlot, out displacedOrigins[index]) ||
+                !TryCreateSlotTransfer(displacedSlot, displacedOrigins[index], out displacedTransfers[index]) ||
+                !TryGetSlotUnit(displacedSlot, out displaced)) return EquipmentOperationResult.DependenciesUnavailable;
             displacedEntries[index] = displaced;
         }
         // A container-owned incoming item frees no Inventory slot. Only the displaced
@@ -1097,6 +1142,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         }
         if (!_raidOriginState.TrySetEquipmentOrigin(targetSlot, originTransfer.Buckets[0].Origin)) throw new InvalidOperationException("Validated Equipment provenance could not be committed.");
         SetCatalogIndexPlusOne(targetSlot, catalogIndex + 1);
+        SetSlotModifiers(targetSlot, originTransfer.Modifiers);
         EquipmentRevision++;
         if (becomesActive)
         {
@@ -1122,7 +1168,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
 
         LootTransferRequest receive = CreateInventoryTransfer(equipped.LootId);
         if (!TryGetSlotRaidOrigin(slot, out RaidLootOrigin origin) ||
-            !RaidLootOriginTransfer.TryCreate(origin, 1, out RaidLootOriginTransfer originTransfer) ||
+            !TryCreateSlotTransfer(slot, origin, out RaidLootOriginTransfer originTransfer) ||
             _lootReceiver.ValidateReceive(receive) != LootTransferFailureReason.None ||
             _lootReceiver.ValidateRaidLootOriginReceive(receive, originTransfer) != LootTransferFailureReason.None)
         {
@@ -1261,6 +1307,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         if (eligibility != WeaponEligibilityFailure.None ||
             !TryConfigureStrategy(
                 definition.WeaponDefinition,
+                GetSlotModifiers(activeHand),
                 attackConfig,
                 attributes,
                 out MonoBehaviour attackSource))
@@ -1332,6 +1379,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
 
     private bool TryValidateInventoryUnit(
         int catalogIndexPlusOne,
+        WeaponInstanceModifiersNetworkData modifiers,
         out RaidLootOriginTransfer originTransfer,
         out string error)
     {
@@ -1346,7 +1394,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
 
         LootTransferRequest request = CreateInventoryTransfer(definition.LootId);
         if (_lootReceiver.ValidateExtraction(request) == LootTransferFailureReason.None &&
-            _lootReceiver.TryResolveRaidLootOriginTransfer(request, out originTransfer))
+            TryResolveUnitTransfer(request, catalogIndexPlusOne - 1, modifiers, out originTransfer))
         {
             return true;
         }
@@ -1357,6 +1405,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
 
     private bool TryCommitInventoryExtraction(
         int catalogIndexPlusOne,
+        WeaponInstanceModifiersNetworkData modifiers,
         out RaidLootOriginTransfer originTransfer,
         out string error)
     {
@@ -1366,13 +1415,63 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         _lootCatalog.TryGetByIndex(catalogIndexPlusOne - 1, out LootDefinition definition);
         LootTransferRequest request = CreateInventoryTransfer(definition.LootId);
         if (_lootReceiver.ValidateExtraction(request) != LootTransferFailureReason.None ||
-            !_lootReceiver.TryResolveRaidLootOriginTransfer(request, out originTransfer))
+            !TryResolveUnitTransfer(request, catalogIndexPlusOne - 1, modifiers, out originTransfer))
         {
             error = "Prepared Equipment ownership changed during initialization.";
             return false;
         }
 
         _lootReceiver.CommitRaidLootExtraction(request, originTransfer);
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves the exact admitted unit: the canonical origin, retargeted to the unit that carries
+    /// <paramref name="modifiers"/> so an identical template with other modifiers is never taken.
+    /// </summary>
+    private bool TryResolveUnitTransfer(in LootTransferRequest request, int catalogIndex,
+        WeaponInstanceModifiersNetworkData modifiers, out RaidLootOriginTransfer transfer)
+    {
+        if (!_lootReceiver.TryResolveRaidLootOriginTransfer(request, out transfer)) return false;
+        if (transfer.Modifiers.Equals(modifiers)) return true;
+        if (!_lootReceiver.TryFindInventoryUnit(catalogIndex, modifiers, out RaidLootOrigin origin) ||
+            !RaidLootOriginTransfer.TryCreate(origin, 1, out transfer)) return false;
+        transfer = transfer.WithModifiers(modifiers);
+        return true;
+    }
+
+    private bool TryEncodeEntryModifiers(in LootEntry entry, out WeaponInstanceModifiersNetworkData data)
+    {
+        data = default;
+        if (!entry.Modifiers.HasValue) return true;
+        return _lootCatalog.TryGet(entry.LootId.Value, out LootDefinition definition) &&
+            definition.WeaponDefinition != null &&
+            WeaponInstanceModifiersNetworkData.TryCreate(entry.Modifiers.Value,
+                definition.WeaponDefinition.NaturalScalingAttribute, _lootCatalog, out data, out _);
+    }
+
+    /// <summary>The equipped unit as a detached entry, with decoded modifiers when it has any.</summary>
+    private bool TryGetSlotUnit(EquipmentSlot slot, out LootEntry entry)
+    {
+        entry = default;
+        if (!TryGetSlotDefinition(slot, out LootDefinition definition)) return false;
+        WeaponInstanceModifiersNetworkData modifiers = GetSlotModifiers(slot);
+        if (modifiers.IsEmpty)
+        {
+            entry = new LootEntry(definition.LootId, 1);
+            return true;
+        }
+        if (definition.WeaponDefinition == null ||
+            !modifiers.TryResolve(_lootCatalog, definition.WeaponDefinition.NaturalScalingAttribute,
+                out WeaponInstanceModifiers decoded, out _)) return false;
+        entry = new LootEntry(definition.LootId, 1, decoded, isEquipmentUnit: true);
+        return true;
+    }
+
+    private bool TryCreateSlotTransfer(EquipmentSlot slot, RaidLootOrigin origin, out RaidLootOriginTransfer transfer)
+    {
+        if (!RaidLootOriginTransfer.TryCreate(origin, 1, out transfer)) return false;
+        transfer = transfer.WithModifiers(GetSlotModifiers(slot));
         return true;
     }
 
@@ -1438,12 +1537,13 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
 
     private bool TryConfigureStrategy(
         WeaponDefinition weaponDefinition,
+        WeaponInstanceModifiersNetworkData modifiers,
         AttackConfig attackConfig,
         in CharacterAttributeState attributes,
         out MonoBehaviour attackSource)
     {
         attackSource = null;
-        if (!TryResolveEffectiveDamage(weaponDefinition, attributes, out float effectiveDamage))
+        if (!TryResolveEffectiveDamage(weaponDefinition, modifiers, attributes, out float effectiveDamage))
         {
             return false;
         }
@@ -1458,7 +1558,7 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             _meleeAttack.TryConfigure(meleeConfig, parameters))
         {
             attackSource = _meleeAttack;
-            RememberPreparedStrategy(weaponDefinition, attackSource);
+            RememberPreparedStrategy(weaponDefinition, modifiers, attackSource);
             return true;
         }
 
@@ -1467,16 +1567,18 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             _rangedAttack.TryConfigure(rangedConfig, parameters))
         {
             attackSource = _rangedAttack;
-            RememberPreparedStrategy(weaponDefinition, attackSource);
+            RememberPreparedStrategy(weaponDefinition, modifiers, attackSource);
             return true;
         }
 
         return false;
     }
 
-    private void RememberPreparedStrategy(WeaponDefinition weapon, MonoBehaviour source)
+    private void RememberPreparedStrategy(WeaponDefinition weapon, WeaponInstanceModifiersNetworkData modifiers,
+        MonoBehaviour source)
     {
         _preparedWeapon = weapon;
+        _preparedModifiers = modifiers;
         _preparedSource = source;
         _preparedAttributeRevision = _participantLink != null && _participantLink.TryGetCharacterAttributeRevision(out int revision)
             ? revision : int.MinValue;
@@ -1497,22 +1599,35 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             weaponDefinition.HasProjectileSpawnDistance ? weaponDefinition.ProjectileSpawnDistance : null);
     }
 
-    private static bool TryResolveEffectiveDamage(
+    /// <summary>
+    /// Damage of the replicated hand unit (ItemInstanceArchitecture section 6.2). Empty modifiers are a
+    /// plain unit, projected from the template so plain weapons keep their template damage.
+    /// </summary>
+    private bool TryResolveEffectiveDamage(
         WeaponDefinition weaponDefinition,
+        WeaponInstanceModifiersNetworkData modifiers,
         in CharacterAttributeState attributes,
         out float effectiveDamage)
     {
         effectiveDamage = 0f;
-        if (weaponDefinition == null ||
-            !WeaponScalingContributionsResolver.TryResolve(
-                weaponDefinition.OffensiveScaling,
-                out WeaponScalingContributions contributions))
+        if (weaponDefinition == null) return false;
+        WeaponInstanceModifiers instance;
+        if (modifiers.IsEmpty)
+            instance = EquipmentInstance.PlainCache(weaponDefinition).Modifiers ?? default;
+        else if (!modifiers.TryResolve(_lootCatalog, weaponDefinition.NaturalScalingAttribute, out instance, out _))
+            return false;
+        if (!WeaponScalingContributionsResolver.TryResolve(
+                instance,
+                weaponDefinition.NaturalScalingAttribute,
+                out WeaponScalingContributions contributions) ||
+            !WeaponGemDamageBonusResolver.TryResolve(instance, _lootCatalog, out int gemBonus))
         {
             return false;
         }
 
         return WeaponDamageCalculator.TryCalculate(
             weaponDefinition.BaseDamage,
+            gemBonus,
             attributes,
             contributions,
             out effectiveDamage) && effectiveDamage > 0f;
@@ -1562,6 +1677,30 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
             case EquipmentSlot.Gloves: GlovesCatalogIndexPlusOne = value; break;
             case EquipmentSlot.Boots: BootsCatalogIndexPlusOne = value; break;
         }
+
+        SetSlotModifiers(slot, default);
+    }
+
+    private WeaponInstanceModifiersNetworkData GetSlotModifiers(EquipmentSlot slot) => IsEquipmentReadable
+        ? slot switch
+        {
+            EquipmentSlot.WeaponSetAMainHand => WeaponSetAMainHandModifiers,
+            EquipmentSlot.WeaponSetBMainHand => WeaponSetBMainHandModifiers,
+            EquipmentSlot.WeaponSetAOffHand => WeaponSetAOffHandModifiers,
+            EquipmentSlot.WeaponSetBOffHand => WeaponSetBOffHandModifiers,
+            _ => default
+        }
+        : default;
+
+    private void SetSlotModifiers(EquipmentSlot slot, WeaponInstanceModifiersNetworkData value)
+    {
+        switch (slot)
+        {
+            case EquipmentSlot.WeaponSetAMainHand: WeaponSetAMainHandModifiers = value; break;
+            case EquipmentSlot.WeaponSetBMainHand: WeaponSetBMainHandModifiers = value; break;
+            case EquipmentSlot.WeaponSetAOffHand: WeaponSetAOffHandModifiers = value; break;
+            case EquipmentSlot.WeaponSetBOffHand: WeaponSetBOffHandModifiers = value; break;
+        }
     }
 
     /// <summary>
@@ -1573,6 +1712,10 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         _appliedSlot2 != WeaponSetBMainHandCatalogIndexPlusOne ||
         _appliedOffHandA != WeaponSetAOffHandCatalogIndexPlusOne ||
         _appliedOffHandB != WeaponSetBOffHandCatalogIndexPlusOne ||
+        !_appliedModifiers[0].Equals(WeaponSetAMainHandModifiers) ||
+        !_appliedModifiers[1].Equals(WeaponSetBMainHandModifiers) ||
+        !_appliedModifiers[2].Equals(WeaponSetAOffHandModifiers) ||
+        !_appliedModifiers[3].Equals(WeaponSetBOffHandModifiers) ||
         _appliedActiveSlot != ActiveWeaponSetSlotValue ||
         _participantLink == null ||
         !_participantLink.TryGetCharacterAttributeRevision(out int attributeRevision) ||
@@ -1584,6 +1727,10 @@ public sealed class PlayerWeaponEquipmentNetworkController : NetworkBehaviour, I
         _appliedSlot2 = WeaponSetBMainHandCatalogIndexPlusOne;
         _appliedOffHandA = WeaponSetAOffHandCatalogIndexPlusOne;
         _appliedOffHandB = WeaponSetBOffHandCatalogIndexPlusOne;
+        _appliedModifiers[0] = WeaponSetAMainHandModifiers;
+        _appliedModifiers[1] = WeaponSetBMainHandModifiers;
+        _appliedModifiers[2] = WeaponSetAOffHandModifiers;
+        _appliedModifiers[3] = WeaponSetBOffHandModifiers;
         _appliedActiveSlot = ActiveWeaponSetSlotValue;
         _appliedAttributeRevision = _participantLink != null &&
             _participantLink.TryGetCharacterAttributeRevision(out int revision)

@@ -9,7 +9,7 @@ public enum EquipmentTooltipPresentationStatus : byte
 
 /// <summary>
 /// Immutable, disposable presentation value for an inventory equipment tooltip.
-/// It contains only definition-owned values and never carries gameplay state.
+/// It contains resolved display values (including confirmed Town instance damage), never owns gameplay state.
 /// </summary>
 public readonly struct EquipmentTooltipPresentation
 {

@@ -1145,6 +1145,155 @@ namespace Tests.PlayMode.Presentation
             return container;
         }
 
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalContainer_ShowsEachWeaponUnitInItsOwnCellWithItsGemTooltip()
+        {
+            yield return BeginPhysicalUi();
+            NetworkLootContainer container = BindUiWeaponContainer();
+            WeaponInstanceModifiersNetworkData socketed = SocketedSwordData();
+            yield return UiTick(() => GrantContainerUnit(container, socketed));
+            InvokeMethod(_presenter, "RefreshContainerPanel");
+
+            RaidInventorySlotData[] swords = ContainerCells(UiSword);
+            Assert.That(swords, Has.Length.EqualTo(2), "Each sword unit has its own cell.");
+            Assert.That(swords[0].SourceUnitIndex, Is.EqualTo(0));
+            Assert.That(swords[0].SourceUnitModifiers.IsEmpty, Is.True);
+            Assert.That(swords[0].Amount, Is.EqualTo(1));
+            Assert.That(swords[0].Tooltip.Body, Does.Not.Contain("Bono de gemas"));
+            Assert.That(swords[1].SourceUnitIndex, Is.EqualTo(1));
+            Assert.That(swords[1].SourceUnitModifiers, Is.EqualTo(socketed));
+            Assert.That(swords[1].Amount, Is.EqualTo(1));
+            Assert.That(swords[1].Tooltip.Body, Does.Contain("Ruby Gem"));
+            Assert.That(swords[1].Tooltip.Body, Does.Contain("Bono de gemas: +5"));
+            RaidInventorySlotData[] bones = ContainerCells(Bone);
+            Assert.That(bones, Has.Length.EqualTo(1));
+            Assert.That(bones[0].HasSourceUnitAddress, Is.False, "Stacks keep the aggregate request path.");
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalContainer_SelectingAWeaponCellWithdrawsExactlyThatUnit()
+        {
+            yield return BeginPhysicalUi();
+            NetworkLootContainer container = BindUiWeaponContainer();
+            WeaponInstanceModifiersNetworkData socketed = SocketedSwordData();
+            yield return UiTick(() => GrantContainerUnit(container, socketed));
+            InvokeMethod(_presenter, "RefreshContainerPanel");
+            RaidInventorySlotView cell = ContainerCellView(UiSword, socketed);
+
+            cell.OnPointerClick(new PointerEventData(null) { button = PointerEventData.InputButton.Right });
+            yield return WaitForUi(() => container.GetLootAmount(UiSword) == 1 &&
+                !_uiReceiver.GetComponent<PlayerLootTransferNetworkController>().HasRequestInFlight);
+
+            Assert.That(container.TryGetWeaponUnit(0, out ContainerWeaponUnit plain), Is.True);
+            Assert.That(plain.IsEmpty, Is.False, "The plain sword stays in the container.");
+            Assert.That(plain.Modifiers.IsEmpty, Is.True);
+            Assert.That(CountReceiverUnits(socketed), Is.EqualTo(1), "The selected gemmed sword reached the Inventory.");
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalContainer_TakeAllMovesEveryWeaponUnitWithItsModifiers()
+        {
+            yield return BeginPhysicalUi();
+            NetworkLootContainer container = BindUiWeaponContainer();
+            WeaponInstanceModifiersNetworkData socketed = SocketedSwordData();
+            yield return UiTick(() => GrantContainerUnit(container, socketed));
+            InvokeMethod(_presenter, "RefreshContainerPanel");
+
+            InvokeMethod(_presenter, "OnTakeAllRequested");
+            yield return WaitForUi(() => container.GetLootAmount(UiSword) == 0 && container.GetLootAmount(Bone) == 0 &&
+                !_uiReceiver.GetComponent<PlayerLootTransferNetworkController>().HasRequestInFlight);
+
+            Assert.That(_uiReceiver.GetLootAmount(UiSword), Is.EqualTo(2));
+            Assert.That(_uiReceiver.GetLootAmount(Bone), Is.EqualTo(1));
+            Assert.That(CountReceiverUnits(socketed), Is.EqualTo(1));
+        }
+
+        private static readonly LootId UiSword = new("arming_sword");
+
+        private NetworkLootContainer BindUiWeaponContainer()
+        {
+            bool initialized = false;
+            NetworkObject spawned = _uiRunner.Spawn(UiPrefab("2c19a78647c64b84a765ff0280706b7d"),
+                Vector3.right, Quaternion.identity, inputAuthority: null,
+                onBeforeSpawned: (runner, instance) =>
+                {
+                    var spawnedContainer = instance.GetComponent<NetworkLootContainer>();
+                    typeof(NetworkLootContainer).GetField("_slotCapacity", BindingFlags.Instance | BindingFlags.NonPublic)
+                        .SetValue(spawnedContainer, 6);
+                    initialized = spawnedContainer.TrySetInitialContentOverride(runner, instance,
+                        new[] { new LootEntry(UiSword, 1), new LootEntry(Bone, 1) });
+                });
+            Assert.That(initialized, Is.True);
+            NetworkLootContainer container = spawned.GetComponent<NetworkLootContainer>();
+            SetPresenterField(_presenter, "_container", container);
+            SetPresenterMode(_presenter, 2);
+            Physics2D.SyncTransforms();
+            InvokeMethod(_presenter, "RefreshPlayerPanel");
+            InvokeMethod(_presenter, "RefreshContainerPanel");
+            _view.SetContainerPanelVisible(true);
+            return container;
+        }
+
+        private WeaponInstanceModifiersNetworkData SocketedSwordData()
+        {
+            CharacterAttribute natural = Definition(UiSword).WeaponDefinition.NaturalScalingAttribute;
+            Assert.That(WeaponGemSocket.TryCreateOccupied(new LootId("RES_RUBY_GEM"), out WeaponGemSocket socket,
+                out string error), Is.True, error);
+            Assert.That(WeaponInstanceModifiers.TryCreate(default, default, natural, 1, socket, default,
+                out WeaponInstanceModifiers modifiers, out error), Is.True, error);
+            Assert.That(WeaponInstanceModifiersNetworkData.TryCreate(modifiers, natural, _uiCatalog,
+                out WeaponInstanceModifiersNetworkData data, out error), Is.True, error);
+            return data;
+        }
+
+        private void GrantContainerUnit(NetworkLootContainer container, WeaponInstanceModifiersNetworkData modifiers)
+        {
+            var request = new LootTransferRequest(new EntityId(int.MaxValue), container.Id, UiSword, 1, _uiRunner.Tick);
+            Assert.That(container.ValidateReceive(request), Is.EqualTo(LootTransferFailureReason.None));
+            Assert.That(RaidLootOriginTransfer.TryCreate(PlayerOrigin(2), 1, out RaidLootOriginTransfer transfer), Is.True);
+            transfer = transfer.WithModifiers(modifiers);
+            Assert.That(container.ValidateRaidLootOriginReceive(request, transfer), Is.EqualTo(LootTransferFailureReason.None));
+            container.CommitRaidLootReceive(request, transfer);
+        }
+
+        private RaidInventorySlotView[] ContainerSlots() =>
+            (RaidInventorySlotView[])typeof(RaidLootPanelView).GetField("_authoredSlots",
+                BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_view.ContainerPanel);
+
+        private RaidInventorySlotData[] ContainerCells(LootId lootId)
+        {
+            var cells = new System.Collections.Generic.List<RaidInventorySlotData>();
+            foreach (RaidInventorySlotView view in ContainerSlots())
+            {
+                RaidInventorySlotData data = SlotData(view);
+                if (data.IsOccupied && data.LootId == lootId) cells.Add(data);
+            }
+            return cells.ToArray();
+        }
+
+        private RaidInventorySlotView ContainerCellView(LootId lootId, WeaponInstanceModifiersNetworkData modifiers)
+        {
+            foreach (RaidInventorySlotView view in ContainerSlots())
+            {
+                RaidInventorySlotData data = SlotData(view);
+                if (data.IsOccupied && data.LootId == lootId && data.HasSourceUnitAddress &&
+                    data.SourceUnitModifiers.Equals(modifiers)) return view;
+            }
+            Assert.Fail("The weapon unit cell was not presented.");
+            return null;
+        }
+
+        private int CountReceiverUnits(WeaponInstanceModifiersNetworkData modifiers)
+        {
+            int count = 0;
+            for (int index = 0; index < PlayerLootReceiver.PhysicalSlotCount; index++)
+                if (_uiReceiver.TryGetInventorySlot(index, out LootInventorySlot slot) && slot.IsValid &&
+                    _uiReceiver.TryGetInventorySlotModifiers(index, out WeaponInstanceModifiersNetworkData current) &&
+                    current.Equals(modifiers))
+                    count++;
+            return count;
+        }
+
         private void OpenUiContext(int index)
         {
             SetPresenterMode(_presenter, 1);

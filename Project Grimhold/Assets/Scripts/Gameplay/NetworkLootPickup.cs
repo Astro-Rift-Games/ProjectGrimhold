@@ -52,6 +52,10 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
     [Networked]
     private RaidLootPickupCompactOriginState RaidOriginState { get; set; }
 
+    /// <summary>Packed modifiers of the single weapon unit this pickup holds; empty otherwise.</summary>
+    [Networked]
+    public WeaponInstanceModifiersNetworkData Modifiers { get; private set; }
+
     /// <summary>Remaining cooldown for reusable expedition utilities (Doc 14 TASK-234).</summary>
     [Networked]
     public TickTimer CooldownExpiration { get; set; }
@@ -215,7 +219,8 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
             firstAcquisitionEligibleAmount < 0 ||
             firstAcquisitionEligibleAmount > entry.Amount || originTransfer == null ||
             !originTransfer.TryGetTotal(out int originTotal) || originTotal != entry.Amount ||
-            originTransfer.Count > RaidLootOriginPackedBuffer.OriginsPerLoot)
+            originTransfer.Count > RaidLootOriginPackedBuffer.OriginsPerLoot ||
+            !AreModifiersValidFor(entry, originTransfer.Modifiers))
         {
             return false;
         }
@@ -528,6 +533,7 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
 
         LootCatalogIndex = catalogIndex;
         SynchronizedAmount = entry.Amount;
+        Modifiers = _hasSpawnContentOverride ? _spawnOriginOverride.Modifiers : default;
         if (_lootCatalog != null && _lootCatalog.TryGetByIndex(catalogIndex, out LootDefinition authoritativeDefinition))
         {
             _lootDefinition = authoritativeDefinition;
@@ -552,7 +558,21 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
     }
 
     internal bool TryResolveRaidOriginTransfer(out RaidLootOriginTransfer transfer)
-        => RaidLootPickupOriginStateCodec.TryDecode(RaidOriginState, SynchronizedAmount, out transfer);
+    {
+        if (!RaidLootPickupOriginStateCodec.TryDecode(RaidOriginState, SynchronizedAmount, out transfer))
+            return false;
+        if (!Modifiers.IsEmpty) transfer = transfer.WithModifiers(Modifiers);
+        return true;
+    }
+
+    /// <summary>Modifiers belong to exactly one weapon unit; stacks and plain weapons carry none.</summary>
+    private bool AreModifiersValidFor(in LootEntry entry, WeaponInstanceModifiersNetworkData modifiers)
+    {
+        if (modifiers.IsEmpty) return true;
+        return entry.Amount == 1 && _lootCatalog.TryGet(entry.LootId.Value, out LootDefinition definition) &&
+            definition != null && definition.Category == LootCategory.Weapon &&
+            modifiers.TryResolve(_lootCatalog, definition.WeaponDefinition.NaturalScalingAttribute, out _, out _);
+    }
 
     private bool TryWriteRaidOriginTransfer(RaidLootOriginTransfer transfer, int expectedAmount)
     {

@@ -3,10 +3,18 @@ const crypto = require('crypto');
 const Character = require('../models/Character');
 const env = require('../config/env');
 const { normalizeItems } = require('./InventoryLootIdNormalizer');
-const { inventoryVersion, requireMigratedInventory } = require('./InventoryEntries');
+const { inventoryVersion, requireMigratedInventory, serializeItems, copyEntry } = require('./InventoryEntries');
 
 const TOWN_TICKET_TTL_SECONDS = 1800; // 30 minutes
 const RAID_TICKET_TTL_SECONDS = 600;  // 10 minutes
+
+// The signed Raid projection is deliberately not a stored inventory entry. IDs and Town
+// slot addresses remain in pendingReservation; only template and weapon modifiers cross.
+function admissionEquipment(item) {
+  if (!item) return null;
+  const { lootId, instance } = copyEntry(item);
+  return { lootId, ...(instance?.modifiers ? { modifiers: instance.modifiers } : {}) };
+}
 
 class SessionTicketService {
   /**
@@ -176,11 +184,19 @@ class SessionTicketService {
         availablePoints: characterAttributes.availablePoints ?? 0
       },
       preparedAbilities,
-      // Raid admission remains aggregate; never replace the stored slot entries.
-      items: inventoryVersion(character) === 2
-        ? normalizeItems(reservation.items)
-        : (reservation.items || []).map(i => ({ lootId: i.lootId, amount: i.amount })),
-      preparedEquipment: {
+      // V2 aggregates only the admission DTO; v3 keeps one entry per reserved unit,
+      // without exposing durable identity in either the response or signed payload.
+      items: inventoryVersion(character) === 3
+        ? serializeItems(reservation.items, true).map(item => ({
+          ...admissionEquipment(item), amount: item.amount
+        }))
+        : inventoryVersion(character) === 2
+          ? normalizeItems(reservation.items)
+          : (reservation.items || []).map(i => ({ lootId: i.lootId, amount: i.amount })),
+      preparedEquipment: inventoryVersion(character) === 3
+        ? Object.fromEntries(Object.entries(reservation.preparedEquipment).map(([slot, item]) =>
+          [slot, admissionEquipment(item)]))
+        : {
         weaponSlot1: reservation.preparedEquipment?.weaponSlot1 || (!reservation.preparedEquipment?.weaponSlot2 ? 'arming_sword' : ''),
         weaponSlot2: reservation.preparedEquipment?.weaponSlot2 || '',
         offHand1:    reservation.preparedEquipment?.offHand1 || '',

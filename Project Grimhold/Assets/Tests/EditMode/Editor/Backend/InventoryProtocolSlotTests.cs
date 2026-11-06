@@ -6,13 +6,13 @@ using UnityEngine;
 public sealed class InventoryProtocolSlotTests
 {
     [Test]
-    public void EveryBackendRequestFactory_AddsProtocolTwoHeader()
+    public void EveryBackendRequestFactory_AddsProtocolThreeHeader_BeforeHydration()
     {
         using var get = InventoryProtocol.Get("http://localhost/inventory");
         using var post = InventoryProtocol.Create("http://localhost/inventory", "POST");
         using var delete = InventoryProtocol.Delete("http://localhost/inventory");
         foreach (var request in new[] { get, post, delete })
-            Assert.That(request.GetRequestHeader("X-Grimhold-Inventory-Protocol"), Is.EqualTo("2"));
+            Assert.That(request.GetRequestHeader("X-Grimhold-Inventory-Protocol"), Is.EqualTo("3"));
     }
 
     [Test]

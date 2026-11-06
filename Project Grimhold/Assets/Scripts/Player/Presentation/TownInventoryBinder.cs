@@ -201,7 +201,9 @@ public sealed class TownInventoryBinder : NetworkBehaviour
             hosted,
             _quickSlots,
             _profileContext.GetTransferCoordinator(),
-            CanSortInventory);
+            CanSortInventory,
+            _inventorySource.ReadConfirmedAttributes,
+            new TownGemInstallSession(_profileContext.Store, _profileContext.GetTransferCoordinator(), _lootCatalog));
         if (hosted)
         {
             _menuPresenter.RegisterTab(new TownMenuTabRegistration(

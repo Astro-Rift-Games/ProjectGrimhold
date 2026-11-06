@@ -1,9 +1,5 @@
 {
     "mcpServers": {
-        "unity": {
-            "url": "http://127.0.0.1:8081/mcp",
-            "exposure": "codemode"
-        },
         "grimhold-docs": {
             "command": "node",
             "args": [

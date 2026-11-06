@@ -22,6 +22,9 @@ public sealed class StashTransferCoordinator
     private readonly ITownEquipmentMutationEndpoint _equipment;
     private readonly SemaphoreSlim _queue = new(1, 1);
     private readonly LootDefinitionCatalog _catalog;
+    private int _pendingGemInstalls;
+    public bool HasGemInstallPending => _pendingGemInstalls > 0;
+    public event Action GemInstallPendingChanged;
 
     /// <param name="remote">Backend operations; null when none is available, which makes transfers unavailable.</param>
     /// <param name="reconciliation">Reconciles the local profile after a remote failure; may be null.</param>
@@ -96,7 +99,7 @@ public sealed class StashTransferCoordinator
 
     private async Task<StashTransferOutcome> OrderCoreAsync(InventoryList list, IReadOnlyList<int> order)
     {
-        if (!(_loadout is ISlotPlayerLoadoutService local) || local.InventorySchemaVersion != 2 ||
+        if (!(_loadout is ISlotPlayerLoadoutService local) || !SupportsSlots(local.InventorySchemaVersion) ||
             !(_remote is ISlotRemoteInventoryService remote)) return StashTransferOutcome.Unavailable();
         var rule = local.EvaluateOrderSlots(_profileId, list, order);
         if (rule != StashOperationResult.Success) return StashTransferOutcome.Rejected(rule);
@@ -120,13 +123,56 @@ public sealed class StashTransferCoordinator
     public Task<StashTransferOutcome> UnequipAsync(EquipmentSlot slot, ITownEquipmentMutationEndpoint equipment = null) =>
         RunExclusiveAsync(() => UnequipCoreAsync(slot, equipment ?? _equipment));
 
+    /// <summary>Shares the Town queue; a rejected install never applies a local preview or retries.</summary>
+    public async Task<StashTransferOutcome> InstallGemAsync(Grimhold.Backend.InstallGemRequest request, LocalProfileStore store)
+    {
+        _pendingGemInstalls++;
+        try
+        {
+            GemInstallPendingChanged?.Invoke();
+            return await InstallGemCoreAsync(request, store);
+        }
+        finally
+        {
+            _pendingGemInstalls--;
+            GemInstallPendingChanged?.Invoke();
+        }
+    }
+
+    private Task<StashTransferOutcome> InstallGemCoreAsync(Grimhold.Backend.InstallGemRequest request, LocalProfileStore store) =>
+        RunExclusiveAsync(async () =>
+        {
+            if (store == null || store.ProfileId != _profileId || !store.IsAvailable ||
+                store.InventorySchemaVersion != 3 || store.RequiresEquipmentHydration)
+                return StashTransferOutcome.RemoteFailed(null, "INVENTORY_MIGRATION_REQUIRED");
+            if (store.PendingReservation != null)
+                return StashTransferOutcome.RemoteFailed(null, "RESERVATION_PENDING");
+            if (store.RemoteRevision != request.expectedRevision)
+                return StashTransferOutcome.RemoteFailed(null, "REVISION_CONFLICT");
+            if (!(_remote is IRemoteGemInstallService remote)) return StashTransferOutcome.Unavailable();
+            try
+            {
+                var result = await remote.InstallGemAsync(request);
+                if (!result.success) return StashTransferOutcome.RemoteFailed(result.error.message, result.error.error);
+                return await ApplyLocalAsync(store.ApplyConfirmedGemInstall(result.data, request.expectedRevision));
+            }
+            catch (Exception)
+            {
+                return await ReconcileAsync()
+                    ? StashTransferOutcome.RemoteFailed(null, "REMOTE_RESULT_UNKNOWN")
+                    : StashTransferOutcome.RecoveryFailed(StashOperationResult.Success, null, "REMOTE_RESULT_UNKNOWN");
+            }
+        });
+
+    private static bool SupportsSlots(int schema) => schema == 2 || schema == 3;
+
     private async Task<StashTransferOutcome> RunExclusiveAsync(Func<Task<StashTransferOutcome>> operation)
     {
         await _queue.WaitAsync();
         try
         {
             // Reads remain available on legacy inventories, but no Town mutation may precede migration.
-            if (!(_loadout is ISlotPlayerLoadoutService slots) || slots.InventorySchemaVersion != 2)
+            if (!(_loadout is ISlotPlayerLoadoutService slots) || !SupportsSlots(slots.InventorySchemaVersion))
                 return StashTransferOutcome.Unavailable();
             return await operation();
         }
@@ -143,7 +189,7 @@ public sealed class StashTransferCoordinator
         LootTransferQuantityMode mode)
     {
         if (!(_remote is ISlotRemoteInventoryService remoteSlots) ||
-            !(_loadout is ISlotPlayerLoadoutService local) || local.InventorySchemaVersion != 2)
+            !(_loadout is ISlotPlayerLoadoutService local) || !SupportsSlots(local.InventorySchemaVersion))
         {
             return StashTransferOutcome.Unavailable();
         }

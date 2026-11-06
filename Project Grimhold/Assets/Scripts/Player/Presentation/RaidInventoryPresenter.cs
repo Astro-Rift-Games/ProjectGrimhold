@@ -57,6 +57,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private IInventoryReadSource _inventorySource;
     private QuickSlotController _quickSlots;
     private IPreparedEquipmentReadSource _preparedEquipmentSource;
+    private Func<CharacterAttributeState?> _readTownAttributes;
     private ITownEquipmentMutationEndpoint _townEquipmentEndpoint;
     private PlayerLootReceiver _lootReceiver;
     private PlayerInputReader _inputReader;
@@ -88,7 +89,12 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     // Deterministic test seam; production reads the cached avatar, never Fusion state writes.
     private Func<bool> _readDowned;
     private bool _downedReadOnly;
-    private bool MutationsBlocked => _gameplayMutationsBlocked || _downedReadOnly;
+    private bool MutationsBlocked => _gameplayMutationsBlocked || _downedReadOnly || _gemSession?.LocksMutations == true;
+    private TownGemInstallSession _gemSession;
+    private TownGemInstallUIBinding _gemBinding;
+    private readonly TownLootGemInstallContextActionProvider _gemActionProvider = new();
+    private readonly List<Action> _townCellUnbind = new();
+    private int _townDragSlot = -1;
 
     private void ObserveDowned()
     {
@@ -224,7 +230,9 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         bool externallyHosted = false,
         QuickSlotController quickSlots = null,
         StashTransferCoordinator sortCoordinator = null,
-        Func<bool> canSort = null)
+        Func<bool> canSort = null,
+        Func<CharacterAttributeState?> readConfirmedAttributes = null,
+        TownGemInstallSession gemInstall = null)
     {
         Unbind();
 
@@ -240,11 +248,21 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _townSortCoordinator = sortCoordinator;
         _canSortTown = canSort;
         _preparedEquipmentSource = preparedEquipmentSource;
+        _readTownAttributes = readConfirmedAttributes;
         _townEquipmentEndpoint = equipmentEndpoint;
         _inputReader = inputReader;
         _townEquipActionProvider.Bind(equipmentEndpoint);
         _contextActionProviders.Clear();
         _contextActionProviders.Add(_townEquipActionProvider);
+        _gemSession = gemInstall;
+        if (_gemSession != null)
+        {
+            _contextActionProviders.Add(_gemActionProvider);
+            _gemBinding = new TownGemInstallUIBinding(_gemSession, _view.GemInstallView);
+            _gemBinding.BindPanel(_view.PlayerPanel, InventoryList.Loadout, () => 0);
+            _gemSession.Changed += OnTownGemChanged;
+            BindTownCells();
+        }
         AttachQuickSlots(quickSlots);
         _isRaidBinding = false;
         _isExternallyHosted = externallyHosted;
@@ -265,6 +283,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     public void Unbind()
     {
+        _gemBinding?.Dispose(); _gemBinding = null;
+        foreach (var unbind in _townCellUnbind) unbind();
+        _townCellUnbind.Clear();
+        if (_gemSession != null)
+        {
+            _gemSession.Changed -= OnTownGemChanged;
+            _gemSession.Dispose(); _gemSession = null;
+        }
         Unsubscribe();
         Close();
         _displayOrder.Seed(null);
@@ -308,6 +334,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     public void Close()
     {
+        _gemSession?.Cancel();
         CancelActiveDrag();
         _downedReadOnly = false;
         _view?.SetDownedReadOnly(false);
@@ -353,6 +380,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             return;
         }
 
+        if (_gemSession?.LocksMutations == true && !_gemSession.IsPending &&
+            UnityEngine.InputSystem.Keyboard.current?.escapeKey.wasPressedThisFrame == true) _gemSession.Cancel();
         InvalidateStaleInventoryInteractions();
         ObserveDowned();
         UpdateSortInteractable();
@@ -467,6 +496,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _equipmentController.EquipRequestResolved += OnEquipRequestResolved;
         _view.PlayerPanel.InventorySelectionRequested += OnPlayerInventorySlotSelected;
         _view.ContainerPanel.SelectionRequested += OnContainerSlotSelected;
+        _view.ContainerPanel.InventorySelectionRequested += OnContainerUnitSelected;
         _view.TakeAllRequested += OnTakeAllRequested;
         _isSubscribed = true;
     }
@@ -571,6 +601,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         if (_view != null && _view.ContainerPanel != null)
         {
             _view.ContainerPanel.SelectionRequested -= OnContainerSlotSelected;
+            _view.ContainerPanel.InventorySelectionRequested -= OnContainerUnitSelected;
         }
 
         if (_view != null)
@@ -745,6 +776,29 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _view.SetScreenVisible(true);
     }
 
+    /// <summary>Withdraws exactly the selected container weapon unit.</summary>
+    private void OnContainerUnitSelected(RaidInventorySlotData data, LootTransferQuantityMode quantityMode)
+    {
+        if (!data.HasSourceUnitAddress || MutationsBlocked || _mode != ScreenMode.ContainerLoot || _container == null ||
+            _takeAllState.IsActive || _transferController.HasRequestInFlight ||
+            !_containerSelection.TrySelect(data.LootId, _containerPanelPresenter.OccupiedEntries))
+        {
+            return;
+        }
+
+        _playerSelection.Clear();
+        _view.HideTransferFeedback();
+        if (!TryRequestTransferWithFeedback(_container.Id, _lootReceiver.Id, data.LootId,
+                LootTransferQuantityMode.SingleUnit, sourceUnitIndex: data.SourceUnitIndex,
+                sourceUnitModifiers: data.SourceUnitModifiers))
+        {
+            _containerSelection.Reconcile(_containerPanelPresenter.OccupiedEntries);
+            _view.ShowTransferFeedback("No se pudo solicitar la transferencia");
+        }
+
+        RefreshTransferInteraction();
+    }
+
     private void OnContainerSlotSelected(LootId lootId, LootTransferQuantityMode quantityMode)
     {
         if (MutationsBlocked || _mode != ScreenMode.ContainerLoot || _container == null ||
@@ -849,6 +903,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     {
         if (!IsCurrentDrag(_activeDrag) || MutationsBlocked) { CancelActiveDrag(); return; }
         DragPayload payload = _activeDrag;
+        // Town cell-to-cell drops retain both addresses in the cell-local listener below.
+        if (!_isRaidBinding && payload.Source == DragSlotLocation.Inventory && targetLocation == DragSlotLocation.Inventory) return;
         
         if (!DropPolicy.CanAttemptDrop(payload.Source, targetLocation, targetEquipmentSlot)) return;
         if (targetLocation == DragSlotLocation.Equipment && !DropPolicy.CanAttemptEquipmentDrop(in payload, targetEquipmentSlot, _view.IsEquipmentDropReserved(targetEquipmentSlot))) return;
@@ -864,7 +920,9 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         else if (payload.Source == DragSlotLocation.Container && targetLocation == DragSlotLocation.Inventory)
         {
             if (_container != null && _transferController != null)
-                TryRequestTransferWithFeedback(_container.Id, _lootReceiver.Id, payload.LootId, LootTransferQuantityMode.FullStack);
+                TryRequestTransferWithFeedback(_container.Id, _lootReceiver.Id, payload.LootId,
+                    payload.HasSourceUnitAddress ? LootTransferQuantityMode.SingleUnit : LootTransferQuantityMode.FullStack,
+                    sourceUnitIndex: payload.SourceUnitIndex, sourceUnitModifiers: payload.SourceUnitModifiers);
         }
         else if (payload.Source == DragSlotLocation.Inventory && targetLocation == DragSlotLocation.Equipment)
         {
@@ -937,6 +995,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         bool contextActionsAvailable = _townEquipmentEndpoint != null && _townEquipmentEndpoint.CanMutate;
         // Quick Slot bindings never move items, so they stay available when equipment changes are not.
         contextActionsAvailable |= _quickSlots != null && CanMutateQuickSlots();
+        contextActionsAvailable |= _gemSession != null && !_gemSession.LocksMutations;
         if (MutationsBlocked || _mode != ScreenMode.Personal || !contextActionsAvailable ||
             !_playerSelection.TrySelect(lootId, _playerPanelPresenter.OccupiedEntries) ||
             !TryGetEntry(_playerPanelPresenter.OccupiedEntries, lootId, out LootEntry entry) ||
@@ -947,6 +1006,13 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             return;
         }
 
+        if (_gemSession != null)
+        {
+            int sourceSlot = -1;
+            for (int i = 0; i < _view.PlayerPanel.AuthoredSlotCount; i++)
+                if (_view.PlayerPanel.GetAuthoredSlot(i)?.transform == anchor) { sourceSlot = i; break; }
+            _gemActionProvider.Bind(_gemSession, InventoryList.Loadout, sourceSlot);
+        }
         ShowPlayerContext(new LootContextActionContext(entry, definition), anchor);
     }
 
@@ -1247,7 +1313,9 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         }
 
         _lootCatalog.TryGet(entry.LootId.Value, out LootDefinition definition);
-        return RaidInventorySlotData.Create(entry, definition, null);
+        return RaidInventorySlotData.Create(entry, definition, null,
+            _isRaidBinding ? null : prepared.GetInstance(slot),
+            _isRaidBinding ? null : _readTownAttributes?.Invoke(), _lootCatalog);
     }
 
     private void OnDropTransportRejected(LootTransferTransportRejectionReason reason)
@@ -1347,7 +1415,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
     private bool TryRequestTransferWithFeedback(
         EntityId sourceId, EntityId destinationId, LootId lootId, LootTransferQuantityMode mode,
-        int sourceInventorySlotIndex = -1, int expectedInventoryRevision = -1)
+        int sourceInventorySlotIndex = -1, int expectedInventoryRevision = -1,
+        int sourceUnitIndex = -1, WeaponInstanceModifiersNetworkData sourceUnitModifiers = default)
     {
         // Capture the displayed destination before either snapshots or confirmation can arrive.
         LootTransferFeedbackState feedback = destinationId == _container.Id
@@ -1355,10 +1424,13 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         if (_transferController.HasRequestInFlight) return false;
         feedback.CaptureRequest(lootId);
         bool addressed = sourceInventorySlotIndex != -1 || expectedInventoryRevision != -1;
-        bool accepted = addressed
-            ? _transferController.TryRequestTransfer(sourceId, destinationId, lootId, mode,
-                sourceInventorySlotIndex, expectedInventoryRevision)
-            : _transferController.TryRequestTransfer(sourceId, destinationId, lootId, mode);
+        bool accepted = sourceUnitIndex != -1
+            ? _transferController.TryRequestUnitTransfer(sourceId, destinationId, lootId,
+                sourceUnitIndex, sourceUnitModifiers)
+            : addressed
+                ? _transferController.TryRequestTransfer(sourceId, destinationId, lootId, mode,
+                    sourceInventorySlotIndex, expectedInventoryRevision)
+                : _transferController.TryRequestTransfer(sourceId, destinationId, lootId, mode);
         if (accepted) return true;
         feedback.CompleteRequest(null, false);
         return false;
@@ -1453,7 +1525,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         if (MutationsBlocked || _mode != ScreenMode.ContainerLoot || _container == null ||
             _transferController == null || _transferController.HasRequestInFlight ||
             _takeAllState.IsActive ||
-            !_takeAllState.TryBegin(_containerPanelPresenter.OccupiedEntries))
+            !_takeAllState.TryBegin(_containerPanelPresenter.Slots))
         {
             RefreshTransferInteraction();
             return;
@@ -1486,11 +1558,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             }
 
             LootId lootId = _takeAllState.CurrentLootId;
+            bool unit = _takeAllState.CurrentHasUnitAddress;
             if (TryRequestTransferWithFeedback(
                     _container.Id,
                     _lootReceiver.Id,
                     lootId,
-                    LootTransferQuantityMode.FullStack))
+                    unit ? LootTransferQuantityMode.SingleUnit : LootTransferQuantityMode.FullStack,
+                    sourceUnitIndex: _takeAllState.CurrentUnitIndex,
+                    sourceUnitModifiers: _takeAllState.CurrentUnitModifiers))
             {
                 if (!_takeAllState.TryMarkRequestSent(lootId))
                 {
@@ -1653,7 +1728,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             (_isRaidBinding
                 ? _dropController != null && !_dropController.HasRequestInFlight &&
                     _equipmentController != null && !_equipmentController.HasRequestInFlight
-                : _townEquipmentEndpoint != null && _townEquipmentEndpoint.CanMutate)
+                : _townEquipmentEndpoint != null && (_townEquipmentEndpoint.CanMutate || _gemSession != null))
                 ? RaidLootSlotInteractionMode.ContextMenu
                 : transferInteractive
                     ? RaidLootSlotInteractionMode.Transfer
@@ -1661,7 +1736,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         UpdateSortInteractable();
         bool refreshed = _isRaidBinding
             ? _playerPanelPresenter.RefreshInventory(_lootReceiver, _lootCatalog, _view.PlayerPanel,
-                totalValue, interactionMode, _playerSelection.SelectedLootId, _playerSelection.SelectedInventorySlotIndex)
+                totalValue, interactionMode, _playerSelection.SelectedLootId, _playerSelection.SelectedInventorySlotIndex,
+                ReadRaidAttributes())
             : _playerPanelPresenter.Refresh(_inventorySource, _lootCatalog, _view.PlayerPanel,
                 totalValue, false, interactionMode, _playerSelection.SelectedLootId, this);
 
@@ -1679,6 +1755,47 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         {
             HideContextMenu();
         }
+    }
+
+    private void BindTownCells()
+    {
+        var panel = _view.PlayerPanel;
+        for (int i = 0; i < panel.AuthoredSlotCount; i++)
+        {
+            int index = i;
+            var cell = panel.GetAuthoredSlot(i);
+            if (cell == null) continue;
+            Action<DragPayload> drag = payload => { if (payload.IsValid && !MutationsBlocked) _townDragSlot = index; };
+            Action<DragSlotLocation, EquipmentSlot> drop = (_, __) => OnTownCellDrop(index);
+            cell.DragStarted += drag;
+            cell.DropReceived += drop;
+            _townCellUnbind.Add(() => { if (cell != null) { cell.DragStarted -= drag; cell.DropReceived -= drop; } });
+        }
+    }
+    private void OnTownCellDrop(int target)
+    {
+        if (_isRaidBinding || MutationsBlocked || !_activeDrag.IsValid || _townDragSlot < 0 ||
+            _activeDrag.Source != DragSlotLocation.Inventory) return;
+        int source = _townDragSlot;
+        var id = _activeDrag.LootId;
+        CancelActiveDrag(); _townDragSlot = -1;
+        if (_gemSession != null && _gemSession.Drop(InventoryList.Loadout, source, InventoryList.Loadout, target)) return;
+        if (_townSortCoordinator != null) _ = MoveTownAsync(source, target, id);
+    }
+    private async System.Threading.Tasks.Task MoveTownAsync(int source, int target, LootId id)
+    {
+        var result = await _townSortCoordinator.MoveAsync(InventoryList.Loadout, source, InventoryList.Loadout, target, id);
+        if (this != null && !result.IsSuccess) _view.ShowTransferFeedback("No se pudo mover el objeto");
+    }
+    private void OnTownGemChanged()
+    {
+        CancelActiveDrag(); HideContextMenu();
+        RefreshPlayerPanel(); RefreshEquipmentSlots(); RefreshQuickSlots();
+        if (_gemSession == null) return;
+        if (_gemSession.IsPending || _gemSession.IsSelecting) _view.ShowPersistentTransferFeedback(_gemSession.Message);
+        else if (!string.IsNullOrEmpty(_gemSession.Message)) _view.ShowTransferFeedback(_gemSession.Message);
+        else _view.HideTransferFeedback();
+        _gemBinding?.RefreshPanel(_view.PlayerPanel, InventoryList.Loadout);
     }
 
     private bool CanSortInventory => _isBound && !_isRaidBinding && !MutationsBlocked &&
@@ -1758,15 +1875,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
         _observedContainerLootSequence = _container.LootChangeSequence;
         bool interactive = !MutationsBlocked && !_transferController.HasRequestInFlight && !_takeAllState.IsActive;
-        bool refreshed = _containerPanelPresenter.Refresh(
-            _container,
+        bool refreshed = _containerPanelPresenter.RefreshContainer(
             _container,
             _lootCatalog,
             _view.ContainerPanel,
-            null,
             true,
-            interactive,
+            interactive ? RaidLootSlotInteractionMode.Transfer : RaidLootSlotInteractionMode.ReadOnly,
             _containerSelection.SelectedLootId,
+            ReadRaidAttributes(),
             this);
 
         if (!refreshed)
@@ -1779,6 +1895,14 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         PresentTransferFeedback(_containerTransferFeedback, _containerPanelPresenter, _view.ContainerPanel);
         RefreshTransferInteraction();
     }
+
+    /// <summary>The local participant's confirmed attributes for Raid weapon tooltips, when admitted.</summary>
+    private CharacterAttributeState? ReadRaidAttributes() =>
+        _isRaidBinding && _lootReceiver != null &&
+        _lootReceiver.TryGetComponent(out RaidAvatarParticipantLink link) &&
+        link.TryGetCharacterAttributeState(out CharacterAttributeState attributes)
+            ? attributes
+            : null;
 
     private void RefreshTransferInteraction()
     {
@@ -1795,7 +1919,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             (_isRaidBinding
                 ? _dropController != null && !_dropController.HasRequestInFlight &&
                     _equipmentController != null && !_equipmentController.HasRequestInFlight
-                : _townEquipmentEndpoint != null && _townEquipmentEndpoint.CanMutate)
+                : _townEquipmentEndpoint != null && (_townEquipmentEndpoint.CanMutate || _gemSession != null))
                 ? RaidLootSlotInteractionMode.ContextMenu
                 : interactive
                     ? RaidLootSlotInteractionMode.Transfer
@@ -1809,6 +1933,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             _containerSelection.SelectedLootId);
         _view.SetTakeAllInteractable(
             interactive && HasTransferableEntries(_containerPanelPresenter.OccupiedEntries));
+        _gemBinding?.RefreshPanel(_view.PlayerPanel, InventoryList.Loadout);
     }
 
     private static bool HasTransferableEntries(System.Collections.Generic.IReadOnlyList<LootEntry> entries)
@@ -2038,6 +2163,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _downedReadOnly = false;
         _inventorySource = null;
         _preparedEquipmentSource = null;
+        _readTownAttributes = null;
         _townEquipmentEndpoint = null;
         _townEquipActionProvider.Bind(null);
         _lootReceiver = null;

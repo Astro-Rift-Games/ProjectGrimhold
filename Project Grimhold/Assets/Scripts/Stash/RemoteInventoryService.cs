@@ -6,8 +6,26 @@ using Grimhold.Backend;
 /// Handles backend synchronization for the stash/loadout inventory system.
 /// Intended to be called by Presenters before applying local state changes.
 /// </summary>
-public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, ISlotRemoteInventoryService
+public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, ISlotRemoteInventoryService, IRemoteGemInstallService
 {
+    public async Task<(bool success, MoveItemResult data, BackendError error)> InstallGemAsync(InstallGemRequest request)
+    {
+        if (string.IsNullOrEmpty(AuthToken))
+            return (false, default, new BackendError { error = "UNAUTHORIZED" });
+        await _mutationLock.WaitAsync();
+        try
+        {
+            if (_store == null || _store.InventorySchemaVersion != 3 || _store.RequiresEquipmentHydration)
+                return (false, default, new BackendError { error = "INVENTORY_MIGRATION_REQUIRED" });
+            var result = await InventoryClient.InstallGemAsync(_backendConfig, AuthToken, request);
+            if (!result.success && result.error.error == BackendErrorUtility.Unauthorized)
+                ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+            // No revision-only commit: the coordinator applies both authoritative lists atomically.
+            return result;
+        }
+        finally { _mutationLock.Release(); }
+    }
+
     public Task<(bool success, BackendError error)> OrderAsync(
         InventoryList list, System.Collections.Generic.IReadOnlyList<LootId> lootIds)
     {
@@ -77,7 +95,7 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, IS
         await _mutationLock.WaitAsync();
         try
         {
-            if (_store == null || _store.InventorySchemaVersion != 2)
+            if (_store == null || _store.InventorySchemaVersion < 2 || _store.InventorySchemaVersion > 3)
                 return (false, new BackendError { error = "INVENTORY_MIGRATION_REQUIRED", message = "Inventory migration required" });
             var (success, data, error) = await operation();
             if (!success && error.error == BackendErrorUtility.Unauthorized)
@@ -188,7 +206,9 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, IS
         await _mutationLock.WaitAsync();
         try
         {
-            int expectedRevision = _store?.RemoteRevision ?? 0;
+            if (_store == null || _store.RequiresEquipmentHydration)
+                return (false, new BackendError { error = "INVENTORY_MIGRATION_REQUIRED", message = "Equipment hydration required" });
+            int expectedRevision = _store.RemoteRevision;
             var request = new UpdatePreparedEquipmentRequest
             {
                 weaponSlot1 = equipment.WeaponSetAMainHand.IsValid ? equipment.WeaponSetAMainHand.Value : "",
@@ -201,6 +221,8 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, IS
                 offHand2    = equipment.WeaponSetBOffHand.IsValid ? equipment.WeaponSetBOffHand.Value : ""
             };
 
+            if (_store.InventorySchemaVersion == 3)
+                request.instanceEquipment = PreparedEquipmentData.FromLoadout(equipment);
             var (success, result, error) = await InventoryClient.UpdatePreparedEquipmentAsync(_backendConfig, AuthToken, request, expectedRevision);
             if (!success && error.error == BackendErrorUtility.Unauthorized)
             {
@@ -482,17 +504,8 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, IS
         string resultId = $"{receipt.RaidId}:{targetId}:{receipt.ResultSequence}";
         string issuedAt = System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
         var itemsDTO = MapToDTO(items);
-        var eqDTO = new PreparedEquipmentData
-        {
-            weaponSlot1 = preparedEquipment.WeaponSetAMainHand.IsValid ? preparedEquipment.WeaponSetAMainHand.Value : null,
-            weaponSlot2 = preparedEquipment.WeaponSetBMainHand.IsValid ? preparedEquipment.WeaponSetBMainHand.Value : null,
-            helmet = preparedEquipment.Helmet.IsValid ? preparedEquipment.Helmet.Value : null,
-            armor = preparedEquipment.Armor.IsValid ? preparedEquipment.Armor.Value : null,
-            gloves = preparedEquipment.Gloves.IsValid ? preparedEquipment.Gloves.Value : null,
-            boots = preparedEquipment.Boots.IsValid ? preparedEquipment.Boots.Value : null,
-            offHand1 = preparedEquipment.WeaponSetAOffHand.IsValid ? preparedEquipment.WeaponSetAOffHand.Value : null,
-            offHand2 = preparedEquipment.WeaponSetBOffHand.IsValid ? preparedEquipment.WeaponSetBOffHand.Value : null
-        };
+        // The published result is ID-free: units carry their modifiers, never an instance ID.
+        PreparedEquipmentData eqDTO = PreparedEquipmentData.FromLoadout(preparedEquipment);
 
         string canonicalMessage = RaidResultCanonicalizer.BuildCanonicalResultString(
             receipt.RaidId,
@@ -540,7 +553,8 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, IS
             result[i] = new InventoryItemData
             {
                 lootId = items[i].LootId.Value,
-                amount = items[i].Amount
+                amount = items[i].Amount,
+                instance = EquipmentInstanceData.FromInstance(items[i].Instance)
             };
         }
         return result;

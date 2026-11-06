@@ -38,10 +38,12 @@ namespace Grimhold.Backend
         public int slot;
         public string lootId;
         public int    amount;
+        public EquipmentInstanceData instance;
     }
 
     /// <summary>The equipment assignment slots on the character loadout.</summary>
     [Serializable]
+    [Newtonsoft.Json.JsonConverter(typeof(PreparedEquipmentJsonConverter))]
     public struct PreparedEquipmentData
     {
         public string weaponSlot1;
@@ -52,6 +54,63 @@ namespace Grimhold.Backend
         public string boots;
         public string offHand1;
         public string offHand2;
+
+        [NonSerialized] public System.Collections.Generic.Dictionary<EquipmentSlot, EquipmentInstanceData> instances;
+
+        public string Get(EquipmentSlot slot) => slot switch
+        {
+            EquipmentSlot.WeaponSetAMainHand => weaponSlot1, EquipmentSlot.WeaponSetBMainHand => weaponSlot2,
+            EquipmentSlot.WeaponSetAOffHand => offHand1, EquipmentSlot.WeaponSetBOffHand => offHand2,
+            EquipmentSlot.Helmet => helmet, EquipmentSlot.Armor => armor, EquipmentSlot.Gloves => gloves, EquipmentSlot.Boots => boots,
+            _ => null
+        };
+
+        public void Set(EquipmentSlot slot, string lootId, EquipmentInstanceData instance = null, bool instanceFormat = false)
+        {
+            switch (slot)
+            {
+                case EquipmentSlot.WeaponSetAMainHand: weaponSlot1 = lootId; break;
+                case EquipmentSlot.WeaponSetBMainHand: weaponSlot2 = lootId; break;
+                case EquipmentSlot.WeaponSetAOffHand: offHand1 = lootId; break;
+                case EquipmentSlot.WeaponSetBOffHand: offHand2 = lootId; break;
+                case EquipmentSlot.Helmet: helmet = lootId; break;
+                case EquipmentSlot.Armor: armor = lootId; break;
+                case EquipmentSlot.Gloves: gloves = lootId; break;
+                case EquipmentSlot.Boots: boots = lootId; break;
+            }
+            if (instanceFormat)
+            {
+                instances ??= new System.Collections.Generic.Dictionary<EquipmentSlot, EquipmentInstanceData>();
+                instances[slot] = instance;
+            }
+        }
+
+        public static PreparedEquipmentData FromLoadout(PreparedEquipmentLoadout loadout)
+        {
+            var data = new PreparedEquipmentData();
+            foreach (var slot in EquipmentSlotRules.AllSlots)
+                data.Set(slot, loadout.Get(slot).Value, EquipmentInstanceData.FromInstance(loadout.GetInstance(slot)), true);
+            return data;
+        }
+
+        public bool TryToLoadout(LootDefinitionCatalog catalog, bool requireIdentity, out PreparedEquipmentLoadout loadout, out string error)
+        {
+            loadout = default;
+            error = null;
+            foreach (var slot in EquipmentSlotRules.AllSlots)
+            {
+                string id = Get(slot);
+                if (string.IsNullOrEmpty(id)) continue;
+                if (catalog == null || !catalog.TryGet(id, out var definition)) { error = "Unknown prepared equipment."; return false; }
+                EquipmentInstance instance = null;
+                EquipmentInstanceData data = null;
+                instances?.TryGetValue(slot, out data);
+                if (data != null && !data.TryToInstance(definition, requireIdentity, out instance, out error, catalog)) return false;
+                if (requireIdentity && instance == null) { error = "Prepared equipment requires an instance."; return false; }
+                loadout = loadout.With(slot, new LootId(id), instance);
+            }
+            return PreparedEquipmentLoadout.TryValidate(loadout, catalog, false, out error);
+        }
     }
 
     /// <summary>
@@ -88,6 +147,7 @@ namespace Grimhold.Backend
     [Serializable]
     public struct UpdatePreparedEquipmentRequest
     {
+        [NonSerialized] public PreparedEquipmentData? instanceEquipment;
         public string weaponSlot1;
         public string weaponSlot2;
         public string helmet;

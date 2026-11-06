@@ -142,6 +142,17 @@ the copied reserve on the new Host.
 `IsAimStance` and `AimStanceStartTick` are networked and restored by `CopyStateFrom`; its `Spawned()`
 initializes them only when `!IsRestoreSpawn`, so a restored avatar keeps its aim and its drawn stance.
 
+### Weapon instance modifiers
+
+Packed weapon modifiers are networked state restored by `CopyStateFrom`, never rebuilt by `Spawned()`:
+`PlayerLootReceiver.LootModifiers` (one word per Inventory slot), the four hand modifier words of
+`PlayerWeaponEquipmentNetworkController`, `NetworkLootContainer.WeaponUnits` (catalog index, origin and
+modifiers per unit) and `NetworkLootPickup.Modifiers`. The equipment, container and pickup `Spawned()` paths
+skip their fresh initialization on restore spawns (`HostMigrationRestoreUtility.IsRestoreSpawn`), and the
+receiver's `Spawned()` never repacks slots. Focused PlayMode tests copy each behaviour and read the modifiers
+back; they are state-copy tests and do not prove a real multi-process Host Migration (a separate Host plus
+two Clients), which remains a manual check.
+
 ### Accepted ranged release restoration
 
 `PlayerCombatNetworkController` also copies TASK-222's four `WeaponHandAttackState` values and

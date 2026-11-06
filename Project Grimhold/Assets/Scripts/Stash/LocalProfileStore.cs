@@ -85,6 +85,7 @@ public sealed class LocalProfileStore : IMissionClaimService
     public int RemoteRevision =>
         _repository.Snapshot != null ? _repository.Snapshot.RemoteRevision : 0;
     public int InventorySchemaVersion => _repository.Snapshot?.InventorySchemaVersion ?? 1;
+    public bool RequiresEquipmentHydration => _repository.Snapshot?.RequiresEquipmentHydration ?? true;
 
     public IReadOnlyList<MissionInstanceState> GetActiveMissions() =>
         _repository.Snapshot != null ? _repository.Snapshot.ActiveMissions : Array.Empty<MissionInstanceState>();
@@ -956,6 +957,27 @@ public sealed class LocalProfileStore : IMissionClaimService
         }
     }
 
+    /// <summary>Applies the gem endpoint's authoritative lists through the existing hydration transaction.</summary>
+    public StashOperationResult ApplyConfirmedGemInstall(Grimhold.Backend.MoveItemResult result, int expectedRevision)
+    {
+        lock (_sync)
+        {
+            var current = _repository.Snapshot;
+            if (!IsAvailable || current == null || current.RemoteRevision != expectedRevision ||
+                current.InventorySchemaVersion != 3 || current.RequiresEquipmentHydration ||
+                current.PendingReservation != null || current.PendingExtractionCommit != null ||
+                result.stash == null || result.loadout == null || result.revision <= expectedRevision)
+                return StashOperationResult.InvalidInventory;
+            // The endpoint changes only these lists and revision. Retain the aggregate's other fields.
+            return ReconcileRemoteState(new Grimhold.Backend.InventoryData
+            {
+                inventorySchemaVersion = 3, stash = result.stash, loadout = result.loadout,
+                revision = result.revision, currency = current.Currency,
+                preparedEquipment = Grimhold.Backend.PreparedEquipmentData.FromLoadout(current.PreparedEquipment)
+            }, null, _lootCatalog, _abilityCatalog);
+        }
+    }
+
     public void SetRemoteRevision(int revision)
     {
         lock (_sync)
@@ -1198,17 +1220,28 @@ public sealed class LocalProfileStore : IMissionClaimService
             if (gate != StashOperationResult.Success) return gate;
             var next = current.Clone();
             next.Loadout.Clear();
-            var seenSlots = new HashSet<int>();
-            for (int i = 0; i < response.loadout.Length; i++)
+            if (current.InventorySchemaVersion == 3)
             {
-                var item = response.loadout[i];
-                var lootId = new LootId(item.lootId);
-                int slot = current.InventorySchemaVersion == 2 ? item.slot : i;
-                if (!lootId.IsValid || item.amount <= 0 || slot < 0 || !seenSlots.Add(slot))
-                    return StashOperationResult.InvalidInventory;
-                next.Loadout.Add(new StashItem(lootId, item.amount, slot));
+                if (!ApplicationStashServiceBootstrapper.TryNormalizeItems(response.loadout, _lootCatalog,
+                    "loadout", out var loadout, current.InventorySchemaVersion)) return StashOperationResult.InvalidInventory;
+                if (loadout.Count != response.loadout.Length) return StashOperationResult.InvalidInventory;
+                next.Loadout.AddRange(loadout);
             }
-            next.Loadout.Sort((a, b) => a.Slot.CompareTo(b.Slot));
+            else
+            {
+                // Legacy acknowledgements require no Store catalog; keep their original validation.
+                var seenSlots = new HashSet<int>();
+                for (int i = 0; i < response.loadout.Length; i++)
+                {
+                    var item = response.loadout[i];
+                    var lootId = new LootId(item.lootId);
+                    int slot = current.InventorySchemaVersion == 2 ? item.slot : i;
+                    if (!lootId.IsValid || item.amount <= 0 || slot < 0 || !seenSlots.Add(slot))
+                        return StashOperationResult.InvalidInventory;
+                    next.Loadout.Add(new StashItem(lootId, item.amount, slot));
+                }
+                next.Loadout.Sort((a, b) => a.Slot.CompareTo(b.Slot));
+            }
             next.Currency = response.currency;
             next.RemoteRevision = response.revision;
             RecordShopReceipt(next, receipt);
@@ -1388,7 +1421,7 @@ public sealed class LocalProfileStore : IMissionClaimService
         int index = FindSlotIndex(source, sourceSlot);
         if (index < 0 || source[index].LootId != id) return StashOperationResult.InvalidInventory;
         int actual = Math.Min(amount, source[index].Amount);
-        var incoming = new[] { new StashItem(id, actual) };
+        var incoming = new[] { new StashItem(id, actual, -1, source[index].Instance) };
         int capacity = fromStash ? LocalProfileSnapshot.MaxLoadoutSlots : StashCapacity;
         if (ExceedsCapacity(destination, incoming, capacity)) return StashOperationResult.InventoryFull;
         if (!TryRemoveAt(source, sourceSlot, id, actual) || !TryMerge(destination, incoming, capacity))
@@ -1531,6 +1564,7 @@ public sealed class LocalProfileStore : IMissionClaimService
             return gate;
         }
 
+        if (current.RequiresEquipmentHydration) return StashOperationResult.InvalidInventory;
         if (FindAmount(current.Loadout, lootId) < 1 ||
             !_lootCatalog.TryGet(lootId.Value, out LootDefinition definition) || definition == null)
         {
@@ -1580,19 +1614,20 @@ public sealed class LocalProfileStore : IMissionClaimService
             return StashOperationResult.InvalidInventory;
         }
 
+        candidate = candidate.With(slot, lootId, current.Loadout[FindIndex(current.Loadout, lootId)].Instance);
         if (!TryRemove(next.Loadout, lootId, 1))
         {
             return StashOperationResult.InvalidInventory;
         }
 
         LootId previousLootId = next.PreparedEquipment.Get(slot);
-        if (!TryReturnEquippedUnit(next.Loadout, previousLootId))
+        if (!TryReturnEquippedUnit(next.Loadout, previousLootId, next.PreparedEquipment.GetInstance(slot)))
         {
             return StashOperationResult.PersistenceFailed;
         }
 
         if (displacedSecondSlot != EquipmentSlot.None &&
-            !TryReturnEquippedUnit(next.Loadout, next.PreparedEquipment.Get(displacedSecondSlot)))
+            !TryReturnEquippedUnit(next.Loadout, next.PreparedEquipment.Get(displacedSecondSlot), next.PreparedEquipment.GetInstance(displacedSecondSlot)))
         {
             return StashOperationResult.PersistenceFailed;
         }
@@ -1630,6 +1665,7 @@ public sealed class LocalProfileStore : IMissionClaimService
             return gate;
         }
 
+        if (current.RequiresEquipmentHydration) return StashOperationResult.InvalidInventory;
         if (FindAmount(current.Stash, lootId) < 1 ||
             !_lootCatalog.TryGet(lootId.Value, out LootDefinition definition) || definition == null)
         {
@@ -1679,6 +1715,7 @@ public sealed class LocalProfileStore : IMissionClaimService
             return StashOperationResult.InvalidInventory;
         }
 
+        candidate = candidate.With(slot, lootId, current.Stash[FindIndex(current.Stash, lootId)].Instance);
         if (!TryRemove(next.Stash, lootId, 1))
         {
             return StashOperationResult.InvalidInventory;
@@ -1686,11 +1723,11 @@ public sealed class LocalProfileStore : IMissionClaimService
 
         var displaced = new List<StashItem>();
         LootId previousLootId = next.PreparedEquipment.Get(slot);
-        if (previousLootId.IsValid) displaced.Add(new StashItem(previousLootId, 1));
+        if (previousLootId.IsValid) displaced.Add(new StashItem(previousLootId, 1, -1, next.PreparedEquipment.GetInstance(slot)));
         if (displacedSecondSlot != EquipmentSlot.None)
         {
             LootId second = next.PreparedEquipment.Get(displacedSecondSlot);
-            if (second.IsValid) displaced.Add(new StashItem(second, 1));
+            if (second.IsValid) displaced.Add(new StashItem(second, 1, -1, next.PreparedEquipment.GetInstance(displacedSecondSlot)));
         }
         // No intermediate Loadout slot is needed for the Stash unit. Displaced units use
         // the same admission rule as all other receives, including overflow rejection.
@@ -1703,12 +1740,10 @@ public sealed class LocalProfileStore : IMissionClaimService
         return StashOperationResult.Success;
     }
 
-    private static bool TryReturnEquippedUnit(List<StashItem> inventory, LootId lootId)
+    private static bool TryReturnEquippedUnit(List<StashItem> inventory, LootId lootId, EquipmentInstance instance = null)
     {
         if (!lootId.IsValid) return true;
-        return (FindIndex(inventory, lootId) >= 0 ||
-                inventory.Count < LocalProfileSnapshot.MaxLoadoutSlots) &&
-            TryMerge(inventory, new[] { new StashItem(lootId, 1) }, LocalProfileSnapshot.MaxLoadoutSlots);
+        return TryMerge(inventory, new[] { new StashItem(lootId, 1, -1, instance) }, LocalProfileSnapshot.MaxLoadoutSlots);
     }
 
     /// <summary>Moves one equipped unit back into the persistent Inventory atomically.</summary>
@@ -1725,6 +1760,7 @@ public sealed class LocalProfileStore : IMissionClaimService
             return gate;
         }
 
+        if (current.RequiresEquipmentHydration) return StashOperationResult.InvalidInventory;
         LootId previousLootId = current.PreparedEquipment.Get(slot);
         if (!previousLootId.IsValid)
         {
@@ -1734,7 +1770,7 @@ public sealed class LocalProfileStore : IMissionClaimService
         LocalProfileSnapshot next = current.Clone();
         if ((FindIndex(next.Loadout, previousLootId) < 0 &&
              next.Loadout.Count >= LocalProfileSnapshot.MaxLoadoutSlots) ||
-            !TryMerge(next.Loadout, new[] { new StashItem(previousLootId, 1) }, LocalProfileSnapshot.MaxLoadoutSlots))
+            !TryMerge(next.Loadout, new[] { new StashItem(previousLootId, 1, -1, current.PreparedEquipment.GetInstance(slot)) }, LocalProfileSnapshot.MaxLoadoutSlots))
         {
             return StashOperationResult.PersistenceFailed;
         }

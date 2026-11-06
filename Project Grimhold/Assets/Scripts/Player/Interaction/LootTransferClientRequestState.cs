@@ -32,6 +32,24 @@ public sealed class LootTransferClientRequestState
                 sourceInventorySlotIndex, expectedInventoryRevision, out identity);
     }
 
+    public bool TryCreateUnitCandidate(
+        EntityId sourceId,
+        EntityId destinationId,
+        int catalogIndex,
+        int sourceUnitIndex,
+        WeaponInstanceModifiersNetworkData expectedModifiers,
+        out LootTransferRequestIdentity identity)
+    {
+        identity = default;
+        if (!LootTransferRequest.IsValidSourceUnitAddress(sourceUnitIndex) ||
+            !TryCreateCandidateCore(sourceId, destinationId, catalogIndex, LootTransferQuantityMode.SingleUnit,
+                -1, -1, out LootTransferRequestIdentity plain))
+            return false;
+        identity = LootTransferRequestIdentity.ForSourceUnit(plain.RequestSequence, sourceId, destinationId,
+            catalogIndex, LootTransferQuantityMode.SingleUnit, sourceUnitIndex, expectedModifiers);
+        return true;
+    }
+
     private bool TryCreateCandidateCore(
         EntityId sourceId,
         EntityId destinationId,

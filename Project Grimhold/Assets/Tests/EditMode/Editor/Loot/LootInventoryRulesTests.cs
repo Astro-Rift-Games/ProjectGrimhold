@@ -4,6 +4,53 @@ namespace Tests.EditMode.Loot
 {
     public sealed class LootInventoryRulesTests
     {
+        [Test]
+        public void WeaponReceptionExtractionAndRejectedSplit_KeepParallelModifiersInLockstep()
+        {
+            var slots = new LootInventorySlot[30];
+            var modifiers = new WeaponInstanceModifiersNetworkData[30];
+            var first = WeaponInstanceModifiersNetworkData.FromPacked(2 << 12);
+            var second = WeaponInstanceModifiersNetworkData.FromPacked(1 << 12);
+            Assert.That(LootInventoryRules.TryReceive(slots, modifiers, 0, RaidLootOrigin.Dungeon,
+                1, 0, 1, true, first), Is.EqualTo(LootTransferFailureReason.None));
+            Assert.That(LootInventoryRules.TryReceive(slots, modifiers, 0, RaidLootOrigin.Dungeon,
+                1, 0, 1, true, second), Is.EqualTo(LootTransferFailureReason.None));
+            Assert.That(slots[0].Quantity, Is.EqualTo(1));
+            Assert.That(slots[1].Quantity, Is.EqualTo(1));
+            Assert.That(modifiers[0], Is.EqualTo(first));
+            Assert.That(modifiers[1], Is.EqualTo(second));
+            var before = (LootInventorySlot[])slots.Clone();
+            var modifiersBefore = (WeaponInstanceModifiersNetworkData[])modifiers.Clone();
+            Assert.That(LootInventoryRules.TrySplit(slots, modifiers, 0, 1, 2), Is.EqualTo(LootTransferFailureReason.InvalidAmount));
+            Assert.That(slots, Is.EqualTo(before));
+            Assert.That(modifiers, Is.EqualTo(modifiersBefore));
+            Assert.That(LootInventoryRules.TryExtract(slots, modifiers, 1, 1), Is.EqualTo(LootTransferFailureReason.None));
+            Assert.That(slots[1].IsEmpty, Is.True);
+            Assert.That(modifiers[1].IsEmpty, Is.True);
+            Assert.That(modifiers[0], Is.EqualTo(first));
+            Assert.That(LootInventoryRules.TryReceive(slots, modifiers, 1, RaidLootOrigin.Dungeon,
+                10, 0, 3, false, default), Is.EqualTo(LootTransferFailureReason.None));
+            Assert.That(modifiers[1].IsEmpty, Is.True, "A reused non-weapon slot must not retain a weapon's modifiers.");
+            Assert.That(LootInventoryRules.TrySplit(slots, modifiers, 1, 1, 2), Is.EqualTo(LootTransferFailureReason.None));
+            Assert.That(slots[1].Quantity, Is.EqualTo(2));
+            Assert.That(slots[2].Quantity, Is.EqualTo(1));
+            Assert.That(modifiers[1].IsEmpty && modifiers[2].IsEmpty, Is.True);
+        }
+
+        [Test]
+        public void WeaponBulkReceptionOrNonWeaponModifiers_RejectWithoutMutation()
+        {
+            var slots = new LootInventorySlot[30];
+            var modifiers = new WeaponInstanceModifiersNetworkData[30];
+            var weapon = WeaponInstanceModifiersNetworkData.FromPacked(2 << 12);
+            Assert.That(LootInventoryRules.TryReceive(slots, modifiers, 0, RaidLootOrigin.Dungeon,
+                10, 0, 2, true, weapon), Is.EqualTo(LootTransferFailureReason.InvalidAmount));
+            Assert.That(LootInventoryRules.TryReceive(slots, modifiers, 0, RaidLootOrigin.Dungeon,
+                10, 0, 1, false, weapon), Is.EqualTo(LootTransferFailureReason.InvalidLoot));
+            Assert.That(slots, Is.EqualTo(new LootInventorySlot[30]));
+            Assert.That(modifiers, Is.EqualTo(new WeaponInstanceModifiersNetworkData[30]));
+        }
+
         [TestCase(1, true)]
         [TestCase(16, true)]
         [TestCase(30, true)]

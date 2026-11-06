@@ -9,7 +9,7 @@ Both complete Unity suites failed; visual/input acceptance remains pending.
 ## Existing menu wiring and remaining checks
 
 Use the project's Unity version from `ProjectSettings/ProjectVersion.txt` (currently
-`6000.5.1f1`). Inspect the scene through Unity MCP or the Editor before saving anything.
+`6000.6.8f1`). Inspect the scene through Unity CLI or the Editor before saving anything.
 
 1. Open `Assets/Scenes/MainMenu.unity` and select its `MainMenu Canvas` instance.
    The source is `Assets/Prefabs/UI/MainMenu Canvas.prefab` (GUID

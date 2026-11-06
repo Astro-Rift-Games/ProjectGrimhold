@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
+const { validInventory } = require('../services/ItemInstances');
 
 // Embedded schema for a single item slot (stash or loadout entry).
 const itemSchema = new mongoose.Schema({
@@ -11,21 +13,16 @@ const itemSchema = new mongoose.Schema({
     }
   },
   lootId: { type: String, required: true },
-  amount: { type: Number, required: true, min: 1 }
+  amount: { type: Number, required: true, min: 1 },
+  // Union payload is validated in context of its owning template and schema version.
+  instance: { type: mongoose.Schema.Types.Mixed }
 }, { _id: false });
 
-// Embedded schema for the six equipment assignment slots.
-// Each field stores a lootId string; empty string means unassigned.
-const preparedEquipmentSchema = new mongoose.Schema({
-  weaponSlot1: { type: String, default: '' },
-  weaponSlot2: { type: String, default: '' },
-  offHand1:    { type: String, default: '' },
-  helmet:      { type: String, default: '' },
-  armor:       { type: String, default: '' },
-  gloves:      { type: String, default: '' },
-  boots:       { type: String, default: '' },
-  offHand2:    { type: String, default: '' }
-}, { _id: false });
+// V1/v2 strings and v3 {lootId, instance} coexist during the explicit cutover.
+const preparedEquipmentSchema = new mongoose.Schema(Object.fromEntries(EQUIPMENT_SLOTS.map(slot => [slot, {
+  type: mongoose.Schema.Types.Mixed,
+  default: function () { return this.ownerDocument().inventory?.inventorySchemaVersion === 3 ? null : ''; }
+}])), { _id: false });
 
 const preparedAbilitiesSchema = new mongoose.Schema({
   slot1: { type: String, default: '' },
@@ -85,8 +82,10 @@ const buybackSchema = new mongoose.Schema({
 
 const shopReceiptSchema = new mongoose.Schema({
   transactionId: { type: String, required: true },
-  type:          { type: String, enum: ['buy', 'sell', 'buyback', 'ability_purchase'], required: true },
+  type:          { type: String, enum: ['buy', 'sell', 'buyback', 'ability_purchase', 'install_gem'], required: true },
   entryId:       { type: String },
+  intent:        { type: mongoose.Schema.Types.Mixed },
+  outcome:       { type: mongoose.Schema.Types.Mixed },
   sourceSlot:    { type: Number, min: 0 },
   lootId:        { type: String },
   abilityId:     { type: String, default: '' },
@@ -142,5 +141,10 @@ const characterSchema = new mongoose.Schema({
     default: 0
   }
 });
+
+// A document save must obey the same cross-location invariants as service writes.
+characterSchema.path('inventory.inventorySchemaVersion').validate(function (version) {
+  return version !== 3 || validInventory(this.inventory);
+}, 'INVALID_INVENTORY');
 
 module.exports = mongoose.model('Character', characterSchema);
