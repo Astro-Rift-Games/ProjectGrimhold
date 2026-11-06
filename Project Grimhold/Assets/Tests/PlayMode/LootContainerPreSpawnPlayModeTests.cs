@@ -172,6 +172,93 @@ namespace Tests.PlayMode.Loot
         }
 
         [UnityTest]
+        public IEnumerator RandomContent_WeaponUnitsRollDeterministicDungeonVariants()
+        {
+            yield return StartRunnerAndLoadPrefab(LootContainerPrefabGuid);
+
+            var template = _prefab.GetComponent<NetworkLootContainer>();
+            var config = _prefab.GetComponent<LootContainerRandomContentConfig>();
+            Assert.That(LootContainerContentTableValidation.TryCreateSnapshot(
+                config.Table, template.LootCatalog, template.SlotCapacity,
+                NetworkLootContainer.MaxDistinctLootTypes,
+                out ValidatedLootContainerContentSnapshot snapshot, out string error), Is.True, error);
+            Assert.That(WeaponInstanceGenerationDefaults.TryGetRules(
+                template.LootCatalog, out WeaponInstanceGenerationRules rules), Is.True);
+
+            ulong seed = 0;
+            IReadOnlyList<LootEntry> rolled = null;
+            for (ulong candidate = 1; candidate <= 2000 && seed == 0; candidate++)
+            {
+                if (!LootContainerContentRoller.TryRoll(snapshot, candidate, 0, out IReadOnlyList<LootEntry> content, out _))
+                {
+                    continue;
+                }
+
+                foreach (LootEntry entry in content)
+                {
+                    if (template.LootCatalog.TryGet(entry.LootId.Value, out LootDefinition definition) &&
+                        definition.Category == LootCategory.Weapon)
+                    {
+                        seed = candidate;
+                        rolled = content;
+                        break;
+                    }
+                }
+            }
+
+            Assert.That(seed, Is.Not.Zero, "The chest table must be able to roll a weapon.");
+            NetworkLootContainer container = SpawnRandomContainer(seed, 0);
+            yield return Interact(container.GetComponent<NetworkLootContainerInteractable>());
+            Assert.That(container.GenerationState, Is.EqualTo(LootSourceGenerationState.Resolved));
+
+            var expectedByTemplate = new Dictionary<int, List<WeaponInstanceModifiersNetworkData>>();
+            foreach (LootEntry entry in rolled)
+            {
+                template.LootCatalog.TryGetIndex(entry.LootId, out int index);
+                template.LootCatalog.TryGetByIndex(index, out LootDefinition definition);
+                if (definition.Category != LootCategory.Weapon)
+                {
+                    continue;
+                }
+
+                var expected = new List<WeaponInstanceModifiersNetworkData>();
+                for (int unit = 0; unit < entry.Amount; unit++)
+                {
+                    Assert.That(WeaponInstanceGenerationDefaults.TryGenerateUnit(
+                        template.LootCatalog, rules, index, seed, unit,
+                        out WeaponInstanceModifiersNetworkData data, out error), Is.True, error);
+                    expected.Add(data);
+                }
+
+                expectedByTemplate[index] = expected;
+            }
+
+            var actualByTemplate = new Dictionary<int, List<WeaponInstanceModifiersNetworkData>>();
+            for (int unitIndex = 0; unitIndex < NetworkLootContainer.MaxWeaponUnits; unitIndex++)
+            {
+                Assert.That(container.TryGetWeaponUnit(unitIndex, out ContainerWeaponUnit unit), Is.True);
+                if (unit.IsEmpty)
+                {
+                    continue;
+                }
+
+                Assert.That(unit.Origin, Is.EqualTo(RaidLootOrigin.Dungeon));
+                if (!actualByTemplate.TryGetValue(unit.CatalogIndex, out var list))
+                {
+                    actualByTemplate[unit.CatalogIndex] = list = new List<WeaponInstanceModifiersNetworkData>();
+                }
+
+                list.Add(unit.Modifiers);
+            }
+
+            Assert.That(actualByTemplate.Keys, Is.EquivalentTo(expectedByTemplate.Keys));
+            foreach (var pair in expectedByTemplate)
+            {
+                Assert.That(actualByTemplate[pair.Key], Is.EquivalentTo(pair.Value));
+            }
+        }
+
+        [UnityTest]
         public IEnumerator RandomContent_FailedIsTerminalAndStillOpensEmpty()
         {
             yield return StartRunnerAndLoadPrefab(LootContainerPrefabGuid);

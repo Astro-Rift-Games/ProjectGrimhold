@@ -394,7 +394,9 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                     MaximumConfiguredSlotCapacity,
                     out IReadOnlyList<KeyValuePair<int, int>> resolvedEntries,
                     out error) ||
-                !TryCommitNaturalContent(resolvedEntries, out error))
+                !TryCommitNaturalContent(
+                    resolvedEntries, out error, generateVariants: true,
+                    variantSeed: unchecked((ulong)RandomGenerationSeedBits)))
             {
                 return false;
             }
@@ -432,9 +434,15 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 #endif
     }
 
+    /// <summary>
+    /// Commits natural content. Table-rolled chests pass <paramref name="generateVariants"/> so every
+    /// weapon unit rolls its own Dungeon variant; explicit content stays plain.
+    /// </summary>
     private bool TryCommitNaturalContent(
         IReadOnlyList<KeyValuePair<int, int>> resolvedEntries,
-        out string error)
+        out string error,
+        bool generateVariants = false,
+        ulong variantSeed = 0)
     {
         error = null;
         if (_raidOriginState == null || resolvedEntries == null)
@@ -469,10 +477,34 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                 return false;
             }
 
+            bool hasRules = WeaponInstanceGenerationDefaults.TryGetRules(
+                _lootCatalog, out WeaponInstanceGenerationRules rules);
             for (int index = 0; index < resolvedEntries.Count; index++)
             {
                 KeyValuePair<int, int> entry = resolvedEntries[index];
-                if (IsWeapon(entry.Key) && !TryAddWeaponUnits(entry.Key, RaidLootOriginTransfer.Dungeon(entry.Value)))
+                if (!IsWeapon(entry.Key))
+                {
+                    continue;
+                }
+
+                if (generateVariants && hasRules)
+                {
+                    for (int unit = 0; unit < entry.Value; unit++)
+                    {
+                        if (!WeaponInstanceGenerationDefaults.TryGenerateUnit(
+                                _lootCatalog, rules, entry.Key, variantSeed, unit,
+                                out WeaponInstanceModifiersNetworkData variant, out string variantError))
+                        {
+                            throw new InvalidOperationException($"Weapon variant generation failed. {variantError}");
+                        }
+
+                        if (!TryAddWeaponUnits(entry.Key, RaidLootOriginTransfer.Dungeon(1).WithModifiers(variant)))
+                        {
+                            throw new InvalidOperationException("Validated natural weapon units could not be committed.");
+                        }
+                    }
+                }
+                else if (!TryAddWeaponUnits(entry.Key, RaidLootOriginTransfer.Dungeon(entry.Value)))
                 {
                     throw new InvalidOperationException("Validated natural weapon units could not be committed.");
                 }

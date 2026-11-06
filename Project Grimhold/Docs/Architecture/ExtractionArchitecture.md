@@ -136,10 +136,14 @@ packed word of each of the four hand slots. Plain units are implied by the aggre
 State Authority publish and the Input Authority local commit both use it, so they always agree on the
 unit set. Equipment becomes amount-1 units (a unit with modifiers becomes an ID-less
 `EquipmentInstance`; plain units stay plain) and non-equipment stays aggregated. Input Authority
-validates every packed word against the template and catalog before committing.
+validates every packed word against the template and catalog before committing. The worst-case RPC
+payload is bounded by the thirty Inventory slots plus one aggregate entry per weapon template
+(about 420 bytes with the current catalog); `WeaponInstanceGenerationDefaultsTests` fails if a larger
+catalog would approach Fusion's 512-byte limit.
 `POST /character/raid/extraction-result` is always sent in the ID-free instance form (equipment
 `{ lootId, amount: 1, modifiers? }`, slots `null | { lootId, modifiers? }`, including both off-hand
-slots); the commit bodies stay quantity-only and merge units of one template because the backend
+slots) and is therefore valid only for recipients on the v3 inventory schema (the pre-migration
+string slot form is not produced; migration precedes rollout); the commit bodies stay quantity-only and merge units of one template because the backend
 reads the stored result, not the commit items. The Results loot summary remains presentation-only
 and aggregate.
 

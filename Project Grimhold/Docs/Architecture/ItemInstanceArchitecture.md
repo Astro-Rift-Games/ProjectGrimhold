@@ -219,6 +219,14 @@ As built (TASK-283 T7):
   (Inventory slots first, then the four hands). `NetworkLootContainer.TryLoadExactContent`,
   `HasExactContent` and `TryClearExactContent` take that list; the rest of each provenance bucket is
   created plain and a modified unit must belong to an existing bucket.
+- Dungeon variants (T8): a table-rolled chest resolved on first interaction
+  (`NetworkLootContainer.TryResolveRandomContent`) rolls one deterministic variant per weapon unit with
+  `WeaponInstanceGenerator`, seeded from the chest seed, the template and the unit position
+  (`WeaponInstanceGenerationDefaults.UnitSeed`). Provisional Balance values live in
+  `WeaponInstanceGenerationDefaults`: primary scaling 40%, secondary 10%, grade weights E-S
+  40/30/18/8/3/1, socket counts 0/1/2 at 80/17/3, 25% per socket to hold a gem from the three
+  catalog gems. Explicit initial content stays plain, and a catalog without the whole gem pool
+  generates plain units. Enemy drops and breakable drops do not generate variants yet.
 - Measured Fusion word counts with modifiers (ceilings in `RaidLootOriginWordCountTests`): container
   1230, enemy 1291, pickup 24.
 - Measured network budgets (`RaidLootOriginWordCountTests`) are re-measured after implementation
