@@ -88,6 +88,18 @@ Implementation work follows Organic Driven Development (ODD). With Gentle Shell,
 - **Substantial tasks:** keep recoverable ODD tracking in `odd/tasks/<feature>.md` (plus its Engram mirror when available), linked to the HacknPlan item as described above.
 - ODD tracking does not change delivery authorization: commits, including ODD work-unit commits, and pushes still require explicit authorization per Shared Development Standards.
 
+## Codex Orchestration
+
+The main agent decides whether to delegate tasks based on scope, dependencies, and cost. It must not invoke subagents for trivial tasks or when delegation provides no clear benefit.
+
+It may delegate to `grimhold_explorer` for codebase exploration, `grimhold_architect` for solution design, `grimhold_implementer` for implementation, `grimhold_reviewer` for code review, and `grimhold_validator` for verification.
+
+The main agent plans before implementation when the scope or complexity requires it, coordinates changes to shared files, and requests reviews or validation based on risk. It runs tasks in parallel only when they are independent.
+
+All existing rules and the source-of-truth hierarchy defined in `AGENTS.md` must be respected. Game Design decisions must never be changed without explicit authorization.
+
+Upon completion, the main agent summarizes the changes made, verification results, and any remaining blockers. It must never fabricate test results or claim actions that were not performed.
+
 ## Project workflow and tools
 
 - Confirm the repository, target branch and working tree before edits. Stay on a specified branch; do not create worktrees unless explicitly requested.

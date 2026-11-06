@@ -48,6 +48,7 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
     private EntityId _registeredId;
     private bool _isRegistered;
     private LootEntry[] _initialDrops;
+    private bool _dropsFromTable;
     private DropOverrideState _dropOverrideState;
     private ulong _randomGenerationSeedOverride;
     private int _additionalLootChanceOverride;
@@ -163,6 +164,7 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
         UnregisterDamageable();
         _registry = null;
         _initialDrops = null;
+        _dropsFromTable = false;
         _dropOverrideState = DropOverrideState.NotRequested;
         _randomGenerationSeedOverride = 0;
         _additionalLootChanceOverride = 0;
@@ -311,6 +313,25 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
         for (int i = 0; i < _initialDrops.Length; i++)
         {
             LootEntry entry = _initialDrops[i];
+            RaidLootOriginTransfer originTransfer = RaidLootOriginTransfer.Dungeon(entry.Amount);
+            if (_dropsFromTable)
+            {
+                // Table-rolled single weapons roll their own Dungeon variant; exact drops stay plain.
+                if (!WeaponInstanceGenerationDefaults.TryRollPickupModifiers(
+                        _lootCatalog, entry, unchecked((ulong)RandomGenerationSeedBits), i,
+                        out WeaponInstanceModifiersNetworkData variant, out string variantError))
+                {
+                    Debug.LogError(
+                        $"{nameof(BreakableObject)} could not roll a weapon variant for drop {i} of '{name}'. " +
+                        $"The drop stays plain. {variantError}",
+                        this);
+                }
+                else if (!variant.IsEmpty)
+                {
+                    originTransfer = originTransfer.WithModifiers(variant);
+                }
+            }
+
             Vector2 offset = _dropOffsets[i];
             Vector3 position = transform.TransformPoint(new Vector3(offset.x, offset.y, 0f));
             bool callbackApplied = false;
@@ -329,7 +350,8 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
                             ? instance.GetComponent<NetworkLootPickup>()
                             : null;
                         callbackApplied = callbackPickup != null &&
-                            callbackPickup.TrySetSpawnContentOverride(callbackRunner, instance, entry);
+                            callbackPickup.TrySetSpawnContentOverride(
+                                callbackRunner, instance, entry, true, entry.Amount, originTransfer);
                     });
             }
             catch (Exception exception)
@@ -408,6 +430,7 @@ public sealed class BreakableObject : NetworkBehaviour, IDamageable
             }
 
             _initialDrops = materialized;
+            _dropsFromTable = true;
             GenerationState = LootSourceGenerationState.Resolved;
             return true;
         }

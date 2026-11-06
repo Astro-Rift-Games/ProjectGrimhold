@@ -1,0 +1,29 @@
+# FRAGMENTO PARA INCORPORAR EN ProjectGrimhold/.codex/config.toml
+# NO sobreescribir un config.toml existente: integrar secciones sin duplicarlas.
+# El orquestador principal usa el modelo de la sesion. Estas dos lineas son opcionales:
+# model = "gpt-6.1-sol"
+# model_reasoning_effort = "medium"
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 3
+
+[agents.grimhold_explorer]
+description = "Explora el proyecto de Unity/Photon Fusion sin modificar archivos. Ubica rutas de ejecución, dependencias y evidencia para el orquestador."
+config_file = "agents/grimhold_explorer.toml"
+
+[agents.grimhold_architect]
+description = "Diseña soluciones modulares para Unity 6, C# y Photon Fusion 2, sin implementar ni alterar requisitos de Game Design."
+config_file = "agents/grimhold_architect.toml"
+
+[agents.grimhold_implementer]
+description = "Implementa cambios acotados en C# y Unity 6 siguiendo un diseño aprobado y los contratos existentes."
+config_file = "agents/grimhold_implementer.toml"
+
+[agents.grimhold_reviewer]
+description = "Revisa los cambios buscando bugs, regresiones, problemas de red y pruebas faltantes. No modifica archivos."
+config_file = "agents/grimhold_reviewer.toml"
+
+[agents.grimhold_validator]
+description = "Valida cambios con pruebas y comprobaciones reales; informa resultados y bloqueos sin alterar lógica de producción."
+config_file = "agents/grimhold_validator.toml"

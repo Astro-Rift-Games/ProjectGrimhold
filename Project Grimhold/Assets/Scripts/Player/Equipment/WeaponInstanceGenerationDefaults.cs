@@ -55,6 +55,31 @@ public static class WeaponInstanceGenerationDefaults
         }
     }
 
+    /// <summary>
+    /// Rolls the variant of a single-unit weapon drop. Non-weapons, stacks and catalogs without the gem
+    /// pool need no variant and succeed with empty modifiers; only a generation failure returns false.
+    /// </summary>
+    public static bool TryRollPickupModifiers(
+        LootDefinitionCatalog catalog,
+        in LootEntry entry,
+        ulong seed,
+        int unitIndex,
+        out WeaponInstanceModifiersNetworkData modifiers,
+        out string error)
+    {
+        modifiers = default;
+        error = null;
+        if (entry.Amount != 1 || catalog == null || !catalog.TryGetIndex(entry.LootId, out int catalogIndex) ||
+            !catalog.TryGetByIndex(catalogIndex, out LootDefinition definition) ||
+            definition == null || definition.Category != LootCategory.Weapon ||
+            !TryGetRules(catalog, out WeaponInstanceGenerationRules rules))
+        {
+            return true;
+        }
+
+        return TryGenerateUnit(catalog, rules, catalogIndex, seed, unitIndex, out modifiers, out error);
+    }
+
     public static bool TryGenerateUnit(
         LootDefinitionCatalog catalog,
         in WeaponInstanceGenerationRules rules,

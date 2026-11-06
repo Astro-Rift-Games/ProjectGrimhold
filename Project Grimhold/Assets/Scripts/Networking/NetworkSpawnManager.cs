@@ -3612,7 +3612,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
-        if (!container.TrySetInitialContentOverride(runner, instance, content))
+        if (!container.TrySetInitialContentOverride(runner, instance, content, seed))
         {
             error = "The enemy NetworkLootContainer rejected its authoritative pre-spawn content.";
             return false;

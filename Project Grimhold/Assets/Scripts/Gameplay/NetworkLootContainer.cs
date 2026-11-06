@@ -104,6 +104,8 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 
     private LootEntry[] _initialContentOverride;
     private ulong _randomGenerationSeedOverride;
+    private ulong _initialContentVariantSeed;
+    private bool _initialContentGenerateVariants;
     private int _additionalLootChanceOverride;
     private InitialContentOverrideState _initialContentOverrideState;
     private bool _spawnedStarted;
@@ -201,7 +203,9 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                 return;
             }
 
-            if (!TryCommitNaturalContent(resolvedEntries, out string commitError))
+            if (!TryCommitNaturalContent(
+                    resolvedEntries, out string commitError,
+                    _initialContentGenerateVariants, _initialContentVariantSeed))
             {
                 Debug.LogError(
                     $"{nameof(NetworkLootContainer)}: Natural content and provenance initialization failed atomically for '{name}'. {commitError}",
@@ -247,6 +251,26 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     /// The caller guarantees callback timing; this method independently verifies the runner, expected instance
     /// and local lifecycle without consulting authority properties that are not yet initialized.
     /// </summary>
+    /// <summary>
+    /// Pre-spawn content rolled from a table (enemy drops): every weapon unit rolls its own Dungeon
+    /// variant from <paramref name="variantSeed"/> when the container commits it.
+    /// </summary>
+    internal bool TrySetInitialContentOverride(
+        NetworkRunner runner,
+        NetworkObject expectedObject,
+        IReadOnlyList<LootEntry> entries,
+        ulong variantSeed)
+    {
+        if (!TrySetInitialContentOverride(runner, expectedObject, entries))
+        {
+            return false;
+        }
+
+        _initialContentVariantSeed = variantSeed;
+        _initialContentGenerateVariants = true;
+        return true;
+    }
+
     internal bool TrySetInitialContentOverride(
         NetworkRunner runner,
         NetworkObject expectedObject,
@@ -427,6 +451,8 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         _registry = null;
         _initialContentOverride = null;
         _randomGenerationSeedOverride = 0;
+        _initialContentVariantSeed = 0;
+        _initialContentGenerateVariants = false;
         _additionalLootChanceOverride = 0;
         _initialContentOverrideState = InitialContentOverrideState.NotRequested;
 #if UNITY_EDITOR || DEVELOPMENT_BUILD

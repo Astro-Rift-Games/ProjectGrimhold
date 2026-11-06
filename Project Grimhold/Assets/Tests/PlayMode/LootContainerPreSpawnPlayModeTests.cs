@@ -259,6 +259,79 @@ namespace Tests.PlayMode.Loot
         }
 
         [UnityTest]
+        public IEnumerator EnemyDrops_WeaponUnitsRollDeterministicDungeonVariants()
+        {
+            yield return StartRunnerAndLoadPrefab(EnemyMeleePrefabGuid);
+
+            NetworkLootContainer template = _prefab.GetComponent<NetworkLootContainer>();
+            Assert.That(WeaponInstanceGenerationDefaults.TryGetRules(
+                template.LootCatalog, out WeaponInstanceGenerationRules rules), Is.True);
+
+            ulong seed = 0;
+            IReadOnlyList<LootEntry> rolled = null;
+            for (ulong candidate = 1; candidate <= 5000 && seed == 0; candidate++)
+            {
+                if (!NetworkSpawnManager.TryRollEnemyLootContent(template, candidate, 0,
+                        out IReadOnlyList<LootEntry> content, out _))
+                {
+                    continue;
+                }
+
+                foreach (LootEntry entry in content)
+                {
+                    if (template.LootCatalog.TryGet(entry.LootId.Value, out LootDefinition definition) &&
+                        definition.Category == LootCategory.Weapon)
+                    {
+                        seed = candidate;
+                        rolled = content;
+                        break;
+                    }
+                }
+            }
+
+            Assert.That(seed, Is.Not.Zero, "The enemy table must be able to roll a weapon.");
+            bool configured = false;
+            string error = null;
+            NetworkObject spawned = _runner.Spawn(_prefab, Vector3.zero, Quaternion.identity, inputAuthority: null,
+                onBeforeSpawned: (callbackRunner, instance) =>
+                    configured = NetworkSpawnManager.TryConfigureEnemyLootBeforeSpawn(
+                        callbackRunner, instance, seed, 0, out error));
+            Assert.That(configured, Is.True, error);
+            NetworkLootContainer container = spawned.GetComponent<NetworkLootContainer>();
+
+            var expected = new List<WeaponInstanceModifiersNetworkData>();
+            foreach (LootEntry entry in rolled)
+            {
+                template.LootCatalog.TryGetIndex(entry.LootId, out int index);
+                template.LootCatalog.TryGetByIndex(index, out LootDefinition definition);
+                if (definition.Category != LootCategory.Weapon)
+                {
+                    continue;
+                }
+
+                for (int unit = 0; unit < entry.Amount; unit++)
+                {
+                    Assert.That(WeaponInstanceGenerationDefaults.TryGenerateUnit(
+                        template.LootCatalog, rules, index, seed, unit,
+                        out WeaponInstanceModifiersNetworkData data, out error), Is.True, error);
+                    expected.Add(data);
+                }
+            }
+
+            var actual = new List<WeaponInstanceModifiersNetworkData>();
+            for (int unitIndex = 0; unitIndex < NetworkLootContainer.MaxWeaponUnits; unitIndex++)
+            {
+                Assert.That(container.TryGetWeaponUnit(unitIndex, out ContainerWeaponUnit unit), Is.True);
+                if (!unit.IsEmpty)
+                {
+                    actual.Add(unit.Modifiers);
+                }
+            }
+
+            Assert.That(actual, Is.EquivalentTo(expected));
+        }
+
+        [UnityTest]
         public IEnumerator RandomContent_FailedIsTerminalAndStillOpensEmpty()
         {
             yield return StartRunnerAndLoadPrefab(LootContainerPrefabGuid);

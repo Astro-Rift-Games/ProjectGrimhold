@@ -226,7 +226,7 @@ As built (TASK-283 T7):
   `WeaponInstanceGenerationDefaults`: primary scaling 40%, secondary 10%, grade weights E-S
   40/30/18/8/3/1, socket counts 0/1/2 at 80/17/3, 25% per socket to hold a gem from the three
   catalog gems. Explicit initial content stays plain, and a catalog without the whole gem pool
-  generates plain units. Enemy drops and breakable drops do not generate variants yet.
+  generates plain units. Table-rolled enemy drops roll the same per-unit variants when the container commits its pre-spawn content (the roll seed is the variant seed). Breakable drops roll a variant only for single-unit weapon pickups (amount 1), indexed by drop position; exact drops and stacks stay plain.
 - Measured Fusion word counts with modifiers (ceilings in `RaidLootOriginWordCountTests`): container
   1230, enemy 1291, pickup 24.
 - Measured network budgets (`RaidLootOriginWordCountTests`) are re-measured after implementation
