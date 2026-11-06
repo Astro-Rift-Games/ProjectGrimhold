@@ -4,32 +4,132 @@
 
 Release: Unreleased
 
-76 original commits; 76 canonical entries.
+77 original commits; 77 canonical entries.
 
 ## Canonical classification
 
-46 features; 16 bug fixes; 1 refactoring; 7 documentation; 2 tests; 3 maintenance; 1 other changes
+47 features; 16 bug fixes; 1 refactoring; 7 documentation; 2 tests; 3 maintenance; 1 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 5 | 6 | 1 | 0 | 2 | 1 |
 | Art & Animation | 9 | 7 | 1 | 0 | 4 | 0 |
 | Audio | 5 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 27 | 8 | 1 | 0 | 4 | 1 |
-| Combat | 29 | 1 | 0 | 0 | 5 | 0 |
+| Build & Tooling | 28 | 8 | 1 | 0 | 4 | 1 |
+| Combat | 30 | 1 | 0 | 0 | 5 | 0 |
 | Documentation | 21 | 6 | 0 | 0 | 4 | 0 |
 | Extraction | 7 | 0 | 0 | 0 | 2 | 0 |
 | Input | 1 | 0 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 37 | 13 | 1 | 0 | 6 | 0 |
+| Inventory & Loot | 38 | 13 | 1 | 0 | 6 | 0 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 11 | 2 | 0 | 0 | 1 | 0 |
+| Networking & Sessions | 12 | 2 | 0 | 0 | 1 | 0 |
 | Persistence & Backend | 14 | 2 | 0 | 0 | 2 | 0 |
-| Tests | 45 | 13 | 1 | 0 | 5 | 0 |
+| Tests | 46 | 13 | 1 | 0 | 5 | 0 |
 | UI | 21 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
-| World & Visibility | 12 | 4 | 0 | 0 | 0 | 0 |
+| World & Visibility | 13 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 1d8238334613ec4406413ccbd590a1a95bbbda9f
+
+[1d8238334613ec4406413ccbd590a1a95bbbda9f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1d8238334613ec4406413ccbd590a1a95bbbda9f)
+
+Date: 2026-11-06T18:08:53-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, Networking & Sessions, World & Visibility, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(enemies): implement Catacombs Specter FSM, combat, and loot
+```
+
+#### Original body
+
+```text
+Add the Catacombs Specter (Espectro de Catacumbas) as the third hostile
+enemy archetype of the MVP.
+
+The Specter features an authoritative 9-state FSM with alternating
+incorporeity (strict physical damage immunity during hovering and chase;
+vulnerability during attack channel, detonation, and 1.5s recovery;
+magic damage always applies in visible states). Attacks place a static
+1.5m telegraph area that detonates after channeling, subject to wall
+linecast occlusion. Reactive displacement triggers on non-lethal magic
+damage with a 4s internal cooldown, repositioning to an annular band
+(3-5m) around the highest accumulated damage target on its Hate List.
+Loot table awards Spectral Essence, Soul Fragments, and Chaos Coins,
+suppressed during forced Collapse reinforcements.
+
+Author NetworkEnemySpecter.prefab as a Prefab Variant of
+NetworkEnemy.prefab, indexed at Fusion Prefab Table index 13 and wired
+into Systems.prefab.
+
+Cover with 27 unit test cases in SpecterRulesAndCombatTests.
+
+Player-Added: Added the Catacombs Specter enemy with alternating physical immunity, ground telegraph attacks, and spectral relocation.
+Refs: US-78, TASK-272, TASK-273, TASK-274, TASK-275
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Editor/AuthorSpecterPrefab.cs
+Project Grimhold/Assets/Editor/AuthorSpecterPrefab.cs.meta
+Project Grimhold/Assets/Prefabs/Enemies/NetworkEnemySpecter.prefab
+Project Grimhold/Assets/Prefabs/Enemies/NetworkEnemySpecter.prefab.meta
+Project Grimhold/Assets/Prefabs/Systems.prefab
+Project Grimhold/Assets/Scriptable Objects/Loot/Tables/SpecterLootContainerContentTable.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Tables/SpecterLootContainerContentTable.asset.meta
+Project Grimhold/Assets/Scripts/Character/CharacterBase.cs
+Project Grimhold/Assets/Scripts/Character/EnemyCharacter.cs
+Project Grimhold/Assets/Scripts/Character/Specter.meta
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterAIController.cs
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterAIController.cs.meta
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterAttackOcclusion.cs
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterAttackOcclusion.cs.meta
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterHateList.cs
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterHateList.cs.meta
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterRules.cs
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterRules.cs.meta
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterStateType.cs
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterStateType.cs.meta
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterTeleportRules.cs
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterTeleportRules.cs.meta
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterVisualPresenter.cs
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterVisualPresenter.cs.meta
+Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+Project Grimhold/Assets/Tests/EditMode/Enemies.meta
+Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs
+Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs.meta
+odd/tasks/catacombs-specter-enemy.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Scripts/Character/Specter/SpecterAttackOcclusion.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Character/Specter/SpecterAttackOcclusion.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs.meta
+- message-term → Combat: combat
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Tables/SpecterLootContainerContentTable.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Tables/SpecterLootContainerContentTable.asset.meta
+- message-term → Inventory &amp; Loot: loot
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+- path → World &amp; Visibility: odd/tasks/catacombs-specter-enemy.md
+- message-term → World &amp; Visibility: Catacombs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/AuthorSpecterPrefab.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/AuthorSpecterPrefab.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Enemies.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs.meta
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### a65052aee75645a27fcdf7df16aa503b588d16b1
 

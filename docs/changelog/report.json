@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 948,
-  "canonicalEntries": 945,
+  "rawCommits": 949,
+  "canonicalEntries": 946,
   "before": {
+    "Features": 365,
     "Architecture & Infrastructure": 15,
     "Bug Fixes": 94,
     "Documentation": 82,
-    "Features": 364,
     "Tests": 26,
     "Refactoring": 14,
     "Other Changes": 353
   },
   "after": {
+    "Features": 502,
     "Maintenance": 14,
     "Bug Fixes": 110,
     "Documentation": 97,
-    "Features": 501,
     "Tests": 31,
     "Refactoring": 27,
     "Other Changes": 163,
@@ -23,18 +23,18 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Combat": 347,
-    "Inventory & Loot": 371,
+    "Combat": 348,
+    "Inventory & Loot": 372,
+    "Networking & Sessions": 269,
+    "World & Visibility": 126,
+    "Build & Tooling": 478,
+    "Tests": 581,
     "Art & Animation": 228,
     "Persistence & Backend": 203,
-    "Build & Tooling": 477,
-    "Tests": 580,
     "Abilities": 119,
     "Documentation": 369,
     "UI": 295,
     "Input": 29,
-    "Networking & Sessions": 268,
-    "World & Visibility": 125,
     "Extraction": 128,
     "Unassigned": 20,
     "Audio": 33,
@@ -42,28 +42,28 @@
   },
   "canonical": {
     "sections": {
+      "Features": 501,
       "Maintenance": 14,
       "Bug Fixes": 109,
       "Documentation": 97,
-      "Features": 500,
       "Tests": 31,
       "Refactoring": 27,
       "Other Changes": 162,
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "Combat": 345,
-      "Inventory & Loot": 371,
+      "Combat": 346,
+      "Inventory & Loot": 372,
+      "Networking & Sessions": 269,
+      "World & Visibility": 124,
+      "Build & Tooling": 476,
+      "Tests": 579,
       "Art & Animation": 225,
       "Persistence & Backend": 203,
-      "Build & Tooling": 475,
-      "Tests": 578,
       "Abilities": 117,
       "Documentation": 367,
       "UI": 294,
       "Input": 29,
-      "Networking & Sessions": 268,
-      "World & Visibility": 123,
       "Extraction": 128,
       "Unassigned": 20,
       "Audio": 33,
@@ -34099,8 +34099,8 @@
       "title": "2026-11 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 76,
-      "canonicalEntries": 76
+      "originalCommits": 77,
+      "canonicalEntries": 77
     },
     {
       "key": "history-2026-10",
@@ -34136,6 +34136,154 @@
     }
   ],
   "commits": [
+    {
+      "sha": "1d8238334613ec4406413ccbd590a1a95bbbda9f",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1d8238334613ec4406413ccbd590a1a95bbbda9f",
+      "subject": "feat(enemies): implement Catacombs Specter FSM, combat, and loot",
+      "body": "Add the Catacombs Specter (Espectro de Catacumbas) as the third hostile\nenemy archetype of the MVP.\n\nThe Specter features an authoritative 9-state FSM with alternating\nincorporeity (strict physical damage immunity during hovering and chase;\nvulnerability during attack channel, detonation, and 1.5s recovery;\nmagic damage always applies in visible states). Attacks place a static\n1.5m telegraph area that detonates after channeling, subject to wall\nlinecast occlusion. Reactive displacement triggers on non-lethal magic\ndamage with a 4s internal cooldown, repositioning to an annular band\n(3-5m) around the highest accumulated damage target on its Hate List.\nLoot table awards Spectral Essence, Soul Fragments, and Chaos Coins,\nsuppressed during forced Collapse reinforcements.\n\nAuthor NetworkEnemySpecter.prefab as a Prefab Variant of\nNetworkEnemy.prefab, indexed at Fusion Prefab Table index 13 and wired\ninto Systems.prefab.\n\nCover with 27 unit test cases in SpecterRulesAndCombatTests.\n\nPlayer-Added: Added the Catacombs Specter enemy with alternating physical immunity, ground telegraph attacks, and spectral relocation.\nRefs: US-78, TASK-272, TASK-273, TASK-274, TASK-275\n",
+      "date": "2026-11-06T18:08:53-03:00",
+      "files": [
+        "Project Grimhold/Assets/Editor/AuthorSpecterPrefab.cs",
+        "Project Grimhold/Assets/Editor/AuthorSpecterPrefab.cs.meta",
+        "Project Grimhold/Assets/Prefabs/Enemies/NetworkEnemySpecter.prefab",
+        "Project Grimhold/Assets/Prefabs/Enemies/NetworkEnemySpecter.prefab.meta",
+        "Project Grimhold/Assets/Prefabs/Systems.prefab",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Tables/SpecterLootContainerContentTable.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Tables/SpecterLootContainerContentTable.asset.meta",
+        "Project Grimhold/Assets/Scripts/Character/CharacterBase.cs",
+        "Project Grimhold/Assets/Scripts/Character/EnemyCharacter.cs",
+        "Project Grimhold/Assets/Scripts/Character/Specter.meta",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterAIController.cs",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterAIController.cs.meta",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterAttackOcclusion.cs",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterAttackOcclusion.cs.meta",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterHateList.cs",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterHateList.cs.meta",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterRules.cs",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterRules.cs.meta",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterStateType.cs",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterStateType.cs.meta",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterTeleportRules.cs",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterTeleportRules.cs.meta",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterVisualPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterVisualPresenter.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Enemies.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs.meta",
+        "odd/tasks/catacombs-specter-enemy.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "enemies",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "World & Visibility",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Character/Specter/SpecterAttackOcclusion.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Character/Specter/SpecterAttackOcclusion.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Tables/SpecterLootContainerContentTable.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Tables/SpecterLootContainerContentTable.asset.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/catacombs-specter-enemy.md",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "Catacombs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/AuthorSpecterPrefab.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/AuthorSpecterPrefab.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Enemies.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "a65052aee75645a27fcdf7df16aa503b588d16b1",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a65052aee75645a27fcdf7df16aa503b588d16b1",
