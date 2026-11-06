@@ -508,11 +508,74 @@ namespace Tests.PlayMode.Loot
             Assert.That(actual, Is.EqualTo(expected), $"Modifiers of slot {slot}.");
         }
 
+        [UnityTest]
+        public IEnumerator Corpse_KeepsEachModifiedWeaponUnitAndLeavesPlainUnitsPlain()
+        {
+            NetworkLootContainer corpse = _receiver.GetComponent<NetworkLootContainer>();
+            yield return Execute(() =>
+            {
+                Assert.That(_receiver.TryInitializeRaidLoadout(LoadoutOf(_socketed, default, 3),
+                    Participant(1), out string error), Is.True, error);
+                Assert.That(_receiver.GetComponent<PlayerCorpseGenerationController>()
+                    .TryConvertInventoryToCorpseLoot(_runner.Tick), Is.True);
+            });
+
+            Assert.That(corpse.GetLootAmount(Sword), Is.EqualTo(2));
+            var modifiers = new List<WeaponInstanceModifiersNetworkData>();
+            for (int index = 0; index < NetworkLootContainer.MaxWeaponUnits; index++)
+            {
+                Assert.That(corpse.TryGetWeaponUnit(index, out ContainerWeaponUnit unit), Is.True);
+                if (unit.IsEmpty) continue;
+                Assert.That(unit.Origin, Is.EqualTo(PlayerOrigin(1)));
+                modifiers.Add(unit.Modifiers);
+            }
+            Assert.That(modifiers, Is.EquivalentTo(new[] { _socketedData, default(WeaponInstanceModifiersNetworkData) }));
+            AssertModifiers(_receiver, 0, default);
+            AssertModifiers(_receiver, 1, default);
+        }
+
+        [UnityTest]
+        public IEnumerator Corpse_ExactContentRejectsDifferentModifiers()
+        {
+            NetworkLootContainer corpse = _receiver.GetComponent<NetworkLootContainer>();
+            PlayerWeaponEquipmentNetworkController equipment = _receiver.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            yield return Execute(() =>
+            {
+                Assert.That(_receiver.TryInitializeRaidLoadout(LoadoutOf(_socketed, _scaled, 0),
+                    Participant(1), out string error), Is.True, error);
+                Assert.That(PlayerExpeditionLootSnapshot.TryCapture(_receiver, equipment,
+                    out PlayerExpeditionLootSnapshot snapshot, out error), Is.True, error);
+                Assert.That(snapshot.ModifiedWeaponUnits, Has.Count.EqualTo(2));
+                Assert.That(corpse.TryLoadExactContent(snapshot.Combined, snapshot.CombinedOrigins,
+                    snapshot.ModifiedWeaponUnits, out error), Is.True, error);
+                Assert.That(corpse.HasExactContent(snapshot.Combined, snapshot.CombinedOrigins,
+                    snapshot.ModifiedWeaponUnits), Is.True);
+
+                var swapped = new List<ExpeditionWeaponUnit>
+                {
+                    new(Sword, PlayerOrigin(1), _socketedData),
+                    new(Sword, PlayerOrigin(1), _socketedData)
+                };
+                Assert.That(corpse.HasExactContent(snapshot.Combined, snapshot.CombinedOrigins, swapped), Is.False);
+                Assert.That(corpse.HasExactContent(snapshot.Combined, snapshot.CombinedOrigins), Is.False,
+                    "Plain expectations never match modified units.");
+                Assert.That(corpse.TryClearExactContent(snapshot.Combined, snapshot.CombinedOrigins, swapped, out _),
+                    Is.False);
+                Assert.That(corpse.GetLootAmount(Sword), Is.EqualTo(2));
+                Assert.That(corpse.TryClearExactContent(snapshot.Combined, snapshot.CombinedOrigins,
+                    snapshot.ModifiedWeaponUnits, out error), Is.True, error);
+                Assert.That(corpse.GetLootAmount(Sword), Is.Zero);
+            });
+        }
+
         private PlayerLootReceiver SpawnReceiver()
         {
             NetworkObject avatar = _runner.Spawn(_prefab, Vector3.zero, Quaternion.identity,
                 inputAuthority: null, onBeforeSpawned: (_, instance) =>
-                    SetField(instance.GetComponent<PlayerLootReceiver>(), "_lootCatalog", _catalog));
+                {
+                    SetField(instance.GetComponent<PlayerLootReceiver>(), "_lootCatalog", _catalog);
+                    SetField(instance.GetComponent<NetworkLootContainer>(), "_lootCatalog", _catalog);
+                });
             return avatar.GetComponent<PlayerLootReceiver>();
         }
 

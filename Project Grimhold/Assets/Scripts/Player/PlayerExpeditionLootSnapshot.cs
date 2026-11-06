@@ -27,7 +27,8 @@ public sealed class PlayerExpeditionLootSnapshot
         RaidLootOrigin? bootsOrigin,
         RaidLootOrigin? weaponSetAOffHandOrigin,
         RaidLootOrigin? weaponSetBOffHandOrigin,
-        IReadOnlyList<RaidLootOriginEntry> combinedOrigins)
+        IReadOnlyList<RaidLootOriginEntry> combinedOrigins,
+        IReadOnlyList<ExpeditionWeaponUnit> modifiedWeaponUnits)
     {
         Inventory = inventory;
         WeaponSetAMainHand = weaponSetAMainHand;
@@ -49,6 +50,7 @@ public sealed class PlayerExpeditionLootSnapshot
         WeaponSetAOffHandOrigin = weaponSetAOffHandOrigin;
         WeaponSetBOffHandOrigin = weaponSetBOffHandOrigin;
         CombinedOrigins = combinedOrigins;
+        ModifiedWeaponUnits = modifiedWeaponUnits;
     }
 
     public IReadOnlyList<LootEntry> Inventory { get; }
@@ -71,6 +73,9 @@ public sealed class PlayerExpeditionLootSnapshot
     public RaidLootOrigin? WeaponSetAOffHandOrigin { get; }
     public RaidLootOrigin? WeaponSetBOffHandOrigin { get; }
     public IReadOnlyList<RaidLootOriginEntry> CombinedOrigins { get; }
+
+    /// <summary>Weapon units that carry modifiers: Inventory slots first, then the four hands.</summary>
+    public IReadOnlyList<ExpeditionWeaponUnit> ModifiedWeaponUnits { get; }
 
     public static bool TryCapture(
         PlayerLootReceiver lootReceiver,
@@ -152,6 +157,11 @@ public sealed class PlayerExpeditionLootSnapshot
             return catalogOrder != 0 ? catalogOrder : left.Origin.CompareTo(right.Origin);
         });
 
+        if (!TryCaptureModifiedUnits(lootReceiver, equipment, out List<ExpeditionWeaponUnit> modifiedUnits, out error))
+        {
+            return false;
+        }
+
         snapshot = new PlayerExpeditionLootSnapshot(
             inventory,
             weaponSetAMainHand,
@@ -172,7 +182,8 @@ public sealed class PlayerExpeditionLootSnapshot
             bootsOrigin,
             weaponSetAOffHandOrigin,
             weaponSetBOffHandOrigin,
-            combinedOrigins.AsReadOnly());
+            combinedOrigins.AsReadOnly(),
+            modifiedUnits.AsReadOnly());
         return true;
     }
 
@@ -183,6 +194,17 @@ public sealed class PlayerExpeditionLootSnapshot
     {
         if (!lootReceiver.TryMatchesExactRaidContent(Inventory, InventoryOrigins, out error))
         {
+            return false;
+        }
+
+        if (!TryCaptureModifiedUnits(lootReceiver, equipment, out List<ExpeditionWeaponUnit> current, out error))
+        {
+            return false;
+        }
+
+        if (!ExpeditionWeaponUnit.SequenceEquivalent(ModifiedWeaponUnits, current))
+        {
+            error = "Weapon instance modifiers differ from the expected snapshot.";
             return false;
         }
 
@@ -222,6 +244,74 @@ public sealed class PlayerExpeditionLootSnapshot
             WeaponSetAMainHand, WeaponSetBMainHand, Helmet, Armor, Gloves, Boots,
             WeaponSetAOffHand, WeaponSetBOffHand, out error);
     }
+
+    private static bool TryCaptureModifiedUnits(
+        PlayerLootReceiver lootReceiver,
+        PlayerWeaponEquipmentNetworkController equipment,
+        out List<ExpeditionWeaponUnit> units,
+        out string error)
+    {
+        error = null;
+        units = new List<ExpeditionWeaponUnit>();
+        LootDefinitionCatalog catalog = lootReceiver.LootCatalog;
+        for (int index = 0; index < PlayerLootReceiver.PhysicalSlotCount; index++)
+        {
+            if (!lootReceiver.TryGetInventorySlot(index, out LootInventorySlot slot) ||
+                !lootReceiver.TryGetInventorySlotModifiers(index, out WeaponInstanceModifiersNetworkData modifiers))
+            {
+                error = "Inventory slot modifiers cannot be read.";
+                return false;
+            }
+
+            if (modifiers.IsEmpty)
+            {
+                continue;
+            }
+
+            if (!slot.IsValid || slot.Quantity != 1 || catalog == null ||
+                !catalog.TryGetByIndex(slot.CatalogIndex, out LootDefinition definition))
+            {
+                error = "Inventory modifiers must belong to exactly one valid weapon unit.";
+                return false;
+            }
+
+            units.Add(new ExpeditionWeaponUnit(definition.LootId, slot.Origin, modifiers));
+        }
+
+        for (int index = 0; index < HandSlots.Length; index++)
+        {
+            EquipmentSlot handSlot = HandSlots[index];
+            if (!equipment.TryGetSlotModifiers(handSlot, out WeaponInstanceModifiersNetworkData modifiers))
+            {
+                error = "Equipment slot modifiers cannot be read.";
+                return false;
+            }
+
+            if (modifiers.IsEmpty)
+            {
+                continue;
+            }
+
+            if (!equipment.TryGetSlotLoot(handSlot, out LootEntry loot) ||
+                !equipment.TryGetSlotRaidOrigin(handSlot, out RaidLootOrigin origin))
+            {
+                error = "Equipment modifiers must belong to an occupied slot with Raid provenance.";
+                return false;
+            }
+
+            units.Add(new ExpeditionWeaponUnit(loot.LootId, origin, modifiers));
+        }
+
+        return true;
+    }
+
+    private static readonly EquipmentSlot[] HandSlots =
+    {
+        EquipmentSlot.WeaponSetAMainHand,
+        EquipmentSlot.WeaponSetBMainHand,
+        EquipmentSlot.WeaponSetAOffHand,
+        EquipmentSlot.WeaponSetBOffHand
+    };
 
     private static LootEntry? CaptureSlot(
         PlayerWeaponEquipmentNetworkController equipment,

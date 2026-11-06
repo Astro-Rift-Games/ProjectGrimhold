@@ -989,6 +989,17 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     internal bool TryLoadExactContent(
         IReadOnlyList<LootEntry> entries,
         IReadOnlyList<RaidLootOriginEntry> origins,
+        out string error) =>
+        TryLoadExactContent(entries, origins, null, out error);
+
+    /// <summary>
+    /// Loads an exact snapshot whose <paramref name="modifiedUnits"/> keep their instance modifiers;
+    /// every other weapon unit of an origin bucket is created plain.
+    /// </summary>
+    internal bool TryLoadExactContent(
+        IReadOnlyList<LootEntry> entries,
+        IReadOnlyList<RaidLootOriginEntry> origins,
+        IReadOnlyList<ExpeditionWeaponUnit> modifiedUnits,
         out string error)
     {
         error = null;
@@ -1017,7 +1028,8 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         }
 
         if (!TryValidateExactOriginTotals(resolvedEntries, origins, out error) ||
-            !CanHoldWeaponUnits(resolvedEntries, out error))
+            !CanHoldWeaponUnits(resolvedEntries, out error) ||
+            !TryValidateModifiedUnits(modifiedUnits, origins, out error))
         {
             return false;
         }
@@ -1037,14 +1049,11 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                 return false;
             }
 
-            // Snapshot entries are plain until corpse snapshots carry modifiers (T7d4).
             for (int index = 0; index < origins.Count; index++)
             {
                 RaidLootOriginEntry origin = origins[index];
                 _lootCatalog.TryGetIndex(origin.LootId, out int catalogIndex);
-                if (IsWeapon(catalogIndex) &&
-                    (!RaidLootOriginTransfer.TryCreate(origin.Origin, origin.Amount, out RaidLootOriginTransfer units) ||
-                     !TryAddWeaponUnits(catalogIndex, units)))
+                if (IsWeapon(catalogIndex) && !TryCommitExactWeaponUnits(catalogIndex, origin, modifiedUnits))
                 {
                     throw new InvalidOperationException("Validated exact weapon units could not be committed.");
                 }
@@ -1061,6 +1070,88 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         if (resolvedEntries.Count > 0)
         {
             LootChangeSequence++;
+        }
+
+        return true;
+    }
+
+    /// <summary>One modified unit per entry; the rest of the origin bucket is created plain.</summary>
+    private bool TryCommitExactWeaponUnits(
+        int catalogIndex,
+        RaidLootOriginEntry origin,
+        IReadOnlyList<ExpeditionWeaponUnit> modifiedUnits)
+    {
+        int modifiedCount = 0;
+        for (int index = 0; modifiedUnits != null && index < modifiedUnits.Count; index++)
+        {
+            ExpeditionWeaponUnit unit = modifiedUnits[index];
+            if (unit.LootId != origin.LootId || unit.Origin != origin.Origin)
+            {
+                continue;
+            }
+
+            if (!RaidLootOriginTransfer.TryCreate(origin.Origin, 1, out RaidLootOriginTransfer single) ||
+                !TryAddWeaponUnits(catalogIndex, single.WithModifiers(unit.Modifiers)))
+            {
+                return false;
+            }
+
+            modifiedCount++;
+        }
+
+        int plain = origin.Amount - modifiedCount;
+        return plain == 0 ||
+            (RaidLootOriginTransfer.TryCreate(origin.Origin, plain, out RaidLootOriginTransfer plainUnits) &&
+             TryAddWeaponUnits(catalogIndex, plainUnits));
+    }
+
+    private bool TryValidateModifiedUnits(
+        IReadOnlyList<ExpeditionWeaponUnit> modifiedUnits,
+        IReadOnlyList<RaidLootOriginEntry> origins,
+        out string error)
+    {
+        error = null;
+        if (modifiedUnits == null || modifiedUnits.Count == 0)
+        {
+            return true;
+        }
+
+        var counts = new Dictionary<(LootId LootId, RaidLootOrigin Origin), int>();
+        for (int index = 0; index < modifiedUnits.Count; index++)
+        {
+            ExpeditionWeaponUnit unit = modifiedUnits[index];
+            if (unit.Modifiers.IsEmpty ||
+                !_lootCatalog.TryGet(unit.LootId.Value, out LootDefinition definition) ||
+                definition == null || definition.Category != LootCategory.Weapon ||
+                !unit.Modifiers.TryResolve(_lootCatalog, definition.WeaponDefinition.NaturalScalingAttribute, out _, out _))
+            {
+                error = "Modified weapon units must be valid weapons carrying decodable modifiers.";
+                return false;
+            }
+
+            counts.TryGetValue((unit.LootId, unit.Origin), out int current);
+            counts[(unit.LootId, unit.Origin)] = current + 1;
+        }
+
+        for (int index = 0; index < origins.Count; index++)
+        {
+            RaidLootOriginEntry origin = origins[index];
+            if (counts.TryGetValue((origin.LootId, origin.Origin), out int modified))
+            {
+                if (modified > origin.Amount)
+                {
+                    error = "More modified weapon units than units in the provenance bucket.";
+                    return false;
+                }
+
+                counts.Remove((origin.LootId, origin.Origin));
+            }
+        }
+
+        if (counts.Count != 0)
+        {
+            error = "Modified weapon units reference a bucket missing from the provenance.";
+            return false;
         }
 
         return true;
@@ -1136,6 +1227,13 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
     internal bool TryClearExactContent(
         IReadOnlyList<LootEntry> expected,
         IReadOnlyList<RaidLootOriginEntry> expectedOrigins,
+        out string error) =>
+        TryClearExactContent(expected, expectedOrigins, null, out error);
+
+    internal bool TryClearExactContent(
+        IReadOnlyList<LootEntry> expected,
+        IReadOnlyList<RaidLootOriginEntry> expectedOrigins,
+        IReadOnlyList<ExpeditionWeaponUnit> expectedModifiedUnits,
         out string error)
     {
         error = null;
@@ -1145,7 +1243,7 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             return false;
         }
 
-        if (!HasExactContent(expected, expectedOrigins))
+        if (!HasExactContent(expected, expectedOrigins, expectedModifiedUnits))
         {
             error = "Container content differs from the expected snapshot.";
             return false;
@@ -1173,9 +1271,15 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
 
     internal bool HasExactContent(
         IReadOnlyList<LootEntry> expected,
-        IReadOnlyList<RaidLootOriginEntry> expectedOrigins)
+        IReadOnlyList<RaidLootOriginEntry> expectedOrigins) =>
+        HasExactContent(expected, expectedOrigins, null);
+
+    internal bool HasExactContent(
+        IReadOnlyList<LootEntry> expected,
+        IReadOnlyList<RaidLootOriginEntry> expectedOrigins,
+        IReadOnlyList<ExpeditionWeaponUnit> expectedModifiedUnits)
     {
-        if (expected == null || !TryValidateEligibilityState() ||
+        if (expected == null || !HasExactModifiedUnits(expectedModifiedUnits) || !TryValidateEligibilityState() ||
             FirstAcquisitionEligibleInventory.Count != 0 ||
             _raidOriginState == null || !_raidOriginState.HasExactEntries(expectedOrigins, _lootCatalog) ||
             !TryGetLootContent(out IReadOnlyList<LootEntry> actual) ||
@@ -1204,6 +1308,21 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
         }
 
         return true;
+    }
+
+    /// <summary>Compares the stored units that carry modifiers with the expected set, ignoring order.</summary>
+    private bool HasExactModifiedUnits(IReadOnlyList<ExpeditionWeaponUnit> expected)
+    {
+        var actual = new List<ExpeditionWeaponUnit>();
+        for (int index = 0; index < MaxWeaponUnits; index++)
+        {
+            ContainerWeaponUnit unit = WeaponUnits[index];
+            if (unit.IsEmpty || unit.Modifiers.IsEmpty) continue;
+            if (!_lootCatalog.TryGetByIndex(unit.CatalogIndex, out LootDefinition definition)) return false;
+            actual.Add(new ExpeditionWeaponUnit(definition.LootId, unit.Origin, unit.Modifiers));
+        }
+
+        return ExpeditionWeaponUnit.SequenceEquivalent(expected, actual);
     }
 
     private void EnsureCommitContract(
