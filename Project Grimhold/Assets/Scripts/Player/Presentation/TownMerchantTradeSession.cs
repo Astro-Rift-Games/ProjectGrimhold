@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 /// Pure C# state of one open merchant session for the local Input Authority player, owned by
 /// <see cref="TownMerchantPresenter"/>. It holds the <see cref="MerchantTradeDraft"/>, recomputes
 /// the <see cref="MerchantTradePreview"/> from the confirmed profile and replicated stock, sends a
-/// confirmation as one single-line request, persists the authority-issued ticket through
+/// confirmation as one atomic ticket request, persists the authority-issued ticket through
 /// <see cref="IShopTransactionService"/> and reports the outcome back to State Authority.
 /// Confirmed Inventory and Currency are only re-read when the profile commits or stock changes.
 /// It never persists a ticket outside its in-flight request, so a not-persisted report is final;
@@ -103,21 +103,13 @@ public sealed class TownMerchantTradeSession : IMerchantShopIntentions, IBuyback
     public bool RemoveBuyback(string entryId) => !_disposed && Edit(_draft.TryRemoveBuyback(entryId));
 
     /// <summary>
-    /// Sends a single purchase or sale line only when the current preview allows it.
-    /// Multi-line drafts are rejected locally; accepted drafts stay locked until State Authority answers.
+    /// Sends the complete purchase/sale draft only when the current preview allows it.
+    /// Accepted drafts stay locked until State Authority answers and persistence completes.
     /// </summary>
     public bool ConfirmTrade()
     {
         if (_disposed || _draft.IsInFlight)
         {
-            return false;
-        }
-
-        // The backend currently supports one atomic purchase OR sale, not a basket.
-        // Reject locally before locking the draft or reserving authority stock.
-        if (_draft.Purchases.Count + _draft.Sales.Count > 1)
-        {
-            Complete(MerchantTransactionResult.RejectedByMerchant);
             return false;
         }
 

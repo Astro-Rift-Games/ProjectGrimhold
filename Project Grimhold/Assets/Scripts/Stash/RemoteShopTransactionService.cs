@@ -11,9 +11,9 @@ using UnityEngine;
 /// </summary>
 public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransactionService, IBuybackService
 {
-    // One infrastructure seam for the two single-line endpoints; no separate commerce transport.
+    // One infrastructure seam for the complete atomic ticket; buyback remains separate.
     public delegate Task<(bool success, ShopTransactionResult data, BackendError error)> BackendCall(
-        bool purchase, string transactionId, MerchantPricedTradeLine line, int expectedRevision);
+        ShopTradeRequest request);
 
     public delegate Task<(bool success, ShopTransactionResult data, BackendError error)> BuybackBackendCall(
         string transactionId, string entryId, int amount, int expectedRevision);
@@ -38,11 +38,8 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
             return;
         }
 
-        Initialize(store, (purchase, transactionId, line, revision) => purchase
-            ? InventoryClient.ShopBuyAsync(config, ApplicationAuthContext.Instance?.Token,
-                transactionId, line.LootId.Value, line.Amount, revision)
-            : InventoryClient.ShopSellAsync(config, ApplicationAuthContext.Instance?.Token,
-                transactionId, line.LootId.Value, line.Amount, revision, ResolveSaleSlot(store, line.LootId)), reconciliationService.ReconcileAsync);
+        Initialize(store, request => InventoryClient.ShopTradeAsync(config,
+            ApplicationAuthContext.Instance?.Token, request), reconciliationService.ReconcileAsync);
         if (ledger != null)
             InitializeBuyback(ledger, (transactionId, entryId, amount, revision) =>
                 InventoryClient.ShopBuybackAsync(config, ApplicationAuthContext.Instance?.Token,
@@ -131,22 +128,34 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
         if (_store == null || !_store.IsAvailable || _backend == null || _store.InventorySchemaVersion != 2) return StashOperationResult.PersistenceFailed;
         if (!profileId.IsValid || _store.ProfileId != profileId || ticket == null)
             return StashOperationResult.InvalidInventory;
-        if (ticket.LineCount != 1)
-        {
-            Debug.LogError($"[RemoteShopTransactionService] Trade {ticket.TransactionId.Value:N} has {ticket.LineCount} lines; the backend has no atomic multi-line trade endpoint.");
-            return StashOperationResult.PersistenceFailed;
-        }
-
         StashOperationResult localResult = _store.EvaluateTrade(profileId, ticket);
         if (localResult != StashOperationResult.Success) return localResult;
 
-        bool purchase = ticket.Purchases.Count == 1;
+        var purchases = new ShopTradePurchaseLine[ticket.Purchases.Count];
+        for (int i = 0; i < purchases.Length; i++)
+        {
+            var line = ticket.Purchases[i];
+            purchases[i] = new ShopTradePurchaseLine { lootId = line.LootId.Value, amount = line.Amount };
+        }
+        var sales = new ShopTradeSaleLine[ticket.Sales.Count];
+        for (int i = 0; i < sales.Length; i++)
+        {
+            var line = ticket.Sales[i];
+            sales[i] = new ShopTradeSaleLine
+            {
+                lootId = line.LootId.Value, amount = line.Amount,
+                sourceSlot = ResolveSaleSlot(_store, line.LootId)
+            };
+        }
         (bool success, ShopTransactionResult data, BackendError error) response;
         try
         {
             // Deliberately preserve Unity's synchronization context for all store/UI consumers.
-            response = await _backend(purchase, ticket.TransactionId.Value.ToString("N"),
-                purchase ? ticket.Purchases[0] : ticket.Sales[0], _store.RemoteRevision);
+            response = await _backend(new ShopTradeRequest
+            {
+                transactionId = ticket.TransactionId.Value.ToString("N"),
+                expectedRevision = _store.RemoteRevision, purchases = purchases, sales = sales
+            });
         }
         catch (Exception exception)
         {

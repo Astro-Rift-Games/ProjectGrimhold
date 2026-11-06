@@ -267,7 +267,7 @@ public sealed class TownMerchantTradePlayModeTests
     }
 
     [UnityTest]
-    public IEnumerator MultiLineDraft_IsRejectedBeforeSubmission_AndSingleLineStillWorks()
+    public IEnumerator MultiLineDraft_SubmitsOnceAndCommitsBothLines()
     {
         yield return Start();
         var second = _merchant.Stock[1].Item.LootId;
@@ -275,23 +275,20 @@ public sealed class TownMerchantTradePlayModeTests
         int secondStock = _merchant.GetAvailableStock(second);
         Assert.That(_session.AddPurchase(Item, 1), Is.True);
         Assert.That(_session.AddPurchase(second, 1), Is.True);
-        Assert.That(_session.ConfirmTrade(), Is.False);
-        Assert.That(_session.IsSubmissionInFlight, Is.False);
-        Assert.That(Stock, Is.EqualTo(stock));
-        Assert.That(_merchant.GetAvailableStock(second), Is.EqualTo(secondStock));
-        Assert.That(_endpoint.Submissions, Is.Zero);
         AssertProfile(10000, 0);
-        AssertOutcome(MerchantTransactionResult.RejectedByMerchant);
-        Assert.That(_profile.BackendCalls, Is.Zero);
-        Assert.That(_commits, Is.Zero);
-        Assert.That(_profile.Store.RemoteRevision, Is.Zero);
-        Assert.That(_endpoint.Outcomes, Is.Zero);
-
-        Assert.That(_session.RemovePurchase(second), Is.True);
         Assert.That(_session.ConfirmTrade(), Is.True);
-        yield return WaitFor(() => _endpoint.Submissions == 1 && _completed == 2, "Single-line trade after rejection");
-        Assert.That(_result, Is.EqualTo(MerchantTransactionResult.Success));
+        yield return WaitFor(() => _completed == 1, "Multi-line trade completion");
+        yield return WaitFor(() => Stock == stock - 1 && _merchant.GetAvailableStock(second) == secondStock - 1,
+            "Multi-line stock commit");
+        AssertOutcome(MerchantTransactionResult.Success);
+        Assert.That(_endpoint.Submissions, Is.EqualTo(1));
+        Assert.That(_endpoint.Outcomes, Is.EqualTo(1));
         Assert.That(_profile.BackendCalls, Is.EqualTo(1));
+        Assert.That(_profile.Store.GetLoadout(), Has.Count.EqualTo(2));
+        Assert.That(_profile.Store.GetCurrency(), Is.EqualTo(10000 - _merchant.Stock[0].Item.BuyValuePerUnit - _merchant.Stock[1].Item.BuyValuePerUnit));
+        Assert.That(_profile.Store.RemoteRevision, Is.EqualTo(1));
+        Assert.That(_commits, Is.EqualTo(2));
+        Assert.That(_session.Current.HasDraft, Is.False);
     }
 
     [UnityTest]

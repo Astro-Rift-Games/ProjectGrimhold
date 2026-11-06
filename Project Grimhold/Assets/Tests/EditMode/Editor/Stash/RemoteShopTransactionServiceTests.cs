@@ -28,6 +28,7 @@ public sealed class RemoteShopTransactionServiceTests
     private string _error;
     private bool _throw;
     private bool _purchase;
+    private ShopTradeRequest _request;
     private int _revision;
     private string _transactionId;
     private TaskCompletionSource<(bool success, ShopTransactionResult data, BackendError error)> _pending;
@@ -74,12 +75,13 @@ public sealed class RemoteShopTransactionServiceTests
     public void TearDown() => UnityEngine.Object.DestroyImmediate(_owner);
 
     private Task<(bool success, ShopTransactionResult data, BackendError error)> Backend(
-        bool purchase, string transactionId, MerchantPricedTradeLine line, int revision)
+        ShopTradeRequest request)
     {
         _calls++;
-        _purchase = purchase;
-        _revision = revision;
-        _transactionId = transactionId;
+        _request = request;
+        _purchase = request.purchases.Length > 0;
+        _revision = request.expectedRevision;
+        _transactionId = request.transactionId;
         if (_throw) throw new InvalidOperationException("Transport lost");
         if (_failLocalWrites) _files.FailWrites = true;
         return _pending?.Task ?? Task.FromResult((_success, new ShopTransactionResult { revision = 8, buyback = Rows("sale") }, new BackendError { error = _error }));
@@ -94,6 +96,9 @@ public sealed class RemoteShopTransactionServiceTests
         Assert.That(_store.RemoteRevision, Is.EqualTo(8));
         Assert.That(_store.IsTradeApplied(Profile, ticket.TransactionId), Is.True);
         Assert.That(_purchase, Is.True);
+        Assert.That(_calls, Is.EqualTo(1));
+        Assert.That(_request.sales, Is.Empty);
+        Assert.That((_request.purchases[0].lootId, _request.purchases[0].amount), Is.EqualTo(("bone", 1)));
         Assert.That(_revision, Is.EqualTo(7));
         Assert.That(_transactionId, Is.EqualTo(ticket.TransactionId.Value.ToString("N")));
         Assert.That(_commits, Is.EqualTo(2), "Trade and remote revision each publish the aggregate.");
@@ -165,13 +170,60 @@ public sealed class RemoteShopTransactionServiceTests
         Assert.That(_reconciliations, Is.EqualTo(1));
     }
 
-    [Test]
-    public async Task MultiLine_IsRefusedBeforeCallingBackend()
+    private MerchantTradeTicket MixedTicket()
     {
-        LogAssert.Expect(LogType.Error, new Regex("has 2 lines; the backend has no atomic multi-line trade endpoint"));
-        Assert.That(await _service.ExecuteTradeAsync(Profile, Ticket(multi: true)), Is.EqualTo(StashOperationResult.PersistenceFailed));
-        Assert.That(_calls, Is.Zero);
-        AssertUnchanged(100, 0);
+        Seed(100, 2);
+        var snapshot = _repository.Snapshot.Clone();
+        snapshot.Loadout.Add(new StashItem(new LootId("healthpotion"), 3, 4));
+        Assert.That(_repository.TrySave(snapshot, out var error), Is.True, error);
+        return new MerchantTradeTicket(new ShopTransactionId(1000, Guid.NewGuid()),
+            new[] { new MerchantPricedTradeLine(Bone, 1, 5) },
+            new[] { new MerchantPricedTradeLine(Bone, 2, 2),
+                new MerchantPricedTradeLine(new LootId("healthpotion"), 3, 3) });
+    }
+
+    [Test]
+    public async Task MultiLine_MixedTicket_CommitsOnceThroughOneBackendCall()
+    {
+        var ticket = MixedTicket();
+        Assert.That(await _service.ExecuteTradeAsync(Profile, ticket), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(_calls, Is.EqualTo(1));
+        Assert.That(_revision, Is.EqualTo(7));
+        Assert.That(_transactionId, Is.EqualTo(ticket.TransactionId.Value.ToString("N")));
+        Assert.That(_request.purchases, Has.Length.EqualTo(1));
+        Assert.That((_request.purchases[0].lootId, _request.purchases[0].amount), Is.EqualTo(("bone", 1)));
+        Assert.That(_request.sales, Has.Length.EqualTo(2));
+        Assert.That((_request.sales[0].lootId, _request.sales[0].amount, _request.sales[0].sourceSlot), Is.EqualTo(("bone", 2, 0)));
+        Assert.That((_request.sales[1].lootId, _request.sales[1].amount, _request.sales[1].sourceSlot), Is.EqualTo(("healthpotion", 3, 4)));
+        Assert.That(_store.GetCurrency(), Is.EqualTo(108));
+        Assert.That(_store.GetLoadout(), Has.Count.EqualTo(1));
+        Assert.That(_store.GetLoadout()[0].LootId, Is.EqualTo(Bone));
+        Assert.That(_store.GetLoadout()[0].Amount, Is.EqualTo(1));
+        Assert.That(_store.IsTradeApplied(Profile, ticket.TransactionId), Is.True);
+        Assert.That(_store.RemoteRevision, Is.EqualTo(8));
+        Assert.That(_commits, Is.EqualTo(2), "One trade commit and one revision save.");
+        Assert.That(_reconciliations, Is.Zero);
+        Assert.That(_ledger.Entries[0].EntryId, Is.EqualTo("sale"));
+    }
+
+    [Test]
+    public async Task MultiLine_BackendFailure_PreservesProfile()
+    {
+        var ticket = MixedTicket();
+        _success = false;
+        _error = "INSUFFICIENT_ITEMS";
+        Assert.That(await _service.ExecuteTradeAsync(Profile, ticket), Is.EqualTo(StashOperationResult.InvalidInventory));
+        Assert.That(_calls, Is.EqualTo(1));
+        Assert.That(_store.GetCurrency(), Is.EqualTo(100));
+        Assert.That(_store.GetLoadout(), Has.Count.EqualTo(2));
+        Assert.That(_store.GetLoadout()[0].Amount, Is.EqualTo(2));
+        Assert.That(_store.GetLoadout()[1].Amount, Is.EqualTo(3));
+        Assert.That(_store.GetLoadout()[1].Slot, Is.EqualTo(4));
+        Assert.That(_store.IsTradeApplied(Profile, ticket.TransactionId), Is.False);
+        Assert.That(_store.RemoteRevision, Is.EqualTo(7));
+        Assert.That(_commits, Is.Zero);
+        Assert.That(_ledger.Entries, Is.Empty);
+        Assert.That(_reconciliations, Is.EqualTo(1));
     }
 
     [Test]
@@ -319,9 +371,29 @@ public sealed class RemoteShopTransactionServiceTests
     {
         Seed(100, 2);
         Assert.That(await _service.ExecuteTradeAsync(Profile, Ticket(sale: true)), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(_calls, Is.EqualTo(1));
+        Assert.That(_request.purchases, Is.Empty);
+        Assert.That((_request.sales[0].lootId, _request.sales[0].amount, _request.sales[0].sourceSlot), Is.EqualTo(("bone", 1, 0)));
+        Assert.That(_store.GetCurrency(), Is.EqualTo(105));
+        Assert.That(_store.GetLoadout()[0].Amount, Is.EqualTo(1));
+        Assert.That(_store.RemoteRevision, Is.EqualTo(8));
+        Assert.That(_commits, Is.EqualTo(2));
         Assert.That(_ledger.Entries, Has.Count.EqualTo(1));
         Assert.That(_ledger.Entries[0].EntryId, Is.EqualTo("sale"));
         Assert.That(_reconciliations, Is.Zero);
+    }
+
+    [Test]
+    public void ShopTradeRequest_SerializesExactS6Body()
+    {
+        var body = new ShopTradeRequest
+        {
+            transactionId = "ticket", expectedRevision = 7,
+            purchases = new[] { new ShopTradePurchaseLine { lootId = "bone", amount = 1 } },
+            sales = new[] { new ShopTradeSaleLine { lootId = "healthpotion", amount = 3, sourceSlot = 4 } }
+        };
+        Assert.That(InventoryRequestJson.Encode(body), Is.EqualTo(
+            "{\"transactionId\":\"ticket\",\"expectedRevision\":7,\"purchases\":[{\"lootId\":\"bone\",\"amount\":1}],\"sales\":[{\"lootId\":\"healthpotion\",\"amount\":3,\"sourceSlot\":4}]}"));
     }
 
     private void Seed(long currency, int bone = 0)

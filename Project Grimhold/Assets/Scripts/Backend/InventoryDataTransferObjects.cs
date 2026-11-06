@@ -173,6 +173,31 @@ namespace Grimhold.Backend
     // Shop operations
     // ---------------------------------------------------------------------------
 
+    /// <summary>One atomic normal trade; prices are resolved by the backend.</summary>
+    [Serializable]
+    public struct ShopTradeRequest
+    {
+        public string transactionId;
+        public int expectedRevision;
+        public ShopTradePurchaseLine[] purchases;
+        public ShopTradeSaleLine[] sales;
+    }
+
+    [Serializable]
+    public struct ShopTradePurchaseLine
+    {
+        public string lootId;
+        public int amount;
+    }
+
+    [Serializable]
+    public struct ShopTradeSaleLine
+    {
+        public string lootId;
+        public int amount;
+        public int sourceSlot;
+    }
+
     [Serializable]
     public struct ShopSellRequest
     {

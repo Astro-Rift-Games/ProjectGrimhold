@@ -14,6 +14,7 @@ MVP", section UI.1.4 Comercio).
 
 The backend is the sole authority for economic mutations:
 - `POST /character/me/inventory/shop/buy` and `POST /character/me/inventory/shop/sell` accept pure transaction intentions (`transactionId`, `lootId`, `amount`, `expectedRevision`).
+- `POST /character/me/inventory/shop/trade` accepts one complete ticket (`transactionId`, `expectedRevision`, `purchases: [{ lootId, amount }]`, `sales: [{ lootId, amount, sourceSlot }]`). It applies all sales, then all purchases in ticket order, validates funds and capacity on the final state, and persists the whole ticket in one revision-guarded write with one `trade` receipt bound to the canonical ordered lines; any failing line rejects the ticket without mutation. Replaying the same `transactionId` and lines returns `alreadySecured`; different lines return `TRANSACTION_ID_REUSED`. See `backend/README.md` for limits and error codes.
 - Client-declared prices (`declaredPrice`, `declaredSellValue`) are strictly untrusted and ignored for authoritative economic balance calculations.
 - Authoritative buy and sell values are resolved on the server via `shopCatalog.js` (derived from `GD-14` / `LootDefinitionCatalog`).
 - The backend validates positive integer quantities (`1 <= amount <= MAX_TRANSACTION_AMOUNT`), checks funds/items atomically against MongoDB, and binds receipts strictly to `{ transactionId, type, lootId, amount, totalAmount }` to prevent replay and fraud.
@@ -229,8 +230,8 @@ Current representation on `TownMerchantNetworkController` (Fusion 2.1.1):
 
 Current representation: `ExecuteTradeAsync(ProfileId, MerchantTradeTicket)`. The remote service
 first uses `LocalProfileStore.EvaluateTrade` to plan without mutation or publication. It awaits the
-single-line backend buy/sell endpoint with the ticket transaction id and current remote revision,
-then commits locally and saves the acknowledged revision. Backend success (including an existing
+atomic backend trade endpoint with every ticket line, the ticket transaction id and current remote
+revision, then commits locally and saves the acknowledged revision. Backend success (including an existing
 receipt / `alreadySecured`) is final success. If the local commit unexpectedly fails after backend
 success, it logs an error and reconciles, but still reports success: the durable backend trade must
 consume/restock merchant stock even when the local cache cannot be saved. There are no automatic
@@ -301,8 +302,8 @@ buy-back path. It is account-local, never an extension of the shared merchant of
   clears the draft; rejection or exception keeps it and presents the real persistence outcome.
 - **Separate operation:** only one buy-back entry is confirmed at a time. A draft containing
   buy-back together with any normal purchase/sale is blocked by `BuybackMustBeAlone` and the
-  feedback "La recompra se confirma por separado". Atomic multi-line backend trades remain H3,
-  out of scope.
+  feedback "La recompra se confirma por separado". Buy-back is not part of the atomic
+  `/shop/trade` endpoint.
 - **Presentation:** authored offering rows keep their existing behavior. Ledger rows follow them
   in the same merchant grid, keyed by entry id (several sales can contain the same loot), showing
   ledger amount and "Recompra" beside the frozen unit price. The selected item's name also has
@@ -391,12 +392,10 @@ resolved record the follow-up task that closed them.
    finds the context with `FindAnyObjectByType` like the other Town presenters.
 9. **Resolved in COM-06:** scene-name (`isLobby`) coupling in persistence; every trade reads and
    writes the Inventory (Loadout).
-10. **Resolved in COM-06 locally; backend pending.** `IShopTransactionService` persists one atomic
-    multi-line ticket. The backend exposes only single-item buy/sell endpoints, so
-    `RemoteShopTransactionService` refuses any ticket with more than one line with
-    `PersistenceFailed` before mutating anything, and syncs a one-line ticket through the matching
-    endpoint. Multi-line trades through the remote service need an atomic backend trade endpoint.
-    Rejections are mapped as described above; multi-line transport remains out of scope.
+10. **Resolved.** `IShopTransactionService` persists one atomic multi-line ticket locally (COM-06),
+    and `RemoteShopTransactionService` submits every normal ticket, mixed or single-line, through
+    the atomic `POST /character/me/inventory/shop/trade` endpoint. `TownMerchantTradeSession` no
+    longer rejects multi-line drafts. Rejections are mapped as described above.
 11. **Backend acknowledgement gate resolved (H5/E1).** Remote trades are dry-run locally, submitted
     remotely and awaited before committing the local aggregate or reporting persistence to State
     Authority. Confirm stays locked until acknowledgement, serializing trades in one session.

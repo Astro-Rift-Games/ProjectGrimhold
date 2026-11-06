@@ -80,19 +80,23 @@ namespace Tests.PlayMode
         }
 
         private Task<(bool success, ShopTransactionResult data, BackendError error)> Backend(
-            bool purchase, string transactionId, MerchantPricedTradeLine line, int revision)
+            ShopTradeRequest request)
         {
             BackendCalls++;
-            BackendTransactionId = transactionId;
+            BackendTransactionId = request.transactionId;
             BuybackData buyback = default;
-            if (CaptureEquipmentSales && !purchase && BackendErrorCode == null)
+            if (CaptureEquipmentSales && request.sales.Length == 1 && BackendErrorCode == null)
             {
-                _soldEntry = new BuybackEntryData { entryId = "equipment-sale", lootId = line.LootId.Value,
-                    amount = line.Amount, unitPrice = (long)Math.Ceiling(line.UnitPrice * 1.5) };
+                var line = request.sales[0];
+                var catalog = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(
+                    "Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset");
+                Assert.That(catalog.TryGet(line.lootId, out var definition), Is.True);
+                _soldEntry = new BuybackEntryData { entryId = "equipment-sale", lootId = line.lootId,
+                    amount = line.amount, unitPrice = (long)Math.Ceiling(definition.SellValuePerUnit * 1.5) };
                 buyback = new BuybackData { entries = new[] { _soldEntry } };
             }
             return Pending?.Task ?? Task.FromResult((BackendErrorCode == null,
-                new ShopTransactionResult { revision = revision + 1, buyback = buyback }, new BackendError { error = BackendErrorCode }));
+                new ShopTransactionResult { revision = request.expectedRevision + 1, buyback = buyback }, new BackendError { error = BackendErrorCode }));
         }
 
         private Task<(bool success, ShopTransactionResult data, BackendError error)> Buyback(

@@ -108,6 +108,12 @@ namespace Grimhold.Backend
         // Shop operations
         // ------------------------------------------------------------------
 
+        /// <summary>Confirms all normal purchase and sale intentions in one atomic request.</summary>
+        public static Task<(bool success, ShopTransactionResult data, BackendError error)>
+            ShopTradeAsync(BackendConfiguration config, string token, ShopTradeRequest body) =>
+            PostJson<ShopTradeRequest, ShopTransactionResult>(config, token,
+                $"{config.BaseUrl}/character/me/inventory/shop/trade", body);
+
         public static async Task<(bool success, ShopTransactionResult data, BackendError error)>
             ShopSellAsync(BackendConfiguration config, string token, string transactionId, string lootId, int amount, int expectedRevision, int sourceSlot = -1)
         {

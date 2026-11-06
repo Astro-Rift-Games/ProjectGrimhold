@@ -486,21 +486,24 @@ public class TownMerchantTradeSessionTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void MultiLineDraft_IsRejectedBeforeSubmission(bool mixedPurchaseAndSale)
+    public void MultiLineDraft_SubmitsAndPersistsAsOneTicket(bool mixedPurchaseAndSale)
     {
         _session.AddPurchase(Potion, 1);
         if (mixedPurchaseAndSale) _session.AddSale(Hat, 1);
         else _session.AddPurchase(Bone, 1);
 
-        Assert.That(_session.ConfirmTrade(), Is.False);
+        Assert.That(_profile.Currency, Is.EqualTo(100), "Draft edits do not persist.");
+        Assert.That(_session.ConfirmTrade(), Is.True);
+        Assert.That(_endpoint.Submissions, Has.Count.EqualTo(1));
         Assert.That(_profile.ExecutedTickets, Is.Empty);
-        Assert.That(_endpoint.Submissions, Is.Empty);
-        Assert.That(_endpoint.Outcomes, Is.Empty);
-        Assert.That(_endpoint.GetAvailableStock(Potion), Is.EqualTo(3));
-        Assert.That(_results, Is.EqualTo(new[] { MerchantTransactionResult.RejectedByMerchant }));
-        Assert.That(View.HasDraft, Is.True);
+        Assert.That(View.IsInFlight, Is.True);
+        _endpoint.DeliverResponses();
+        Assert.That(_profile.ExecutedTickets.Single().LineCount, Is.EqualTo(2));
+        Assert.That(_profile.Currency, Is.EqualTo(mixedPurchaseAndSale ? 75 : 65));
+        Assert.That(_endpoint.Outcomes.Single().Persisted, Is.True);
+        Assert.That(_results, Is.EqualTo(new[] { MerchantTransactionResult.Success }));
+        Assert.That(View.HasDraft, Is.False);
         Assert.That(View.IsInFlight, Is.False);
-        Assert.That(MerchantTradeFeedback.DescribeResult(_results.Single()), Is.Not.Empty);
     }
 
     [Test]
