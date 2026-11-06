@@ -355,7 +355,13 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
             return;
         }
 
-        // Direct standalone editor playback when AudioManager is not initialized
+        // Direct standalone playback when AudioManager is not initialized. PlayClipAtPoint destroys its
+        // temporary source with Destroy, which Unity rejects outside Play Mode.
+        if (!Application.isPlaying)
+        {
+            return;
+        }
+
         AudioClip clip = _voidBellChimeSfx.IsValid ? _voidBellChimeSfx.GetRandomClip() : GetOrCreateProvisionalBellClip();
         if (clip != null)
         {

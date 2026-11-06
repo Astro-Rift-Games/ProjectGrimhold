@@ -29,7 +29,7 @@ MonoBehaviour:
   - {x: 0.78125, y: -0.03125}
   - {x: 0.65625, y: 0.15625}
   - {x: 0.65625, y: -0.21875}
-  _retargetSourceSignature: e55d599b8b5162a5957fa9b179dc2f5d
+  _retargetSourceSignature: 30ddd491382afb68442068f33a6d10a5
   _mainGripNeutralPositions:
   - {x: 0.34375, y: -0.21875, z: 0}
   - {x: 0.28125, y: -0.28125, z: 0}
