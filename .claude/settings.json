@@ -7,8 +7,6 @@
       "mcp__blender__get_viewport_screenshot",
       "mcp__blender__get_scene_info",
       "mcp__blender__get_addon_status",
-      "mcp__unityMCP__get_test_job",
-      "mcp__unityMCP__read_console",
       "mcp__grimhold-docs__get_document",
       "mcp__grimhold-docs__search_documents",
       "mcp__hacknplan__list_work_items",
