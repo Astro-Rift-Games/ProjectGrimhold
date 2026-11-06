@@ -483,9 +483,11 @@ EffectiveDamage = floor((BaseDamage + GemDamageBonus) * (1 + sum(AttributeValue/
 `EquipmentInstance`; Town statistics and their tooltips resolve its scaling and installed gems using
 the character's confirmed attributes and the existing loot catalog. Definition-only merchant offers
 and remote Town preparation inspection remain template-only (remote instances/attributes are not
-available). Raid modifiers are not transported until F5/T7 (§6.3 of Item Instances): the equipment
-controller explicitly projects a plain instance from the template, preserving current plain-weapon
-damage, rather than borrowing a local Town instance or adding temporary networked fields.
+available). Raid combat reads the hand unit's own modifiers: the equipment controller replicates one
+packed modifier word per hand slot (cleared whenever the slot is reassigned or emptied), and effective
+damage resolves instance scaling and installed gems from that word through the loot catalog. An empty
+word projects the plain template instance, so plain weapons keep their damage ([Item Instances
+§6.3](ItemInstanceArchitecture.md#63-raid-transport)). A local Town instance is never borrowed.
 
 `WeaponDamageCalculator` is the only implementation of this pure arithmetic. Equipment performs the calculation when it
 configures or rebuilds the active player weapon. `MeleeAttack` and `RangedAttack` retain the resolved

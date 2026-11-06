@@ -504,17 +504,8 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, IS
         string resultId = $"{receipt.RaidId}:{targetId}:{receipt.ResultSequence}";
         string issuedAt = System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
         var itemsDTO = MapToDTO(items);
-        var eqDTO = new PreparedEquipmentData
-        {
-            weaponSlot1 = preparedEquipment.WeaponSetAMainHand.IsValid ? preparedEquipment.WeaponSetAMainHand.Value : null,
-            weaponSlot2 = preparedEquipment.WeaponSetBMainHand.IsValid ? preparedEquipment.WeaponSetBMainHand.Value : null,
-            helmet = preparedEquipment.Helmet.IsValid ? preparedEquipment.Helmet.Value : null,
-            armor = preparedEquipment.Armor.IsValid ? preparedEquipment.Armor.Value : null,
-            gloves = preparedEquipment.Gloves.IsValid ? preparedEquipment.Gloves.Value : null,
-            boots = preparedEquipment.Boots.IsValid ? preparedEquipment.Boots.Value : null,
-            offHand1 = preparedEquipment.WeaponSetAOffHand.IsValid ? preparedEquipment.WeaponSetAOffHand.Value : null,
-            offHand2 = preparedEquipment.WeaponSetBOffHand.IsValid ? preparedEquipment.WeaponSetBOffHand.Value : null
-        };
+        // The published result is ID-free: units carry their modifiers, never an instance ID.
+        PreparedEquipmentData eqDTO = PreparedEquipmentData.FromLoadout(preparedEquipment);
 
         string canonicalMessage = RaidResultCanonicalizer.BuildCanonicalResultString(
             receipt.RaidId,
@@ -562,7 +553,8 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, IS
             result[i] = new InventoryItemData
             {
                 lootId = items[i].LootId.Value,
-                amount = items[i].Amount
+                amount = items[i].Amount,
+                instance = EquipmentInstanceData.FromInstance(items[i].Instance)
             };
         }
         return result;

@@ -33,20 +33,6 @@ namespace Grimhold.Backend
             public ExtractionProgressionData progression;
         }
 
-        [Serializable]
-        private sealed class PublishedExtraction
-        {
-            public string raidId;
-            public string resultId;
-            public int resultSequence;
-            public string targetCharacterId;
-            public AggregateItem[] items;
-            public PreparedEquipmentData preparedEquipment;
-            public long experienceGranted;
-            public string issuedAt;
-            public string hostSignature;
-        }
-
         public static string Encode<T>(T body)
         {
             if (body is InstallGemRequest install)
@@ -88,13 +74,15 @@ namespace Grimhold.Backend
                     preparedEquipment = unified.preparedEquipment, progression = unified.progression
                 });
             if (body is PublishExtractionResultRequest published)
-                return JsonUtility.ToJson(new PublishedExtraction
+                return new JObject
                 {
-                    raidId = published.raidId, resultId = published.resultId, resultSequence = published.resultSequence,
-                    targetCharacterId = published.targetCharacterId, items = Aggregate(published.items),
-                    preparedEquipment = published.preparedEquipment, experienceGranted = published.experienceGranted,
-                    issuedAt = published.issuedAt, hostSignature = published.hostSignature
-                });
+                    ["raidId"] = published.raidId, ["resultId"] = published.resultId,
+                    ["resultSequence"] = published.resultSequence, ["targetCharacterId"] = published.targetCharacterId,
+                    ["items"] = ResultItems(published.items),
+                    ["preparedEquipment"] = ResultEquipment(published.preparedEquipment),
+                    ["experienceGranted"] = published.experienceGranted, ["issuedAt"] = published.issuedAt,
+                    ["hostSignature"] = published.hostSignature
+                }.ToString(Formatting.None);
             return JsonUtility.ToJson(body);
         }
 
@@ -104,13 +92,69 @@ namespace Grimhold.Backend
             _ => throw new ArgumentOutOfRangeException(nameof(list))
         };
 
+        /// <summary>Quantity-only bodies: units of one template merge into a single amount.</summary>
         private static AggregateItem[] Aggregate(InventoryItemData[] items)
         {
             if (items == null) return null;
-            var result = new AggregateItem[items.Length];
-            for (int i = 0; i < items.Length; i++)
-                result[i] = new AggregateItem { lootId = items[i].lootId, amount = items[i].amount };
-            return result;
+            var result = new System.Collections.Generic.List<AggregateItem>(items.Length);
+            foreach (InventoryItemData item in items)
+            {
+                int index = result.FindIndex(existing => existing.lootId == item.lootId);
+                if (index < 0) result.Add(new AggregateItem { lootId = item.lootId, amount = item.amount });
+                else result[index] = new AggregateItem { lootId = item.lootId, amount = result[index].amount + item.amount };
+            }
+            return result.ToArray();
         }
+
+        /// <summary>ID-free result items: one entry per equipment unit, modifiers only when present.</summary>
+        private static JArray ResultItems(InventoryItemData[] items)
+        {
+            var array = new JArray();
+            if (items == null) return array;
+            foreach (InventoryItemData item in items)
+            {
+                var entry = new JObject { ["lootId"] = item.lootId, ["amount"] = item.amount };
+                if (item.instance?.modifiers != null) entry["modifiers"] = ModifiersJson(item.instance.modifiers);
+                array.Add(entry);
+            }
+            return array;
+        }
+
+        /// <summary>ID-free prepared equipment: each slot is null or {lootId, modifiers?}.</summary>
+        private static JObject ResultEquipment(PreparedEquipmentData data)
+        {
+            var json = new JObject();
+            foreach (var slot in EquipmentSlotRules.AllSlots)
+            {
+                string id = data.Get(slot);
+                JToken entry = JValue.CreateNull();
+                if (!string.IsNullOrEmpty(id))
+                {
+                    var unit = new JObject { ["lootId"] = id };
+                    EquipmentInstanceData instance = null;
+                    data.instances?.TryGetValue(slot, out instance);
+                    if (instance?.modifiers != null) unit["modifiers"] = ModifiersJson(instance.modifiers);
+                    entry = unit;
+                }
+                json[PreparedEquipmentJsonConverter.Name(slot)] = entry;
+            }
+            return json;
+        }
+
+        private static JObject ModifiersJson(WeaponInstanceModifiersData modifiers)
+        {
+            var json = new JObject();
+            if (modifiers.primary != null) json["primary"] = ScalingJson(modifiers.primary);
+            if (modifiers.secondary != null) json["secondary"] = ScalingJson(modifiers.secondary);
+            json["gemSocketCount"] = modifiers.gemSocketCount;
+            var gems = new JArray();
+            foreach (string gem in modifiers.gems ?? Array.Empty<string>())
+                gems.Add(string.IsNullOrEmpty(gem) ? JValue.CreateNull() : (JToken)gem);
+            json["gems"] = gems;
+            return json;
+        }
+
+        private static JObject ScalingJson(WeaponScalingModifierData scaling) =>
+            new JObject { ["attribute"] = scaling.attribute, ["grade"] = scaling.grade };
     }
 }

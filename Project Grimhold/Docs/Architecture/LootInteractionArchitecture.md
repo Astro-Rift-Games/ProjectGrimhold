@@ -79,6 +79,8 @@ The exact container representation and measured network budget remain the F5 imp
 check in [Item Instances §§6.3, 9](ItemInstanceArchitecture.md#9-open-points-to-confirm-during-implementation),
 not a new array-size decision here. Transfers, deposits and corpse handoff preserve each unit's
 modifiers atomically with quantity and origin; rejecting a request changes none of them.
+A unit is addressed by `SourceUnitIndex` and its observed modifiers, and corpse conversion loads the
+snapshot's modified units with their modifiers ([Item Instances §6.3, as built](ItemInstanceArchitecture.md#63-raid-transport)).
 
 `IsEmpty` and occupied slots are derived. Initial configuration is fully validated before any stack is written and is then loaded in catalog-index order. State Authority alone initializes content and writes availability. A container with no requested override uses its serialized `LootContainerInitialEntry` values; an authoritative pre-spawn override uses its materialized `LootEntry` values; a rejected override fails closed and never falls back to manual content. Every peer registers the source and colliders locally for runner-scoped discovery, including before its replicated snapshot observes initialization. Proxy registration grants neither extraction authority nor mutation access; authoritative validation and commits still require State Authority. If grouped registration fails on State Authority, no partial registry entries remain and availability stays false.
 

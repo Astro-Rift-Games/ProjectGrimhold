@@ -203,6 +203,24 @@ Raid state carries `WeaponInstanceModifiersNetworkData` per weapon unit, never i
 - Container capacity: world and enemy containers keep their limit of 6 distinct entries, and each
   weapon unit counts as one entry. Player corpses use their own capacity for every weapon the
   player carried (30 inventory slots + 4 hand slots).
+
+As built (TASK-283 T7):
+
+- `NetworkLootContainer.WeaponUnits` is a `NetworkArray<ContainerWeaponUnit>` of 34 units. Each unit
+  packs catalog index and origin in one word and the modifiers in a second. The aggregate and the
+  origin state stay in sync with it. A transfer of one unit carries its modifiers; several weapon
+  units move only as plain units, one by one.
+- A unit is addressed by `LootTransferRequest.SourceUnitIndex` plus the observed
+  `SourceUnitModifiers`; the guard is the unit's modifiers, not the container revision, so an
+  unrelated change never stales the request and a replaced unit never substitutes another.
+- `NetworkLootPickup.Modifiers` is validated at spawn (amount 1, weapon, decodable) and returned
+  through the origin transfer so the interaction delivers it to the receiver.
+- Corpses: `PlayerExpeditionLootSnapshot.ModifiedWeaponUnits` lists the units that carry modifiers
+  (Inventory slots first, then the four hands). `NetworkLootContainer.TryLoadExactContent`,
+  `HasExactContent` and `TryClearExactContent` take that list; the rest of each provenance bucket is
+  created plain and a modified unit must belong to an existing bucket.
+- Measured Fusion word counts with modifiers (ceilings in `RaidLootOriginWordCountTests`): container
+  1230, enemy 1291, pickup 24.
 - Measured network budgets (`RaidLootOriginWordCountTests`) are re-measured after implementation
   and the test ceilings are set to the measured values.
 

@@ -127,6 +127,22 @@ not Raid addresses. `AuthoritativeExtractionResult.items`, the RPC payload and
 by `lootId`. Equipment remains separate. The backend validates modifiers against the template
 rules and catalog gem set, never regenerates seeds, and issues a new backend instance ID for
 every equipment unit on commit ([Item Instances §7](ItemInstanceArchitecture.md#7-extraction-and-reservation)).
+
+As built, `RPC_CommitExtractionOnInputAuthority` keeps the aggregate `catalogIndices`/`amounts`
+arrays and adds the per-unit modifiers: `modifiedIndices`/`modifiedPacked` (one entry per backpack unit
+that carries modifiers, bounded by the thirty Inventory slots), the two off-hand slot indices and the
+packed word of each of the four hand slots. Plain units are implied by the aggregate amounts.
+`ExtractionPayloadBuilder` derives the stash items and the prepared equipment from those arrays; the
+State Authority publish and the Input Authority local commit both use it, so they always agree on the
+unit set. Equipment becomes amount-1 units (a unit with modifiers becomes an ID-less
+`EquipmentInstance`; plain units stay plain) and non-equipment stays aggregated. Input Authority
+validates every packed word against the template and catalog before committing.
+`POST /character/raid/extraction-result` is always sent in the ID-free instance form (equipment
+`{ lootId, amount: 1, modifiers? }`, slots `null | { lootId, modifiers? }`, including both off-hand
+slots); the commit bodies stay quantity-only and merge units of one template because the backend
+reads the stored result, not the commit items. The Results loot summary remains presentation-only
+and aggregate.
+
 For a new commit, `ExtractionCommitService` rejects a non-empty Loadout (`409 LOADOUT_NOT_EMPTY`)
 and applies v3 reception: equipment takes one free slot per unit and never merges; non-equipment
 uses the lowest matching in-capacity stack, otherwise the lowest free slot below capacity.
