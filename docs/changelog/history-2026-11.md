@@ -4,32 +4,548 @@
 
 Release: Unreleased
 
-40 original commits; 40 canonical entries.
+50 original commits; 50 canonical entries.
 
 ## Canonical classification
 
-21 features; 12 bug fixes; 1 refactoring; 4 documentation; 1 maintenance; 1 other changes
+28 features; 14 bug fixes; 1 refactoring; 5 documentation; 1 maintenance; 1 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 3 | 6 | 1 | 0 | 1 | 1 |
-| Art & Animation | 8 | 6 | 1 | 0 | 2 | 0 |
+| Art & Animation | 8 | 7 | 1 | 0 | 2 | 0 |
 | Audio | 5 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 16 | 7 | 1 | 0 | 1 | 1 |
-| Combat | 10 | 1 | 0 | 0 | 0 | 0 |
+| Build & Tooling | 17 | 7 | 1 | 0 | 1 | 1 |
+| Combat | 12 | 1 | 0 | 0 | 0 | 0 |
 | Documentation | 10 | 6 | 0 | 0 | 1 | 0 |
-| Extraction | 2 | 0 | 0 | 0 | 1 | 0 |
+| Extraction | 3 | 0 | 0 | 0 | 1 | 0 |
 | Input | 1 | 0 | 0 | 0 | 0 | 0 |
-| Inventory & Loot | 14 | 11 | 1 | 0 | 1 | 0 |
+| Inventory & Loot | 19 | 12 | 1 | 0 | 1 | 0 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 4 | 1 | 0 | 0 | 0 | 0 |
-| Persistence & Backend | 5 | 0 | 0 | 0 | 1 | 0 |
-| Tests | 20 | 11 | 1 | 0 | 2 | 0 |
-| UI | 12 | 3 | 1 | 0 | 3 | 0 |
-| Unassigned | 0 | 0 | 0 | 0 | 1 | 0 |
-| World & Visibility | 7 | 4 | 0 | 0 | 0 | 0 |
+| Networking & Sessions | 6 | 2 | 0 | 0 | 0 | 0 |
+| Persistence & Backend | 8 | 1 | 0 | 0 | 1 | 0 |
+| Tests | 27 | 12 | 1 | 0 | 2 | 0 |
+| UI | 15 | 4 | 1 | 0 | 3 | 0 |
+| Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
+| World & Visibility | 8 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### f2cd9d7c9d843082400e174838b64e2fc462065f
+
+[f2cd9d7c9d843082400e174838b64e2fc462065f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f2cd9d7c9d843082400e174838b64e2fc462065f)
+
+Date: 2026-11-03T20:02:24-03:00 · Classification: Bug Fixes (explicit) · Systems: Inventory & Loot, Networking & Sessions, Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(missions): allow reaccepting abandoned contracts and enforce physical slot limits
+```
+
+#### Original body
+
+```text
+Reset abandoned mission states to active upon re-acceptance in LocalProfileStore. Enforce physical inventory stack limits in RaidLoadoutRules.TryValidate and calculate projected physical slot consumption in TryCreateLoadoutReservation to prevent raid admission crashes when loadouts exceed physical slot capacity.
+
+Player-Fixed: Abandoned contracts can now be accepted again from the Guild NPC.
+
+Player-Fixed: Prevented raid launch failures caused by inventories exceeding physical stack limits.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/RaidAdmissionData.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+Project Grimhold/Assets/Tests/EditMode/Missions/MissionPersistenceTests.cs
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- message-term → Inventory &amp; Loot: inventory
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidAdmissionData.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Missions/MissionPersistenceTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Missions/MissionPersistenceTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 6e42d41593971ee726bb6b4a308bd76f0212b697
+
+[6e42d41593971ee726bb6b4a308bd76f0212b697](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6e42d41593971ee726bb6b4a308bd76f0212b697)
+
+Date: 2026-11-03T20:01:36-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, World & Visibility, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(loot): add crafting and mission resources to container loot tables
+```
+
+#### Original body
+
+```text
+Register all 21 canonical RES_* resource items into DefaultLootContainerContentTable and EnemyLootContainerContentTable so crafting and mission resources can spawn from dungeon chests and enemies. Update WeaponCatalogTests with the expanded catalog count.
+
+Player-Added: Crafting and mission resources like black iron now drop from chests and enemies in raids.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scriptable Objects/Loot/Tables/DefaultLootContainerContentTable.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Tables/EnemyLootContainerContentTable.asset
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Tables/DefaultLootContainerContentTable.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Tables/EnemyLootContainerContentTable.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- message-term → World &amp; Visibility: dungeon
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### f9895d8e5d2e8362f4de9e7b572e19e9e01309dd
+
+[f9895d8e5d2e8362f4de9e7b572e19e9e01309dd](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f9895d8e5d2e8362f4de9e7b572e19e9e01309dd)
+
+Date: 2026-11-03T20:01:02-03:00 · Classification: Bug Fixes (explicit) · Systems: UI, Art & Animation
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(ui): restore character tables and glyphs for alagard and liberation sans
+```
+
+#### Original body
+
+```text
+Repopulate character and glyph lookup tables in alagard SDF and LiberationSans SDF fallback font assets to fix broken glyph rendering in menus and HUD labels.
+
+Player-Fixed: Restored missing and unrendered font characters in UI panels and menus.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset
+Project Grimhold/Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- scope → UI: ui
+- message-term → UI: ui
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 718e66908c806c5a2b9f83ba34bf51897d4b51ba
+
+[718e66908c806c5a2b9f83ba34bf51897d4b51ba](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/718e66908c806c5a2b9f83ba34bf51897d4b51ba)
+
+Date: 2026-11-03T20:00:32-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, Networking & Sessions, UI, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(missions): wire town guild npc and mission tracker hud into scenes and prefabs
+```
+
+#### Original body
+
+```text
+Place TownMissionNPC in Lobby-Town with interaction and directional view, bind TownMissionGuild UI on SocialPlayer, and attach RaidMissionTracker with progress/completion popups and toggle key on NetworkPlayer. Automatically dismiss acceptance feedback on timeout or contract selection.
+
+Player-Added: Players can interact with the Mission Guild NPC in Town to browse, accept, and claim contracts.
+
+Player-Added: In-raid HUD displays active contracts and objective progress notifications.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab
+Project Grimhold/Assets/Prefabs/SocialPlayer.prefab
+Project Grimhold/Assets/Prefabs/TownMissionNPC.prefab
+Project Grimhold/Assets/Prefabs/TownMissionNPC.prefab.meta
+Project Grimhold/Assets/Prefabs/UI/Missions/TownMissionGuild.prefab
+Project Grimhold/Assets/Prefabs/UI/Missions/TownMissionGuild.prefab.meta
+Project Grimhold/Assets/Scenes/Lobby-Town.unity
+Project Grimhold/Assets/Scripts/Missions/Engine/IMissionClaimService.cs.meta
+Project Grimhold/Assets/Scripts/Missions/Engine/MissionProgressEngine.cs
+Project Grimhold/Assets/Scripts/Missions/Engine/RaidZoneTrigger.cs
+Project Grimhold/Assets/Scripts/Missions/Engine/RaidZoneTrigger.cs.meta
+Project Grimhold/Assets/Scripts/Networking/TownMissionNpcInteractable.cs.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerHudBinder.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidMissionTrackerPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidMissionTrackerPresenter.cs.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidMissionTrackerView.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidMissionTrackerView.cs.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/TownMissionGuildPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownMissionGuildPresenter.cs.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/TownMissionGuildView.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownMissionGuildView.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionEventProducersTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionTrackerPresenterTests.cs
+Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionTrackerPresenterTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Missions/RankEContractsAndGuildReputationTests.cs
+Project Grimhold/Assets/Tests/EditMode/Missions/RankEContractsAndGuildReputationTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Missions/RankEResourceRulesTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Missions/TownMissionGuildPresenterTests.cs
+Project Grimhold/Assets/Tests/EditMode/Missions/TownMissionGuildPresenterTests.cs.meta
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- message-term → Inventory &amp; Loot: interaction
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scenes/Lobby-Town.unity
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownMissionNpcInteractable.cs.meta
+- message-term → Networking &amp; Sessions: Lobby
+- path → UI: Project Grimhold/Assets/Prefabs/UI/Missions/TownMissionGuild.prefab
+- path → UI: Project Grimhold/Assets/Prefabs/UI/Missions/TownMissionGuild.prefab.meta
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerHudBinder.cs
+- message-term → UI: hud
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionEventProducersTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionTrackerPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionTrackerPresenterTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Missions/RankEContractsAndGuildReputationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Missions/RankEContractsAndGuildReputationTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Missions/RankEResourceRulesTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Missions/TownMissionGuildPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Missions/TownMissionGuildPresenterTests.cs.meta
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 49bda06136a06fc7d15d3f6fd95604de93580108
+
+[49bda06136a06fc7d15d3f6fd95604de93580108](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/49bda06136a06fc7d15d3f6fd95604de93580108)
+
+Date: 2026-11-02T23:32:56-03:00 · Classification: Documentation (explicit) · Systems: Unassigned
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(odd): complete mission system guild and contracts tracking
+```
+
+#### Original body
+
+```text
+Refs: US-75, #650
+```
+
+#### Changed paths
+
+```text
+odd/tasks/mission-system-guild-and-contracts.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+
+#### Diagnostics
+
+- **unassigned-system:** No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system.
+
+### ccd10ad98a8173a5f468c7d4894702f0b330c05e
+
+[ccd10ad98a8173a5f468c7d4894702f0b330c05e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ccd10ad98a8173a5f468c7d4894702f0b330c05e)
+
+Date: 2026-11-02T23:30:32-03:00 · Classification: Features (explicit) · Systems: UI, Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(missions): implement active mission tracker in raid hud
+```
+
+#### Original body
+
+```text
+- Add MissionProgressChanged event to LocalProfileStore for reactive progress updates.
+- Add RaidMissionTrackerPresenter and collapsible RaidMissionTrackerView.
+- Present active raid contracts, objectives, and progress in real time without polling.
+- Highlight completion and show 'Completada (Reclamar en Pueblo)' when phase completes.
+- Wire RaidMissionTrackerPresenter into LocalPlayerHudBinder.
+- Add comprehensive EditMode tests in RaidMissionTrackerPresenterTests.
+
+Refs: US-75, TASK-261, #650, #653
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerHudBinder.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidMissionTrackerPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidMissionTrackerView.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionTrackerPresenterTests.cs
+odd/tasks/mission-system-guild-and-contracts.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerHudBinder.cs
+- message-term → UI: hud
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionTrackerPresenterTests.cs
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 103c6b821ffe4e9d08a9b3fe02ceeb0498a4cf2d
+
+[103c6b821ffe4e9d08a9b3fe02ceeb0498a4cf2d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/103c6b821ffe4e9d08a9b3fe02ceeb0498a4cf2d)
+
+Date: 2026-11-02T23:25:22-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, Networking & Sessions, UI, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(missions): implement town mission npc interactable and guild contracts ui
+```
+
+#### Original body
+
+```text
+- Add TownMissionNpcInteractable network behaviour for physical NPC interactions.
+- Add TownMissionGuildPresenter and TownMissionGuildView with Available/Active tabs.
+- Enforce strict 3 active contracts cap and safe abandonment.
+- Enforce Stash capacity verification on claim preventing reward loss when full.
+- Integrate TownMissionGuildPresenter into TownInventoryBinder lifecycle.
+- Add comprehensive EditMode tests in TownMissionGuildPresenterTests.
+
+Refs: US-75, TASK-259, TASK-260, #650, #651, #652
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/TownMissionNpcInteractable.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownInventoryBinder.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownMissionGuildPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownMissionGuildView.cs
+Project Grimhold/Assets/Tests/EditMode/Missions/TownMissionGuildPresenterTests.cs
+odd/tasks/mission-system-guild-and-contracts.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/TownInventoryBinder.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownMissionNpcInteractable.cs
+- message-term → UI: ui
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Missions/TownMissionGuildPresenterTests.cs
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### e82801c1d12f336c9364bfc9706fa81382a7faec
+
+[e82801c1d12f336c9364bfc9706fa81382a7faec](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e82801c1d12f336c9364bfc9706fa81382a7faec)
+
+Date: 2026-11-02T23:14:43-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(missions): implement authoritative raid event producers and duo coop rules
+```
+
+#### Original body
+
+```text
+- Add RaidZoneTrigger for zone exploration events with 35m duo proximity credit.
+- Wire DamageResolver for fatal PvE (EliminacionPvE and EliminacionEspecifica) and companion credit within 35m.
+- Wire NetworkLootContainerInteractable chest opening for interactor and companion within 35m.
+- Wire NetworkLootPickup for individual item acquisition events.
+- Wire PlayerPvpCombatCreditNetworkController for authoritative PvP kill mission progress.
+- Add manual simulation buttons in MissionPlayModeDebugger.
+- Add comprehensive edit mode unit tests in RaidMissionEventProducersTests.
+
+Refs: US-75, TASK-262, #650, #654
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Combat/DamageResolver.cs
+Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainerInteractable.cs
+Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs
+Project Grimhold/Assets/Scripts/Missions/Debugging/MissionPlayModeDebugger.cs
+Project Grimhold/Assets/Scripts/Missions/Engine/RaidZoneTrigger.cs
+Project Grimhold/Assets/Scripts/Player/PlayerPvpCombatCreditNetworkController.cs
+Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionEventProducersTests.cs
+odd/tasks/mission-system-guild-and-contracts.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Scripts/Combat/DamageResolver.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/PlayerPvpCombatCreditNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainerInteractable.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionEventProducersTests.cs
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 3a17806f543200f7f7e242eadb6a20d8a3b2a186
+
+[3a17806f543200f7f7e242eadb6a20d8a3b2a186](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3a17806f543200f7f7e242eadb6a20d8a3b2a186)
+
+Date: 2026-11-02T23:00:58-03:00 · Classification: Features (explicit) · Systems: Extraction, Inventory & Loot, Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(missions): implement dynamic resource rules and atomic claim deduction
+```
+
+#### Original body
+
+```text
+Add dynamic personal inventory possession evaluation for resource gathering contracts (CON_E_005), single-expedition extraction validation (CON_E_006) preserving RaidGenerationId, and atomic material deduction from player Loadout on reward claim via IMissionClaimService.
+
+Reviewers must verify:
+- ObjectiveProgressState records ExpeditionId for ExtraccionDeObjetos.
+- LocalProfileStore.TryClaimMission consumes strictly from personal inventory and rejects claims when items are only in Stash.
+- Concurrent active contracts recalculate satisfaction immediately upon shared resource deduction.
+
+Added tests:
+- RankEResourceRulesTests (8 EditMode tests covering E05-01..03, E06-01..03, MAT-01 and MAT-02).
+
+Refs: US-75, TASK-271, #650, #695
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Missions/Engine/IMissionClaimService.cs
+Project Grimhold/Assets/Scripts/Missions/Engine/MissionProgressEngine.cs
+Project Grimhold/Assets/Scripts/Missions/State/MissionLifecycleRules.cs
+Project Grimhold/Assets/Scripts/Missions/State/ObjectiveProgressState.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+Project Grimhold/Assets/Tests/EditMode/Missions/RankEResourceRulesTests.cs
+odd/tasks/mission-system-guild-and-contracts.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- message-term → Extraction: extraction
+- message-term → Inventory &amp; Loot: inventory
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Missions/RankEResourceRulesTests.cs
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### aba4e90a18c8e8c257bccac4d2c58dd8d90647bb
+
+[aba4e90a18c8e8c257bccac4d2c58dd8d90647bb](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/aba4e90a18c8e8c257bccac4d2c58dd8d90647bb)
+
+Date: 2026-11-02T22:36:37-03:00 · Classification: Features (explicit) · Systems: Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(missions): configure canonical rank e contracts and guild reputation persistence
+```
+
+#### Original body
+
+```text
+Configure the 6 canonical Rank E daily contract ScriptableObjects (CON_E_001 to CON_E_006) with their objective families, quantities, and reward packages (XP, Gold, Guild Reputation) per design Doc 12 and Rank E Contracts spec. Extend LocalProfileSnapshot with GuildReputation, GuildRank (E for 0..99, D for 100+), bump LocalProfileSaveCodec to SchemaVersion 10 with backward compatibility, and atomic reputation accumulation and rank validation in LocalProfileStore.
+
+Refs: US-75, TASK-263, TASK-270, #650, #655, #687
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scriptable Objects/Missions/Mission_RankE_01.asset
+Project Grimhold/Assets/Scriptable Objects/Missions/Mission_RankE_02.asset
+Project Grimhold/Assets/Scriptable Objects/Missions/Mission_RankE_03.asset
+Project Grimhold/Assets/Scriptable Objects/Missions/Mission_RankE_04.asset
+Project Grimhold/Assets/Scriptable Objects/Missions/Mission_RankE_05.asset
+Project Grimhold/Assets/Scriptable Objects/Missions/Mission_RankE_06.asset
+Project Grimhold/Assets/Scripts/Missions/Definitions/MissionDefinitionCatalog.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+Project Grimhold/Assets/Tests/EditMode/Missions/RankEContractsAndGuildReputationTests.cs
+odd/tasks/mission-system-guild-and-contracts.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+- message-term → Persistence &amp; Backend: persistence
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Missions/RankEContractsAndGuildReputationTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### bada9b0a4fac2f79a9ad338a591a7efb14f33051
 

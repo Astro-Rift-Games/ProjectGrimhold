@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 912,
-  "canonicalEntries": 909,
+  "rawCommits": 922,
+  "canonicalEntries": 919,
   "before": {
-    "Features": 339,
-    "Documentation": 79,
+    "Bug Fixes": 92,
+    "Features": 346,
+    "Documentation": 80,
     "Refactoring": 14,
-    "Bug Fixes": 90,
     "Architecture & Infrastructure": 13,
     "Other Changes": 353,
     "Tests": 24
   },
   "after": {
-    "Features": 476,
-    "Documentation": 94,
+    "Bug Fixes": 108,
+    "Features": 483,
+    "Documentation": 95,
     "Refactoring": 27,
-    "Bug Fixes": 106,
     "Maintenance": 12,
     "Other Changes": 163,
     "Tests": 29,
@@ -23,48 +23,48 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Combat": 323,
-    "Inventory & Loot": 341,
-    "UI": 283,
-    "Persistence & Backend": 191,
-    "Art & Animation": 224,
-    "Build & Tooling": 462,
-    "Tests": 550,
+    "Inventory & Loot": 347,
+    "Networking & Sessions": 262,
+    "Persistence & Backend": 195,
+    "Tests": 558,
+    "Combat": 325,
+    "World & Visibility": 121,
+    "Build & Tooling": 463,
+    "UI": 287,
+    "Art & Animation": 225,
+    "Unassigned": 20,
+    "Extraction": 123,
     "Abilities": 116,
-    "Extraction": 122,
     "Documentation": 355,
-    "Networking & Sessions": 259,
-    "World & Visibility": 120,
-    "Unassigned": 19,
     "Audio": 33,
     "Movement": 91,
     "Input": 28
   },
   "canonical": {
     "sections": {
-      "Features": 475,
-      "Documentation": 94,
+      "Bug Fixes": 107,
+      "Features": 482,
+      "Documentation": 95,
       "Refactoring": 27,
-      "Bug Fixes": 105,
       "Maintenance": 12,
       "Other Changes": 162,
       "Tests": 29,
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "Combat": 321,
-      "Inventory & Loot": 341,
-      "UI": 282,
-      "Persistence & Backend": 191,
-      "Art & Animation": 221,
-      "Build & Tooling": 460,
-      "Tests": 548,
+      "Inventory & Loot": 347,
+      "Networking & Sessions": 262,
+      "Persistence & Backend": 195,
+      "Tests": 556,
+      "Combat": 323,
+      "World & Visibility": 119,
+      "Build & Tooling": 461,
+      "UI": 286,
+      "Art & Animation": 222,
+      "Unassigned": 20,
+      "Extraction": 123,
       "Abilities": 114,
-      "Extraction": 122,
       "Documentation": 353,
-      "Networking & Sessions": 259,
-      "World & Visibility": 118,
-      "Unassigned": 19,
       "Audio": 33,
       "Movement": 91,
       "Input": 28
@@ -34099,8 +34099,8 @@
       "title": "2026-11 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 40,
-      "canonicalEntries": 40
+      "originalCommits": 50,
+      "canonicalEntries": 50
     },
     {
       "key": "history-2026-10",
@@ -34136,6 +34136,705 @@
     }
   ],
   "commits": [
+    {
+      "sha": "f2cd9d7c9d843082400e174838b64e2fc462065f",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f2cd9d7c9d843082400e174838b64e2fc462065f",
+      "subject": "fix(missions): allow reaccepting abandoned contracts and enforce physical slot limits",
+      "body": "Reset abandoned mission states to active upon re-acceptance in LocalProfileStore. Enforce physical inventory stack limits in RaidLoadoutRules.TryValidate and calculate projected physical slot consumption in TryCreateLoadoutReservation to prevent raid admission crashes when loadouts exceed physical slot capacity.\n\nPlayer-Fixed: Abandoned contracts can now be accepted again from the Guild NPC.\n\nPlayer-Fixed: Prevented raid launch failures caused by inventories exceeding physical stack limits.\n",
+      "date": "2026-11-03T20:02:24-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionData.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Missions/MissionPersistenceTests.cs"
+      ],
+      "originalType": "fix",
+      "originalScope": "missions",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionData.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Missions/MissionPersistenceTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Missions/MissionPersistenceTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "6e42d41593971ee726bb6b4a308bd76f0212b697",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6e42d41593971ee726bb6b4a308bd76f0212b697",
+      "subject": "feat(loot): add crafting and mission resources to container loot tables",
+      "body": "Register all 21 canonical RES_* resource items into DefaultLootContainerContentTable and EnemyLootContainerContentTable so crafting and mission resources can spawn from dungeon chests and enemies. Update WeaponCatalogTests with the expanded catalog count.\n\nPlayer-Added: Crafting and mission resources like black iron now drop from chests and enemies in raids.\n",
+      "date": "2026-11-03T20:01:36-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Tables/DefaultLootContainerContentTable.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Tables/EnemyLootContainerContentTable.asset",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "World & Visibility",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Tables/DefaultLootContainerContentTable.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Tables/EnemyLootContainerContentTable.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "f9895d8e5d2e8362f4de9e7b572e19e9e01309dd",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f9895d8e5d2e8362f4de9e7b572e19e9e01309dd",
+      "subject": "fix(ui): restore character tables and glyphs for alagard and liberation sans",
+      "body": "Repopulate character and glyph lookup tables in alagard SDF and LiberationSans SDF fallback font assets to fix broken glyph rendering in menus and HUD labels.\n\nPlayer-Fixed: Restored missing and unrendered font characters in UI panels and menus.\n",
+      "date": "2026-11-03T20:01:02-03:00",
+      "files": [
+        "Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset",
+        "Project Grimhold/Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset"
+      ],
+      "originalType": "fix",
+      "originalScope": "ui",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "UI",
+        "Art & Animation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "scope",
+          "value": "ui",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "ui",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset",
+          "supports": "Art & Animation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "718e66908c806c5a2b9f83ba34bf51897d4b51ba",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/718e66908c806c5a2b9f83ba34bf51897d4b51ba",
+      "subject": "feat(missions): wire town guild npc and mission tracker hud into scenes and prefabs",
+      "body": "Place TownMissionNPC in Lobby-Town with interaction and directional view, bind TownMissionGuild UI on SocialPlayer, and attach RaidMissionTracker with progress/completion popups and toggle key on NetworkPlayer. Automatically dismiss acceptance feedback on timeout or contract selection.\n\nPlayer-Added: Players can interact with the Mission Guild NPC in Town to browse, accept, and claim contracts.\n\nPlayer-Added: In-raid HUD displays active contracts and objective progress notifications.\n",
+      "date": "2026-11-03T20:00:32-03:00",
+      "files": [
+        "Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab",
+        "Project Grimhold/Assets/Prefabs/SocialPlayer.prefab",
+        "Project Grimhold/Assets/Prefabs/TownMissionNPC.prefab",
+        "Project Grimhold/Assets/Prefabs/TownMissionNPC.prefab.meta",
+        "Project Grimhold/Assets/Prefabs/UI/Missions/TownMissionGuild.prefab",
+        "Project Grimhold/Assets/Prefabs/UI/Missions/TownMissionGuild.prefab.meta",
+        "Project Grimhold/Assets/Scenes/Lobby-Town.unity",
+        "Project Grimhold/Assets/Scripts/Missions/Engine/IMissionClaimService.cs.meta",
+        "Project Grimhold/Assets/Scripts/Missions/Engine/MissionProgressEngine.cs",
+        "Project Grimhold/Assets/Scripts/Missions/Engine/RaidZoneTrigger.cs",
+        "Project Grimhold/Assets/Scripts/Missions/Engine/RaidZoneTrigger.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/TownMissionNpcInteractable.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerHudBinder.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMissionTrackerPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMissionTrackerPresenter.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMissionTrackerView.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMissionTrackerView.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownMissionGuildPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownMissionGuildPresenter.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownMissionGuildView.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownMissionGuildView.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionEventProducersTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionTrackerPresenterTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionTrackerPresenterTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Missions/RankEContractsAndGuildReputationTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Missions/RankEContractsAndGuildReputationTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Missions/RankEResourceRulesTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Missions/TownMissionGuildPresenterTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Missions/TownMissionGuildPresenterTests.cs.meta"
+      ],
+      "originalType": "feat",
+      "originalScope": "missions",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "message-term",
+          "value": "interaction",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scenes/Lobby-Town.unity",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownMissionNpcInteractable.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "Lobby",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/Missions/TownMissionGuild.prefab",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/Missions/TownMissionGuild.prefab.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerHudBinder.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "hud",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionEventProducersTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionTrackerPresenterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionTrackerPresenterTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Missions/RankEContractsAndGuildReputationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Missions/RankEContractsAndGuildReputationTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Missions/RankEResourceRulesTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Missions/TownMissionGuildPresenterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Missions/TownMissionGuildPresenterTests.cs.meta",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "49bda06136a06fc7d15d3f6fd95604de93580108",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/49bda06136a06fc7d15d3f6fd95604de93580108",
+      "subject": "docs(odd): complete mission system guild and contracts tracking",
+      "body": "Refs: US-75, #650\n",
+      "date": "2026-11-02T23:32:56-03:00",
+      "files": [
+        "odd/tasks/mission-system-guild-and-contracts.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "odd",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "unassigned-system",
+          "message": "No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system."
+        }
+      ],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "ccd10ad98a8173a5f468c7d4894702f0b330c05e",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ccd10ad98a8173a5f468c7d4894702f0b330c05e",
+      "subject": "feat(missions): implement active mission tracker in raid hud",
+      "body": "- Add MissionProgressChanged event to LocalProfileStore for reactive progress updates.\n- Add RaidMissionTrackerPresenter and collapsible RaidMissionTrackerView.\n- Present active raid contracts, objectives, and progress in real time without polling.\n- Highlight completion and show 'Completada (Reclamar en Pueblo)' when phase completes.\n- Wire RaidMissionTrackerPresenter into LocalPlayerHudBinder.\n- Add comprehensive EditMode tests in RaidMissionTrackerPresenterTests.\n\nRefs: US-75, TASK-261, #650, #653\n",
+      "date": "2026-11-02T23:30:32-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerHudBinder.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMissionTrackerPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMissionTrackerView.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionTrackerPresenterTests.cs",
+        "odd/tasks/mission-system-guild-and-contracts.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "missions",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "UI",
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerHudBinder.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "hud",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionTrackerPresenterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "103c6b821ffe4e9d08a9b3fe02ceeb0498a4cf2d",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/103c6b821ffe4e9d08a9b3fe02ceeb0498a4cf2d",
+      "subject": "feat(missions): implement town mission npc interactable and guild contracts ui",
+      "body": "- Add TownMissionNpcInteractable network behaviour for physical NPC interactions.\n- Add TownMissionGuildPresenter and TownMissionGuildView with Available/Active tabs.\n- Enforce strict 3 active contracts cap and safe abandonment.\n- Enforce Stash capacity verification on claim preventing reward loss when full.\n- Integrate TownMissionGuildPresenter into TownInventoryBinder lifecycle.\n- Add comprehensive EditMode tests in TownMissionGuildPresenterTests.\n\nRefs: US-75, TASK-259, TASK-260, #650, #651, #652\n",
+      "date": "2026-11-02T23:25:22-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Networking/TownMissionNpcInteractable.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownInventoryBinder.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownMissionGuildPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownMissionGuildView.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Missions/TownMissionGuildPresenterTests.cs",
+        "odd/tasks/mission-system-guild-and-contracts.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "missions",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/TownInventoryBinder.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownMissionNpcInteractable.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "ui",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Missions/TownMissionGuildPresenterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "e82801c1d12f336c9364bfc9706fa81382a7faec",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e82801c1d12f336c9364bfc9706fa81382a7faec",
+      "subject": "feat(missions): implement authoritative raid event producers and duo coop rules",
+      "body": "- Add RaidZoneTrigger for zone exploration events with 35m duo proximity credit.\n- Wire DamageResolver for fatal PvE (EliminacionPvE and EliminacionEspecifica) and companion credit within 35m.\n- Wire NetworkLootContainerInteractable chest opening for interactor and companion within 35m.\n- Wire NetworkLootPickup for individual item acquisition events.\n- Wire PlayerPvpCombatCreditNetworkController for authoritative PvP kill mission progress.\n- Add manual simulation buttons in MissionPlayModeDebugger.\n- Add comprehensive edit mode unit tests in RaidMissionEventProducersTests.\n\nRefs: US-75, TASK-262, #650, #654\n",
+      "date": "2026-11-02T23:14:43-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Combat/DamageResolver.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainerInteractable.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs",
+        "Project Grimhold/Assets/Scripts/Missions/Debugging/MissionPlayModeDebugger.cs",
+        "Project Grimhold/Assets/Scripts/Missions/Engine/RaidZoneTrigger.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerPvpCombatCreditNetworkController.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionEventProducersTests.cs",
+        "odd/tasks/mission-system-guild-and-contracts.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "missions",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Combat/DamageResolver.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/PlayerPvpCombatCreditNetworkController.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainerInteractable.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Missions/RaidMissionEventProducersTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "3a17806f543200f7f7e242eadb6a20d8a3b2a186",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3a17806f543200f7f7e242eadb6a20d8a3b2a186",
+      "subject": "feat(missions): implement dynamic resource rules and atomic claim deduction",
+      "body": "Add dynamic personal inventory possession evaluation for resource gathering contracts (CON_E_005), single-expedition extraction validation (CON_E_006) preserving RaidGenerationId, and atomic material deduction from player Loadout on reward claim via IMissionClaimService.\n\nReviewers must verify:\n- ObjectiveProgressState records ExpeditionId for ExtraccionDeObjetos.\n- LocalProfileStore.TryClaimMission consumes strictly from personal inventory and rejects claims when items are only in Stash.\n- Concurrent active contracts recalculate satisfaction immediately upon shared resource deduction.\n\nAdded tests:\n- RankEResourceRulesTests (8 EditMode tests covering E05-01..03, E06-01..03, MAT-01 and MAT-02).\n\nRefs: US-75, TASK-271, #650, #695\n",
+      "date": "2026-11-02T23:00:58-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Missions/Engine/IMissionClaimService.cs",
+        "Project Grimhold/Assets/Scripts/Missions/Engine/MissionProgressEngine.cs",
+        "Project Grimhold/Assets/Scripts/Missions/State/MissionLifecycleRules.cs",
+        "Project Grimhold/Assets/Scripts/Missions/State/ObjectiveProgressState.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Missions/RankEResourceRulesTests.cs",
+        "odd/tasks/mission-system-guild-and-contracts.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "missions",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Missions/RankEResourceRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "aba4e90a18c8e8c257bccac4d2c58dd8d90647bb",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/aba4e90a18c8e8c257bccac4d2c58dd8d90647bb",
+      "subject": "feat(missions): configure canonical rank e contracts and guild reputation persistence",
+      "body": "Configure the 6 canonical Rank E daily contract ScriptableObjects (CON_E_001 to CON_E_006) with their objective families, quantities, and reward packages (XP, Gold, Guild Reputation) per design Doc 12 and Rank E Contracts spec. Extend LocalProfileSnapshot with GuildReputation, GuildRank (E for 0..99, D for 100+), bump LocalProfileSaveCodec to SchemaVersion 10 with backward compatibility, and atomic reputation accumulation and rank validation in LocalProfileStore.\n\nRefs: US-75, TASK-263, TASK-270, #650, #655, #687\n",
+      "date": "2026-11-02T22:36:37-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scriptable Objects/Missions/Mission_RankE_01.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Missions/Mission_RankE_02.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Missions/Mission_RankE_03.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Missions/Mission_RankE_04.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Missions/Mission_RankE_05.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Missions/Mission_RankE_06.asset",
+        "Project Grimhold/Assets/Scripts/Missions/Definitions/MissionDefinitionCatalog.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Missions/RankEContractsAndGuildReputationTests.cs",
+        "odd/tasks/mission-system-guild-and-contracts.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "missions",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "persistence",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Missions/RankEContractsAndGuildReputationTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "bada9b0a4fac2f79a9ad338a591a7efb14f33051",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/bada9b0a4fac2f79a9ad338a591a7efb14f33051",
