@@ -6,6 +6,24 @@ using UnityEngine;
 public sealed class InventoryProtocolSlotTests
 {
     [Test]
+    public void NewCharacterInventory_AcceptsExactServerSnapshot()
+    {
+        const string json = "{\"inventorySchemaVersion\":1,\"currency\":0,\"stash\":[],\"loadout\":[],\"preparedEquipment\":{\"weaponSlot1\":\"\",\"weaponSlot2\":\"\",\"offHand1\":\"\",\"helmet\":\"\",\"armor\":\"\",\"gloves\":\"\",\"boots\":\"\",\"offHand2\":\"\"},\"pendingReservation\":null,\"buyback\":{\"entries\":[]},\"lastAppliedExtractionReceipt\":null,\"revision\":0}";
+        // Identical serializer and DTO boundary to InventoryClient.ProcessResponse<InventoryData>.
+        var data = Newtonsoft.Json.JsonConvert.DeserializeObject<InventoryData>(json);
+        Assert.That(data.inventorySchemaVersion, Is.EqualTo(1));
+        Assert.That(data.currency, Is.Zero);
+        Assert.That(data.stash, Is.Empty);
+        Assert.That(data.loadout, Is.Empty);
+        foreach (var slot in EquipmentSlotRules.AllSlots)
+            Assert.That(data.preparedEquipment.Get(slot), Is.Empty);
+        Assert.That(data.pendingReservation.reservationId, Is.Null);
+        Assert.That(data.lastAppliedExtractionReceipt.raidId, Is.Null);
+        Assert.That(data.buyback.entries, Is.Empty);
+        Assert.That(data.revision, Is.Zero);
+    }
+
+    [Test]
     public void EveryBackendRequestFactory_AddsProtocolThreeHeader_BeforeHydration()
     {
         using var get = InventoryProtocol.Get("http://localhost/inventory");

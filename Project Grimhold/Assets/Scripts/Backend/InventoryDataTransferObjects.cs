@@ -19,7 +19,10 @@ namespace Grimhold.Backend
         public InventoryItemData[]      stash;
         public InventoryItemData[]      loadout;
         public PreparedEquipmentData    preparedEquipment;
+        // The wire uses null for absent optional records; local consumers use default structs.
+        [Newtonsoft.Json.JsonProperty(NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
         public PendingReservationData   pendingReservation;
+        [Newtonsoft.Json.JsonProperty(NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore)]
         public ExtractionReceiptData    lastAppliedExtractionReceipt;
         public int                      revision;
     }
