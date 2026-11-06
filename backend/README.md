@@ -76,7 +76,7 @@ Rutas protegidas (prefijo `/character`):
 | GET | `/me/inventory` |
 | PUT | `/me/inventory/order`, `/me/inventory/prepared-equipment` |
 | POST | `/me/inventory/stash/move-to-loadout`, `/me/inventory/loadout/move-to-stash`, `/me/inventory/slots/move`, `/me/inventory/slots/split` (si está habilitado) |
-| POST | `/me/inventory/shop/sell`, `/me/inventory/shop/buy`, `/me/inventory/shop/buyback` |
+| POST | `/me/inventory/shop/sell`, `/me/inventory/shop/buy`, `/me/inventory/shop/buyback`, `/me/inventory/shop/trade` |
 | POST / DELETE | `/me/inventory/reservation` |
 | POST | `/me/inventory/reservation/admit`, `/me/inventory/extraction`, `/me/extraction/commit` |
 | POST | `/debug/mock-fusion-result`, `/me/raid/admission-ticket`, `/raid/verify-admission`, `/raid/extraction-result` |
@@ -188,6 +188,46 @@ V2 sin fuente o con order `lootIds` devuelve `409 INVENTORY_SLOT_ADDRESS_REQUIRE
 `declaredPrice`/`declaredSellValue` siguen opcionales y no afectan el precio autoritativo.
 El receipt sell v2 vincula también `sourceSlot`: reusar el transactionId con otro slot devuelve
 `TRANSACTION_ID_REUSED`, incluso si coincide el ID y la cantidad. Buyback conserva líneas sin slot.
+
+### Trade atómico (compras y ventas mezcladas)
+
+`POST /character/me/inventory/shop/trade`, JWT obligatorio; mismo gate de protocolo que buy/sell
+(header `X-Grimhold-Inventory-Protocol: 2` con gate v2, `3` con gate de instancias).
+
+```json
+{"transactionId":"trade-1","expectedRevision":8,"purchases":[{"lootId":"bone","amount":1}],"sales":[{"lootId":"placeholder_helmet","amount":1,"sourceSlot":8}]}
+```
+
+- Ambos arrays son obligatorios; pueden estar vacíos individualmente, pero debe existir al menos
+  una línea. Máximo 16 compras y 30 ventas, alineado con los límites del cliente.
+- `transactionId`: string no vacío de hasta 128 caracteres; `expectedRevision`: número entero
+  seguro no negativo. Cada `lootId` es string no vacío y `amount` número entero de 1 a 999.
+- No se aceptan campos adicionales, incluidos `declaredPrice` y `declaredSellValue` en cualquier
+  nivel. Precios autoritativos del catálogo; equipo v3 incluye el valor de sus gemas instaladas.
+- IDs normalizados únicos dentro de cada lado; slots fuente de venta no repetidos.
+  `sourceSlot` es entero seguro no negativo, obligatorio para ventas v2/v3; v1 lo ignora.
+- Primero se venden todas las líneas; después se colocan las compras en orden de ticket con el
+  mismo receptor de buy (incluida emisión de instancias v3). Oro y capacidad consideran las ventas.
+  Stash y equipo preparado no cambian. Buyback conserva elegibilidad legacy, precio congelado,
+  FIFO 16 y epoch Town; ventas v3 no crean buyback.
+- Una única escritura guarda Loadout, Oro, buyback y un receipt `type: trade` e incrementa revisión
+  exactamente una vez, guardada por revisión, ausencia de reserva y epoch de buyback.
+- HTTP 200: mismo snapshot shop mostrado abajo más `alreadySecured:false`. Repetir transactionId
+  y las mismas líneas normalizadas **en el mismo orden** devuelve el snapshot actual con
+  `alreadySecured:true`, sin escribir, incluso con revisión vieja o reserva pendiente.
+  El fingerprint es el JSON canónico de las líneas guardado en `receipt.intent`; no incluye revisión
+  ni sourceSlot v1. Otra intención u operación bajo ese ID devuelve `409 TRANSACTION_ID_REUSED`.
+  Se conservan los últimos 64 receipts, como las demás operaciones shop.
+
+Errores: `400 VALIDATION_FAILED` (DTO, duplicados, límites, campos adicionales),
+`400 INTEGER_OVERFLOW` (totales, saldo o merge no seguros), `404 CHARACTER_NOT_FOUND`,
+`404 ITEM_NOT_OFFERED`, `404 ITEM_NOT_SELLABLE`, `409 INSUFFICIENT_ITEMS`,
+`409 INSUFFICIENT_FUNDS`, `409 INVENTORY_FULL`, `409 INVENTORY_SLOT_ADDRESS_REQUIRED`,
+`409 INVENTORY_MIGRATION_REQUIRED`, `409 REVISION_CONFLICT`, `409 RESERVATION_PENDING`,
+`409 TRANSACTION_ID_REUSED`, y los errores compartidos de autenticación/protocolo
+(`401`, `426 CLIENT_UPGRADE_REQUIRED`) o inventario v3 inválido (`400 INVALID_INVENTORY`).
+Forma de error: `{error,message,details?}`; ningún rechazo aplica parcialmente el ticket.
+Buy/sell/buyback individuales conservan su contrato anterior.
 
 ### Responses
 

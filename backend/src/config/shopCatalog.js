@@ -7,6 +7,9 @@ const { normalizeLootId } = require('../services/InventoryLootIdNormalizer');
  * Prevents numerical overflow and excessive item creation.
  */
 const MAX_TRANSACTION_AMOUNT = 999;
+// MerchantRequestValidator: MaxSaleLines and TownMerchantNetworkController.MaxStockSlots.
+const MAX_TRADE_SALE_LINES = 30;
+const MAX_TRADE_PURCHASE_LINES = 16;
 const BUYBACK_PRICE_MULTIPLIER = 1.5;
 const BUYBACK_MAX_ENTRIES = 16;
 
@@ -260,6 +263,8 @@ module.exports = {
   BUYBACK_ELIGIBLE_IDS,
   isBuybackEligible,
   MAX_TRANSACTION_AMOUNT,
+  MAX_TRADE_SALE_LINES,
+  MAX_TRADE_PURCHASE_LINES,
   BUY_CATALOG,
   SELL_CATALOG,
   getBuyOffer,

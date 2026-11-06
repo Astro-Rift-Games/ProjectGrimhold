@@ -82,7 +82,7 @@ const buybackSchema = new mongoose.Schema({
 
 const shopReceiptSchema = new mongoose.Schema({
   transactionId: { type: String, required: true },
-  type:          { type: String, enum: ['buy', 'sell', 'buyback', 'ability_purchase', 'install_gem'], required: true },
+  type:          { type: String, enum: ['buy', 'sell', 'buyback', 'ability_purchase', 'install_gem', 'trade'], required: true },
   entryId:       { type: String },
   intent:        { type: mongoose.Schema.Types.Mixed },
   outcome:       { type: mongoose.Schema.Types.Mixed },

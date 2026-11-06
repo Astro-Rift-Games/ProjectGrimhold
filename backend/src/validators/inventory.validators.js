@@ -175,4 +175,36 @@ const shopBuybackValidator = [
   handleValidationErrors
 ];
 
-module.exports = { slotSplitValidator, slotMoveValidator, shopBuybackValidator, inventoryOrderValidator, moveItemValidator, preparedEquipmentValidator, pendingReservationValidator, admitReservationValidator, commitExtractionValidator, shopSellValidator, shopBuyValidator };
+// Trade accepts intentions only; reject unknown fields rather than silently trusting prices.
+const { normalizeLootId } = require('../services/InventoryLootIdNormalizer');
+const { MAX_TRADE_PURCHASE_LINES, MAX_TRADE_SALE_LINES } = require('../config/shopCatalog');
+const shopTradeValidator = [
+  body().custom(value => {
+    if (!value || Object.keys(value).some(key => !['transactionId', 'expectedRevision', 'purchases', 'sales'].includes(key)) ||
+        typeof value.transactionId !== 'string' || !value.transactionId.trim() || value.transactionId.length > 128 ||
+        !Number.isSafeInteger(value.expectedRevision) || value.expectedRevision < 0 ||
+        !Array.isArray(value.purchases) || !Array.isArray(value.sales) ||
+        value.purchases.length > MAX_TRADE_PURCHASE_LINES || value.sales.length > MAX_TRADE_SALE_LINES ||
+        value.purchases.length + value.sales.length === 0) return false;
+    for (const side of ['purchases', 'sales']) {
+      const ids = new Set(); const slots = new Set();
+      for (const line of value[side]) {
+        if (!line || typeof line !== 'object' || Array.isArray(line) ||
+            Object.keys(line).some(key => !(side === 'sales' ? ['lootId', 'amount', 'sourceSlot'] : ['lootId', 'amount']).includes(key)) ||
+            typeof line.lootId !== 'string' || !line.lootId.trim() ||
+            !Number.isSafeInteger(line.amount) || line.amount < 1 || line.amount > MAX_TRANSACTION_AMOUNT) return false;
+        const id = normalizeLootId(line.lootId.trim());
+        if (ids.has(id)) return false;
+        ids.add(id);
+        if (line.sourceSlot !== undefined) {
+          if (!Number.isSafeInteger(line.sourceSlot) || line.sourceSlot < 0 || slots.has(line.sourceSlot)) return false;
+          slots.add(line.sourceSlot);
+        }
+      }
+    }
+    return true;
+  }).withMessage('Invalid trade ticket.'),
+  handleValidationErrors
+];
+
+module.exports = { shopTradeValidator, slotSplitValidator, slotMoveValidator, shopBuybackValidator, inventoryOrderValidator, moveItemValidator, preparedEquipmentValidator, pendingReservationValidator, admitReservationValidator, commitExtractionValidator, shopSellValidator, shopBuyValidator };

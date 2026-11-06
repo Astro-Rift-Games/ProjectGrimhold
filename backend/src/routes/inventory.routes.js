@@ -18,6 +18,7 @@ const {
   admitReservationValidator,
   commitExtractionValidator,
   shopSellValidator,
+  shopTradeValidator,
   shopBuyValidator,
   shopBuybackValidator
 } = require('../validators/inventory.validators');
@@ -133,6 +134,13 @@ router.post('/me/inventory/shop/buy', inventoryProtocol, shopBuyValidator, async
   } catch (err) {
     next(err);
   }
+});
+
+// POST /character/me/inventory/shop/trade
+// Body: { transactionId, expectedRevision, purchases: [{lootId, amount}], sales: [{lootId, amount, sourceSlot?}] }
+router.post('/me/inventory/shop/trade', inventoryProtocol, shopTradeValidator, async (req, res, next) => {
+  try { res.json(await InventoryService.shopTrade(req.accountId, req.body)); }
+  catch (err) { next(err); }
 });
 
 // POST /character/me/inventory/shop/buyback

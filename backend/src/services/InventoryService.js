@@ -173,7 +173,101 @@ function takeRecoveryWeapon(loadout, stash) {
   return createEquipment('arming_sword');
 }
 
+// Plan a sale on an in-memory candidate. No persisted state changes until the caller commits.
+function applyShopSale(loadout, version, lootId, amount, sourceSlot) {
+  const sellOffer = version === 3 && getEquipmentTemplate(lootId) ? getEquipmentTemplate(lootId) : getSellOffer(lootId);
+  if (!sellOffer) throw { statusCode: 404, errorCode: 'ITEM_NOT_SELLABLE', message: `Item '${lootId}' cannot be sold to the shop.` };
+  const index = loadout.findIndex(i => matchesLootId(i, lootId) && (version === 1 || i.slot === sourceSlot));
+  const source = loadout[index];
+  const unitSellValue = sellOffer.sellValue + (version === 3 ? (source?.instance?.modifiers?.gems || [])
+    .reduce((sum, gem) => sum + (gem ? GEM_CATALOG[gem].sellValue : 0), 0) : 0);
+  const revenue = unitSellValue * amount;
+  if (!Number.isSafeInteger(revenue)) throw { statusCode: 400, errorCode: 'INTEGER_OVERFLOW', message: 'Calculated transaction value causes integer overflow.' };
+  if (!source || source.amount < amount) throw { statusCode: 409, errorCode: 'INSUFFICIENT_ITEMS', message: `Loadout does not hold ${amount} unit(s) of '${lootId}'.` };
+  if (source.amount === amount) loadout.splice(index, 1);
+  else source.amount -= amount;
+  return { revenue, buybackEntry: isBuybackEligible(lootId, version) ? {
+    entryId: randomUUID(), lootId, amount, unitPrice: Math.ceil(unitSellValue * BUYBACK_PRICE_MULTIPLIER), soldAt: new Date()
+  } : null };
+}
+
+function shopPurchaseCost(lootId, amount) {
+  const offer = getBuyOffer(lootId);
+  if (!offer) throw { statusCode: 404, errorCode: 'ITEM_NOT_OFFERED', message: `Item '${lootId}' is not offered in the shop.` };
+  const cost = offer.buyPrice * amount;
+  if (!Number.isSafeInteger(cost)) throw { statusCode: 400, errorCode: 'INTEGER_OVERFLOW', message: 'Calculated transaction cost causes integer overflow.' };
+  return cost;
+}
+
+function safeTradeTotal(value) {
+  if (!Number.isSafeInteger(value)) throw { statusCode: 400, errorCode: 'INTEGER_OVERFLOW', message: 'Calculated transaction value causes integer overflow.' };
+  return value;
+}
+
 class InventoryService {
+  /** One ticket, one revision, one receipt. Sales free space and fund purchases before placement. */
+  static async shopTrade(accountId, { transactionId, expectedRevision, purchases, sales }) {
+    const character = await Character.findOne({ accountId });
+    if (!character) throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
+    requireMigratedInventory(character);
+    const version = inventoryVersion(character);
+    const canonicalLine = line => ({ lootId: normalizeLootId(line.lootId.trim()), amount: line.amount,
+      ...(version >= 2 && Object.hasOwn(line, 'sourceSlot') ? { sourceSlot: line.sourceSlot } : {}) });
+    const intent = { purchases: purchases.map(canonicalLine), sales: sales.map(canonicalLine) };
+    // Ordered, normalized lines are the fingerprint: JSON property insertion order is fixed here.
+    const fingerprint = JSON.stringify(intent);
+    const receipt = (character.appliedShopReceipts || []).find(r => r.transactionId === transactionId);
+    if (receipt) {
+      if (receipt.type !== 'trade' || JSON.stringify(receipt.intent) !== fingerprint) {
+        throw { statusCode: 409, errorCode: 'TRANSACTION_ID_REUSED', message: 'Transaction ID was previously applied with a different operation or parameters.' };
+      }
+      return { ...shopSnapshot(character), alreadySecured: true };
+    }
+    for (const line of intent.sales) requireSourceSlot(character, line.sourceSlot);
+    if (version === 1) assertUnambiguousItems(character.inventory.loadout,
+      [...intent.sales, ...intent.purchases].map(line => line.lootId));
+    if (character.inventory.pendingReservation) throw { statusCode: 409, errorCode: 'RESERVATION_PENDING', message: 'Cannot trade while a raid reservation is pending.' };
+    if (character.revision !== expectedRevision) throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
+    const loadout = inventoryItems(character, 'loadout');
+    const entries = [];
+    let revenue = 0; let cost = 0;
+    for (const line of intent.sales) {
+      const sale = applyShopSale(loadout, version, line.lootId, line.amount, line.sourceSlot);
+      revenue = safeTradeTotal(revenue + sale.revenue);
+      if (sale.buybackEntry) entries.push(sale.buybackEntry);
+    }
+    for (const line of intent.purchases) cost = safeTradeTotal(cost + shopPurchaseCost(line.lootId, line.amount));
+    const funded = safeTradeTotal((character.inventory.currency || 0) + revenue);
+    const currency = safeTradeTotal(funded - cost);
+    if (currency < 0) throw { statusCode: 409, errorCode: 'INSUFFICIENT_FUNDS', message: 'Not enough currency to complete trade.' };
+    for (const line of intent.purchases) {
+      // Reuse the single-buy receiver, including per-unit instance issuance for v3 equipment.
+      if (version === 1) {
+        const existing = loadout.find(item => matchesLootId(item, line.lootId));
+        if (existing) safeTradeTotal(existing.amount + line.amount);
+      }
+      receiveItem(loadout, 'loadout', { lootId: line.lootId, amount: line.amount }, version);
+    }
+    const updated = await Character.findOneAndUpdate({ accountId, revision: expectedRevision,
+      'inventory.pendingReservation': null,
+      'inventory.currency': { $gte: Math.max(0, cost - revenue) },
+      'inventory.buyback.sessionEpoch': buybackEpochFilter(character.inventory)
+    }, {
+      $set: { 'inventory.loadout': loadout, 'inventory.currency': currency },
+      $inc: { revision: 1 },
+      $push: {
+        ...(entries.length ? { 'inventory.buyback.entries': { $each: entries, $slice: -BUYBACK_MAX_ENTRIES } } : {}),
+        appliedShopReceipts: { $each: [{ transactionId, type: 'trade', intent, totalAmount: cost - revenue, timestamp: new Date() }], $slice: -64 }
+      }
+    }, { returnDocument: 'after' });
+    if (!updated) {
+      const latest = await Character.findOne({ accountId });
+      if (latest?.inventory?.pendingReservation) throw { statusCode: 409, errorCode: 'RESERVATION_PENDING', message: 'Cannot trade while a raid reservation is pending.' };
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during shop trade.' };
+    }
+    return { ...shopSnapshot(updated), alreadySecured: false };
+  }
+
   /** Permanently fills the lowest empty socket; receipt and both lists commit together. */
   static async installGem(accountId, body) {
     const { transactionId, weaponList, weaponSlot, instanceId, gemList, gemSlot, gemLootId, expectedRevision } = body;
@@ -1025,51 +1119,10 @@ class InventoryService {
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
     }
 
-    // 3. Resolve authoritative sell offer from catalog
-    const sellOffer = version === 3 && getEquipmentTemplate(lootId) ? getEquipmentTemplate(lootId) : getSellOffer(lootId);
-    if (!sellOffer) {
-      throw {
-        statusCode: 404,
-        errorCode: 'ITEM_NOT_SELLABLE',
-        message: `Item '${lootId}' cannot be sold to the shop.`
-      };
-    }
-
-    const source = character.inventory.loadout.find(i => matchesLootId(i, lootId) && (version === 1 || i.slot === sourceSlot));
-    const unitSellValue = sellOffer.sellValue + (version === 3 ? (source?.instance?.modifiers?.gems || [])
-      .reduce((sum, gem) => sum + (gem ? GEM_CATALOG[gem].sellValue : 0), 0) : 0);
-    const authoritativeRevenue = unitSellValue * amount;
-    if (!Number.isSafeInteger(authoritativeRevenue)) {
-      throw {
-        statusCode: 400,
-        errorCode: 'INTEGER_OVERFLOW',
-        message: 'Calculated transaction value causes integer overflow.'
-      };
-    }
-
     const loadout = character.inventory.loadout;
-    const loadoutIndex = loadout.findIndex(i => matchesLootId(i, lootId) && (version === 1 || i.slot === sourceSlot));
-
-    if (loadoutIndex === -1 || loadout[loadoutIndex].amount < amount) {
-      throw {
-        statusCode: 409,
-        errorCode: 'INSUFFICIENT_ITEMS',
-        message: `Loadout does not hold ${amount} unit(s) of '${lootId}'.`
-      };
-    }
-
-    if (loadout[loadoutIndex].amount === amount) {
-      loadout.splice(loadoutIndex, 1);
-    } else {
-      loadout[loadoutIndex].amount -= amount;
-    }
-
-    const buybackPush = isBuybackEligible(lootId, version) ? {
-      'inventory.buyback.entries': {
-        $each: [{ entryId: randomUUID(), lootId, amount,
-          unitPrice: Math.ceil(unitSellValue * BUYBACK_PRICE_MULTIPLIER), soldAt: new Date() }],
-        $slice: -BUYBACK_MAX_ENTRIES
-      }
+    const { revenue: authoritativeRevenue, buybackEntry } = applyShopSale(loadout, version, lootId, amount, sourceSlot);
+    const buybackPush = buybackEntry ? {
+      'inventory.buyback.entries': { $each: [buybackEntry], $slice: -BUYBACK_MAX_ENTRIES }
     } : {};
     const updated = await Character.findOneAndUpdate(
       { accountId, revision: expectedRevision, 'inventory.pendingReservation': null,
@@ -1156,25 +1209,7 @@ class InventoryService {
       throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
     }
 
-    // 3. Resolve authoritative buy offer from catalog
-    const buyOffer = getBuyOffer(lootId);
-    if (!buyOffer) {
-      throw {
-        statusCode: 404,
-        errorCode: 'ITEM_NOT_OFFERED',
-        message: `Item '${lootId}' is not offered in the shop.`
-      };
-    }
-
-    const unitPrice = buyOffer.buyPrice;
-    const authoritativeCost = unitPrice * amount;
-    if (!Number.isSafeInteger(authoritativeCost)) {
-      throw {
-        statusCode: 400,
-        errorCode: 'INTEGER_OVERFLOW',
-        message: 'Calculated transaction cost causes integer overflow.'
-      };
-    }
+    const authoritativeCost = shopPurchaseCost(lootId, amount);
     
     const currentCurrency = character.inventory.currency || 0;
     if (currentCurrency < authoritativeCost) {
