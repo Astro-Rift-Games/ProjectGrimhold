@@ -568,6 +568,65 @@ namespace Tests.PlayMode.Loot
             });
         }
 
+        [UnityTest]
+        public IEnumerator ContainerCopyStateFrom_PreservesWeaponUnitsWithTheirModifiers()
+        {
+            NetworkLootContainer source = SpawnContainer(6, Array.Empty<LootEntry>());
+            NetworkLootContainer restored = SpawnContainer(6, Array.Empty<LootEntry>());
+            yield return Execute(() =>
+            {
+                Assert.That(_receiver.TryInitializeRaidLoadout(LoadoutOf(_socketed, _scaled, 0),
+                    Participant(1), out string error), Is.True, error);
+                Deposit(source, 0);
+                Deposit(source, 1);
+                restored.CopyStateFrom(source);
+                restored.GetComponent<ContainerRaidLootOriginState>().CopyStateFrom(
+                    source.GetComponent<ContainerRaidLootOriginState>());
+            });
+
+            Assert.That(restored.GetLootAmount(Sword), Is.EqualTo(2));
+            AssertUnit(restored, 0, Sword, PlayerOrigin(1), _socketedData);
+            AssertUnit(restored, 1, Sword, PlayerOrigin(1), _scaledData);
+        }
+
+        [UnityTest]
+        public IEnumerator PickupCopyStateFrom_PreservesTheUnitModifiers()
+        {
+            NetworkLootPickup source = SpawnWeaponPickup(Sword, _socketedData, out bool accepted);
+            Assert.That(accepted, Is.True);
+            NetworkLootPickup restored = SpawnWeaponPickup(Sword, default, out accepted);
+            Assert.That(accepted, Is.True);
+            yield return Execute(() => restored.CopyStateFrom(source));
+
+            Assert.That(restored.Modifiers, Is.EqualTo(_socketedData));
+        }
+
+        [UnityTest]
+        public IEnumerator EquipmentCopyStateFrom_PreservesHandModifiers()
+        {
+            PlayerWeaponEquipmentNetworkController source =
+                _receiver.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            PlayerLootReceiver other = SpawnReceiver();
+            PlayerWeaponEquipmentNetworkController restored =
+                other.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            MethodInfo setModifiers = typeof(PlayerWeaponEquipmentNetworkController).GetMethod(
+                "SetSlotModifiers", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(setModifiers, Is.Not.Null);
+            yield return Execute(() =>
+            {
+                setModifiers.Invoke(source, new object[] { EquipmentSlot.WeaponSetAMainHand, _socketedData });
+                setModifiers.Invoke(source, new object[] { EquipmentSlot.WeaponSetBOffHand, _scaledData });
+                restored.CopyStateFrom(source);
+            });
+
+            Assert.That(restored.TryGetSlotModifiers(EquipmentSlot.WeaponSetAMainHand, out var mainHand), Is.True);
+            Assert.That(mainHand, Is.EqualTo(_socketedData));
+            Assert.That(restored.TryGetSlotModifiers(EquipmentSlot.WeaponSetBOffHand, out var offHand), Is.True);
+            Assert.That(offHand, Is.EqualTo(_scaledData));
+            Assert.That(restored.TryGetSlotModifiers(EquipmentSlot.WeaponSetBMainHand, out var untouched), Is.True);
+            Assert.That(untouched.IsEmpty, Is.True);
+        }
+
         private PlayerLootReceiver SpawnReceiver()
         {
             NetworkObject avatar = _runner.Spawn(_prefab, Vector3.zero, Quaternion.identity,
