@@ -1,73 +1,73 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 923,
-  "canonicalEntries": 920,
+  "rawCommits": 948,
+  "canonicalEntries": 945,
   "before": {
-    "Bug Fixes": 93,
-    "Features": 346,
-    "Documentation": 80,
+    "Architecture & Infrastructure": 15,
+    "Bug Fixes": 94,
+    "Documentation": 82,
+    "Features": 364,
+    "Tests": 26,
     "Refactoring": 14,
-    "Architecture & Infrastructure": 13,
-    "Other Changes": 353,
-    "Tests": 24
+    "Other Changes": 353
   },
   "after": {
-    "Bug Fixes": 109,
-    "Features": 483,
-    "Documentation": 95,
+    "Maintenance": 14,
+    "Bug Fixes": 110,
+    "Documentation": 97,
+    "Features": 501,
+    "Tests": 31,
     "Refactoring": 27,
-    "Maintenance": 12,
     "Other Changes": 163,
-    "Tests": 29,
     "Architecture & Infrastructure": 5
   },
   "systemCountsOverlap": true,
   "systems": {
-    "UI": 288,
-    "Inventory & Loot": 347,
-    "Networking & Sessions": 262,
-    "Persistence & Backend": 195,
-    "Tests": 558,
-    "Combat": 325,
-    "World & Visibility": 121,
-    "Build & Tooling": 463,
-    "Art & Animation": 225,
+    "Combat": 347,
+    "Inventory & Loot": 371,
+    "Art & Animation": 228,
+    "Persistence & Backend": 203,
+    "Build & Tooling": 477,
+    "Tests": 580,
+    "Abilities": 119,
+    "Documentation": 369,
+    "UI": 295,
+    "Input": 29,
+    "Networking & Sessions": 268,
+    "World & Visibility": 125,
+    "Extraction": 128,
     "Unassigned": 20,
-    "Extraction": 123,
-    "Abilities": 116,
-    "Documentation": 355,
     "Audio": 33,
-    "Movement": 91,
-    "Input": 28
+    "Movement": 91
   },
   "canonical": {
     "sections": {
-      "Bug Fixes": 108,
-      "Features": 482,
-      "Documentation": 95,
+      "Maintenance": 14,
+      "Bug Fixes": 109,
+      "Documentation": 97,
+      "Features": 500,
+      "Tests": 31,
       "Refactoring": 27,
-      "Maintenance": 12,
       "Other Changes": 162,
-      "Tests": 29,
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "UI": 287,
-      "Inventory & Loot": 347,
-      "Networking & Sessions": 262,
-      "Persistence & Backend": 195,
-      "Tests": 556,
-      "Combat": 323,
-      "World & Visibility": 119,
-      "Build & Tooling": 461,
-      "Art & Animation": 222,
+      "Combat": 345,
+      "Inventory & Loot": 371,
+      "Art & Animation": 225,
+      "Persistence & Backend": 203,
+      "Build & Tooling": 475,
+      "Tests": 578,
+      "Abilities": 117,
+      "Documentation": 367,
+      "UI": 294,
+      "Input": 29,
+      "Networking & Sessions": 268,
+      "World & Visibility": 123,
+      "Extraction": 128,
       "Unassigned": 20,
-      "Extraction": 123,
-      "Abilities": 114,
-      "Documentation": 353,
       "Audio": 33,
-      "Movement": 91,
-      "Input": 28
+      "Movement": 91
     }
   },
   "unknownEntries": [
@@ -34099,8 +34099,8 @@
       "title": "2026-11 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 51,
-      "canonicalEntries": 51
+      "originalCommits": 76,
+      "canonicalEntries": 76
     },
     {
       "key": "history-2026-10",
@@ -34136,6 +34136,4039 @@
     }
   ],
   "commits": [
+    {
+      "sha": "a65052aee75645a27fcdf7df16aa503b588d16b1",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a65052aee75645a27fcdf7df16aa503b588d16b1",
+      "subject": "chore(unity): refresh editor-dependent data for Unity 6000.6.8f1",
+      "body": "- Regenerate the Off Hand attack sets with the project generator; only\n  _retargetSourceSignature changes, because the dependency hash it\n  records depends on the editor version.\n- Skip the Void Bell standalone chime fallback outside Play Mode, where\n  AudioSource.PlayClipAtPoint destroys its temporary source with\n  Destroy and Unity 6000.6 reports an error.\n",
+      "date": "2026-11-06T17:45:36-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/Dagger_OffHand.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/MagicSword_OffHand.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/Rapier_OffHand.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/Sword1H_OffHand.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/Wand_OffHand.asset",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs"
+      ],
+      "originalType": "chore",
+      "originalScope": "unity",
+      "originalSection": "Architecture & Infrastructure",
+      "breaking": false,
+      "reverts": null,
+      "section": "Maintenance",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Art & Animation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "chore",
+          "supports": "Maintenance"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/Dagger_OffHand.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/MagicSword_OffHand.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/Rapier_OffHand.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/Sword1H_OffHand.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/Wand_OffHand.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/Dagger_OffHand.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/MagicSword_OffHand.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/Rapier_OffHand.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/Sword1H_OffHand.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/Wand_OffHand.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/Dagger_OffHand.asset",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/MagicSword_OffHand.asset",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/Rapier_OffHand.asset",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/Sword1H_OffHand.asset",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/AttackAnimationSets/Wand_OffHand.asset",
+          "supports": "Art & Animation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "02094eacb71564950737ef37c5237def38547688",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/02094eacb71564950737ef37c5237def38547688",
+      "subject": "fix(stash): accept null optional records in inventory hydration",
+      "body": "New accounts could not log in or create a character: the backend\nreturns \"pendingReservation\": null and \"lastAppliedExtractionReceipt\":\nnull for a fresh inventory, and Newtonsoft cannot assign null to those\nstruct fields, so InventoryClient reported INVALID_INVENTORY and login\nshowed \"Could not load your inventory. Please try again.\"\n\nIgnore JSON null for both optional records so they keep their default\nstruct, matching the previous JsonUtility behavior. Populated v2/v3\npayloads are unchanged.\n\n- Add a regression test with the exact HTTP 200 body returned by the\n  deployed backend for a new character.\n\nPlayer-Fixed: New accounts can log in and create their first character again.\n",
+      "date": "2026-11-06T17:45:36-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs"
+      ],
+      "originalType": "fix",
+      "originalScope": "stash",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "55f44fc6dd1daf96538d9a7005ea06f07ae77d87",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/55f44fc6dd1daf96538d9a7005ea06f07ae77d87",
+      "subject": "docs(tooling): route agent Unity Editor access through Unity CLI",
+      "body": "Replace the removed CoplayDev Unity MCP with the official Unity CLI in\nevery live instruction: repository and Unity AGENTS files, project\nskills, Claude/Codex/Pi agent definitions and the release version\npresentation doc.\n\n- Record Unity 6000.6.8f1 with com.unity.pipeline 0.10.0-exp.1 and\n  forbid invoking or reinstalling Unity MCP; other MCP servers stay.\n- Point Editor work to the unity-cli skill and the CLI's own command\n  search instead of guessed commands.\n- Give the Pi unity-operator subagent bash so it can run the CLI.\n- Bump grimhold-task-execution to 1.2.\n\nHistorical trackers, walkthroughs, changelogs and audits keep their\noriginal Unity MCP evidence.\n",
+      "date": "2026-11-06T16:47:52-03:00",
+      "files": [
+        ".agents/skills/grimhold-task-execution/SKILL.md",
+        ".agents/skills/grimhold-task-execution/references/tool-routing.md",
+        ".agents/skills/hacknplan-task-design/references/workflow.md",
+        ".claude/agents/implementer.md",
+        ".claude/agents/validator.md",
+        ".codex/agents/grimhold_explorer.toml",
+        ".codex/agents/grimhold_validator.toml",
+        ".pi/subagents/unity-operator.md",
+        "AGENTS.md",
+        "Project Grimhold/AGENTS.md",
+        "Project Grimhold/Docs/ReleaseVersionPresentation.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "tooling",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Abilities",
+        "Build & Tooling",
+        "Documentation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/grimhold-task-execution/SKILL.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/grimhold-task-execution/references/tool-routing.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/hacknplan-task-design/references/workflow.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/grimhold-task-execution/SKILL.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/grimhold-task-execution/references/tool-routing.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/hacknplan-task-design/references/workflow.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".claude/agents/implementer.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".claude/agents/validator.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".codex/agents/grimhold_explorer.toml",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".codex/agents/grimhold_validator.toml",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "AGENTS.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/AGENTS.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "scope",
+          "value": "tooling",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/ReleaseVersionPresentation.md",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "5b4ad2940246ba32e3acefea663b553572f1bf69",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5b4ad2940246ba32e3acefea663b553572f1bf69",
+      "subject": "chore(unity): upgrade to Unity 6000.6.8f1 and Unity CLI pipeline",
+      "body": "Move the project from Unity 6000.5.1f1 to 6000.6.8f1, as agreed by the\nteam, and replace the Unity MCP bridge with the Unity CLI Pipeline\npackage for agent-driven Editor access.\n\n- Bump ProjectVersion and the editor-bundled packages (2D, URP 17.6.0,\n  Input System 1.20.1, Test Framework 1.8.0, Timeline 6.6.0, uGUI 2.6.0\n  and others) with the matching packages-lock.json.\n- Add com.unity.pipeline 0.10.0-exp.1 and com.unity.modules.tetgen;\n  remove com.coplaydev.unity-mcp.\n- Keep the serialization the new versions write: URP global settings\n  (asset version 11), Project Auditor params, Aseprite importer fields\n  and the regenerated PlayerInputActions.cs.\n- Drop the Unity MCP server from .pi/mcp.json and its tool permissions\n  from .claude/settings.json.\n",
+      "date": "2026-11-06T16:35:53-03:00",
+      "files": [
+        ".claude/settings.json",
+        ".pi/mcp.json",
+        "Project Grimhold/Assets/Art/UI/Charcoal/EquipmentCategories/equipment-categories.aseprite.meta",
+        "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite.meta",
+        "Project Grimhold/Assets/Input/PlayerInputActions.cs",
+        "Project Grimhold/Assets/UniversalRenderPipelineGlobalSettings.asset",
+        "Project Grimhold/Packages/manifest.json",
+        "Project Grimhold/Packages/packages-lock.json",
+        "Project Grimhold/ProjectSettings/ProjectAuditorSettings.asset",
+        "Project Grimhold/ProjectSettings/ProjectVersion.txt"
+      ],
+      "originalType": "chore",
+      "originalScope": "unity",
+      "originalSection": "Architecture & Infrastructure",
+      "breaking": false,
+      "reverts": null,
+      "section": "Maintenance",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "UI",
+        "Art & Animation",
+        "Input",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "chore",
+          "supports": "Maintenance"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/Charcoal/EquipmentCategories/equipment-categories.aseprite.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/Charcoal/EquipmentCategories/equipment-categories.aseprite.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/Charcoal/EquipmentCategories/equipment-categories.aseprite.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/UI/ScreenDamage/screen-damage-source.aseprite.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Input/PlayerInputActions.cs",
+          "supports": "Input"
+        },
+        {
+          "source": "message-term",
+          "value": "Input System",
+          "supports": "Input"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Packages/manifest.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Packages/packages-lock.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "message-term",
+          "value": "Test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "6e28570a7c65ce94ee250b9e98fb63a5d21b7624",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6e28570a7c65ce94ee250b9e98fb63a5d21b7624",
+      "subject": "feat(loot): roll dungeon weapon variants in enemy and breakable drops",
+      "body": "Table-rolled enemy drops pass their roll seed to the container, which rolls one variant per weapon unit when it commits the pre-spawn content. Breakable drops roll a variant for table-rolled single-weapon pickups; exact drops and stacks stay plain.\n\nRefs: TASK-283\n",
+      "date": "2026-11-06T15:08:10-03:00",
+      "files": [
+        ".agents/skills/create-game-assets/SKILL.md",
+        ".agents/skills/create-game-assets/agents/openai.yaml",
+        ".agents/skills/create-game-assets/assets/art-direction-brief.md",
+        ".agents/skills/create-game-assets/assets/asset-manifest.json",
+        ".agents/skills/create-game-assets/references/art-direction.md",
+        ".agents/skills/create-game-assets/references/provenance.md",
+        ".agents/skills/create-game-assets/references/raster-pipeline.md",
+        ".agents/skills/create-game-assets/references/three-d-pipeline.md",
+        ".agents/skills/create-game-assets/scripts/asset_report.py",
+        ".agents/skills/create-game-assets/scripts/build_preview_sheet.py",
+        ".agents/skills/create-game-assets/scripts/requirements.txt",
+        ".agents/skills/game-ui-ux/SKILL.md",
+        ".agents/skills/game-ui-ux/references/layout-and-flow.md",
+        ".agents/skills/ui-ugui/SKILL.md",
+        ".agents/skills/ui-ugui/references/scrollview-setup.md",
+        ".codex/agents/grimhold_architect.toml",
+        ".codex/agents/grimhold_explorer.toml",
+        ".codex/agents/grimhold_implementer.toml",
+        ".codex/agents/grimhold_reviewer.toml",
+        ".codex/agents/grimhold_validator.toml",
+        ".codex/config.toml",
+        "AGENTS.md",
+        "Project Grimhold/Assets/Scripts/Gameplay/BreakableObject.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationDefaults.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/BreakableObjectPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Abilities",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "World & Visibility",
+        "Art & Animation",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationDefaults.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/SKILL.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/agents/openai.yaml",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/assets/art-direction-brief.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/assets/asset-manifest.json",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/art-direction.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/provenance.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/raster-pipeline.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/three-d-pipeline.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/scripts/asset_report.py",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/scripts/build_preview_sheet.py",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/scripts/requirements.txt",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/game-ui-ux/SKILL.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/game-ui-ux/references/layout-and-flow.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/ui-ugui/SKILL.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/ui-ugui/references/scrollview-setup.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationDefaults.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/game-ui-ux/SKILL.md",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/game-ui-ux/references/layout-and-flow.md",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/ui-ugui/SKILL.md",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/ui-ugui/references/scrollview-setup.md",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/assets/art-direction-brief.md",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/art-direction.md",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/SKILL.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/agents/openai.yaml",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/assets/art-direction-brief.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/assets/asset-manifest.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/art-direction.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/provenance.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/raster-pipeline.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/references/three-d-pipeline.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/scripts/asset_report.py",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/scripts/build_preview_sheet.py",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/create-game-assets/scripts/requirements.txt",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/game-ui-ux/SKILL.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/game-ui-ux/references/layout-and-flow.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/ui-ugui/SKILL.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/ui-ugui/references/scrollview-setup.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".codex/agents/grimhold_architect.toml",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".codex/agents/grimhold_explorer.toml",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".codex/agents/grimhold_implementer.toml",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".codex/agents/grimhold_reviewer.toml",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".codex/agents/grimhold_validator.toml",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "AGENTS.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/BreakableObjectPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "fed049db01ebc549243d41d78ed46c008a0c5368",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/fed049db01ebc549243d41d78ed46c008a0c5368",
+      "subject": "feat(loot): roll dungeon weapon variants in table-rolled chests",
+      "body": "Each weapon unit of a chest resolved on first interaction rolls one deterministic variant from the chest seed, using provisional Balance values. Explicit content stays plain, and a catalog without the gem pool generates plain units. Adds a worst-case size guard for the extraction RPC.\n\nRefs: TASK-283\n",
+      "date": "2026-11-06T00:03:33-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationDefaults.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationDefaults.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponInstanceGenerationDefaultsTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponInstanceGenerationDefaultsTests.cs.meta",
+        "Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/ExtractionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Extraction",
+        "Inventory & Loot",
+        "World & Visibility",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationDefaults.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationDefaults.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponInstanceGenerationDefaultsTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponInstanceGenerationDefaultsTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ExtractionArchitecture.md",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationDefaults.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceGenerationDefaults.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponInstanceGenerationDefaultsTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponInstanceGenerationDefaultsTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponInstanceGenerationDefaultsTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponInstanceGenerationDefaultsTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ExtractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponInstanceGenerationDefaultsTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponInstanceGenerationDefaultsTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "32db5ec13ae61dd1eceec7201981585818922959",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/32db5ec13ae61dd1eceec7201981585818922959",
+      "subject": "feat(loot): carry weapon modifiers through extraction",
+      "body": "The extraction RPC adds per-unit modifiers, the off-hand slots and the four hand words. A shared builder derives the stash items and prepared equipment for both the authority publish and the local commit. Equipment publishes as ID-free amount-1 units with modifiers; commit bodies stay quantity-only. Docs describe the as-built contract.\n\nRefs: TASK-283\n",
+      "date": "2026-11-05T23:50:01-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs",
+        "Project Grimhold/Assets/Scripts/Player/Extraction/ExtractionPayloadBuilder.cs",
+        "Project Grimhold/Assets/Scripts/Player/Extraction/ExtractionPayloadBuilder.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs",
+        "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/ExtractionPayloadModifiersTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/ExtractionPayloadModifiersTests.cs.meta",
+        "Project Grimhold/Docs/Architecture/ExtractionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Extraction",
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Extraction/ExtractionPayloadBuilder.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Extraction/ExtractionPayloadBuilder.cs.meta",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/ExtractionPayloadModifiersTests.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/ExtractionPayloadModifiersTests.cs.meta",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ExtractionArchitecture.md",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/ExtractionPayloadModifiersTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/ExtractionPayloadModifiersTests.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/ExtractionPayloadModifiersTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/ExtractionPayloadModifiersTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ExtractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/ExtractionPayloadModifiersTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/ExtractionPayloadModifiersTests.cs.meta",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "617eb51ddde8f0f816636c379e853a4eed65b616",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/617eb51ddde8f0f816636c379e853a4eed65b616",
+      "subject": "test(loot): set network word ceilings to the measured sizes",
+      "body": "Container 1230, enemy 1291 and pickup 24 words with weapon instance modifiers, per the owner's decision to re-measure and fix new ceilings.\n\nRefs: TASK-283\n",
+      "date": "2026-11-05T23:36:46-03:00",
+      "files": [
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs"
+      ],
+      "originalType": "test",
+      "originalScope": "loot",
+      "originalSection": "Tests",
+      "breaking": false,
+      "reverts": null,
+      "section": "Tests",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "test",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "84f8f95f3e210c962f5a5a72a26b23047d16b6aa",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/84f8f95f3e210c962f5a5a72a26b23047d16b6aa",
+      "subject": "test(loot): pin weapon modifier restore across state copy",
+      "body": "Container weapon units, pickup modifiers and equipment hand modifiers survive CopyStateFrom. HostMigrationRecoveryArchitecture documents the restore contract; real multi-process Host Migration stays a manual check.\n\nRefs: TASK-283\n",
+      "date": "2026-11-05T23:35:08-03:00",
+      "files": [
+        "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/HostMigrationRecoveryArchitecture.md",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "test",
+      "originalScope": "loot",
+      "originalSection": "Tests",
+      "breaking": false,
+      "reverts": null,
+      "section": "Tests",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "test",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "Host Migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/HostMigrationRecoveryArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "59e9b4ef98b7c3156d11f556df4f6c87bde0bed2",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/59e9b4ef98b7c3156d11f556df4f6c87bde0bed2",
+      "subject": "feat(loot): keep weapon modifiers in player corpses",
+      "body": "The expedition snapshot now captures every weapon unit that carries instance modifiers (Inventory slots and the four hands). Corpse container load, verification and rollback keep those units with their modifiers and create the rest of each provenance bucket plain.\n\nRefs: TASK-283\n",
+      "date": "2026-11-05T23:32:02-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+        "Project Grimhold/Assets/Scripts/Player/ExpeditionWeaponUnit.cs",
+        "Project Grimhold/Assets/Scripts/Player/ExpeditionWeaponUnit.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCorpseGenerationController.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerExpeditionLootSnapshot.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/ExpeditionWeaponUnit.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/ExpeditionWeaponUnit.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/PlayerExpeditionLootSnapshot.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "689a2ce3fdab35eb30e7bc2f8365aa51b08d9b9d",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/689a2ce3fdab35eb30e7bc2f8365aa51b08d9b9d",
+      "subject": "feat(loot): keep weapon modifiers in world pickups",
+      "body": "Make a dropped or spawned weapon pickup carry its unit's modifiers\n(TASK-283, ItemInstanceArchitecture.md section 6.3).\nNetworkLootPickup replicates the packed Modifiers of the single weapon\nunit it holds. A spawn override is rejected unless the modifiers belong\nto one weapon unit (amount 1, weapon category) and decode against the\ncatalog. TryResolveRaidOriginTransfer returns them with the origin\ntransfer, so Interact hands the exact unit, modifiers included, to the\nreceiver. Dropping from the Inventory already resolves the unit's\nmodifiers, so a dropped gemmed weapon is picked up with its gems.\n\nTests: PlayerLootReceiverWeaponModifiersPlayModeTests adds pickup carry,\nstackable rejection and drop-keeps-modifiers (16/16). PlayMode\nloot/equipment/presenter/stash fixtures 203/224 with exactly the 21\npre-existing failures. Full EditMode 5776/5802: the 25 known failing\nclasses plus PlayerMovementRulesTests execution order (expects -9, gets\n-7); PlayerCombatNetworkController is unchanged by this commit.\n\nRefs: TASK-283\n",
+      "date": "2026-11-05T22:02:19-03:00",
+      "files": [
+        ".claude/agents/architect.md",
+        ".claude/agents/explorer.md",
+        ".claude/agents/implementer.md",
+        ".claude/agents/reviewer.md",
+        ".claude/agents/validator.md",
+        "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+        "odd/tasks/equipment-item-instances-handoff.md",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootPickup.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances-handoff.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": ".claude/agents/architect.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".claude/agents/explorer.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".claude/agents/implementer.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".claude/agents/reviewer.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".claude/agents/validator.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "ec5dbdc43ee19674b096d9ca90204c849bb33ce9",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ec5dbdc43ee19674b096d9ca90204c849bb33ce9",
+      "subject": "feat(ui): show every Raid container weapon in its own cell",
+      "body": "Give each weapon unit in a chest or enemy drop its own cell and tooltip,\nand withdraw exactly the selected unit (TASK-283,\nItemInstanceArchitecture.md section 6.3).\n\n- RaidLootPanelPresenter.RefreshContainer keeps stacks in aggregate\n  cells and gives every weapon unit a cell addressed by its unit\n  position and observed modifiers (RaidInventorySlotData\n  SourceUnitIndex and SourceUnitModifiers).\n- A modified unit's tooltip shows its scaling, installed gems, gem bonus\n  and effective damage, using the local participant's confirmed\n  attributes from RaidAvatarParticipantLink. Plain units keep the\n  template tooltip. Raid Inventory cells also show their modifiers.\n- Selecting or dragging a unit cell sends TryRequestUnitTransfer. Take\n  All captures one step per stack and one per weapon unit, so every\n  unit moves alone with its modifiers.\n- DragPayload carries the unit address, which is valid only for\n  container sources.\n\nKnown and unchanged: the Raid container panel authors 6 cells while\ncorpse containers have capacity 30, so corpse panels still report the\nexisting six-versus-thirty shortage.\n\nTests: RaidInventoryPresenterInteractionTests gains per-unit cells and\ngem tooltip, selecting one unit and Take All with modifiers (59/59).\nFull EditMode 5777/5802 with the 25 known pre-existing failures.\nPlayMode loot/equipment/presenter/stash fixtures 200/221 with exactly\nthe 21 pre-existing failures.\n\nRefs: TASK-283\nPlayer-Added: Weapons inside Dungeon chests and enemy drops now each have their own slot, showing their gems and bonus damage, and you take exactly the one you pick.\n",
+      "date": "2026-11-05T15:35:34-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Player/Presentation/DragPayload.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventorySlotData.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventorySlotView.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootTakeAllState.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "ui",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "UI",
+        "World & Visibility",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventorySlotData.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventorySlotView.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelPresenter.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootTakeAllState.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "Inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "ui",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "ui",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "Dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "b84b02df49f09e567c3f3cd3a945482f956d6267",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b84b02df49f09e567c3f3cd3a945482f956d6267",
+      "subject": "feat(loot): address individual weapon units in container withdrawals",
+      "body": "Let a player withdraw exactly the weapon unit they selected from a\nchest, enemy drop or corpse (TASK-283, ItemInstanceArchitecture.md\nsection 6.3). This is the network part of per-unit container cells; the\nUI follows.\n\nInventory slot addresses stay bounded to the 30 receiver slots, so\ncontainer units (up to 34) get their own address.\nLootTransferRequest and LootTransferRequestIdentity gain SourceUnitIndex\nand SourceUnitModifiers (ForSourceUnit factories). RPC_RequestTransfer\ncarries both, and PlayerLootTransferNetworkController exposes\nTryRequestUnitTransfer.\n\n- The guard is the unit's observed modifiers, not the container\n  revision: unrelated changes do not stale the request, and a taken or\n  replaced unit is rejected with ContainerUnavailable instead of\n  substituting another unit.\n- A unit address is only valid for withdrawals; on a deposit it is\n  rejected with MissingAuthority. The receiver never extracts by a unit\n  address.\n- The container resolves and removes exactly the addressed unit.\n\nTests: PlayerLootReceiverWeaponModifiersPlayModeTests adds addressed\nwithdrawal, stale modifiers and deposit misuse (13/13). Full EditMode\n5777/5802 with the 25 known pre-existing failures. PlayMode\nloot/equipment/presenter/transfer fixtures 151/172 with exactly the 21\npre-existing failures.\n\nRefs: TASK-283\n",
+      "date": "2026-11-05T15:18:00-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Core/LootTransferRequest.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/PlayerLootReceiver.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/LootTransferClientRequestState.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/LootTransferRequestIdentity.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootTransferNetworkController.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "UI",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Core/LootTransferRequest.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/PlayerLootReceiver.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/LootTransferClientRequestState.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/LootTransferRequestIdentity.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootTransferNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "UI",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "9999122921fa9ea1177f6fc0b553a8fd8991f047",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9999122921fa9ea1177f6fc0b553a8fd8991f047",
+      "subject": "feat(loot): store weapon units with modifiers in Raid containers",
+      "body": "Keep every weapon's modifiers when it enters a chest, enemy drop or\ncorpse (TASK-283, ItemInstanceArchitecture.md section 6.3).\nNetworkLootContainer now replicates up to 34 ContainerWeaponUnit\nrecords (30 Inventory slots plus 4 hands), each holding the template,\nthe Raid origin and the packed modifiers in two words. The records are\nwritten together with the aggregate quantities and the origin state.\n\n- Depositing one weapon stores its exact modifiers. Withdrawing one\n  weapon takes the lowest-address unit of the lowest origin and returns\n  it with its modifiers.\n- Several weapon units only move together as plain units, so a request\n  for more units than there are plain ones is rejected with\n  InsufficientAmount and nothing changes. Modifiers on non-weapons or on\n  multi-unit transfers are rejected with InvalidLoot.\n- World and enemy containers count each weapon unit as one of their\n  entries (OccupiedSlotCount). Full-inventory containers keep counting\n  types, bounded by the 34 units.\n- Natural content and exact corpse loads create plain units. Corpse\n  modifiers, per-unit container cells and pickups follow.\n\nTests: PlayerLootReceiverWeaponModifiersPlayModeTests gains deposit,\nwithdrawal, multi-unit rejection and entry-capacity cases (10/10). Full\nEditMode 5777/5802 with the 25 known pre-existing failures. PlayMode\nloot/equipment fixtures 92/113 with exactly the 21 pre-existing\nfailures.\n\nDocs: ItemInstanceArchitecture.md records the per-unit container cells\ndecision.\n\nRefs: TASK-283\n",
+      "date": "2026-11-05T15:03:17-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Gameplay/ContainerWeaponUnit.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/ContainerWeaponUnit.cs.meta",
+        "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/ContainerWeaponUnit.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/ContainerWeaponUnit.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "d5e73de3acc9478dec920a80bece5a739e046a6e",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d5e73de3acc9478dec920a80bece5a739e046a6e",
+      "subject": "feat(combat): apply equipped weapon modifiers to Raid damage",
+      "body": "Make the Raid weapon's scaling and installed gems drive combat damage\n(TASK-283, ItemInstanceArchitecture.md sections 6.2 and 6.3). Until now\nthe Raid always projected a plain weapon from the template.\n\n- PlayerWeaponEquipmentNetworkController replicates one packed modifier\n  word per hand slot. SetCatalogIndexPlusOne clears it, and the\n  operation that equips a unit writes that unit's modifiers.\n- Damage is floor((Base + GemDamageBonus) * (1 + sum)), computed from the\n  hand unit's modifiers through WeaponDamageCalculator. Empty modifiers\n  keep the template's plain projection, so plain weapons deal the same\n  damage as before.\n- The prepared strategy cache and the applied replicated state include\n  the modifiers. Swapping two units of the same template with\n  different gems rebuilds the attack.\n- Inventory and container equips preview the incoming unit's modifiers\n  for the strategy check. Displaced and unequipped weapons return to\n  the inventory as the exact unit with their modifiers.\n- Raid admission equips the unit each prepared slot references.\n  Another unit of the same template with different modifiers stays in\n  the inventory (PlayerLootReceiver.TryFindInventoryUnit).\n\nTests: PlayerEquipmentPlayModeTests gains addressed equip of a\nRuby-socketed sword (+5 damage, unequip returns its modifiers) and\nprepared equipment of the referenced unit; the fixture catalogs include\nthe Ruby gem. PlayerEquipment 38/40, with the 2 failures being the known\ndamage oracles. Full EditMode 5777/5802 with the 25 known pre-existing\nfailures. PlayMode loot/equipment fixtures 84/105 with exactly the 21\npre-existing failures.\n\nRefs: TASK-283\n",
+      "date": "2026-11-05T11:26:22-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Gameplay/PlayerLootReceiver.cs",
+        "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/PlayerEquipmentPlayModeTests.cs",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "combat",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "scope",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/PlayerLootReceiver.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerEquipmentPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "Inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerEquipmentPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "4e55f297c6f7c1e1660402f70f84cf912afd0774",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4e55f297c6f7c1e1660402f70f84cf912afd0774",
+      "subject": "feat(loot): replicate weapon modifiers in the Raid inventory",
+      "body": "Give each physical Raid inventory slot its weapon modifiers (TASK-283,\nItemInstanceArchitecture.md section 6.3). PlayerLootReceiver now\nreplicates a packed modifier word per slot next to LootInventorySlot.\nEvery slot write goes through the joint LootInventoryRules overloads,\nso quantity, origin and modifiers never diverge.\n\n- Raid admission writes each admitted weapon unit's modifiers. Stacks\n  and holes stay empty.\n- RaidLootOriginTransfer carries the modifiers of the transferred unit,\n  resolved by the source's State Authority. One weapon unit carries its\n  own modifiers, and the receiver writes them on reception. Several\n  weapon units (for example two swords taken together) move only as\n  plain units, one by one, so existing multi-unit transfers keep\n  working. Modifiers on stackable loot are rejected.\n- Extraction removes only the unit whose modifiers match the resolved\n  transfer, so a gemmed weapon is never consumed in place of another.\n- TryGetInventorySlotModifiers exposes a slot's modifiers for later\n  equipment, world-loot and extraction wiring.\n- The new networked field is restored by CopyStateFrom like the slots.\n\nEquipment hands, combat damage, pickups, containers, corpses and the\nextraction payload are not wired yet.\n\nTests: PlayerLootReceiverWeaponModifiersPlayModeTests (admission,\naddressed and unaddressed resolution, transfer between receivers,\nrejection without mutation, CopyStateFrom). PlayerLootReceiverSlots\n25/25 unchanged. Full EditMode 5777/5802 with the 25 known pre-existing\nfailures. PlayMode loot/equipment fixtures 82/103 with exactly the 21\npre-existing failures.\n\nRefs: TASK-283\n",
+      "date": "2026-11-05T11:10:40-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Gameplay/PlayerLootReceiver.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/RaidLootOriginTransfer.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Loot.meta",
+        "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs.meta",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Extraction",
+        "Inventory & Loot",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "Extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/PlayerLootReceiver.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/RaidLootOriginTransfer.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Loot/PlayerLootReceiverWeaponModifiersPlayModeTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "702d34ac53ab4cd9d51472bcde8453d1bd84efc0",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/702d34ac53ab4cd9d51472bcde8453d1bd84efc0",
+      "subject": "feat(networking): admit Raid participants with ID-free weapon modifiers",
+      "body": "Carry equipment modifiers into Raid admission without backend instance\nIDs (TASK-283, ItemInstanceArchitecture.md section 6.3). This is the\nadmission part of the Raid transport; runtime replication follows.\n\n- Backend SessionTicketService signs v3 admission snapshots as per-unit\n  { lootId, amount, modifiers? } items and prepared equipment as\n  null | { lootId, modifiers? }. Instance IDs and Town slots are\n  stripped before signing. pendingReservation keeps the full instances.\n- Unity decodes and verifies the ID-free signed snapshot\n  (RaidAdmissionSnapshotMapper, RaidPreparedEquipmentJsonConverter,\n  admission data codecs) and rejects malformed modifiers or any durable\n  identity in the snapshot.\n- RaidAdmissionPayloadChunking raises the reassembly bound from 8 KiB to\n  16 KiB, keeping 384-byte chunks and every malformed, duplicate and\n  oversized rejection. A maximum legal loadout (30 inventory and 4 hand\n  weapons with dual scaling and two gems) measures 10,423 bytes.\n\nTests: RaidAdmissionInstanceTests (new: projection, max-capacity\ndecode, malformed/identity rejection), 16 KiB boundary and\nmax-capacity cases in RaidAdmissionPayloadChunkingTests, and backend\nadmission cases in inventory.instances. npm test 517/517, integration\n171/171, concurrency 19/19. Full EditMode 5777/5802; the 25 failures\nare the known pre-existing set.\n\nDocs: SessionLifecycleAndSpawning.md documents the admission bound.\n\nRefs: TASK-283\n",
+      "date": "2026-11-05T10:53:22-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Backend/CharacterClient.cs",
+        "Project Grimhold/Assets/Scripts/Backend/EquipmentInstanceData.cs",
+        "Project Grimhold/Assets/Scripts/Backend/RaidPreparedEquipmentJsonConverter.cs",
+        "Project Grimhold/Assets/Scripts/Backend/RaidPreparedEquipmentJsonConverter.cs.meta",
+        "Project Grimhold/Assets/Scripts/Backend/SessionTicketDataTransferObjects.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/LootEntry.cs",
+        "Project Grimhold/Assets/Scripts/Networking/AuthoritativeRaidAdmissionTicket.cs",
+        "Project Grimhold/Assets/Scripts/Networking/AuthoritativeRaidAdmissionTicketCodec.cs",
+        "Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionData.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionDataCodec.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionPayloadChunking.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionSnapshotMapper.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionSnapshotMapper.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionVerifier.cs",
+        "Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionInstanceTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionInstanceTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionPayloadChunkingTests.cs",
+        "Project Grimhold/Docs/Architecture/SessionLifecycleAndSpawning.md",
+        "backend/src/services/SessionTicketService.js",
+        "backend/tests/inventory.instances.test.js",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "networking",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/EquipmentInstanceData.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/RaidPreparedEquipmentJsonConverter.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/RaidPreparedEquipmentJsonConverter.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/LootEntry.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.instances.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/SessionTicketDataTransferObjects.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/AuthoritativeRaidAdmissionTicket.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/AuthoritativeRaidAdmissionTicketCodec.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionData.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionDataCodec.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionPayloadChunking.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionSnapshotMapper.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionSnapshotMapper.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionVerifier.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionInstanceTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionInstanceTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionPayloadChunkingTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/SessionLifecycleAndSpawning.md",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/SessionTicketService.js",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "scope",
+          "value": "networking",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "networking",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/CharacterClient.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/EquipmentInstanceData.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/RaidPreparedEquipmentJsonConverter.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/RaidPreparedEquipmentJsonConverter.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/SessionTicketDataTransferObjects.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/SessionTicketService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.instances.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "Backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionInstanceTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionInstanceTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionPayloadChunkingTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/SessionLifecycleAndSpawning.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionInstanceTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionInstanceTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionPayloadChunkingTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.instances.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "e4018eeb5531f34dc0d124bdbcac20eacc69cbc1",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e4018eeb5531f34dc0d124bdbcac20eacc69cbc1",
+      "subject": "feat(loot): pack weapon modifiers into one network word",
+      "body": "Lay the foundation for Raid transport of weapon instance modifiers\n(TASK-283, ItemInstanceArchitecture.md section 6.3).\nWeaponInstanceModifiersNetworkData now packs a weapon unit's modifiers\ninto one 32-bit Fusion word instead of seven: primary and secondary\nattribute and grade, socket count, and two gem catalog indices + 1\n(28 bits, 4 reserved). Decoding validates reserved bits, catalog\nbounds (< 128 entries), scaling, sockets and that installed gems are\ncatalog gems.\n\nLootInventoryRules gains joint slot/modifier overloads for receive,\nextract and split. Weapons are received individually, depleted slots\nclear their modifiers, and non-weapon slots reject non-empty modifiers.\nNothing replicates or consumes them yet; component wiring follows.\n\nContract: section 6.3 records the packed layout, the container\ncapacity rule (each weapon unit is one of the 6 container entries;\nplayer corpses hold every carried weapon) and that network ceilings are\nre-measured after integration.\n\nTests: packed width, round trip, boundaries and malformed words in\nWeaponGemSocketTests; modifier lockstep, weapon non-stacking and\nrejection atomicity in LootInventoryRulesTests; a one-word sizing probe\nin RaidLootOriginWordCountTests. Focused 74/74. Full EditMode\n5770/5795; the 25 failures are the known pre-existing set.\n\nRefs: TASK-283\n",
+      "date": "2026-11-05T10:16:50-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiersNetworkData.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+        "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiersNetworkData.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiersNetworkData.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/WeaponGemSocketTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "f644df3a7dd1daf28301ca5ddc77ad52618fdc6b",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f644df3a7dd1daf28301ca5ddc77ad52618fdc6b",
+      "subject": "feat(inventory): add Town gem incrustation to Inventory and Stash",
+      "body": "Let players incrust a gem into an unequipped weapon in the Town\nInventory or Stash (TASK-283, ItemInstanceArchitecture.md section 5).\nIncrustation is permanent, so it always asks for confirmation and\nwaits for the backend before anything changes.\n\n- Dropping a gem stack on a weapon with a free socket opens the\n  confirmation \"¿Incrustar {gema} en {arma}? Es permanente.\" A weapon\n  without free sockets shows \"Esta arma no tiene ranuras libres\", and\n  the gem returns to its slot. Dropping a gem on other slots still\n  moves or swaps it.\n- The \"Incrustar\" context action on gems highlights eligible weapons\n  across Inventory and Stash pages. Picking one opens the same\n  confirmation, and cancel exits the mode.\n- Confirming sends the request remote-first through the shared\n  StashTransferCoordinator queue, locks both screens while it is\n  pending, and applies the returned authoritative lists and revision\n  through the existing hydration. The tooltip then shows the gem and the\n  new effective damage. Rejections show Spanish feedback and change\n  nothing locally. Raid and equipped weapons are excluded.\n- New GemInstallConfirmation.prefab (message, Confirm, Cancel) with\n  GemInstallConfirmationView, nested in RaidInventoryUI and\n  StashInventory. Systems.prefab and the recovery-weapon modal are\n  unchanged.\n- StashTransferCoordinator move, transfer and order now accept\n  inventory schema 3 as well as 2, so migrated characters can keep\n  moving items in Town.\n\nTests: TownGemInstallSessionTests (eligibility, exact request,\nconfirmation, cancel, feedback mapping), StashTransferCoordinatorTests\n(v3 moves and orders, v2 preservation, install queueing),\nLocalLoadoutInventoryReadSourceTests, LobbyStashPresenterPlayModeTests\nwith the real prefabs. Focused EditMode 100/100, PlayMode 102/102.\nFull EditMode 5752/5777; the 25 failures are the known pre-existing\nset.\n\nDocs: RaidInventoryUIArchitecture.md documents the incrustation flow,\nits limits and error mapping.\n\nRefs: TASK-283\nPlayer-Added: In Town, drag a gem onto a weapon in your Inventory or Stash, or use \"Incrustar\" on the gem, to permanently add its damage bonus to the weapon.\n",
+      "date": "2026-11-05T02:32:25-03:00",
+      "files": [
+        "Project Grimhold/Assets/Prefabs/UI/GemInstallConfirmation.prefab",
+        "Project Grimhold/Assets/Prefabs/UI/GemInstallConfirmation.prefab.meta",
+        "Project Grimhold/Assets/Prefabs/UI/PlayerUI/RaidInventoryUI.prefab",
+        "Project Grimhold/Assets/Prefabs/UI/StashInventory.prefab",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/GemInstallConfirmationView.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/GemInstallConfirmationView.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventorySlotView.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryView.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelView.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownGemInstallSession.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownGemInstallSession.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownGemInstallUIBinding.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownGemInstallUIBinding.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownInventoryBinder.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownLootGemInstallContextActionProvider.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownLootGemInstallContextActionProvider.cs.meta",
+        "Project Grimhold/Assets/Scripts/Stash/IRemoteGemInstallService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/IRemoteGemInstallService.cs.meta",
+        "Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+        "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/StashTransferCoordinator.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownGemInstallSessionTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownGemInstallSessionTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/LocalLoadoutInventoryReadSourceTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferCoordinatorTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "inventory",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/PlayerUI/RaidInventoryUI.prefab",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/StashInventory.prefab",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventorySlotView.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryView.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelPresenter.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelView.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/TownInventoryBinder.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/TownLootGemInstallContextActionProvider.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/TownLootGemInstallContextActionProvider.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/LocalLoadoutInventoryReadSourceTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/TownGemInstallSession.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/TownGemInstallSession.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownGemInstallSessionTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownGemInstallSessionTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/GemInstallConfirmation.prefab",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/GemInstallConfirmation.prefab.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/PlayerUI/RaidInventoryUI.prefab",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/StashInventory.prefab",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "tooltip",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownGemInstallSessionTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownGemInstallSessionTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/LocalLoadoutInventoryReadSourceTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferCoordinatorTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownGemInstallSessionTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownGemInstallSessionTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/LocalLoadoutInventoryReadSourceTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferCoordinatorTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "be00d8adb647d66b24830c15b16c36e05a5e5528",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/be00d8adb647d66b24830c15b16c36e05a5e5528",
+      "subject": "feat(equipment): compute Town weapon damage and tooltips from instances",
+      "body": "Make WeaponInstanceModifiers the damage source for player weapons\n(ItemInstanceArchitecture.md section 6.2, TASK-283). Town statistics and\nthe equipment controller now resolve instance scaling and installed-gem\nbonuses through WeaponDamageCalculator:\nfloor((Base + GemDamageBonus) * (1 + sum)). The legacy\nWeaponOffensiveScaling path is no longer used at runtime.\n\n- Town inventory, Stash and prepared-equipment presentation carry each\n  item's EquipmentInstance and the character's confirmed attributes.\n  LobbyStashPresenter, RaidInventoryPresenter and RaidLootPanelPresenter\n  keep instance-to-entry alignment, including duplicate templates.\n- Equipment tooltips in Town use the instance overload: scaling grades,\n  installed gem names, gem bonus and effective damage equal to the\n  statistics value. Missing attributes do not default to zero.\n- Merchant offers and remote party members in Raid preparation\n  inspection keep definition-only tooltips. No instance or attributes\n  exist for them, and local damage is never shown as theirs.\n- In the Raid, weapons use a plain instance derived from the template\n  until modifiers are replicated (T7), so Raid damage is unchanged. No\n  networked fields were added.\n\nTests: TownCharacterStatisticsBuilderTests (instance damage, gem\ncounts, tooltip/statistics equality, plain preservation),\nEquipmentTooltipPresentationBuilderTests (real Stash prefab projection,\nmerchant preservation), LocalLoadoutInventoryReadSourceTests, and\nproduction catalog plain-damage parity in WeaponDamageCalculatorTests.\nFocused 100/100. Full EditMode 5729/5754; the 25 failures are the known\npre-existing set.\n\nDocs: PlayerCombatArchitecture.md documents the F3 runtime and the\ndeferred Raid transport.\n\nRefs: TASK-283\n",
+      "date": "2026-11-05T00:19:42-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/EquipmentInstance.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemDamageBonusResolver.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiers.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponScalingContributionsResolver.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentation.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentationBuilder.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventorySlotData.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownCharacterStatisticsBuilder.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownInventoryBinder.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidPreparationInspectionView.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalLoadoutInventoryReadSource.cs",
+        "Project Grimhold/Assets/Scripts/Stash/TownInventoryProjection.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponDamageCalculatorTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownCharacterStatisticsBuilderTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/LocalLoadoutInventoryReadSourceTests.cs",
+        "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "equipment",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemDamageBonusResolver.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiers.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponScalingContributionsResolver.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponDamageCalculatorTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/EquipmentInstance.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponGemDamageBonusResolver.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponInstanceModifiers.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/WeaponScalingContributionsResolver.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentation.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentationBuilder.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventorySlotData.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelPresenter.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/TownInventoryBinder.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalLoadoutInventoryReadSource.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/TownInventoryProjection.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/LocalLoadoutInventoryReadSourceTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentation.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/EquipmentTooltipPresentationBuilder.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "tooltips",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponDamageCalculatorTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownCharacterStatisticsBuilderTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/LocalLoadoutInventoryReadSourceTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/WeaponDamageCalculatorTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/EquipmentTooltipPresentationBuilderTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownCharacterStatisticsBuilderTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/LocalLoadoutInventoryReadSourceTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "90ec4367205eb3e383eca6c9e07ff83383f535a5",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/90ec4367205eb3e383eca6c9e07ff83383f535a5",
+      "subject": "feat(stash): persist equipment item instances in Unity",
+      "body": "Implement the Unity persistence and backend-client part of\nItemInstanceArchitecture.md (TASK-283). Town gameplay, damage and UI\nwiring follow separately.\n\n- EquipmentInstance carries the backend instance ID and optional\n  WeaponInstanceModifiers. StashItem and PreparedEquipmentLoadout carry\n  it, equipment never merges, and same-template instance moves swap.\n- Save schema v11 round-trips instances. Schemas 1-10 stay readable:\n  equipment stacks expand into quantity-1, ID-less plain instances,\n  and the snapshot records RequiresEquipmentHydration. Equip, unequip,\n  Stash equip, remote prepared-equipment updates and gem install are\n  rejected until a backend hydration provides instance IDs (contract\n  section 9; the cache-only bootstrap path, e.g. Editor domain reload,\n  can publish a Store before hydration). Future cache versions still\n  decode as UnsupportedVersion.\n- Backend DTOs parse v3 inventories and prepared equipment\n  { lootId, instance }, with strict lowercase attribute names and E-S\n  grades. Equip requests carry instanceId, and InventoryClient gains\n  POST /character/me/inventory/gems/install (InstallGemRequest).\n- The client always sends inventory protocol header 3 and selects v2 or\n  v3 behavior from the character's inventorySchemaVersion.\n- Absent prepared-ability IDs still encode as empty strings.\n\nTests: EquipmentInstancePersistenceTests and\nEquipmentInstanceBackendTests (new). InventoryProtocolSlotTests,\nPhysicalProfileSlotTests and StashSplitTests now expect header 3, and\nPreparedEquipmentTests expects the ID-less plain instance for legacy\nequipment. Full EditMode 5719/5744; the 25 failures are the known\npre-existing set.\n\nDocs: LocalPlayerPersistenceArchitecture.md documents the cache\nhydration guard and protocol header 3.\n\nRefs: TASK-283\n",
+      "date": "2026-11-04T23:52:40-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Backend/EquipmentInstanceData.cs",
+        "Project Grimhold/Assets/Scripts/Backend/EquipmentInstanceData.cs.meta",
+        "Project Grimhold/Assets/Scripts/Backend/InstallGemRequest.cs",
+        "Project Grimhold/Assets/Scripts/Backend/InstallGemRequest.cs.meta",
+        "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+        "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+        "Project Grimhold/Assets/Scripts/Backend/InventoryProtocol.cs",
+        "Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs",
+        "Project Grimhold/Assets/Scripts/Backend/PreparedEquipmentJsonConverter.cs",
+        "Project Grimhold/Assets/Scripts/Backend/PreparedEquipmentJsonConverter.cs.meta",
+        "Project Grimhold/Assets/Scripts/Backend/WeaponScalingModifierJsonConverter.cs",
+        "Project Grimhold/Assets/Scripts/Backend/WeaponScalingModifierJsonConverter.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/EquipmentInstance.cs",
+        "Project Grimhold/Assets/Scripts/Player/Equipment/EquipmentInstance.cs.meta",
+        "Project Grimhold/Assets/Scripts/Stash/ApplicationStashServiceBootstrapper.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+        "Project Grimhold/Assets/Scripts/Stash/PreparedEquipmentLoadout.cs",
+        "Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs",
+        "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/StashItem.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/EquipmentInstanceBackendTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/EquipmentInstanceBackendTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/PreparedEquipmentTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/EquipmentInstancePersistenceTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/EquipmentInstancePersistenceTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashSplitTests.cs",
+        "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "stash",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Abilities",
+        "Inventory & Loot",
+        "UI",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/WeaponScalingModifierJsonConverter.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/WeaponScalingModifierJsonConverter.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "damage",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "ability",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/EquipmentInstanceData.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/EquipmentInstanceData.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryProtocol.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/PreparedEquipmentJsonConverter.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/PreparedEquipmentJsonConverter.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/EquipmentInstance.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Equipment/EquipmentInstance.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/PreparedEquipmentLoadout.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/EquipmentInstanceBackendTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/EquipmentInstanceBackendTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/PreparedEquipmentTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/EquipmentInstancePersistenceTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/EquipmentInstancePersistenceTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "UI",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/EquipmentInstanceData.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/EquipmentInstanceData.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InstallGemRequest.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InstallGemRequest.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryProtocol.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryRequestJson.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/PreparedEquipmentJsonConverter.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/PreparedEquipmentJsonConverter.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/WeaponScalingModifierJsonConverter.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/WeaponScalingModifierJsonConverter.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/EquipmentInstanceBackendTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/EquipmentInstanceBackendTests.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/EquipmentInstancePersistenceTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/EquipmentInstancePersistenceTests.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "persistence",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/EquipmentInstanceBackendTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/EquipmentInstanceBackendTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/PreparedEquipmentTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/EquipmentInstancePersistenceTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/EquipmentInstancePersistenceTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashSplitTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/EquipmentInstanceBackendTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/EquipmentInstanceBackendTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/InventoryProtocolSlotTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/PreparedEquipmentTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/EquipmentInstancePersistenceTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/EquipmentInstancePersistenceTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashSplitTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "6d65daf5f2c98c9f12e83fa3913f3707e172774e",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6d65daf5f2c98c9f12e83fa3913f3707e172774e",
+      "subject": "feat(backend): treat the inventory protocol header as a minimum version",
+      "body": "With only the v2 inventory gate enabled, accept protocol header 3 as\nwell as 2. Instance-capable Unity clients always send 3 and select v2\nor v3 behavior from the character's inventorySchemaVersion, so they do\nnot need to discover the protocol before hydration. With\nINVENTORY_INSTANCE_PROTOCOL_GATE enabled, only 3 is accepted, as\nbefore. Unknown headers (for example 4) are still rejected with 426\nCLIENT_UPGRADE_REQUIRED.\n\nTests: inventory.protocol covers header 3 under the v2 gate on every\ngated route. inventory.protocol and integration/inventory.split now use\nheader 4 as the rejected value. npm test 515/515, integration 171/171,\nconcurrency 19/19.\n\nRefs: TASK-283\n",
+      "date": "2026-11-04T15:58:40-03:00",
+      "files": [
+        "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+        "backend/src/middleware/inventoryProtocol.js",
+        "backend/tests/integration/inventory.split.test.js",
+        "backend/tests/inventory.protocol.test.js",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "backend",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/middleware/inventoryProtocol.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.split.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.protocol.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/middleware/inventoryProtocol.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.split.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.protocol.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "scope",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.split.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.protocol.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "f2fd344a3df4275afed8c92381843fbd0a9f6ca1",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f2fd344a3df4275afed8c92381843fbd0a9f6ca1",
+      "subject": "feat(backend): add equipment item instances and gem incrustation",
+      "body": "Implement the backend part of ItemInstanceArchitecture.md (TASK-283).\nBehind the new INVENTORY_INSTANCE_PROTOCOL_GATE (default false),\ninventory schema v3 stores every equipment item as a backend-issued\ninstance of quantity 1, and weapons carry modifiers (scaling and 0-2\ngem sockets). Schema v2 characters keep their current behavior.\n\n- ItemInstances: the only instance ID issuer (24-hex ObjectId), plain\n  instances and modifier validation mirroring Unity\n  WeaponInstanceModifiers.TryValidate (lowercase attribute names,\n  grades E-S).\n- scripts/migrate_item_instances.js: explicit v2 to v3 migration with\n  dry-run. Equipment stacks become N plain instances (first keeps its\n  slot, the rest take free slots, then overflow addresses), prepared\n  equipment and reservations keep instances, and stored extraction\n  results become ID-free amount-1 entries. Idempotent and resumable;\n  run it in a maintenance window with backups.\n- Operations on v3: moves and equip carry the instance, equipment\n  never merges or splits (409 INSTANCE_NOT_SPLITTABLE), purchases issue\n  distinct plain instances, every equipment instance is sellable (even\n  for 0) at template plus installed gem value, and equipment buy-back\n  is disabled, including pre-migration ledger entries\n  (409 BUYBACK_NOT_ELIGIBLE). The arming_sword fallback is a plain\n  instance.\n- POST /character/me/inventory/gems/install installs one gem into the\n  lowest empty socket of an unequipped weapon in stash or loadout in a\n  single revision-guarded update with transactionId replay. Rejections\n  (INSTANCE_MISMATCH, GEM_NOT_AVAILABLE, GEM_NO_SOCKETS,\n  GEM_NO_EMPTY_SOCKET, REVISION_CONFLICT) mutate nothing.\n- Extraction results accept { lootId, amount, modifiers? }, validate\n  modifiers by rules, reject host-sent instance IDs, and issue fresh\n  IDs on commit.\n- Shop catalog prices and eligibility now mirror the Unity\n  LootDefinitions (owner decision). This fixes the shop parity test and\n  changes healthpotion from 20/10 to 40/20. It also adds 41 previously\n  absent offers, including the three gems at 140/70.\n\nTests: inventory.instances, item.instances.parity, migrate.item.instances,\nintegration/item.instances and concurrency/item.instances.real, plus\nv2 preservation cases. npm test 495/495, integration 171/171,\nconcurrency 19/19. The integration 'Duplicate Receipts' assertion is an\nintermittent race in that test.\n\nRefs: TASK-283\n",
+      "date": "2026-11-04T15:54:12-03:00",
+      "files": [
+        "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+        "backend/README.md",
+        "backend/scripts/migrate_item_instances.js",
+        "backend/scripts/seed-test-accounts.js",
+        "backend/src/config/env.js",
+        "backend/src/config/shopCatalog.js",
+        "backend/src/middleware/inventoryProtocol.js",
+        "backend/src/models/AuthoritativeExtractionResult.js",
+        "backend/src/models/Character.js",
+        "backend/src/routes/inventory.routes.js",
+        "backend/src/services/CharacterService.js",
+        "backend/src/services/ExtractionCommitService.js",
+        "backend/src/services/InventoryEntries.js",
+        "backend/src/services/InventoryService.js",
+        "backend/src/services/ItemInstances.js",
+        "backend/src/services/RaidResultService.js",
+        "backend/src/services/SessionTicketService.js",
+        "backend/src/validators/inventory.validators.js",
+        "backend/tests/concurrency/inventory.real.test.js",
+        "backend/tests/concurrency/item.instances.real.test.js",
+        "backend/tests/integration/concurrency.test.js",
+        "backend/tests/integration/item.instances.test.js",
+        "backend/tests/integration/persistence.test.js",
+        "backend/tests/integration/shop.authoritative.test.js",
+        "backend/tests/inventory.buyback.test.js",
+        "backend/tests/inventory.instances.test.js",
+        "backend/tests/item.instances.parity.test.js",
+        "backend/tests/migrate.item.instances.test.js",
+        "backend/tests/setup.js",
+        "backend/tests/shop.catalog.parity.test.js",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "backend",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Extraction",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Persistence & Backend",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "message-term",
+          "value": "weapons",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/models/AuthoritativeExtractionResult.js",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/ExtractionCommitService.js",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/middleware/inventoryProtocol.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/inventory.routes.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryEntries.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/validators/inventory.validators.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.real.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.buyback.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.instances.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/SessionTicketService.js",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "backend/README.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/scripts/migrate_item_instances.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/scripts/seed-test-accounts.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/config/env.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/config/shopCatalog.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/middleware/inventoryProtocol.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/models/AuthoritativeExtractionResult.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/models/Character.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/inventory.routes.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/CharacterService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/ExtractionCommitService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryEntries.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/ItemInstances.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/RaidResultService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/SessionTicketService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/validators/inventory.validators.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.real.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/item.instances.real.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/concurrency.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/item.instances.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/persistence.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/shop.authoritative.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.buyback.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.instances.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/item.instances.parity.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/migrate.item.instances.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/setup.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/shop.catalog.parity.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "scope",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "backend/scripts/seed-test-accounts.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.real.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/item.instances.real.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/concurrency.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/item.instances.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/persistence.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/shop.authoritative.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.buyback.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.instances.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/item.instances.parity.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/migrate.item.instances.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/setup.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/shop.catalog.parity.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "b1f30da609139032e9e99643521ed56765f4eeac",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b1f30da609139032e9e99643521ed56765f4eeac",
+      "subject": "docs(architecture): define equipment item instances for gem incrustation",
+      "body": "Add ItemInstanceArchitecture.md, the approved contract for TASK-283:\nevery equipment item (weapon, shield, armor piece) becomes a unique,\nbackend-issued instance of quantity 1, and only weapons carry modifiers\n(scaling plus 0-2 gem sockets). The contract covers backend inventory\nschema v3 behind INVENTORY_INSTANCE_PROTOCOL_GATE, the v2 to v3\nmigration that splits equipment stacks into plain instances, Town-only\ngem incrustation through POST /character/me/inventory/gems/install, save\nschema v11, instance-driven damage\nfloor((Base + GemDamageBonus) * (1 + sum)), Raid transport of modifiers\nwithout instance IDs, and extraction rule validation with fresh IDs on\ncommit. Equipment buy-back is disabled until Game Design redefines it,\nand on v3 every equipment instance is sellable, even for 0.\n\nAlign PlayerCombat, LocalPlayerPersistence, Commerce, Extraction and\nLootInteraction architecture with the contract, replacing the\n\"instances are not stored until unique item identity exists\" statements.\n\nRecord the ODD execution tracker in\nodd/tasks/equipment-item-instances.md.\n\nRefs: TASK-283\n",
+      "date": "2026-11-04T15:24:08-03:00",
+      "files": [
+        "Project Grimhold/Docs/Architecture/CommerceArchitecture.md",
+        "Project Grimhold/Docs/Architecture/ExtractionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+        "odd/tasks/equipment-item-instances.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "architecture",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Extraction",
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Documentation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ExtractionArchitecture.md",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "Extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/equipment-item-instances.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/CommerceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ExtractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "1c1f79b2cc532b2e7613ff56915f5c08ac095872",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1c1f79b2cc532b2e7613ff56915f5c08ac095872",
+      "subject": "feat(loot): add provisional gems to container loot tables",
+      "body": "Make the three provisional MVP gems obtainable in the Dungeon so gem\nincrustation (TASK-283) can be exercised in play. RES_ATTUNEMENT_GEM was\nnot in any table before.\n\n- DefaultLootContainerContentTable: RES_ATTUNEMENT_GEM, RES_RUBY_GEM and\n  RES_SAPPHIRE_GEM at weight 3, amount 1 (the weight of other rare\n  entries).\n- EnemyLootContainerContentTable: the same three gems at weight 1,\n  amount 1.\n\nWeights are provisional until balance.\n\nTests: WeaponCatalogTests.LootTables_IncludeProvisionalGems; the table\nentry counts become 45 (Default) and 43 (Enemy).\n\nRefs: TASK-283\nPlayer-Added: Ruby, Sapphire and Attunement gems can now be found in Dungeon chests and enemy drops.\n",
+      "date": "2026-11-04T14:57:14-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Tables/DefaultLootContainerContentTable.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Tables/EnemyLootContainerContentTable.asset",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "World & Visibility",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Tables/DefaultLootContainerContentTable.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Tables/EnemyLootContainerContentTable.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "Dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "baabc056fbc9812afcd58428c25e215ceaefcefa",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/baabc056fbc9812afcd58428c25e215ceaefcefa",
