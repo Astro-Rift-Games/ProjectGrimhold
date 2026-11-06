@@ -361,6 +361,88 @@ namespace Tests.PlayMode.Loot
             return (LootTransferConfirmation)process.Invoke(controller, new object[] { identity });
         }
 
+        [UnityTest]
+        public IEnumerator Pickup_CarriesWeaponModifiersIntoTheInventory()
+        {
+            NetworkLootPickup pickup = SpawnWeaponPickup(Sword, _socketedData, out bool accepted);
+            Assert.That(accepted, Is.True);
+            Assert.That(pickup.Modifiers, Is.EqualTo(_socketedData));
+            Assert.That(pickup.TryResolveRaidOriginTransfer(out RaidLootOriginTransfer origins), Is.True);
+            Assert.That(origins.Modifiers, Is.EqualTo(_socketedData));
+            InteractionResult result = default;
+            yield return Execute(() => result = pickup.Interact(new InteractionRequest(_receiver.Id, pickup.Id, _runner.Tick)));
+
+            Assert.That(result.Success, Is.True);
+            AssertModifiers(_receiver, 0, _socketedData);
+        }
+
+        [UnityTest]
+        public IEnumerator Pickup_RejectsModifiersOnStackableLoot()
+        {
+            SpawnWeaponPickup(Bone, _socketedData, out bool accepted);
+            Assert.That(accepted, Is.False, "Modifiers belong to one weapon unit only.");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator Drop_SpawnsAPickupThatKeepsTheDroppedUnitModifiers()
+        {
+            PlayerLootDropNetworkController drop = _receiver.GetComponent<PlayerLootDropNetworkController>();
+            var dropCatalog = (LootDefinitionCatalog)typeof(PlayerLootDropNetworkController)
+                .GetField("_lootCatalog", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(drop);
+            // The drop controller and the pickup prefab use the production catalog, so the receiver does too.
+            SetField(_receiver, "_lootCatalog", dropCatalog);
+            Assert.That(dropCatalog.TryGetIndex(Sword, out int swordIndex), Is.True);
+            Assert.That(WeaponInstanceModifiersNetworkData.TryCreate(_socketed, CharacterAttribute.Strength, dropCatalog,
+                out WeaponInstanceModifiersNetworkData productionSocketed, out string encodeError), Is.True, encodeError);
+            Assert.That(WeaponInstanceModifiersNetworkData.TryCreate(_scaled, CharacterAttribute.Strength, dropCatalog,
+                out WeaponInstanceModifiersNetworkData productionScaled, out encodeError), Is.True, encodeError);
+            object confirmation = null;
+            yield return Execute(() =>
+            {
+                Assert.That(_receiver.TryInitializeRaidLoadout(LoadoutOf(_socketed, _scaled, 0),
+                    Participant(1), out string error), Is.True, error);
+                Physics2D.SyncTransforms();
+                MethodInfo process = typeof(PlayerLootDropNetworkController).GetMethod("ProcessAuthoritativeRequest",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                confirmation = process.Invoke(drop, new object[]
+                {
+                    new LootDropRequestIdentity(1, swordIndex, LootTransferQuantityMode.FullStack, 0, _receiver.Revision)
+                });
+            });
+
+            var result = (LootDropResult)confirmation.GetType().GetProperty("Result").GetValue(confirmation);
+            Assert.That(result.Success, Is.True, result.FailureReason.ToString());
+            AssertModifiers(_receiver, 0, default);
+            AssertModifiers(_receiver, 1, productionScaled);
+            NetworkLootPickup dropped = null;
+            foreach (NetworkLootPickup candidate in UnityEngine.Object.FindObjectsByType<NetworkLootPickup>(FindObjectsSortMode.None))
+                if (candidate.IsAvailable && candidate.LootDefinition != null && candidate.LootDefinition.LootId == Sword)
+                    dropped = candidate;
+            Assert.That(dropped, Is.Not.Null, "The drop published a sword pickup.");
+            Assert.That(dropped.Modifiers, Is.EqualTo(productionSocketed));
+        }
+
+        private NetworkLootPickup SpawnWeaponPickup(LootId lootId, WeaponInstanceModifiersNetworkData modifiers,
+            out bool accepted)
+        {
+            const string pickupGuid = "5d26f13a358d7894b9419465e4ba1869";
+            NetworkPrefabId id = _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(pickupGuid));
+            Assert.That(id.IsValid, Is.True);
+            NetworkObject prefab = _runner.Config.PrefabTable.Load(id, true);
+            bool applied = false;
+            NetworkObject instance = _runner.Spawn(prefab, new Vector3(2f, 0f, 0f), Quaternion.identity,
+                onBeforeSpawned: (runner, spawned) =>
+                {
+                    var pickup = spawned.GetComponent<NetworkLootPickup>();
+                    SetField(pickup, "_lootCatalog", _catalog);
+                    applied = pickup.TrySetSpawnContentOverride(runner, spawned, new LootEntry(lootId, 1), true, 1,
+                        RaidLootOriginTransfer.Dungeon(1).WithModifiers(modifiers));
+                });
+            accepted = applied;
+            return instance.GetComponent<NetworkLootPickup>();
+        }
+
         private NetworkLootContainer SpawnContainer(int slotCapacity, IReadOnlyList<LootEntry> content)
         {
             const string containerGuid = "2c19a78647c64b84a765ff0280706b7d";
