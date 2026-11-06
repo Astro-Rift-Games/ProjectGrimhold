@@ -70,9 +70,9 @@ conversations while `grimhold-docs` is available.
 If `grimhold-docs` is unavailable, report that before making a definitive
 Game Design-dependent decision.
 
-## Unity MCP
+## Unity CLI
 
-Use Unity MCP when correctness depends on Unity state that cannot be established reliably from source alone.
+Use Unity CLI (via the `unity-cli` skill when available) when correctness depends on Unity state that cannot be established reliably from source alone.
 
 Typical triggers:
 
@@ -88,7 +88,7 @@ Typical triggers:
 - Play Mode;
 - visual/animation verification.
 
-Do not invoke Unity MCP for documentation-only or pure-code tasks unless the task actually depends on Editor/runtime state.
+Do not invoke Unity CLI for documentation-only or pure-code tasks unless the task actually depends on Editor/runtime state.
 
 Do not mutate scenes, prefabs or assets unless the current work item requires it.
 
@@ -116,7 +116,7 @@ Subagent use is the orchestrator's decision. When delegating, give exact scope, 
 
 ## Validation economy
 
-Minimize Unity MCP context without reducing verification quality.
+Minimize Unity CLI context without reducing verification quality.
 
 - Prefer targeted tests before broad suites.
 - For successful test runs, retain only suite name, totals, failures and duration.

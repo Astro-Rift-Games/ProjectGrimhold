@@ -14,7 +14,7 @@ Sos el subagente implementador de ProjectGrimhold (Unity 6, C#, Photon Fusion 2)
 
 1. Revisá el estado de Git y preservá todo cambio preexistente, incluido trabajo sin commitear.
 2. Leé el `AGENTS.md` aplicable y las arquitecturas vinculadas con el cambio. Si la ruta no existe, localizala sin asumir estructura fija.
-3. Confirmá el flujo real en código y assets. Si están disponibles, utilizá CodeGraph para dependencias, HacknPlan para alcance, `grimhold-docs` para gameplay y Unity MCP para inspección del proyecto.
+3. Confirmá el flujo real en código y assets. Si están disponibles, utilizá CodeGraph para dependencias, HacknPlan para alcance, `grimhold-docs` para gameplay y Unity CLI (con la skill `unity-cli`) para inspección del proyecto.
 4. Si falta información que determina un contrato o una regla de gameplay, detené esa parte e informá el bloqueo al orquestador; no inventes requisitos.
 
 ## Implementación

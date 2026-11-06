@@ -65,7 +65,7 @@ Movement is continuous top-down movement. The six visual facing buckets (`N`, `N
 
 ## Serialized assets and Editor access
 
-Use Unity MCP when correctness depends on Editor or runtime state: prefab/scene composition, Inspector references, Input Actions, ScriptableObjects, NetworkObject/NetworkBehaviour composition, compilation/Console, Test Runner, Play Mode or required visual checks. Source-only documentation work and deterministic pure C# inspection do not require opening or mutating Unity.
+Use Unity CLI (via the `unity-cli` skill when available) when correctness depends on Editor or runtime state: prefab/scene composition, Inspector references, Input Actions, ScriptableObjects, NetworkObject/NetworkBehaviour composition, compilation/Console, Test Runner, Play Mode or required visual checks. Source-only documentation work and deterministic pure C# inspection do not require opening or mutating Unity.
 
 - Inspect the actual scene/prefab/asset when serialized state matters. Do not invent Inspector assignments or substitute runtime searches to avoid configuring dependencies.
 - Change scenes/prefabs/assets only when required by the task. Preserve serialized field names unless migration is in scope and preserve `.meta` GUIDs.
@@ -88,7 +88,7 @@ Tests live under `Assets/Tests/EditMode/` and `Assets/Tests/PlayMode/`. Prefer E
 
 For executable Unity changes:
 
-1. Check Unity compilation and relevant automated tests through Unity MCP when available; report unavailable checks rather than substituting source inspection for Editor execution.
+1. Check Unity compilation and relevant automated tests through Unity CLI when available; report unavailable checks rather than substituting source inspection for Editor execution.
 2. Inspect generated-file and scene/prefab/asset diffs for unintended changes.
 3. For networked behavior, validate applicable State/Input Authority and proxy paths, Host/Client flows, missing/disabled input, prediction/resimulation and irreversible side effects.
 4. When restoration is affected, check Host Migration restore behavior. Real migration requires a multi-process Host plus at least two Clients; single-runner or state-copy tests do not prove that flow.

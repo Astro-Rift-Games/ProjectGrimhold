@@ -4,7 +4,7 @@
 
 Read the selected project's AGENTS and existing planning conventions. Current code/serialized configuration prove implementation; approved Architecture owns contracts; current Game Design owns behavior. Use the project's authoritative document connector when available, not cached IDs or memory as the source of gameplay.
 
-For Project Grimhold, route named existing work items through HacknPlan first, relationships through CodeGraph, gameplay intent through grimhold-docs, and Editor-dependent questions through Unity MCP only when needed. Do not open/mutate Unity merely to draft a task. Resolve referenced documents by search rather than baking private project IDs into this skill.
+For Project Grimhold, route named existing work items through HacknPlan first, relationships through CodeGraph, gameplay intent through grimhold-docs, and Editor-dependent questions through Unity CLI only when needed. Do not open/mutate Unity merely to draft a task. Resolve referenced documents by search rather than baking private project IDs into this skill.
 
 Check existing stories/tasks in the destination and relevant prior boards/backlog. Read likely overlapping items and their parents. Completed foundations may be referenced as predecessors of a corrective task; they do not prove a newly audited guarantee holds. Do not move, reopen, duplicate, or rewrite them without authorization.
 

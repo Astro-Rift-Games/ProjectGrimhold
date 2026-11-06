@@ -105,7 +105,8 @@ Upon completion, the main agent summarizes the changes made, verification result
 - Confirm the repository, target branch and working tree before edits. Stay on a specified branch; do not create worktrees unless explicitly requested.
 - Inspect relevant architecture and identify ownership, authority, persistence and dependency boundaries before implementation.
 - Verify version-sensitive APIs against the target branch's configuration, then Context7 or official documentation. `New-Testing` is the existing version baseline; compare it when relevant, but do not substitute its state for the branch being edited.
-- Unity Editor, serialized-state and runtime checks belong to the nested Unity instructions; Unity MCP does not replace source inspection.
+- Unity Editor, serialized-state and runtime checks belong to the nested Unity instructions; Unity CLI does not replace source inspection. The project uses Unity 6000.6.8f1 with `com.unity.pipeline` 0.10.0-exp.1.
+- CoplayDev Unity MCP (`com.coplaydev.unity-mcp`) was removed; do not invoke or reinstall it. This applies only to Unity MCP; the other MCP servers in this file remain in use.
 - Ask before changing approved architecture, Game Design or dependencies. Dependency proposals must establish the existing project's gap and impact before adoption.
 - When replacing a contract, check consumers, migrate them minimally and remove the obsolete path only when safe. Update the owning architecture for an authorized contract change; do not rewrite Game Design just to match implementation.
 
@@ -119,7 +120,7 @@ Use the preferred tools when available; their absence changes the access method,
 | `grimhold-docs` | Discover and read the owning live Game Design sections | Read the current source directly in Google Drive if accessible, or ask the owner for the relevant current sections and confirmation of their authority. Unverified exports remain supplemental; block design-dependent changes if authoritative intent is unresolved. |
 | CodeGraph | Map relationships/blast radius, then verify in source | Use targeted text/symbol searches and inspect definitions, callers and tests directly. |
 | Gentle AI | Use applicable project skills and the native ODD workflow | Read available `SKILL.md` files directly and use ordinary planning, editing and verification tools. If a skill is missing, follow these repository instructions and report the gap. No Gentle AI installation or personal agent configuration is required. |
-| Unity MCP | Inspect Editor/runtime state and execute Unity checks as specified by the nested instructions | Use the Unity Editor and Test Runner directly. If unavailable too, report the unverified state and block changes whose correctness depends on that missing evidence. |
+| Unity CLI | Preferred way to interact with the Unity Editor: query status, console, scenes, tests and other supported operations as specified by the nested instructions. Use the official `unity-cli` skill when available; otherwise find commands through the CLI's own help and search (`unity commands --grep`) instead of guessing them | Use the Unity Editor and Test Runner directly. If unavailable too, report the unverified state and block changes whose correctness depends on that missing evidence. |
 
 Report unavailable tools and the alternative actually used. Missing tools never authorize inventing requirements or Inspector state, bypassing approved contracts, changing Game Design without approval, or claiming remote updates or checks that were not performed.
 

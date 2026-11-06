@@ -4,7 +4,7 @@ description: "Trigger: Project Grimhold task, HacknPlan TASK, US implementation.
 license: Apache-2.0
 metadata:
   author: "Astro-Rift-Games"
-  version: "1.1"
+  version: "1.2"
 ---
 
 ## Activation Contract
@@ -20,7 +20,7 @@ Do not load it for backlog creation, Game Design authoring or unrelated reposito
 - Do not redesign/recreate the task unless explicitly requested.
 - Use CodeGraph first for broad code discovery, then verify important conclusions in source.
 - Read only relevant Architecture and live Game Design documents.
-- Use Unity MCP only when correctness depends on Editor, serialized or runtime Unity state.
+- Use Unity CLI only when correctness depends on Editor, serialized or runtime Unity state.
 - Never let Engram, uploads or prior chats override current repository/Architecture/live Game Design.
 - Do not expand the task into adjacent systems.
 - Execute through the ODD workflow and its native Task Size classification (repository `AGENTS.md`, ODD execution). Subagent delegation is the orchestrator's decision.
@@ -40,8 +40,8 @@ criteria; it never adds or re-scopes work.
 | Code relationships/blast radius | CodeGraph → source |
 | Technical contract | Relevant Architecture |
 | Gameplay behavior | grimhold-docs |
-| Prefab/scene/Inspector/Input/ScriptableObject | Unity MCP + source |
-| Unity compile/tests/Play Mode/Console | Unity MCP |
+| Prefab/scene/Inspector/Input/ScriptableObject | Unity CLI + source |
+| Unity compile/tests/Play Mode/Console | Unity CLI |
 | Version-sensitive external API | Verify repo version → Context7/official docs |
 | Historical finding | Engram, supplemental only |
 
