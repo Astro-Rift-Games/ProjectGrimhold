@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 922,
-  "canonicalEntries": 919,
+  "rawCommits": 923,
+  "canonicalEntries": 920,
   "before": {
-    "Bug Fixes": 92,
+    "Bug Fixes": 93,
     "Features": 346,
     "Documentation": 80,
     "Refactoring": 14,
@@ -12,7 +12,7 @@
     "Tests": 24
   },
   "after": {
-    "Bug Fixes": 108,
+    "Bug Fixes": 109,
     "Features": 483,
     "Documentation": 95,
     "Refactoring": 27,
@@ -23,6 +23,7 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "UI": 288,
     "Inventory & Loot": 347,
     "Networking & Sessions": 262,
     "Persistence & Backend": 195,
@@ -30,7 +31,6 @@
     "Combat": 325,
     "World & Visibility": 121,
     "Build & Tooling": 463,
-    "UI": 287,
     "Art & Animation": 225,
     "Unassigned": 20,
     "Extraction": 123,
@@ -42,7 +42,7 @@
   },
   "canonical": {
     "sections": {
-      "Bug Fixes": 107,
+      "Bug Fixes": 108,
       "Features": 482,
       "Documentation": 95,
       "Refactoring": 27,
@@ -52,6 +52,7 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
+      "UI": 287,
       "Inventory & Loot": 347,
       "Networking & Sessions": 262,
       "Persistence & Backend": 195,
@@ -59,7 +60,6 @@
       "Combat": 323,
       "World & Visibility": 119,
       "Build & Tooling": 461,
-      "UI": 286,
       "Art & Animation": 222,
       "Unassigned": 20,
       "Extraction": 123,
@@ -34099,8 +34099,8 @@
       "title": "2026-11 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 50,
-      "canonicalEntries": 50
+      "originalCommits": 51,
+      "canonicalEntries": 51
     },
     {
       "key": "history-2026-10",
@@ -34136,6 +34136,41 @@
     }
   ],
   "commits": [
+    {
+      "sha": "baabc056fbc9812afcd58428c25e215ceaefcefa",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/baabc056fbc9812afcd58428c25e215ceaefcefa",
+      "subject": "fix(player): repair corrupted NetworkPlayer prefab from merge conflict",
+      "body": "Restore valid YAML definitions for the US-75 RaidMissionTracker HUD elements (PopupDetail and HeaderText) and remove orphaned components from prior HUD consolidation that caused broken PPtr imports. This resolves the Fusion object provider failure when spawning player avatars during raid admission.\n\nPlayer-Fixed: Raid launch from Town spawns player avatars reliably without crashing back to town.\n",
+      "date": "2026-11-06T01:35:11-03:00",
+      "files": [
+        "Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab"
+      ],
+      "originalType": "fix",
+      "originalScope": "player",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "UI"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "message-term",
+          "value": "HUD",
+          "supports": "UI"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "f2cd9d7c9d843082400e174838b64e2fc462065f",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f2cd9d7c9d843082400e174838b64e2fc462065f",

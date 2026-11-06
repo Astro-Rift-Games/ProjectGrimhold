@@ -4,11 +4,11 @@
 
 Release: Unreleased
 
-50 original commits; 50 canonical entries.
+51 original commits; 51 canonical entries.
 
 ## Canonical classification
 
-28 features; 14 bug fixes; 1 refactoring; 5 documentation; 1 maintenance; 1 other changes
+28 features; 15 bug fixes; 1 refactoring; 5 documentation; 1 maintenance; 1 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -25,11 +25,48 @@ Release: Unreleased
 | Networking & Sessions | 6 | 2 | 0 | 0 | 0 | 0 |
 | Persistence & Backend | 8 | 1 | 0 | 0 | 1 | 0 |
 | Tests | 27 | 12 | 1 | 0 | 2 | 0 |
-| UI | 15 | 4 | 1 | 0 | 3 | 0 |
+| UI | 15 | 5 | 1 | 0 | 3 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
 | World & Visibility | 8 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### baabc056fbc9812afcd58428c25e215ceaefcefa
+
+[baabc056fbc9812afcd58428c25e215ceaefcefa](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/baabc056fbc9812afcd58428c25e215ceaefcefa)
+
+Date: 2026-11-06T01:35:11-03:00 · Classification: Bug Fixes (explicit) · Systems: UI
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(player): repair corrupted NetworkPlayer prefab from merge conflict
+```
+
+#### Original body
+
+```text
+Restore valid YAML definitions for the US-75 RaidMissionTracker HUD elements (PopupDetail and HeaderText) and remove orphaned components from prior HUD consolidation that caused broken PPtr imports. This resolves the Fusion object provider failure when spawning player avatars during raid admission.
+
+Player-Fixed: Raid launch from Town spawns player avatars reliably without crashing back to town.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- message-term → UI: HUD
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### f2cd9d7c9d843082400e174838b64e2fc462065f
 
