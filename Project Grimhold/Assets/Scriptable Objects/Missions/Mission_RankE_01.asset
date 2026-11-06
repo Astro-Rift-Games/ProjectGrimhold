@@ -12,39 +12,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 95e78370bc118bf40baebe3b64c51dc2, type: 3}
   m_Name: Mission_RankE_01
   m_EditorClassIdentifier: Assembly-CSharp::MissionDefinition
-  _id: contract_e_01
-  Title: Contrato Rango E - 1
-  Description: "Descripci\xF3n del contrato 1 de rango E."
+  _id: CON_E_001
+  Title: Limpieza de amenazas
+  Description: "Elimina 3 criaturas hostiles en las profundidades de la mazmorra."
   Type: 0
   RankRequired: 0
   Phases:
   - Objectives:
     - Family: 0
       Condition:
-        TargetId: blue-slime
-        ZoneId: 
-        RequiredAmount: 1
-    - Family: 0
-      Condition:
-        TargetId: red-slime
-        ZoneId: 
-        RequiredAmount: 1
-    - Family: 0
-      Condition:
-        TargetId: green-slime
-        ZoneId: 
-        RequiredAmount: 1
-    - Family: 0
-      Condition:
-        TargetId: skeleton
-        ZoneId: 
-        RequiredAmount: 1
-    - Family: 3
-      Condition:
-        TargetId: chest
+        TargetId: 
         ZoneId: 
         RequiredAmount: 3
   Rewards:
   - Type: 0
-    Amount: 100
+    Amount: 50
+    ReferenceId: 
+  - Type: 2
+    Amount: 20
+    ReferenceId: 
+  - Type: 1
+    Amount: 5
     ReferenceId: 

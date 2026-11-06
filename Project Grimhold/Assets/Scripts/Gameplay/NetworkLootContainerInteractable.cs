@@ -233,6 +233,50 @@ public sealed class NetworkLootContainerInteractable : NetworkBehaviour, IIntera
                 source.ZoneId,
                 isCompanionContribution: false);
         }
+
+        TryAwardCompanionInteractionProgress(participant, player, source);
+    }
+
+    private void TryAwardCompanionInteractionProgress(
+        NetworkRaidParticipant interactor,
+        PlayerCharacter interactorAvatar,
+        IMissionProgressInteractionSource source)
+    {
+        if (Runner == null) return;
+        var spawnManager = Runner.GetComponent<NetworkSpawnManager>();
+        if (spawnManager == null || !spawnManager.TryGetRaidInitialAffiliations(out var affiliations)) return;
+
+        if (!affiliations.TryGetTeam(interactor.RaidParticipantId, out var teamId)) return;
+
+        const float DuoProximityRadius = 35f;
+        Vector2 interactorPos = interactorAvatar.transform.position;
+
+        for (int i = 0; i < RaidSessionRules.MaxParticipants; i++)
+        {
+            if (!RaidParticipantId.TryCreate(i + 1, out var teammateId) || teammateId == interactor.RaidParticipantId) continue;
+            if (!affiliations.TryGetTeam(teammateId, out var candidateTeam) || candidateTeam != teamId) continue;
+
+            if (spawnManager.TryGetRaidParticipant(teammateId, out var teammate) &&
+                teammate.State == RaidParticipantState.Raiding &&
+                teammate.TryResolveCurrentAvatar(out var avatarObj) &&
+                avatarObj != null)
+            {
+                float distance = Vector2.Distance(interactorPos, avatarObj.transform.position);
+                if (distance <= DuoProximityRadius)
+                {
+                    var teammateLedger = teammate.GetComponent<PlayerMissionContributionLedger>();
+                    if (teammateLedger != null)
+                    {
+                        teammateLedger.RecordContribution(
+                            ObjectiveFamily.Interaccion,
+                            source.InteractionProgressAmount,
+                            source.TargetId,
+                            source.ZoneId,
+                            isCompanionContribution: true);
+                    }
+                }
+            }
+        }
     }
 
     public bool TryValidate(out string error)

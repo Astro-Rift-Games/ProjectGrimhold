@@ -12,19 +12,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 95e78370bc118bf40baebe3b64c51dc2, type: 3}
   m_Name: Mission_RankE_02
   m_EditorClassIdentifier: Assembly-CSharp::MissionDefinition
-  _id: contract_e_02
-  Title: Contrato Rango E - 2
-  Description: "Descripci\xF3n del contrato 2 de rango E."
+  _id: CON_E_002
+  Title: Purga de las catacumbas
+  Description: "Elimina 2 esqueletos en las catacumbas."
   Type: 0
   RankRequired: 0
   Phases:
   - Objectives:
-    - Family: 0
+    - Family: 1
       Condition:
-        TargetId: green-slime
+        TargetId: skeleton
         ZoneId: 
-        RequiredAmount: 1
+        RequiredAmount: 2
   Rewards:
   - Type: 0
-    Amount: 100
+    Amount: 75
+    ReferenceId: 
+  - Type: 2
+    Amount: 30
+    ReferenceId: 
+  - Type: 1
+    Amount: 7
     ReferenceId: 

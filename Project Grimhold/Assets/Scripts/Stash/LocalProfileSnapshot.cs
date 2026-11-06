@@ -16,6 +16,8 @@ public sealed class LocalProfileSnapshot
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public ProfileId ProfileId { get; set; }
     public long Currency { get; set; } = InitialCurrency;
+    public int GuildReputation { get; set; } = 0;
+    public MissionRank GuildRank => GuildReputation >= 100 ? MissionRank.D : MissionRank.E;
     public int Level { get; set; } = ExperienceCurve.InitialLevel;
     public long CurrentExperience { get; set; }
     public CharacterAttributeState CharacterAttributes { get; set; } =
@@ -45,6 +47,7 @@ public sealed class LocalProfileSnapshot
             SchemaVersion = SchemaVersion,
             ProfileId = ProfileId,
             Currency = Currency,
+            GuildReputation = GuildReputation,
             Level = Level,
             CurrentExperience = CurrentExperience,
             CharacterAttributes = CharacterAttributes,
@@ -75,7 +78,7 @@ public sealed class LocalProfileSnapshot
             };
             foreach (var kvp in mission.ObjectiveProgress)
             {
-                clonedMission.ObjectiveProgress.Add(kvp.Key, new ObjectiveProgressState(kvp.Value.CurrentAmount));
+                clonedMission.ObjectiveProgress.Add(kvp.Key, new ObjectiveProgressState(kvp.Value.CurrentAmount, kvp.Value.ExpeditionId));
             }
             clone.ActiveMissions.Add(clonedMission);
         }

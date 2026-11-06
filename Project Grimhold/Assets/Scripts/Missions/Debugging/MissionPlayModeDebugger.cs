@@ -343,6 +343,64 @@ public sealed class MissionPlayModeDebugger : MonoBehaviour
         }
         GUILayout.EndHorizontal();
 
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("Simular Exploración"))
+        {
+            string zone = string.IsNullOrEmpty(_simulateTargetId) ? "Catacombs_Main" : _simulateTargetId;
+            var ev = new MissionContributionEvent(
+                ObjectiveFamily.Exploracion,
+                1,
+                Store.ProfileId,
+                null,
+                zone,
+                false);
+            var res = Store.TryApplyMissionProgress(ev);
+            Debug.Log($"[MissionDebugger] Simular Exploración ('{zone}'): {res}");
+        }
+
+        if (GUILayout.Button("Simular Kill PvP"))
+        {
+            var ev = new MissionContributionEvent(
+                ObjectiveFamily.PvP,
+                1,
+                Store.ProfileId,
+                null,
+                null,
+                false);
+            var res = Store.TryApplyMissionProgress(ev);
+            Debug.Log($"[MissionDebugger] Simular PvP: {res}");
+        }
+        GUILayout.EndHorizontal();
+
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("Simular Extracción General"))
+        {
+            var ev = new MissionContributionEvent(
+                ObjectiveFamily.Extraccion,
+                1,
+                Store.ProfileId,
+                null,
+                "raid-simulated-01",
+                false);
+            var res = Store.TryApplyMissionProgress(ev);
+            Debug.Log($"[MissionDebugger] Simular Extracción: {res}");
+        }
+
+        if (GUILayout.Button("Simular Extracción Objeto"))
+        {
+            string item = string.IsNullOrEmpty(_simulateTargetId) ? "RES_BLACK_IRON" : _simulateTargetId;
+            var ev = new MissionContributionEvent(
+                ObjectiveFamily.ExtraccionDeObjetos,
+                Mathf.Max(1, _simulateAmount),
+                Store.ProfileId,
+                item,
+                "raid-simulated-01",
+                false);
+            var res = Store.TryApplyMissionProgress(ev);
+            Debug.Log($"[MissionDebugger] Simular Extracción Objeto ('{item}'): {res}");
+        }
+        GUILayout.EndHorizontal();
+
         GUILayout.EndScrollView();
         GUI.DragWindow(new Rect(0, 0, 10000, 20));
     }

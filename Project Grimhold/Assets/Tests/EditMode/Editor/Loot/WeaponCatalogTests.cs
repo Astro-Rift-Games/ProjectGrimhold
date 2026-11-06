@@ -225,7 +225,7 @@ namespace Tests.EditMode.Loot
             Assert.That(table.MinimumDistinctStacks, Is.EqualTo(2));
             Assert.That(table.MaximumDistinctStacks, Is.EqualTo(3));
             Assert.That(table.AllowEmpty, Is.False);
-            Assert.That(table.Entries.Count, Is.EqualTo(42));
+            Assert.That(table.Entries.Count, Is.EqualTo(63));
 
             foreach (string id in EquipmentIds)
             {
@@ -249,6 +249,7 @@ namespace Tests.EditMode.Loot
             AssertTableEntry(table, "coins", 50, 3, 8);
             AssertTableEntry(table, "bone", 40, 1, 3);
             AssertTableEntry(table, "healthpotion", 30, 1, 2);
+            AssertTableEntry(table, "RES_BLACK_IRON", 20, 1, 3);
         }
 
         [Test]
@@ -264,6 +265,7 @@ namespace Tests.EditMode.Loot
             AssertTableEntry(table, "coins", 45, 1, 4);
             AssertTableEntry(table, "bone", 35, 1, 2);
             AssertTableEntry(table, "healthpotion", 20, 1, 1);
+            AssertTableEntry(table, "RES_BLACK_IRON", 18, 1, 2);
             AssertTableEntry(table, "magic_cinquedea", 6, 1, 1);
             AssertTableEntry(table, "rondel_dagger", 6, 1, 1);
             AssertTableEntry(table, "magic_wand", 5, 1, 1);
@@ -283,7 +285,7 @@ namespace Tests.EditMode.Loot
                 AssertTableEntry(table, id, 1, 1, 1);
             }
 
-            Assert.That(table.Entries.Count, Is.EqualTo(40));
+            Assert.That(table.Entries.Count, Is.EqualTo(61));
             Assert.That(table.Entries.Select(entry => entry.Definition.Id).Distinct().Count(),
                 Is.EqualTo(table.Entries.Count));
             Assert.That(_catalog.TryValidate(out string catalogError), Is.True, catalogError);

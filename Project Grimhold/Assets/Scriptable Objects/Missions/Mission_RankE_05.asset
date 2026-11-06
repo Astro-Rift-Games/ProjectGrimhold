@@ -12,19 +12,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 95e78370bc118bf40baebe3b64c51dc2, type: 3}
   m_Name: Mission_RankE_05
   m_EditorClassIdentifier: Assembly-CSharp::MissionDefinition
-  _id: contract_e_05
-  Title: Contrato Rango E - 5
-  Description: "Descripci\xF3n del contrato 5 de rango E."
+  _id: CON_E_005
+  Title: Recolección de hierro negro
+  Description: "Reúne 2 minerales de hierro negro de mazmorra en tu inventario personal."
   Type: 0
   RankRequired: 0
   Phases:
   - Objectives:
-    - Family: 3
+    - Family: 4
       Condition:
-        TargetId: chest
+        TargetId: RES_BLACK_IRON
         ZoneId: 
-        RequiredAmount: 3
+        RequiredAmount: 2
   Rewards:
   - Type: 0
-    Amount: 100
+    Amount: 50
+    ReferenceId: 
+  - Type: 2
+    Amount: 20
+    ReferenceId: 
+  - Type: 1
+    Amount: 5
     ReferenceId: 

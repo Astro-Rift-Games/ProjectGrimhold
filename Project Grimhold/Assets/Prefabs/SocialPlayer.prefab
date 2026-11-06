@@ -1676,6 +1676,7 @@ GameObject:
   - component: {fileID: 8008320923748191077}
   - component: {fileID: 8295819271924384899}
   - component: {fileID: 2621580025310006146}
+  - component: {fileID: 28562267838092041}
   m_Layer: 7
   m_Name: SocialPlayer
   m_TagString: Player
@@ -1741,6 +1742,7 @@ MonoBehaviour:
   _staminaController: {fileID: 0}
   _shieldDefenseController: {fileID: 0}
   _SprintRejectedSequence: 0
+  _KnockbackSequence: 0
   _knockbackCurveConfig: {fileID: 11400000, guid: 0e71b6227f6a64e4e9e777291fb30671, type: 2}
   _defaultFacingDirection: {x: 0, y: -1}
   _IsControlEnabled:
@@ -1751,6 +1753,8 @@ MonoBehaviour:
     RawValue: 0
   _AimStanceStartTick: 0
   _IsMoving:
+    RawValue: 0
+  _IsSprinting:
     RawValue: 0
 --- !u!114 &1101445917034815865
 MonoBehaviour:
@@ -1764,6 +1768,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 581db5ea2d3661143aabf2e76b674a0d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerInteractionNetworkController
+  _lockpickDurationSeconds: 3
   _config: {fileID: 11400000, guid: efb011a4088a7ce4b8331b1d1162bcc3, type: 2}
   _characterSource: {fileID: 5355948798340248655}
   _querySource: {fileID: 1836968044176270091}
@@ -1907,6 +1912,7 @@ MonoBehaviour:
   - {fileID: 2404112211900569815}
   - {fileID: 9100000000000000010}
   - {fileID: 2621580025310006146}
+  - {fileID: 28562267838092041}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &9115544833474229447
 MonoBehaviour:
@@ -2093,6 +2099,7 @@ MonoBehaviour:
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
   _merchantPresenter: {fileID: 5930331051498512961}
   _abilityVendorPresenter: {fileID: 2621580025310006146}
+  _missionGuildPresenter: {fileID: 28562267838092041}
   _menuPresenter: {fileID: 8889365110912467133}
   _optionsPresenter: {fileID: 8008320923748191077}
   _abilitiesPresenter: {fileID: 8295819271924384899}
@@ -2262,6 +2269,22 @@ MonoBehaviour:
   _viewPrefab: {fileID: 3545852251640423826, guid: b826d27b0332c644b8dd291a359b9e59, type: 3}
   _vendorCatalog: {fileID: 11400000, guid: 9625772c20fbd7044b91c16aaba611ab, type: 2}
   _abilityCatalog: {fileID: 11400000, guid: a863453103d57114dae7769d351cda59, type: 2}
+  _interactionController: {fileID: 1101445917034815865}
+  _dialoguePresenter: {fileID: 5001776840842009073}
+--- !u!114 &28562267838092041
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4667844824871072886}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 89b930326b0ddc1468f40a28492e85df, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TownMissionGuildPresenter
+  _viewPrefab: {fileID: 404715430610957250, guid: 4d7963de9e4ffcf4788436b496c1ef5c, type: 3}
+  _missionCatalog: {fileID: 11400000, guid: 618cdaeec4f78734381e1ab512d16113, type: 2}
   _interactionController: {fileID: 1101445917034815865}
   _dialoguePresenter: {fileID: 5001776840842009073}
 --- !u!1 &4839046221378639172

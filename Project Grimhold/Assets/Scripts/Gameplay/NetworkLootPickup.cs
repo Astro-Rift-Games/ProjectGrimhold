@@ -372,6 +372,22 @@ public sealed class NetworkLootPickup : NetworkBehaviour, IPickup
         // Commit cannot reject after successful prevalidation while State Authority
         // retains control. Any inability to apply is an integration contract violation.
         originReceiver.CommitRaidLootReceive(transferRequest, takenOrigins);
+        if (_registry != null && _registry.TryGetDamageable(request.InteractorId, out IDamageable interactor) &&
+            interactor is PlayerCharacter player &&
+            player.TryGetComponent(out RaidAvatarParticipantLink link) &&
+            link.TryResolveParticipant(out NetworkRaidParticipant participant))
+        {
+            var ledger = participant.GetComponent<PlayerMissionContributionLedger>();
+            if (ledger != null && _resolvedLootDefinition != null)
+            {
+                ledger.RecordContribution(
+                    ObjectiveFamily.Obtencion,
+                    transferredAmount,
+                    _resolvedLootDefinition.LootId.Value,
+                    null,
+                    isCompanionContribution: false);
+            }
+        }
         if (eligibleAmount > 0 && _resolvedLootDefinition.ExtractionValuePerUnit > 0 &&
             _registry.TryGetExtractionProgressReceiver(
                 request.InteractorId,

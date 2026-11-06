@@ -6,7 +6,7 @@ using static ProfileInventoryRules;
 /// <summary>
 /// Atomic application-level operations over the local profile aggregate.
 /// </summary>
-public sealed class LocalProfileStore
+public sealed class LocalProfileStore : IMissionClaimService
 {
     private readonly object _sync = new();
     private readonly ILocalProfileRepository _repository;
@@ -18,6 +18,7 @@ public sealed class LocalProfileStore
 
     public event Action<ProfileId> ProfileCommitted;
     public event Action<ProfileId, ExperienceApplicationResult> ProgressionCommitted;
+    public event Action<MissionId, MissionState> MissionProgressChanged;
 
     public ProfileId ProfileId => _profileId;
     public LocalProfilePersistenceStatus Status => _repository.Status;
@@ -502,16 +503,38 @@ public sealed class LocalProfileStore
                 : AbilityPreparationResult.PersistenceFailed;
         }
     }
+    public int GuildReputation => _repository.Snapshot?.GuildReputation ?? 0;
+    public MissionRank GuildRank => _repository.Snapshot?.GuildRank ?? MissionRank.E;
+
     public StashOperationResult TryAcceptMission(MissionDefinition mission)
     {
         if (mission == null || !mission.MissionId.IsValid) return StashOperationResult.InvalidInventory;
         var current = _repository.Snapshot;
         if (!IsAvailable || current == null) return StashOperationResult.InvalidInventory;
 
-        foreach (var active in current.ActiveMissions)
+        int abandonedIndex = -1;
+        for (int i = 0; i < current.ActiveMissions.Count; i++)
         {
+            var active = current.ActiveMissions[i];
             if (active.MissionId == mission.MissionId)
-                return StashOperationResult.AlreadyApplied;
+            {
+                if (active.State == MissionState.Activa || active.State == MissionState.PendienteDeReclamar)
+                    return StashOperationResult.AlreadyApplied;
+
+                if (active.State == MissionState.Reclamada)
+                    return StashOperationResult.AlreadyApplied;
+
+                if (active.State == MissionState.Abandonada)
+                {
+                    abandonedIndex = i;
+                }
+            }
+        }
+
+        if (mission.RankRequired > current.GuildRank)
+        {
+            Debug.LogWarning($"[MissionBoard] Rango insuficiente para aceptar '{mission.Title}'. Requerido: {mission.RankRequired}, Actual: {current.GuildRank}.");
+            return StashOperationResult.InvalidInventory;
         }
 
         if (_missionCatalog != null)
@@ -531,7 +554,14 @@ public sealed class LocalProfileStore
         }
 
         var next = current.Clone();
-        next.ActiveMissions.Add(new MissionInstanceState(mission.MissionId, MissionState.Activa));
+        if (abandonedIndex >= 0)
+        {
+            next.ActiveMissions[abandonedIndex] = new MissionInstanceState(mission.MissionId, MissionState.Activa);
+        }
+        else
+        {
+            next.ActiveMissions.Add(new MissionInstanceState(mission.MissionId, MissionState.Activa));
+        }
         return Commit(next);
     }
 
@@ -553,108 +583,277 @@ public sealed class LocalProfileStore
         return Commit(next);
     }
 
-    public StashOperationResult TryClaimMission(MissionDefinition mission)
+    public bool CanClaimMission(MissionDefinition mission, out string failureReason)
     {
-        if (mission == null || !mission.MissionId.IsValid) return StashOperationResult.InvalidInventory;
-        var current = _repository.Snapshot;
-        if (!IsAvailable || current == null) return StashOperationResult.InvalidInventory;
-
-        int index = current.ActiveMissions.FindIndex(m => m.MissionId == mission.MissionId);
-        if (index < 0) return StashOperationResult.InvalidInventory;
-
-        var instance = current.ActiveMissions[index];
-        if (!MissionLifecycleRules.CanTransitionTo(instance.State, MissionState.Reclamada))
-            return StashOperationResult.PersistenceFailed;
-
-        var next = current.Clone();
-        next.ActiveMissions[index].State = MissionState.Reclamada;
-
-        if (mission.Rewards != null)
+        lock (_sync)
         {
-            var itemsToAdd = new List<StashItem>();
-            foreach (var reward in mission.Rewards)
+            failureReason = null;
+            if (mission == null || !mission.MissionId.IsValid)
             {
-                if (reward.Type == RewardDefinition.RewardType.Gold)
-                {
-                    if (next.Currency > long.MaxValue - reward.Amount) return StashOperationResult.InvalidInventory;
-                    next.Currency += reward.Amount;
-                    Debug.Log($"[MissionBoard] Recompensa reclamada: {reward.Amount} Oro. (Total: {next.Currency})");
-                }
-                else if (reward.Type == RewardDefinition.RewardType.Experience)
-                {
-                    if (CharacterProgressionRules.TryApplyExperience(
-                            ProgressionBalanceDefaults.InitialExperienceCurve,
-                            next.Level,
-                            next.CurrentExperience,
-                            reward.Amount,
-                            out ExperienceApplicationResult expResult))
-                    {
-                        next.Level = expResult.ResultingLevel;
-                        next.CurrentExperience = expResult.ResultingExperience;
-                        
-                        next.LastAppliedProgressionResultSequence++;
-                        var receipt = new ProgressionReceipt(
-                            "mission-claim",
-                            _profileId,
-                            next.LastAppliedProgressionResultSequence,
-                            next.CurrentExperience,
-                            next.Level);
-                            
-                        next.LastProgressionReceipt = receipt;
-                        next.AppliedProgressionReceipts.Add(receipt);
-                        while (next.AppliedProgressionReceipts.Count > LocalProfileSnapshot.MaxAppliedProgressionReceipts)
-                        {
-                            next.AppliedProgressionReceipts.RemoveAt(0);
-                        }
+                failureReason = "Misión inválida.";
+                return false;
+            }
 
-                        Debug.Log($"[MissionBoard] Recompensa reclamada: {reward.Amount} XP. (Nivel: {next.Level}, XP: {next.CurrentExperience})");
+            var snapshot = _repository.Snapshot;
+            if (!IsAvailable || snapshot == null)
+            {
+                failureReason = "Perfil no disponible.";
+                return false;
+            }
+
+            int index = snapshot.ActiveMissions.FindIndex(m => m.MissionId == mission.MissionId);
+            if (index < 0)
+            {
+                failureReason = "La misión no está activa en el perfil.";
+                return false;
+            }
+
+            var instance = snapshot.ActiveMissions[index];
+            if (instance.State != MissionState.PendienteDeReclamar)
+            {
+                failureReason = $"La misión no está en estado pendiente de reclamación (Estado actual: {instance.State}).";
+                return false;
+            }
+
+            // Check required delivery items from personal inventory (Loadout)
+            var requiredItems = GetRequiredDeliveryItems(mission);
+            foreach (var kvp in requiredItems)
+            {
+                int inLoadout = FindAmount(snapshot.Loadout, kvp.Key);
+                if (inLoadout < kvp.Value)
+                {
+                    int inStash = FindAmount(snapshot.Stash, kvp.Key);
+                    if (inStash >= kvp.Value)
+                    {
+                        failureReason = $"Los materiales requeridos ({kvp.Key.Value}) están en el Alijo. Debes transferirlos a tu inventario personal para entregarlos al NPC.";
                     }
                     else
                     {
-                        Debug.LogWarning($"[MissionBoard] No se pudo aplicar la experiencia de recompensa ({reward.Amount} XP).");
+                        failureReason = $"Materiales insuficientes en inventario personal para {kvp.Key.Value} (Requerido: {kvp.Value}, En inventario: {inLoadout}).";
                     }
-                }
-                else if (reward.Type == RewardDefinition.RewardType.Item || reward.Type == RewardDefinition.RewardType.Equipment)
-                {
-                    var lootId = new LootId(reward.ReferenceId);
-                    if (lootId.IsValid && reward.Amount > 0)
-                    {
-                        itemsToAdd.Add(new StashItem(lootId, reward.Amount));
-                        Debug.Log($"[MissionBoard] Recompensa reclamada: {reward.Amount}x {reward.ReferenceId} para el Stash.");
-                    }
-                }
-                else if (reward.Type == RewardDefinition.RewardType.Ability)
-                {
-                    // An owned ability is not acquired again; the rest of the package is still claimed.
-                    AbilityId.TryCreate(reward.ReferenceId, out AbilityId abilityId);
-                    AbilityUnlockResult unlock = ValidateAbilityUnlock(next, abilityId);
-                    if (unlock == AbilityUnlockResult.Success)
-                    {
-                        next.UnlockedAbilities.Add(abilityId);
-                    }
-                    else if (unlock != AbilityUnlockResult.AlreadyUnlocked)
-                    {
-                        Debug.LogWarning($"[MissionBoard] Recompensa de habilidad inválida '{reward.ReferenceId}' ({unlock}); la reclamación se rechaza.");
-                        return StashOperationResult.InvalidInventory;
-                    }
+                    return false;
                 }
             }
 
-            if (itemsToAdd.Count > 0)
+            // Check stash capacity for item/equipment rewards
+            if (mission.Rewards != null)
             {
-                if (!CanAdmitStashItems(current.Stash, itemsToAdd)) return StashOperationResult.InventoryFull;
-                if (!TryMerge(next.Stash, itemsToAdd, StashCapacity))
-                    return StashOperationResult.PersistenceFailed;
-                Debug.Log($"[MissionBoard] {itemsToAdd.Count} items de recompensa añadidos al Stash local exitosamente.");
+                var itemsToAdd = new List<StashItem>();
+                foreach (var reward in mission.Rewards)
+                {
+                    if (reward.Type == RewardDefinition.RewardType.Item || reward.Type == RewardDefinition.RewardType.Equipment)
+                    {
+                        var lootId = new LootId(reward.ReferenceId);
+                        if (lootId.IsValid && reward.Amount > 0)
+                        {
+                            itemsToAdd.Add(new StashItem(lootId, reward.Amount));
+                        }
+                    }
+                }
+
+                if (itemsToAdd.Count > 0 && !CanAdmitStashItems(snapshot.Stash, itemsToAdd))
+                {
+                    failureReason = "Espacio insuficiente en el Alijo para recibir las recompensas de items.";
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    private static Dictionary<LootId, int> GetRequiredDeliveryItems(MissionDefinition mission)
+    {
+        var required = new Dictionary<LootId, int>();
+        if (mission == null || mission.Phases == null) return required;
+
+        foreach (var phase in mission.Phases)
+        {
+            if (phase.Objectives == null) continue;
+            foreach (var obj in phase.Objectives)
+            {
+                if ((obj.Family == ObjectiveFamily.Obtencion || obj.Family == ObjectiveFamily.ExtraccionDeObjetos) &&
+                    !string.IsNullOrEmpty(obj.Condition.TargetId) &&
+                    obj.Condition.RequiredAmount > 0)
+                {
+                    var lootId = new LootId(obj.Condition.TargetId);
+                    if (lootId.IsValid)
+                    {
+                        required.TryGetValue(lootId, out int existing);
+                        required[lootId] = checked(existing + obj.Condition.RequiredAmount);
+                    }
+                }
+
             }
         }
+        return required;
+    }
 
-        var result = Commit(next);
-        if (result == StashOperationResult.Success)
+    private void SynchronizeActiveResourceMissions(LocalProfileSnapshot snapshot)
+    {
+        if (snapshot == null || _missionCatalog == null) return;
+
+        for (int i = 0; i < snapshot.ActiveMissions.Count; i++)
         {
-            Debug.Log($"[MissionBoard] Misión '{mission.Title}' reclamada y persistida correctamente en disco.");
+            var instance = snapshot.ActiveMissions[i];
+            if (instance.State != MissionState.Activa &&
+                instance.State != MissionState.PendienteDeReclamar &&
+                instance.State != MissionState.Completada)
+            {
+                continue;
+            }
+
+            if (!_missionCatalog.TryGet(instance.MissionId.Value, out var definition))
+            {
+                continue;
+            }
+
+            MissionProgressEngine.EvaluateDynamicPossession(instance, definition, snapshot.Loadout);
         }
-        return result;
+    }
+
+    public void SynchronizeResourceMissions()
+    {
+        lock (_sync)
+        {
+            var current = _repository.Snapshot;
+            if (!IsAvailable || current == null) return;
+            var next = current.Clone();
+            SynchronizeActiveResourceMissions(next);
+            Commit(next);
+        }
+    }
+
+    public StashOperationResult TryClaimMission(MissionDefinition mission)
+    {
+        lock (_sync)
+        {
+            if (!CanClaimMission(mission, out string failureReason))
+            {
+                Debug.LogWarning($"[MissionBoard] No se puede reclamar '{mission?.Title}': {failureReason}");
+                if (failureReason != null && failureReason.Contains("Espacio insuficiente en el Alijo"))
+                {
+                    return StashOperationResult.InventoryFull;
+                }
+                return StashOperationResult.InvalidInventory;
+            }
+
+            var current = _repository.Snapshot;
+            var next = current.Clone();
+
+            int index = next.ActiveMissions.FindIndex(m => m.MissionId == mission.MissionId);
+            var instance = next.ActiveMissions[index];
+
+            // Atomic deduction of delivery items from personal inventory (next.Loadout)
+            var requiredItems = GetRequiredDeliveryItems(mission);
+            foreach (var kvp in requiredItems)
+            {
+                if (!TryRemove(next.Loadout, kvp.Key, kvp.Value))
+                {
+                    Debug.LogError($"[MissionBoard] Fallo inesperado al deducir {kvp.Value}x {kvp.Key.Value} del inventario personal.");
+                    return StashOperationResult.InvalidInventory;
+                }
+            }
+
+            if (mission.Rewards != null)
+            {
+                var itemsToAdd = new List<StashItem>();
+                foreach (var reward in mission.Rewards)
+                {
+                    if (reward.Type == RewardDefinition.RewardType.Gold)
+                    {
+                        if (next.Currency > long.MaxValue - reward.Amount) return StashOperationResult.InvalidInventory;
+                        next.Currency += reward.Amount;
+                        Debug.Log($"[MissionBoard] Recompensa reclamada: {reward.Amount} Oro. (Total: {next.Currency})");
+                    }
+                    else if (reward.Type == RewardDefinition.RewardType.GuildReputation)
+                    {
+                        if (reward.Amount > 0)
+                        {
+                            next.GuildReputation += reward.Amount;
+                            Debug.Log($"[MissionBoard] Recompensa reclamada: {reward.Amount} Reputación. (Total: {next.GuildReputation}, Rango: {next.GuildRank})");
+                        }
+                    }
+                    else if (reward.Type == RewardDefinition.RewardType.Experience)
+                    {
+                        if (CharacterProgressionRules.TryApplyExperience(
+                                ProgressionBalanceDefaults.InitialExperienceCurve,
+                                next.Level,
+                                next.CurrentExperience,
+                                reward.Amount,
+                                out ExperienceApplicationResult expResult))
+                        {
+                            next.Level = expResult.ResultingLevel;
+                            next.CurrentExperience = expResult.ResultingExperience;
+                            
+                            next.LastAppliedProgressionResultSequence++;
+                            var receipt = new ProgressionReceipt(
+                                "mission-claim",
+                                _profileId,
+                                next.LastAppliedProgressionResultSequence,
+                                next.CurrentExperience,
+                                next.Level);
+                                
+                            next.LastProgressionReceipt = receipt;
+                            next.AppliedProgressionReceipts.Add(receipt);
+                            while (next.AppliedProgressionReceipts.Count > LocalProfileSnapshot.MaxAppliedProgressionReceipts)
+                            {
+                                next.AppliedProgressionReceipts.RemoveAt(0);
+                            }
+
+                            Debug.Log($"[MissionBoard] Recompensa reclamada: {reward.Amount} XP. (Nivel: {next.Level}, XP: {next.CurrentExperience})");
+                        }
+                        else
+                        {
+                            Debug.LogWarning($"[MissionBoard] No se pudo aplicar la experiencia de recompensa ({reward.Amount} XP).");
+                        }
+                    }
+                    else if (reward.Type == RewardDefinition.RewardType.Item || reward.Type == RewardDefinition.RewardType.Equipment)
+                    {
+                        var lootId = new LootId(reward.ReferenceId);
+                        if (lootId.IsValid && reward.Amount > 0)
+                        {
+                            itemsToAdd.Add(new StashItem(lootId, reward.Amount));
+                            Debug.Log($"[MissionBoard] Recompensa reclamada: {reward.Amount}x {reward.ReferenceId} para el Stash.");
+                        }
+                    }
+                    else if (reward.Type == RewardDefinition.RewardType.Ability)
+                    {
+                        AbilityId.TryCreate(reward.ReferenceId, out AbilityId abilityId);
+                        AbilityUnlockResult unlock = ValidateAbilityUnlock(next, abilityId);
+                        if (unlock == AbilityUnlockResult.Success)
+                        {
+                            next.UnlockedAbilities.Add(abilityId);
+                        }
+                        else if (unlock != AbilityUnlockResult.AlreadyUnlocked)
+                        {
+                            Debug.LogWarning($"[MissionBoard] Recompensa de habilidad inválida '{reward.ReferenceId}' ({unlock}); la reclamación se rechaza.");
+                            return StashOperationResult.InvalidInventory;
+                        }
+                    }
+                }
+
+                if (itemsToAdd.Count > 0)
+                {
+                    if (!CanAdmitStashItems(current.Stash, itemsToAdd)) return StashOperationResult.InventoryFull;
+                    if (!TryMerge(next.Stash, itemsToAdd, StashCapacity))
+                        return StashOperationResult.PersistenceFailed;
+                    Debug.Log($"[MissionBoard] {itemsToAdd.Count} items de recompensa añadidos al Stash local exitosamente.");
+                }
+            }
+
+            next.ActiveMissions[index].State = MissionState.Reclamada;
+
+            // Recalculate other active missions against the new Loadout state
+            SynchronizeActiveResourceMissions(next);
+
+            var result = Commit(next);
+            if (result == StashOperationResult.Success)
+            {
+                Debug.Log($"[MissionBoard] Misión '{mission.Title}' reclamada y persistida correctamente en disco.");
+            }
+            return result;
+        }
     }
 
     public StashOperationResult TryApplyMissionProgress(MissionContributionEvent contribution)
@@ -665,6 +864,7 @@ public sealed class LocalProfileStore
 
         var next = current.Clone();
         bool changed = false;
+        List<(MissionId id, MissionState state)> changedMissions = null;
 
         for (int i = 0; i < next.ActiveMissions.Count; i++)
         {
@@ -676,13 +876,23 @@ public sealed class LocalProfileStore
                 if (MissionProgressEngine.TryApplyProgress(instance, definition, contribution))
                 {
                     changed = true;
+                    if (changedMissions == null) changedMissions = new List<(MissionId, MissionState)>();
+                    changedMissions.Add((instance.MissionId, instance.State));
                 }
             }
         }
 
         if (changed)
         {
-            return Commit(next);
+            var commitResult = Commit(next);
+            if (commitResult == StashOperationResult.Success && changedMissions != null)
+            {
+                for (int m = 0; m < changedMissions.Count; m++)
+                {
+                    MissionProgressChanged?.Invoke(changedMissions[m].id, changedMissions[m].state);
+                }
+            }
+            return commitResult;
         }
 
         return StashOperationResult.Success;
@@ -1718,6 +1928,13 @@ public sealed class LocalProfileStore
             return StashOperationResult.InventoryFull;
         }
 
+        int totalPhysicalSlots = CalculatePhysicalSlots(current.Loadout, current.PreparedEquipment, _lootCatalog);
+        if (totalPhysicalSlots > LocalProfileSnapshot.MaxLoadoutSlots)
+        {
+            Debug.LogError($"[LocalProfileStore] TryCreateLoadoutReservation failed. Physical slots required ({totalPhysicalSlots}) exceeds MaxLoadoutSlots ({LocalProfileSnapshot.MaxLoadoutSlots}).");
+            return StashOperationResult.InventoryFull;
+        }
+
         if (!PreparedEquipmentLoadout.TryValidate(
                 current.PreparedEquipment,
                 _lootCatalog,
@@ -1821,6 +2038,38 @@ public sealed class LocalProfileStore
             return StashOperationResult.PersistenceFailed;
 
         LocalProfileSnapshot next = current.Clone();
+
+        if (_missionCatalog != null && items != null)
+        {
+            for (int i = 0; i < next.ActiveMissions.Count; i++)
+            {
+                var instance = next.ActiveMissions[i];
+                if (instance.State != MissionState.Activa) continue;
+                if (!_missionCatalog.TryGet(instance.MissionId.Value, out var definition)) continue;
+
+                var extractionEvent = new MissionContributionEvent(
+                    ObjectiveFamily.Extraccion,
+                    1,
+                    _profileId,
+                    null,
+                    receipt.RaidId);
+                MissionProgressEngine.TryApplyProgress(instance, definition, extractionEvent);
+
+                for (int j = 0; j < items.Count; j++)
+                {
+                    var item = items[j];
+                    if (!item.IsValid) continue;
+                    var itemEvent = new MissionContributionEvent(
+                        ObjectiveFamily.ExtraccionDeObjetos,
+                        item.Amount,
+                        _profileId,
+                        item.LootId.Value,
+                        receipt.RaidId);
+                    MissionProgressEngine.TryApplyProgress(instance, definition, itemEvent);
+                }
+            }
+        }
+
         if (!TryMerge(next.Loadout, items, LocalProfileSnapshot.MaxLoadoutSlots))
             return StashOperationResult.PersistenceFailed;
         next.AppliedExtractionReceipts.Add(receipt);
@@ -1916,6 +2165,7 @@ public sealed class LocalProfileStore
     {
         lock (_sync)
         {
+            SynchronizeActiveResourceMissions(next);
             string error = null;
             bool saved = IsAvailable && _repository.TrySave(next, out error);
             if (!saved)
@@ -1938,6 +2188,59 @@ public sealed class LocalProfileStore
         foreach (StashItem item in items)
             if (!item.IsValid || (!allowDuplicates && !seen.Add(item.LootId))) return false;
         return true;
+    }
+
+    private static int CalculatePhysicalSlots(
+        IReadOnlyList<StashItem> loadout,
+        PreparedEquipmentLoadout equipment,
+        LootDefinitionCatalog catalog)
+    {
+        if (catalog == null)
+        {
+            return loadout != null ? loadout.Count : 0;
+        }
+
+        var counts = new Dictionary<LootId, int>();
+        if (loadout != null)
+        {
+            for (int i = 0; i < loadout.Count; i++)
+            {
+                StashItem item = loadout[i];
+                if (item.LootId.IsValid && item.Amount > 0)
+                {
+                    counts[item.LootId] = counts.TryGetValue(item.LootId, out int existing)
+                        ? existing + item.Amount
+                        : item.Amount;
+                }
+            }
+        }
+
+        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
+        for (int i = 0; i < slots.Length; i++)
+        {
+            LootId eqId = equipment.Get(slots[i]);
+            if (eqId.IsValid)
+            {
+                counts[eqId] = counts.TryGetValue(eqId, out int existing)
+                    ? existing + 1
+                    : 1;
+            }
+        }
+
+        int totalSlots = 0;
+        foreach (KeyValuePair<LootId, int> pair in counts)
+        {
+            if (catalog.TryGet(pair.Key.Value, out LootDefinition def) && def != null && def.StackMax > 0)
+            {
+                totalSlots += (pair.Value + def.StackMax - 1) / def.StackMax;
+            }
+            else
+            {
+                totalSlots += pair.Value;
+            }
+        }
+
+        return totalSlots;
     }
 
 }

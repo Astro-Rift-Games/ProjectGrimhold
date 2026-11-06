@@ -14,6 +14,7 @@ public static class LocalProfileSaveCodec
         public int inventorySchemaVersion;
         public string profileId;
         public long currency;
+        public int guildReputation;
         public int level;
         public long currentExperience;
         public int lastAppliedProgressionResultSequence;
@@ -139,6 +140,7 @@ public static class LocalProfileSaveCodec
     {
         public int index;
         public int currentAmount;
+        public string expeditionId;
     }
 
     public static string Encode(LocalProfileSnapshot snapshot)
@@ -149,6 +151,7 @@ public static class LocalProfileSaveCodec
             inventorySchemaVersion = snapshot.InventorySchemaVersion,
             profileId = snapshot.ProfileId.Value,
             currency = snapshot.Currency,
+            guildReputation = snapshot.GuildReputation,
             level = snapshot.Level,
             currentExperience = snapshot.CurrentExperience,
             lastAppliedProgressionResultSequence = snapshot.LastAppliedProgressionResultSequence,
@@ -371,6 +374,19 @@ public static class LocalProfileSaveCodec
             return false;
         }
         candidate.Currency = data.currency;
+        if (data.schemaVersion >= 10)
+        {
+            if (data.guildReputation < 0)
+            {
+                error = "Profile guild reputation is negative.";
+                return false;
+            }
+            candidate.GuildReputation = data.guildReputation;
+        }
+        else
+        {
+            candidate.GuildReputation = 0;
+        }
 
         if (data.schemaVersion == 1)
         {
@@ -568,7 +584,7 @@ public static class LocalProfileSaveCodec
                 {
                     foreach (var objData in missionData.objectiveProgress)
                     {
-                        mission.ObjectiveProgress[objData.index] = new ObjectiveProgressState(objData.currentAmount);
+                        mission.ObjectiveProgress[objData.index] = new ObjectiveProgressState(objData.currentAmount, objData.expeditionId);
                     }
                 }
                 candidate.ActiveMissions.Add(mission);
@@ -963,7 +979,7 @@ public static class LocalProfileSaveCodec
             int pIdx = 0;
             foreach (var kvp in mission.ObjectiveProgress)
             {
-                progressArray[pIdx++] = new ObjectiveProgressStateData { index = kvp.Key, currentAmount = kvp.Value.CurrentAmount };
+                progressArray[pIdx++] = new ObjectiveProgressStateData { index = kvp.Key, currentAmount = kvp.Value.CurrentAmount, expeditionId = kvp.Value.ExpeditionId };
             }
 
             result[i] = new MissionInstanceStateData

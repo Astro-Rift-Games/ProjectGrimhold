@@ -316,9 +316,12 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
 
     private void TryAwardFatalMissionProgress(in DamageRequest request, in DamageResult result)
     {
-        if (!HasStateAuthority || !result.IsApplied || !result.IsFatal || _registry == null ||
-            !_registry.TryGetMissionProgressDefeatSource(request.TargetId, out IMissionProgressDefeatSource source) ||
-            !_registry.TryGetDamageable(request.AttackerId, out IDamageable attacker) ||
+        if (!HasStateAuthority || !result.IsApplied || !result.IsFatal || _registry == null)
+        {
+            return;
+        }
+
+        if (!_registry.TryGetDamageable(request.AttackerId, out IDamageable attacker) ||
             attacker is not PlayerCharacter player)
         {
             return;
@@ -333,16 +336,93 @@ public sealed class DamageResolver : NetworkBehaviour, IDamageResolver
             return;
         }
 
-        PlayerMissionContributionLedger ledger =
-            participant.GetComponent<PlayerMissionContributionLedger>();
-        if (ledger != null)
+        if (_registry.TryGetMissionProgressDefeatSource(request.TargetId, out IMissionProgressDefeatSource source))
         {
-            ledger.RecordContribution(
-                ObjectiveFamily.EliminacionPvE,
-                source.DefeatProgressAmount,
-                source.TargetId,
-                source.ZoneId,
-                isCompanionContribution: false);
+            PlayerMissionContributionLedger ledger =
+                participant.GetComponent<PlayerMissionContributionLedger>();
+            if (ledger != null)
+            {
+                ledger.RecordContribution(
+                    ObjectiveFamily.EliminacionPvE,
+                    source.DefeatProgressAmount,
+                    source.TargetId,
+                    source.ZoneId,
+                    isCompanionContribution: false);
+
+                if (!string.IsNullOrEmpty(source.TargetId))
+                {
+                    ledger.RecordContribution(
+                        ObjectiveFamily.EliminacionEspecifica,
+                        source.DefeatProgressAmount,
+                        source.TargetId,
+                        source.ZoneId,
+                        isCompanionContribution: false);
+                }
+            }
+
+            TryAwardCompanionDefeatProgress(participant, player, source);
+        }
+        else if (_registry.IsPlayerEntity(request.TargetId))
+        {
+            if (_registry.TryGetDamageable(request.TargetId, out IDamageable victimDamageable) &&
+                victimDamageable is PlayerCharacter victimPlayer &&
+                victimPlayer.GetComponent<PlayerPvpCombatCreditNetworkController>() == null)
+            {
+                var ledger = participant.GetComponent<PlayerMissionContributionLedger>();
+                ledger?.RecordContribution(ObjectiveFamily.PvP, 1, null, null, isCompanionContribution: false);
+            }
+        }
+    }
+
+    private void TryAwardCompanionDefeatProgress(
+        NetworkRaidParticipant killer,
+        PlayerCharacter killerAvatar,
+        IMissionProgressDefeatSource source)
+    {
+        if (Runner == null) return;
+        var spawnManager = Runner.GetComponent<NetworkSpawnManager>();
+        if (spawnManager == null || !spawnManager.TryGetRaidInitialAffiliations(out var affiliations)) return;
+
+        if (!affiliations.TryGetTeam(killer.RaidParticipantId, out var teamId)) return;
+
+        const float DuoProximityRadius = 35f;
+        Vector2 killerPos = killerAvatar.transform.position;
+
+        for (int i = 0; i < RaidSessionRules.MaxParticipants; i++)
+        {
+            if (!RaidParticipantId.TryCreate(i + 1, out var teammateId) || teammateId == killer.RaidParticipantId) continue;
+            if (!affiliations.TryGetTeam(teammateId, out var candidateTeam) || candidateTeam != teamId) continue;
+
+            if (spawnManager.TryGetRaidParticipant(teammateId, out var teammate) &&
+                teammate.State == RaidParticipantState.Raiding &&
+                teammate.TryResolveCurrentAvatar(out var avatarObj) &&
+                avatarObj != null)
+            {
+                float distance = Vector2.Distance(killerPos, avatarObj.transform.position);
+                if (distance <= DuoProximityRadius)
+                {
+                    var teammateLedger = teammate.GetComponent<PlayerMissionContributionLedger>();
+                    if (teammateLedger != null)
+                    {
+                        teammateLedger.RecordContribution(
+                            ObjectiveFamily.EliminacionPvE,
+                            source.DefeatProgressAmount,
+                            source.TargetId,
+                            source.ZoneId,
+                            isCompanionContribution: true);
+
+                        if (!string.IsNullOrEmpty(source.TargetId))
+                        {
+                            teammateLedger.RecordContribution(
+                                ObjectiveFamily.EliminacionEspecifica,
+                                source.DefeatProgressAmount,
+                                source.TargetId,
+                                source.ZoneId,
+                                isCompanionContribution: true);
+                        }
+                    }
+                }
+            }
         }
     }
 

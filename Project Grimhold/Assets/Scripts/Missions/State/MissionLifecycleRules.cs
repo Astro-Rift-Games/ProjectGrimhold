@@ -21,10 +21,10 @@ public static class MissionLifecycleRules
                 return targetState == MissionState.Completada || targetState == MissionState.Abandonada;
 
             case MissionState.Completada:
-                return targetState == MissionState.PendienteDeReclamar;
+                return targetState == MissionState.PendienteDeReclamar || targetState == MissionState.Activa;
 
             case MissionState.PendienteDeReclamar:
-                return targetState == MissionState.Reclamada;
+                return targetState == MissionState.Reclamada || targetState == MissionState.Activa;
 
             case MissionState.Reclamada:
             case MissionState.Abandonada:

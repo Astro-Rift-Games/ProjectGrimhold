@@ -52,6 +52,9 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private CombatFeedbackPresenter _combatFeedbackPresenter;
 
     [SerializeField]
+    private RaidMissionTrackerPresenter _missionTrackerPresenter;
+
+    [SerializeField]
     private RaidMenuPresenter _menuPresenter;
 
     [SerializeField]
@@ -284,6 +287,19 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             _cameraShakeBinder.Bind(_cameraShakeConfig, _entityRegistry);
         }
 
+        if (_missionTrackerPresenter == null)
+        {
+            _missionTrackerPresenter = GetComponentInChildren<RaidMissionTrackerPresenter>(true);
+        }
+        if (_missionTrackerPresenter != null)
+        {
+            var stashContext = FindAnyObjectByType<ApplicationStashContext>();
+            if (stashContext != null && stashContext.Store != null)
+            {
+                _missionTrackerPresenter.Bind(stashContext.Store, stashContext.Store.MissionCatalog);
+            }
+        }
+
         _inputContext.ReaderChanged += OnInputReaderChanged;
         _isBound = true;
 
@@ -295,6 +311,11 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         if (_interactionPresenter != null)
         {
             _interactionPresenter.Unbind();
+        }
+
+        if (_missionTrackerPresenter != null)
+        {
+            _missionTrackerPresenter.Unbind();
         }
 
         if (_lootPresenter != null)
@@ -367,6 +388,11 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
         if (_menuPresenter != null)
         {
             _menuPresenter.Unbind();
+        }
+
+        if (_missionTrackerPresenter != null)
+        {
+            _missionTrackerPresenter.Unbind();
         }
         _isBound = false;
         _missingQuickSlotDependenciesReported = false;

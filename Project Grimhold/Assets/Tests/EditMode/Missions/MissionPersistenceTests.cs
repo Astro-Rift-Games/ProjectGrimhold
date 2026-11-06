@@ -87,6 +87,24 @@ public class MissionPersistenceTests
     }
 
     [Test]
+    public void Store_TryAcceptMission_WhenPreviouslyAbandoned_ResetsToActiva()
+    {
+        var repository = new InMemoryLocalProfileRepository();
+        repository.Initialize(new ProfileId("test_profile"), ScriptableObject.CreateInstance<LootDefinitionCatalog>());
+        var snapshot = new LocalProfileSnapshot { ProfileId = new ProfileId("test_profile") };
+        snapshot.ActiveMissions.Add(new MissionInstanceState(_testMission.MissionId, MissionState.Abandonada));
+        repository.TrySave(snapshot, out _);
+        var store = new LocalProfileStore(repository, new ProfileId("test_profile"));
+
+        var result = store.TryAcceptMission(_testMission);
+
+        Assert.AreEqual(StashOperationResult.Success, result);
+        var activeMissions = store.GetActiveMissions();
+        Assert.AreEqual(1, activeMissions.Count);
+        Assert.AreEqual(MissionState.Activa, activeMissions[0].State);
+    }
+
+    [Test]
     public void Store_TryClaimMission_GrantsRewardsAndChangesState()
     {
         var repository = new InMemoryLocalProfileRepository();
