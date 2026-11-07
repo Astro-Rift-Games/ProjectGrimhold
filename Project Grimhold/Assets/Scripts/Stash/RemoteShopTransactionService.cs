@@ -69,7 +69,7 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
 
     public async Task<StashOperationResult> ExecuteBuybackAsync(ProfileId profileId, MerchantBuybackRequest request)
     {
-        if (_store == null || !_store.IsAvailable || _buybackBackend == null || _store.InventorySchemaVersion != 2) return StashOperationResult.PersistenceFailed;
+        if (_store == null || !_store.IsAvailable || _buybackBackend == null || !SupportsInventorySchema()) return StashOperationResult.PersistenceFailed;
         if (string.IsNullOrWhiteSpace(request.EntryId) || request.UnitPrice < 0 || request.Amount < 1 ||
             (request.UnitPrice > 0 && request.Amount > long.MaxValue / request.UnitPrice))
             return StashOperationResult.InvalidInventory;
@@ -125,7 +125,7 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
 
     public async Task<StashOperationResult> ExecuteTradeAsync(ProfileId profileId, MerchantTradeTicket ticket)
     {
-        if (_store == null || !_store.IsAvailable || _backend == null || _store.InventorySchemaVersion != 2) return StashOperationResult.PersistenceFailed;
+        if (_store == null || !_store.IsAvailable || _backend == null || !SupportsInventorySchema()) return StashOperationResult.PersistenceFailed;
         if (!profileId.IsValid || _store.ProfileId != profileId || ticket == null)
             return StashOperationResult.InvalidInventory;
         StashOperationResult localResult = _store.EvaluateTrade(profileId, ticket);
@@ -168,8 +168,12 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
         {
             try
             {
-                StashOperationResult committed = _store.TryCommitTrade(profileId, ticket);
-                _store.SetRemoteRevision(response.data.revision);
+                // V3 equipment identities and gem-inclusive totals belong to the backend.
+                // Hydrate the acknowledged aggregate and receipt in one commit, not a local re-plan.
+                StashOperationResult committed = _store.InventorySchemaVersion == 3
+                    ? _store.ApplyBuybackAcknowledgement(profileId, ticket.TransactionId, response.data)
+                    : _store.TryCommitTrade(profileId, ticket);
+                if (_store.InventorySchemaVersion == 2) _store.SetRemoteRevision(response.data.revision);
                 _buybackLedger?.Replace(response.data.buyback);
                 if ((committed != StashOperationResult.Success && committed != StashOperationResult.AlreadyApplied) ||
                     _store.RemoteRevision != response.data.revision)
@@ -194,6 +198,8 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
             return StashOperationResult.PersistenceFailed;
         }
 
+        Debug.LogWarning($"[RemoteShopTransactionService] Backend rejected trade {ticket.TransactionId.Value:N}: " +
+                         $"{response.error.error} {response.error.message}");
         _ = ReconcileSafelyAsync();
         return response.error.error switch
         {
@@ -202,6 +208,14 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
                 "REVISION_CONFLICT" or "VALIDATION_FAILED" => StashOperationResult.InvalidInventory,
             _ => StashOperationResult.PersistenceFailed
         };
+    }
+
+    private bool SupportsInventorySchema()
+    {
+        int schema = _store.InventorySchemaVersion;
+        if (schema == 2 || schema == 3) return true;
+        Debug.LogWarning($"[RemoteShopTransactionService] Unsupported inventory schema version {schema}; commerce requires schema 2 or 3.");
+        return false;
     }
 
     private async Task ReconcileSafelyAsync()

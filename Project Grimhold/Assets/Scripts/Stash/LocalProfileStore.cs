@@ -1205,7 +1205,7 @@ public sealed class LocalProfileStore : IMissionClaimService
         }
     }
 
-    /// <summary>Atomically caches the acknowledged buy-back totals and receipt, never advisory prices.</summary>
+    /// <summary>Atomically caches authoritative shop state and its receipt. V3 uses full inventory hydration.</summary>
     public StashOperationResult ApplyBuybackAcknowledgement(ProfileId profileId, ShopTransactionId transactionId,
         Grimhold.Backend.ShopTransactionResult response)
     {
@@ -1222,10 +1222,16 @@ public sealed class LocalProfileStore : IMissionClaimService
             next.Loadout.Clear();
             if (current.InventorySchemaVersion == 3)
             {
-                if (!ApplicationStashServiceBootstrapper.TryNormalizeItems(response.loadout, _lootCatalog,
-                    "loadout", out var loadout, current.InventorySchemaVersion)) return StashOperationResult.InvalidInventory;
-                if (loadout.Count != response.loadout.Length) return StashOperationResult.InvalidInventory;
-                next.Loadout.AddRange(loadout);
+                if (!ApplicationStashServiceBootstrapper.HydrateSnapshot(_profileId, next,
+                    new Grimhold.Backend.InventoryData
+                    {
+                        inventorySchemaVersion = 3, loadout = response.loadout, stash = response.stash,
+                        currency = response.currency, preparedEquipment = response.preparedEquipment,
+                        revision = response.revision
+                    }, null, _lootCatalog, _abilityCatalog)) return StashOperationResult.HydrationFailed;
+                if (next.Loadout.Count != response.loadout.Length ||
+                    (response.stash != null && next.Stash.Count != response.stash.Length))
+                    return StashOperationResult.InvalidInventory;
             }
             else
             {

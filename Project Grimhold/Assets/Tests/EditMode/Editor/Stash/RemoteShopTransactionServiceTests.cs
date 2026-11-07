@@ -21,6 +21,7 @@ public sealed class RemoteShopTransactionServiceTests
     private RemoteShopTransactionService _service;
     private BuybackLedger _ledger;
     private ShopTransactionResult _buybackResponse;
+    private ShopTransactionResult? _tradeResponse;
     private int _calls;
     private int _reconciliations;
     private int _commits;
@@ -42,7 +43,7 @@ public sealed class RemoteShopTransactionServiceTests
         _repository = new LocalProfileRepository(_files, ".");
         _failLocalWrites = false;
         Assert.That(_repository.Initialize(Profile, catalog), Is.True);
-        _store = new LocalProfileStore(_repository, Profile);
+        _store = new LocalProfileStore(_repository, Profile, catalog);
         Seed(100);
         _store.SetRemoteRevision(7);
         _store.ProfileCommitted += _ => _commits++;
@@ -69,6 +70,7 @@ public sealed class RemoteShopTransactionServiceTests
         _calls = _commits = _reconciliations = 0;
         _throw = false;
         _pending = null;
+        _tradeResponse = null;
     }
 
     [TearDown]
@@ -84,7 +86,7 @@ public sealed class RemoteShopTransactionServiceTests
         _transactionId = request.transactionId;
         if (_throw) throw new InvalidOperationException("Transport lost");
         if (_failLocalWrites) _files.FailWrites = true;
-        return _pending?.Task ?? Task.FromResult((_success, new ShopTransactionResult { revision = 8, buyback = Rows("sale") }, new BackendError { error = _error }));
+        return _pending?.Task ?? Task.FromResult((_success, _tradeResponse ?? new ShopTransactionResult { revision = 8, buyback = Rows("sale") }, new BackendError { error = _error }));
     }
 
     [Test]
@@ -394,6 +396,85 @@ public sealed class RemoteShopTransactionServiceTests
         };
         Assert.That(InventoryRequestJson.Encode(body), Is.EqualTo(
             "{\"transactionId\":\"ticket\",\"expectedRevision\":7,\"purchases\":[{\"lootId\":\"bone\",\"amount\":1}],\"sales\":[{\"lootId\":\"healthpotion\",\"amount\":3,\"sourceSlot\":4}]}"));
+    }
+
+    private void UseSchema(int schema)
+    {
+        var snapshot = _repository.Snapshot.Clone();
+        snapshot.InventorySchemaVersion = schema;
+        snapshot.RequiresEquipmentHydration = false;
+        Assert.That(_repository.TrySave(snapshot, out var error), Is.True, error);
+    }
+
+    private static ShopTransactionResult V3Response() => Newtonsoft.Json.JsonConvert.DeserializeObject<ShopTransactionResult>(
+        "{\"revision\":8,\"currency\":123,\"stash\":[{\"slot\":6,\"lootId\":\"bone\",\"amount\":4}]," +
+        "\"loadout\":[{\"slot\":7,\"lootId\":\"rapier\",\"amount\":1,\"instance\":{\"instanceId\":\"0123456789abcdef01234567\",\"modifiers\":{\"gemSocketCount\":0,\"gems\":[]}}}]}");
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task V3_AcknowledgementHydratesSnapshotAndReceiptAtomically(bool buyback)
+    {
+        var mixed = MixedTicket();
+        var ticket = new MerchantTradeTicket(mixed.TransactionId, Array.Empty<MerchantPricedTradeLine>(), mixed.Sales);
+        UseSchema(3);
+        _tradeResponse = _buybackResponse = V3Response();
+        var request = Buyback();
+        var id = buyback ? request.TransactionId : ticket.TransactionId;
+        var result = buyback ? await _service.ExecuteBuybackAsync(Profile, request) :
+            await _service.ExecuteTradeAsync(Profile, ticket);
+        Assert.That(_calls, Is.EqualTo(1), "v3 must reach the backend rather than fail the schema guard");
+        Assert.That(result, Is.EqualTo(StashOperationResult.Success));
+        Assert.That(_store.GetCurrency(), Is.EqualTo(123));
+        Assert.That(_store.GetLoadout(), Has.Count.EqualTo(1));
+        Assert.That(_store.GetLoadout()[0].Instance?.InstanceId, Is.EqualTo("0123456789abcdef01234567"));
+        Assert.That(_store.GetLoadout()[0].Slot, Is.EqualTo(7));
+        Assert.That(_store.GetStash(), Has.Count.EqualTo(1));
+        Assert.That(_store.GetStash()[0], Is.EqualTo(new StashItem(Bone, 4, 6)));
+        Assert.That(_store.RemoteRevision, Is.EqualTo(8));
+        Assert.That(_store.IsTradeApplied(Profile, id), Is.True);
+        Assert.That(_commits, Is.EqualTo(1));
+        Assert.That(_reconciliations, Is.Zero);
+        var replay = buyback ? await _service.ExecuteBuybackAsync(Profile, request) :
+            await _service.ExecuteTradeAsync(Profile, ticket);
+        Assert.That(replay, Is.EqualTo(StashOperationResult.AlreadyApplied));
+        Assert.That(_calls, Is.EqualTo(1));
+        Assert.That(_commits, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task V3_EquipmentSaleAndPurchase_UsesBackendInstanceAndTotals()
+    {
+        UseSchema(3);
+        var snapshot = _repository.Snapshot.Clone();
+        snapshot.Loadout.Add(new StashItem(new LootId("rapier"), 1, 9,
+            new EquipmentInstance("1123456789abcdef01234567", default(WeaponInstanceModifiers))));
+        Assert.That(_repository.TrySave(snapshot, out var error), Is.True, error);
+        var ticket = new MerchantTradeTicket(new ShopTransactionId(1000, Guid.NewGuid()),
+            new[] { new MerchantPricedTradeLine(new LootId("rapier"), 1, 20) },
+            new[] { new MerchantPricedTradeLine(new LootId("rapier"), 1, 1) });
+        _tradeResponse = V3Response();
+        Assert.That(await _service.ExecuteTradeAsync(Profile, ticket), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(_calls, Is.EqualTo(1));
+        Assert.That(_request.sales[0].sourceSlot, Is.EqualTo(9));
+        Assert.That(_store.GetLoadout()[0].Instance?.InstanceId, Is.EqualTo("0123456789abcdef01234567"));
+        Assert.That(_store.GetCurrency(), Is.EqualTo(123), "Never commit the advisory 81 gold projection.");
+        Assert.That(_store.IsTradeApplied(Profile, ticket.TransactionId), Is.True);
+        Assert.That(_commits, Is.EqualTo(1));
+        Assert.That(_reconciliations, Is.Zero);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task UnsupportedSchema_LogsVersionWithoutCallingBackend(bool buyback)
+    {
+        UseSchema(1);
+        LogAssert.Expect(LogType.Warning, "[RemoteShopTransactionService] Unsupported inventory schema version 1; commerce requires schema 2 or 3.");
+        var result = buyback ? await _service.ExecuteBuybackAsync(Profile, Buyback()) :
+            await _service.ExecuteTradeAsync(Profile, Ticket());
+        Assert.That(result, Is.EqualTo(StashOperationResult.PersistenceFailed));
+        Assert.That(_calls, Is.Zero);
+        AssertUnchanged(100, 0);
+        Assert.That(_reconciliations, Is.Zero);
     }
 
     private void Seed(long currency, int bone = 0)
