@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c4a4c79346ce4d73a7f87a57452b74b6, type: 3}
+  m_Name: SpecterLootContainerContentTable
+  m_EditorClassIdentifier: Assembly-CSharp::LootContainerContentTable
+  _entries:
+  - _definition: {fileID: 11400000, guid: e140d40b9a26f29d310ff8bfceac2779, type: 2}
+    _weight: 50
+    _minimumAmount: 1
+    _maximumAmount: 2
+  - _definition: {fileID: 11400000, guid: a1aa261e12a045cf2810ff19a2a8352f, type: 2}
+    _weight: 30
+    _minimumAmount: 1
+    _maximumAmount: 1
+  - _definition: {fileID: 11400000, guid: 0579b9c205ee88a4b8c94315d95afa5e, type: 2}
+    _weight: 20
+    _minimumAmount: 2
+    _maximumAmount: 6
+  _minimumDistinctStacks: 1
+  _maximumDistinctStacks: 2
+  _allowEmpty: 0
