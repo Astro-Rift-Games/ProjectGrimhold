@@ -4,32 +4,87 @@
 
 Release: Unreleased
 
-79 original commits; 79 canonical entries.
+80 original commits; 80 canonical entries.
 
 ## Canonical classification
 
-48 features; 17 bug fixes; 1 refactoring; 7 documentation; 2 tests; 3 maintenance; 1 other changes
+48 features; 18 bug fixes; 1 refactoring; 7 documentation; 2 tests; 3 maintenance; 1 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 5 | 6 | 1 | 0 | 2 | 1 |
 | Art & Animation | 9 | 7 | 1 | 0 | 4 | 0 |
 | Audio | 5 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 28 | 9 | 1 | 0 | 4 | 1 |
+| Build & Tooling | 28 | 10 | 1 | 0 | 4 | 1 |
 | Combat | 30 | 1 | 0 | 0 | 5 | 0 |
 | Documentation | 21 | 7 | 0 | 0 | 4 | 0 |
 | Extraction | 7 | 0 | 0 | 0 | 2 | 0 |
 | Input | 1 | 0 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 39 | 14 | 1 | 0 | 6 | 0 |
+| Inventory & Loot | 39 | 15 | 1 | 0 | 6 | 0 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 12 | 3 | 0 | 0 | 1 | 0 |
-| Persistence & Backend | 15 | 3 | 0 | 0 | 2 | 0 |
-| Tests | 47 | 14 | 1 | 0 | 5 | 0 |
+| Persistence & Backend | 15 | 4 | 0 | 0 | 2 | 0 |
+| Tests | 47 | 15 | 1 | 0 | 5 | 0 |
 | UI | 21 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
 | World & Visibility | 13 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 828cd871e995dabd9e267aea343c24684872e763
+
+[828cd871e995dabd9e267aea343c24684872e763](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/828cd871e995dabd9e267aea343c24684872e763)
+
+Date: 2026-11-07T00:33:23-03:00 · Classification: Bug Fixes (explicit) · Systems: Inventory & Loot, Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(commerce): accept schema v3 inventories in merchant trades
+```
+
+#### Original body
+
+```text
+RemoteShopTransactionService refused every trade and buy-back unless
+the local inventory was exactly schema v2, silently returning
+PersistenceFailed before calling the backend, so v3 characters could
+not trade at all.
+
+- Accept schema 2 and 3; any other version still fails, now with a
+  warning that names the unsupported version.
+- Apply v3 acknowledgements from the backend snapshot (loadout with
+  backend-issued instances, stash, currency, prepared equipment and
+  revision) and record the shop receipt in the same commit, since the
+  local plan cannot reproduce issued instances or gem sale value.
+- Log the backend error code when a trade is rejected.
+
+Player-Fixed: Characters on the item-instance inventory can buy and sell again.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+Project Grimhold/Assets/Scripts/Stash/RemoteShopTransactionService.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs
+odd/tasks/merchant-atomic-trade.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- message-term → Inventory &amp; Loot: inventory
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+- message-term → Persistence &amp; Backend: backend
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 1d8238334613ec4406413ccbd590a1a95bbbda9f
 

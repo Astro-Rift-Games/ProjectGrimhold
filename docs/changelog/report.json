@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 951,
-  "canonicalEntries": 948,
+  "rawCommits": 952,
+  "canonicalEntries": 949,
   "before": {
+    "Bug Fixes": 96,
     "Features": 366,
-    "Bug Fixes": 95,
     "Architecture & Infrastructure": 15,
     "Documentation": 82,
     "Tests": 26,
@@ -12,8 +12,8 @@
     "Other Changes": 353
   },
   "after": {
+    "Bug Fixes": 112,
     "Features": 503,
-    "Bug Fixes": 111,
     "Maintenance": 14,
     "Documentation": 97,
     "Tests": 31,
@@ -23,13 +23,13 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Inventory & Loot": 375,
+    "Persistence & Backend": 206,
+    "Build & Tooling": 480,
+    "Tests": 584,
     "Combat": 348,
-    "Inventory & Loot": 374,
     "Networking & Sessions": 270,
     "World & Visibility": 126,
-    "Build & Tooling": 479,
-    "Tests": 583,
-    "Persistence & Backend": 205,
     "Documentation": 370,
     "Art & Animation": 228,
     "Abilities": 119,
@@ -42,8 +42,8 @@
   },
   "canonical": {
     "sections": {
+      "Bug Fixes": 111,
       "Features": 502,
-      "Bug Fixes": 110,
       "Maintenance": 14,
       "Documentation": 97,
       "Tests": 31,
@@ -52,13 +52,13 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
+      "Inventory & Loot": 375,
+      "Persistence & Backend": 206,
+      "Build & Tooling": 478,
+      "Tests": 582,
       "Combat": 346,
-      "Inventory & Loot": 374,
       "Networking & Sessions": 270,
       "World & Visibility": 124,
-      "Build & Tooling": 477,
-      "Tests": 581,
-      "Persistence & Backend": 205,
       "Documentation": 368,
       "Art & Animation": 225,
       "Abilities": 117,
@@ -34099,8 +34099,8 @@
       "title": "2026-11 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 79,
-      "canonicalEntries": 79
+      "originalCommits": 80,
+      "canonicalEntries": 80
     },
     {
       "key": "history-2026-10",
@@ -34136,6 +34136,67 @@
     }
   ],
   "commits": [
+    {
+      "sha": "828cd871e995dabd9e267aea343c24684872e763",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/828cd871e995dabd9e267aea343c24684872e763",
+      "subject": "fix(commerce): accept schema v3 inventories in merchant trades",
+      "body": "RemoteShopTransactionService refused every trade and buy-back unless\nthe local inventory was exactly schema v2, silently returning\nPersistenceFailed before calling the backend, so v3 characters could\nnot trade at all.\n\n- Accept schema 2 and 3; any other version still fails, now with a\n  warning that names the unsupported version.\n- Apply v3 acknowledgements from the backend snapshot (loadout with\n  backend-issued instances, stash, currency, prepared equipment and\n  revision) and record the shop receipt in the same commit, since the\n  local plan cannot reproduce issued instances or gem sale value.\n- Log the backend error code when a trade is rejected.\n\nPlayer-Fixed: Characters on the item-instance inventory can buy and sell again.\n",
+      "date": "2026-11-07T00:33:23-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+        "Project Grimhold/Assets/Scripts/Stash/RemoteShopTransactionService.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs",
+        "odd/tasks/merchant-atomic-trade.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "commerce",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "1d8238334613ec4406413ccbd590a1a95bbbda9f",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1d8238334613ec4406413ccbd590a1a95bbbda9f",
