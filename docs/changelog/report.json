@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 949,
-  "canonicalEntries": 946,
+  "rawCommits": 951,
+  "canonicalEntries": 948,
   "before": {
-    "Features": 365,
+    "Features": 366,
+    "Bug Fixes": 95,
     "Architecture & Infrastructure": 15,
-    "Bug Fixes": 94,
     "Documentation": 82,
     "Tests": 26,
     "Refactoring": 14,
     "Other Changes": 353
   },
   "after": {
-    "Features": 502,
+    "Features": 503,
+    "Bug Fixes": 111,
     "Maintenance": 14,
-    "Bug Fixes": 110,
     "Documentation": 97,
     "Tests": 31,
     "Refactoring": 27,
@@ -24,15 +24,15 @@
   "systemCountsOverlap": true,
   "systems": {
     "Combat": 348,
-    "Inventory & Loot": 372,
-    "Networking & Sessions": 269,
+    "Inventory & Loot": 374,
+    "Networking & Sessions": 270,
     "World & Visibility": 126,
-    "Build & Tooling": 478,
-    "Tests": 581,
+    "Build & Tooling": 479,
+    "Tests": 583,
+    "Persistence & Backend": 205,
+    "Documentation": 370,
     "Art & Animation": 228,
-    "Persistence & Backend": 203,
     "Abilities": 119,
-    "Documentation": 369,
     "UI": 295,
     "Input": 29,
     "Extraction": 128,
@@ -42,9 +42,9 @@
   },
   "canonical": {
     "sections": {
-      "Features": 501,
+      "Features": 502,
+      "Bug Fixes": 110,
       "Maintenance": 14,
-      "Bug Fixes": 109,
       "Documentation": 97,
       "Tests": 31,
       "Refactoring": 27,
@@ -53,15 +53,15 @@
     },
     "systems": {
       "Combat": 346,
-      "Inventory & Loot": 372,
-      "Networking & Sessions": 269,
+      "Inventory & Loot": 374,
+      "Networking & Sessions": 270,
       "World & Visibility": 124,
-      "Build & Tooling": 476,
-      "Tests": 579,
+      "Build & Tooling": 477,
+      "Tests": 581,
+      "Persistence & Backend": 205,
+      "Documentation": 368,
       "Art & Animation": 225,
-      "Persistence & Backend": 203,
       "Abilities": 117,
-      "Documentation": 367,
       "UI": 294,
       "Input": 29,
       "Extraction": 128,
@@ -34099,8 +34099,8 @@
       "title": "2026-11 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 77,
-      "canonicalEntries": 77
+      "originalCommits": 79,
+      "canonicalEntries": 79
     },
     {
       "key": "history-2026-10",
@@ -34277,6 +34277,228 @@
         {
           "source": "message-term",
           "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "3321d75a889aaa26e275af4b1f2b49681cb0a1c2",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3321d75a889aaa26e275af4b1f2b49681cb0a1c2",
+      "subject": "fix(commerce): confirm multi-line merchant carts in one backend trade",
+      "body": "The merchant rejected any cart with more than one line before calling\nthe backend, so players could only sell or buy one item per trade.\n\nRemove the single-line guards in TownMerchantTradeSession and\nRemoteShopTransactionService and submit every normal ticket, mixed or\nsingle-line, through the atomic /shop/trade endpoint. The dry run,\nlocal commit, revision, buyback ledger and reconciliation flow are\nunchanged; buy-back still confirms alone.\n\n- Update the commerce architecture contract and track the work in\n  odd/tasks/merchant-atomic-trade.md.\n- Requires the backend /shop/trade endpoint to be deployed first.\n\nPlayer-Fixed: The merchant accepts carts with several items to buy and sell.\n",
+      "date": "2026-11-06T18:28:26-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+        "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownMerchantTradeSession.cs",
+        "Project Grimhold/Assets/Scripts/Stash/RemoteShopTransactionService.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/TownMerchantTradeSessionTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/PlayModeMerchantComposition.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/TownMerchantTradePlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/CommerceArchitecture.md",
+        "odd/tasks/merchant-atomic-trade.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "commerce",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/TownMerchantTradeSession.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/TownMerchantTradeSessionTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/TownMerchantTradeSessionTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/CommerceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/TownMerchantTradeSessionTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayModeMerchantComposition.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/TownMerchantTradePlayModeTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "ec13a1145b7456bab5fd12251b58b2be9f7b1e8c",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ec13a1145b7456bab5fd12251b58b2be9f7b1e8c",
+      "subject": "feat(backend): add atomic multi-line shop trade endpoint",
+      "body": "Add POST /character/me/inventory/shop/trade so a Town merchant cart\nwith several purchases and sales confirms as one operation. Sales are\napplied first, then purchases in ticket order, so funds and capacity\nare validated on the final state. The whole ticket is written in one\nrevision-guarded update with a single 'trade' receipt bound to the\nordered lines; any failing line rejects the ticket without mutation.\n\n- Share the per-line sale and purchase helpers with /shop/buy and\n  /shop/sell without changing their behavior.\n- Validate tickets strictly: no declared prices, 16 purchase and 30\n  sale lines, unique loot ids per side and unique sale slots.\n- Add 'trade' to the shop receipt type enum.\n- Document the request, replay and error contract in the README.\n",
+      "date": "2026-11-06T18:28:15-03:00",
+      "files": [
+        "backend/README.md",
+        "backend/src/config/shopCatalog.js",
+        "backend/src/models/Character.js",
+        "backend/src/routes/inventory.routes.js",
+        "backend/src/services/InventoryService.js",
+        "backend/src/validators/inventory.validators.js",
+        "backend/tests/integration/shop.trade.test.js"
+      ],
+      "originalType": "feat",
+      "originalScope": "backend",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/inventory.routes.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/validators/inventory.validators.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/README.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/config/shopCatalog.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/models/Character.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/inventory.routes.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/validators/inventory.validators.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/shop.trade.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "scope",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/shop.trade.test.js",
           "supports": "Tests"
         }
       ],

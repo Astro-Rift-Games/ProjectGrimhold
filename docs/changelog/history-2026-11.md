@@ -4,27 +4,27 @@
 
 Release: Unreleased
 
-77 original commits; 77 canonical entries.
+79 original commits; 79 canonical entries.
 
 ## Canonical classification
 
-47 features; 16 bug fixes; 1 refactoring; 7 documentation; 2 tests; 3 maintenance; 1 other changes
+48 features; 17 bug fixes; 1 refactoring; 7 documentation; 2 tests; 3 maintenance; 1 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 5 | 6 | 1 | 0 | 2 | 1 |
 | Art & Animation | 9 | 7 | 1 | 0 | 4 | 0 |
 | Audio | 5 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 28 | 8 | 1 | 0 | 4 | 1 |
+| Build & Tooling | 28 | 9 | 1 | 0 | 4 | 1 |
 | Combat | 30 | 1 | 0 | 0 | 5 | 0 |
-| Documentation | 21 | 6 | 0 | 0 | 4 | 0 |
+| Documentation | 21 | 7 | 0 | 0 | 4 | 0 |
 | Extraction | 7 | 0 | 0 | 0 | 2 | 0 |
 | Input | 1 | 0 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 38 | 13 | 1 | 0 | 6 | 0 |
+| Inventory & Loot | 39 | 14 | 1 | 0 | 6 | 0 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 12 | 2 | 0 | 0 | 1 | 0 |
-| Persistence & Backend | 14 | 2 | 0 | 0 | 2 | 0 |
-| Tests | 46 | 13 | 1 | 0 | 5 | 0 |
+| Networking & Sessions | 12 | 3 | 0 | 0 | 1 | 0 |
+| Persistence & Backend | 15 | 3 | 0 | 0 | 2 | 0 |
+| Tests | 47 | 14 | 1 | 0 | 5 | 0 |
 | UI | 21 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
 | World & Visibility | 13 | 4 | 0 | 0 | 0 | 0 |
@@ -126,6 +126,142 @@ odd/tasks/catacombs-specter-enemy.md
 - path → Tests: Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs
 - path → Tests: Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs.meta
 - message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 3321d75a889aaa26e275af4b1f2b49681cb0a1c2
+
+[3321d75a889aaa26e275af4b1f2b49681cb0a1c2](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3321d75a889aaa26e275af4b1f2b49681cb0a1c2)
+
+Date: 2026-11-06T18:28:26-03:00 · Classification: Bug Fixes (explicit) · Systems: Inventory & Loot, Networking & Sessions, Persistence & Backend, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(commerce): confirm multi-line merchant carts in one backend trade
+```
+
+#### Original body
+
+```text
+The merchant rejected any cart with more than one line before calling
+the backend, so players could only sell or buy one item per trade.
+
+Remove the single-line guards in TownMerchantTradeSession and
+RemoteShopTransactionService and submit every normal ticket, mixed or
+single-line, through the atomic /shop/trade endpoint. The dry run,
+local commit, revision, buyback ledger and reconciliation flow are
+unchanged; buy-back still confirms alone.
+
+- Update the commerce architecture contract and track the work in
+  odd/tasks/merchant-atomic-trade.md.
+- Requires the backend /shop/trade endpoint to be deployed first.
+
+Player-Fixed: The merchant accepts carts with several items to buy and sell.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownMerchantTradeSession.cs
+Project Grimhold/Assets/Scripts/Stash/RemoteShopTransactionService.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/TownMerchantTradeSessionTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs
+Project Grimhold/Assets/Tests/PlayMode/PlayModeMerchantComposition.cs
+Project Grimhold/Assets/Tests/PlayMode/TownMerchantTradePlayModeTests.cs
+Project Grimhold/Docs/Architecture/CommerceArchitecture.md
+odd/tasks/merchant-atomic-trade.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Player/Presentation/TownMerchantTradeSession.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/TownMerchantTradeSessionTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs
+- message-term → Persistence &amp; Backend: backend
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/TownMerchantTradeSessionTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/CommerceArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/TownMerchantTradeSessionTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayModeMerchantComposition.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/TownMerchantTradePlayModeTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### ec13a1145b7456bab5fd12251b58b2be9f7b1e8c
+
+[ec13a1145b7456bab5fd12251b58b2be9f7b1e8c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ec13a1145b7456bab5fd12251b58b2be9f7b1e8c)
+
+Date: 2026-11-06T18:28:15-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(backend): add atomic multi-line shop trade endpoint
+```
+
+#### Original body
+
+```text
+Add POST /character/me/inventory/shop/trade so a Town merchant cart
+with several purchases and sales confirms as one operation. Sales are
+applied first, then purchases in ticket order, so funds and capacity
+are validated on the final state. The whole ticket is written in one
+revision-guarded update with a single 'trade' receipt bound to the
+ordered lines; any failing line rejects the ticket without mutation.
+
+- Share the per-line sale and purchase helpers with /shop/buy and
+  /shop/sell without changing their behavior.
+- Validate tickets strictly: no declared prices, 16 purchase and 30
+  sale lines, unique loot ids per side and unique sale slots.
+- Add 'trade' to the shop receipt type enum.
+- Document the request, replay and error contract in the README.
+```
+
+#### Changed paths
+
+```text
+backend/README.md
+backend/src/config/shopCatalog.js
+backend/src/models/Character.js
+backend/src/routes/inventory.routes.js
+backend/src/services/InventoryService.js
+backend/src/validators/inventory.validators.js
+backend/tests/integration/shop.trade.test.js
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Inventory &amp; Loot: backend/src/routes/inventory.routes.js
+- path → Inventory &amp; Loot: backend/src/services/InventoryService.js
+- path → Inventory &amp; Loot: backend/src/validators/inventory.validators.js
+- message-term → Inventory &amp; Loot: inventory
+- path → Persistence &amp; Backend: backend/README.md
+- path → Persistence &amp; Backend: backend/src/config/shopCatalog.js
+- path → Persistence &amp; Backend: backend/src/models/Character.js
+- path → Persistence &amp; Backend: backend/src/routes/inventory.routes.js
+- path → Persistence &amp; Backend: backend/src/services/InventoryService.js
+- path → Persistence &amp; Backend: backend/src/validators/inventory.validators.js
+- path → Persistence &amp; Backend: backend/tests/integration/shop.trade.test.js
+- scope → Persistence &amp; Backend: backend
+- message-term → Persistence &amp; Backend: backend
+- path → Tests: backend/tests/integration/shop.trade.test.js
 
 #### Diagnostics
 
