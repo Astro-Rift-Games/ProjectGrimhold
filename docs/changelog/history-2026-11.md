@@ -4,23 +4,23 @@
 
 Release: Unreleased
 
-80 original commits; 80 canonical entries.
+81 original commits; 81 canonical entries.
 
 ## Canonical classification
 
-48 features; 18 bug fixes; 1 refactoring; 7 documentation; 2 tests; 3 maintenance; 1 other changes
+48 features; 18 bug fixes; 1 refactoring; 7 documentation; 2 tests; 3 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 5 | 6 | 1 | 0 | 2 | 1 |
 | Art & Animation | 9 | 7 | 1 | 0 | 4 | 0 |
 | Audio | 5 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 28 | 10 | 1 | 0 | 4 | 1 |
+| Build & Tooling | 28 | 10 | 1 | 0 | 4 | 2 |
 | Combat | 30 | 1 | 0 | 0 | 5 | 0 |
 | Documentation | 21 | 7 | 0 | 0 | 4 | 0 |
 | Extraction | 7 | 0 | 0 | 0 | 2 | 0 |
 | Input | 1 | 0 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 39 | 15 | 1 | 0 | 6 | 0 |
+| Inventory & Loot | 39 | 15 | 1 | 0 | 6 | 1 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 12 | 3 | 0 | 0 | 1 | 0 |
 | Persistence & Backend | 15 | 4 | 0 | 0 | 2 | 0 |
@@ -30,6 +30,61 @@ Release: Unreleased
 | World & Visibility | 13 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 970dba9ad8b937d7993400dc9d77404756168d56
+
+[970dba9ad8b937d7993400dc9d77404756168d56](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/970dba9ad8b937d7993400dc9d77404756168d56)
+
+Date: 2026-11-07T01:00:42-03:00 · Classification: Other Changes (unknown) · Systems: Inventory & Loot, Build & Tooling
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+Remove legacy agent configurations
+```
+
+#### Original body
+
+```text
+Delete obsolete Claude and Codex agent configuration files and record the completed inventory schema v3 cutover in the merchant trade execution tracker.
+```
+
+#### Changed paths
+
+```text
+.claude/agents/architect.md
+.claude/agents/explorer.md
+.claude/agents/implementer.md
+.claude/agents/reviewer.md
+.claude/agents/validator.md
+.codex/agents/grimhold_architect.toml
+.codex/agents/grimhold_explorer.toml
+.codex/agents/grimhold_implementer.toml
+.codex/agents/grimhold_reviewer.toml
+.codex/agents/grimhold_validator.toml
+.codex/config.toml
+odd/tasks/merchant-atomic-trade.md
+```
+
+#### Classification evidence
+
+- message-term → Inventory &amp; Loot: inventory
+- path → Build &amp; Tooling: .claude/agents/architect.md
+- path → Build &amp; Tooling: .claude/agents/explorer.md
+- path → Build &amp; Tooling: .claude/agents/implementer.md
+- path → Build &amp; Tooling: .claude/agents/reviewer.md
+- path → Build &amp; Tooling: .claude/agents/validator.md
+- path → Build &amp; Tooling: .codex/agents/grimhold\_architect.toml
+- path → Build &amp; Tooling: .codex/agents/grimhold\_explorer.toml
+- path → Build &amp; Tooling: .codex/agents/grimhold\_implementer.toml
+- path → Build &amp; Tooling: .codex/agents/grimhold\_reviewer.toml
+- path → Build &amp; Tooling: .codex/agents/grimhold\_validator.toml
+
+#### Diagnostics
+
+- **ambiguous-kind:** No supported explicit type or anchored historical action. Inspect this commit diff; use an action and object or a Conventional Commit type in future messages.
 
 ### 828cd871e995dabd9e267aea343c24684872e763
 
