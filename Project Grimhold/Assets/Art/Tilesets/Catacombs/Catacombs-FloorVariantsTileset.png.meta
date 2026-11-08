@@ -14,6 +14,9 @@ TextureImporter:
   - first:
       213: 5409259337715410076
     second: Catacombs-FloorVariantsTileset_3
+  - first:
+      213: 6460621948465705398
+    second: Catacombs-FloorVariantsTileset_4
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -65,7 +68,9 @@ TextureImporter:
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
   alphaIsTransparency: 1
+  spriteTessellationMethod: 0
   spriteTessellationDetail: -1
+  spriteGeometrySubdivision: -1
   textureType: 8
   textureShape: 1
   singleChannelComponent: 0
@@ -200,6 +205,50 @@ TextureImporter:
       name: Catacombs-FloorVariantsTileset_4
       rect:
         serializedVersion: 2
+        x: 160
+        y: 208
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6b1f36aae6db8a950800000000000000
+      internalID: 6460621948465705398
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_5
+      rect:
+        serializedVersion: 2
+        x: 192
+        y: 208
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f4755b69b21403e4fab85448226bda6e
+      internalID: -234076839
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_6
+      rect:
+        serializedVersion: 2
         x: 16
         y: 192
         width: 16
@@ -212,14 +261,14 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 407288bd2df481847939fb368bd08f12
-      internalID: -1313832739
+      spriteID: 0be23ce1530b1bd48a559fa43d735604
+      internalID: -2016876986
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_5
+      name: Catacombs-FloorVariantsTileset_7
       rect:
         serializedVersion: 2
         x: 48
@@ -234,14 +283,14 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: d0c2dc7b8d7ba10498fed888e15dbd54
-      internalID: 1285387962
+      spriteID: cb2a8d61ef5586c468c34d58c3a40b79
+      internalID: 850461664
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_6
+      name: Catacombs-FloorVariantsTileset_8
       rect:
         serializedVersion: 2
         x: 80
@@ -256,14 +305,14 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 55c2a4c51d85b6a47884a7777c078a4c
-      internalID: 2045532316
+      spriteID: 6e2c23601e1ec2d4186d624815ba8a07
+      internalID: -1407137461
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_7
+      name: Catacombs-FloorVariantsTileset_9
       rect:
         serializedVersion: 2
         x: 112
@@ -278,14 +327,14 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 7207b90d52be3224b9756c5136fec090
-      internalID: -1184309158
+      spriteID: fc94addd6d419114b996d68dd4707da2
+      internalID: 1911358735
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_8
+      name: Catacombs-FloorVariantsTileset_10
       rect:
         serializedVersion: 2
         x: 144
@@ -300,14 +349,58 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 7c14b0ecc629f3041a13d2af71d08adc
-      internalID: -136761419
+      spriteID: 6322e75fa83c24248a036804511501c4
+      internalID: 1724367241
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_9
+      name: Catacombs-FloorVariantsTileset_11
+      rect:
+        serializedVersion: 2
+        x: 176
+        y: 192
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 35fbd94d674696b48af4c996f2f468f1
+      internalID: 951428878
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_12
+      rect:
+        serializedVersion: 2
+        x: 208
+        y: 192
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: cc4093c08ef0eaa4983ee19c2a9af69a
+      internalID: -746600213
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_13
       rect:
         serializedVersion: 2
         x: 32
@@ -322,96 +415,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: ea77a0b11c7ddd1478e5e5820d193acc
-      internalID: -472035860
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_10
-      rect:
-        serializedVersion: 2
-        x: 64
-        y: 176
-        width: 16
-        height: 16
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: a040250938ca3624db5dcf1f23cf2276
-      internalID: 975338306
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_11
-      rect:
-        serializedVersion: 2
-        x: 96
-        y: 176
-        width: 16
-        height: 16
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: 649949bb1fbbc4e4a8675bb24c7f9fa0
-      internalID: -1823548319
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_12
-      rect:
-        serializedVersion: 2
-        x: 128
-        y: 176
-        width: 16
-        height: 16
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: 41aeac337899b914fb9fe853923216ad
-      internalID: 1341341329
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_13
-      rect:
-        serializedVersion: 2
-        x: 16
-        y: 144
-        width: 16
-        height: 16
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: e45232fd02f18ad478982b72fda0b18a
-      internalID: -916320038
+      spriteID: bedb7994afc35944f867fb1791b929b4
+      internalID: -464520161
       vertices: []
       indices: 
       edges: []
@@ -421,7 +426,7 @@ TextureImporter:
       rect:
         serializedVersion: 2
         x: 64
-        y: 144
+        y: 176
         width: 16
         height: 16
       alignment: 0
@@ -432,8 +437,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 9d3f74d2e47835c4d85b9a942d2d162a
-      internalID: 237558664
+      spriteID: 81579db8b66c08e4c8d556bac17e6755
+      internalID: 1153147747
       vertices: []
       indices: 
       edges: []
@@ -442,8 +447,8 @@ TextureImporter:
       name: Catacombs-FloorVariantsTileset_15
       rect:
         serializedVersion: 2
-        x: 80
-        y: 144
+        x: 96
+        y: 176
         width: 16
         height: 16
       alignment: 0
@@ -454,8 +459,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 0715e4b17dcabe547bc27dd41ac61faf
-      internalID: -1735912643
+      spriteID: 82eedbc013a3c4b4ca2c3e126c57b222
+      internalID: 542049907
       vertices: []
       indices: 
       edges: []
@@ -464,8 +469,8 @@ TextureImporter:
       name: Catacombs-FloorVariantsTileset_16
       rect:
         serializedVersion: 2
-        x: 96
-        y: 144
+        x: 128
+        y: 176
         width: 16
         height: 16
       alignment: 0
@@ -476,8 +481,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 01555c26c737f514cb683bec39e9c38e
-      internalID: -1030222701
+      spriteID: 3a3ae22062fdfb6429bc1f27da1970fa
+      internalID: 1871575646
       vertices: []
       indices: 
       edges: []
@@ -486,8 +491,8 @@ TextureImporter:
       name: Catacombs-FloorVariantsTileset_17
       rect:
         serializedVersion: 2
-        x: 128
-        y: 144
+        x: 160
+        y: 176
         width: 16
         height: 16
       alignment: 0
@@ -498,8 +503,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: f15fec6031fd53e4a80275fff0ec947a
-      internalID: 264448525
+      spriteID: 7a9c028b9f4d6a8468a21a23c99c88fa
+      internalID: 1513609328
       vertices: []
       indices: 
       edges: []
@@ -508,8 +513,8 @@ TextureImporter:
       name: Catacombs-FloorVariantsTileset_18
       rect:
         serializedVersion: 2
-        x: 144
-        y: 144
+        x: 192
+        y: 176
         width: 16
         height: 16
       alignment: 0
@@ -520,14 +525,102 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: d316ca96d6d7ef545afdfb362fc3f0f2
-      internalID: 1273486015
+      spriteID: 197fb52162b2a4a40aa81c60d5526a36
+      internalID: -97395506
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
       name: Catacombs-FloorVariantsTileset_19
+      rect:
+        serializedVersion: 2
+        x: 112
+        y: 160
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e43947376367f8445aabecd0c6bc82c5
+      internalID: -105501747
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_20
+      rect:
+        serializedVersion: 2
+        x: 144
+        y: 160
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 410b601f1422a6442ab28a605ccc1bac
+      internalID: -2018131198
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_21
+      rect:
+        serializedVersion: 2
+        x: 176
+        y: 160
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: bea84cdd5bab740469662b400eb18740
+      internalID: -1140168876
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_22
+      rect:
+        serializedVersion: 2
+        x: 208
+        y: 160
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: c18e4ee5a1ad00b49aaab1188693f92f
+      internalID: -1209120125
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_23
       rect:
         serializedVersion: 2
         x: 16
@@ -542,36 +635,14 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 749a8cb5cc0d06249be49e4c0a802dad
-      internalID: 478351114
+      spriteID: 55ea061f30279004599695879ce4e04a
+      internalID: -513764230
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_20
-      rect:
-        serializedVersion: 2
-        x: 32
-        y: 128
-        width: 16
-        height: 16
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: 0
-      bones: []
-      spriteID: c865316de7c09f745bb13eb6c307ffe4
-      internalID: -1718299713
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_21
+      name: Catacombs-FloorVariantsTileset_24
       rect:
         serializedVersion: 2
         x: 64
@@ -586,14 +657,14 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 167b5479b0b01a440ac23cc2ceb99c2e
-      internalID: -532249638
+      spriteID: a436686828b5fc549ba31b16d2d13211
+      internalID: -559063032
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_22
+      name: Catacombs-FloorVariantsTileset_25
       rect:
         serializedVersion: 2
         x: 80
@@ -608,14 +679,14 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 493cec0aeb0ed2c488f8556842a60e9e
-      internalID: -1631722218
+      spriteID: 2fd2dbd91663c7a47a34b11c6bf68a56
+      internalID: 913628382
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_23
+      name: Catacombs-FloorVariantsTileset_26
       rect:
         serializedVersion: 2
         x: 96
@@ -630,14 +701,14 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 0a008dfa5a2551d479f579c1dc3d5489
-      internalID: 836631827
+      spriteID: 3cd67e87c12597f42b2e257ea850f874
+      internalID: -78960477
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_24
+      name: Catacombs-FloorVariantsTileset_27
       rect:
         serializedVersion: 2
         x: 128
@@ -652,14 +723,14 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 51ac53bf9d2d15844bb45fec0e7ef32f
-      internalID: 1325385868
+      spriteID: c041396b84a0fdc46956f70f29cf81b4
+      internalID: -1001234248
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_25
+      name: Catacombs-FloorVariantsTileset_28
       rect:
         serializedVersion: 2
         x: 144
@@ -674,14 +745,58 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 2ce53ceef46c3ea4abd6f434f346ef33
-      internalID: -610282736
+      spriteID: 09eb4f5481dc6b441a7587a5b4184a0b
+      internalID: 134532286
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_26
+      name: Catacombs-FloorVariantsTileset_29
+      rect:
+        serializedVersion: 2
+        x: 16
+        y: 112
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: bab68a03b2f94f14e9c9fc72c12a174f
+      internalID: 344384190
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_30
+      rect:
+        serializedVersion: 2
+        x: 32
+        y: 112
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0233b5b63f131e347aaf4f922d41850b
+      internalID: -2135884030
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_31
       rect:
         serializedVersion: 2
         x: 64
@@ -696,14 +811,14 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 1a0d6834c5d292444addfa8c0871501d
-      internalID: -130925243
+      spriteID: 21bdf264191a00f4aa05c7149245da12
+      internalID: -1200661064
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_27
+      name: Catacombs-FloorVariantsTileset_32
       rect:
         serializedVersion: 2
         x: 80
@@ -718,14 +833,14 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 9029fc6f9ca722c44bda26140bac0744
-      internalID: 1146881768
+      spriteID: e853952e02da9f24993f4fd376f2b460
+      internalID: 704340284
       vertices: []
       indices: 
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Catacombs-FloorVariantsTileset_28
+      name: Catacombs-FloorVariantsTileset_33
       rect:
         serializedVersion: 2
         x: 96
@@ -740,8 +855,426 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 0b092f42a1373e348abcc63557da042d
-      internalID: 1865693623
+      spriteID: 4a031a46323c33f4faa303d8687235f1
+      internalID: -1190882990
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_34
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 112
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: a17de225ebc7587428d55d55ca80361b
+      internalID: 1159734474
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_35
+      rect:
+        serializedVersion: 2
+        x: 144
+        y: 112
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3073ac4165c5ab54492e1065c0f8e5ac
+      internalID: -1180861799
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_36
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 96
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 61e8eedaebbf8be428ee08739d52a2fc
+      internalID: 219921891
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_37
+      rect:
+        serializedVersion: 2
+        x: 80
+        y: 96
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ba6052817d4a72f478b2000e25288254
+      internalID: 439811649
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_38
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 96
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8802847fa00f4c444b345e07a4913c04
+      internalID: 974595900
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_39
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 64
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8d01bd9051bfd4b41820e08ae202e87b
+      internalID: -2105649594
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_40
+      rect:
+        serializedVersion: 2
+        x: 80
+        y: 64
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 33e9f588605b0e541ba3eec5779b46e8
+      internalID: 1558779019
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_41
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 64
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 17c7266b5dec27049a4f46e3fc4c20a0
+      internalID: 414832290
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_42
+      rect:
+        serializedVersion: 2
+        x: 112
+        y: 64
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 705c7ee245d202b4fb5739d57b1600eb
+      internalID: 852068347
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_43
+      rect:
+        serializedVersion: 2
+        x: 48
+        y: 48
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9841fab8e3422964bab2a53102a4a04e
+      internalID: 1171921588
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_44
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 48
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d030323488e16ae4bba801f9f7961329
+      internalID: -672113823
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_45
+      rect:
+        serializedVersion: 2
+        x: 80
+        y: 48
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 211682949fcc0774d98f095845c49a01
+      internalID: -739347530
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_46
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 48
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 404814f56c8db2b42bf9324dd5ea78d5
+      internalID: 661993669
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_47
+      rect:
+        serializedVersion: 2
+        x: 112
+        y: 48
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8a227e162e1694047a5c2f991ce8c5b7
+      internalID: 1445115200
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_48
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 32
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 89f78f521305ef246806db66cf23d0c6
+      internalID: -1972901845
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_49
+      rect:
+        serializedVersion: 2
+        x: 80
+        y: 32
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 839f755f9ecf315489c7d33422c93d15
+      internalID: 1443312259
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_50
+      rect:
+        serializedVersion: 2
+        x: 96
+        y: 32
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: cc7770bd8c3960e40b3974da5d1b926e
+      internalID: 1105949553
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_51
+      rect:
+        serializedVersion: 2
+        x: 80
+        y: 16
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3ca8fa58b3a9aec4abd320c04c7c55df
+      internalID: -1548514086
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Catacombs-FloorVariantsTileset_52
+      rect:
+        serializedVersion: 2
+        x: 80
+        y: 0
+        width: 16
+        height: 16
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8aa86a3f8ca446747ad5ee6be7cedfc5
+      internalID: 1744800837
       vertices: []
       indices: 
       edges: []
@@ -750,7 +1283,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 5e3c2dde93772bf4d9e344ee180e6efa
+    spriteID: 77e1d09f2e5a68449b3598d166ebf1b1
     internalID: 0
     vertices: []
     indices: 
@@ -764,33 +1297,57 @@ TextureImporter:
     nameFileIdTable:
       Catacombs-FloorVariantsTileset_0: -1476073271008589227
       Catacombs-FloorVariantsTileset_1: 1694060607312281857
-      Catacombs-FloorVariantsTileset_10: 975338306
-      Catacombs-FloorVariantsTileset_11: -1823548319
-      Catacombs-FloorVariantsTileset_12: 1341341329
-      Catacombs-FloorVariantsTileset_13: -916320038
-      Catacombs-FloorVariantsTileset_14: 237558664
-      Catacombs-FloorVariantsTileset_15: -1735912643
-      Catacombs-FloorVariantsTileset_16: -1030222701
-      Catacombs-FloorVariantsTileset_17: 264448525
-      Catacombs-FloorVariantsTileset_18: 1273486015
-      Catacombs-FloorVariantsTileset_19: 478351114
+      Catacombs-FloorVariantsTileset_10: 1724367241
+      Catacombs-FloorVariantsTileset_11: 951428878
+      Catacombs-FloorVariantsTileset_12: -746600213
+      Catacombs-FloorVariantsTileset_13: -464520161
+      Catacombs-FloorVariantsTileset_14: 1153147747
+      Catacombs-FloorVariantsTileset_15: 542049907
+      Catacombs-FloorVariantsTileset_16: 1871575646
+      Catacombs-FloorVariantsTileset_17: 1513609328
+      Catacombs-FloorVariantsTileset_18: -97395506
+      Catacombs-FloorVariantsTileset_19: -105501747
       Catacombs-FloorVariantsTileset_2: -5955682757590444306
-      Catacombs-FloorVariantsTileset_20: -1718299713
-      Catacombs-FloorVariantsTileset_21: -532249638
-      Catacombs-FloorVariantsTileset_22: -1631722218
-      Catacombs-FloorVariantsTileset_23: 836631827
-      Catacombs-FloorVariantsTileset_24: 1325385868
-      Catacombs-FloorVariantsTileset_25: -610282736
-      Catacombs-FloorVariantsTileset_26: -130925243
-      Catacombs-FloorVariantsTileset_27: 1146881768
-      Catacombs-FloorVariantsTileset_28: 1865693623
+      Catacombs-FloorVariantsTileset_20: -2018131198
+      Catacombs-FloorVariantsTileset_21: -1140168876
+      Catacombs-FloorVariantsTileset_22: -1209120125
+      Catacombs-FloorVariantsTileset_23: -513764230
+      Catacombs-FloorVariantsTileset_24: -559063032
+      Catacombs-FloorVariantsTileset_25: 913628382
+      Catacombs-FloorVariantsTileset_26: -78960477
+      Catacombs-FloorVariantsTileset_27: -1001234248
+      Catacombs-FloorVariantsTileset_28: 134532286
+      Catacombs-FloorVariantsTileset_29: 344384190
       Catacombs-FloorVariantsTileset_3: 5409259337715410076
-      Catacombs-FloorVariantsTileset_4: -1313832739
-      Catacombs-FloorVariantsTileset_5: 1285387962
-      Catacombs-FloorVariantsTileset_6: 2045532316
-      Catacombs-FloorVariantsTileset_7: -1184309158
-      Catacombs-FloorVariantsTileset_8: -136761419
-      Catacombs-FloorVariantsTileset_9: -472035860
+      Catacombs-FloorVariantsTileset_30: -2135884030
+      Catacombs-FloorVariantsTileset_31: -1200661064
+      Catacombs-FloorVariantsTileset_32: 704340284
+      Catacombs-FloorVariantsTileset_33: -1190882990
+      Catacombs-FloorVariantsTileset_34: 1159734474
+      Catacombs-FloorVariantsTileset_35: -1180861799
+      Catacombs-FloorVariantsTileset_36: 219921891
+      Catacombs-FloorVariantsTileset_37: 439811649
+      Catacombs-FloorVariantsTileset_38: 974595900
+      Catacombs-FloorVariantsTileset_39: -2105649594
+      Catacombs-FloorVariantsTileset_4: 6460621948465705398
+      Catacombs-FloorVariantsTileset_40: 1558779019
+      Catacombs-FloorVariantsTileset_41: 414832290
+      Catacombs-FloorVariantsTileset_42: 852068347
+      Catacombs-FloorVariantsTileset_43: 1171921588
+      Catacombs-FloorVariantsTileset_44: -672113823
+      Catacombs-FloorVariantsTileset_45: -739347530
+      Catacombs-FloorVariantsTileset_46: 661993669
+      Catacombs-FloorVariantsTileset_47: 1445115200
+      Catacombs-FloorVariantsTileset_48: -1972901845
+      Catacombs-FloorVariantsTileset_49: 1443312259
+      Catacombs-FloorVariantsTileset_5: -234076839
+      Catacombs-FloorVariantsTileset_50: 1105949553
+      Catacombs-FloorVariantsTileset_51: -1548514086
+      Catacombs-FloorVariantsTileset_52: 1744800837
+      Catacombs-FloorVariantsTileset_6: -2016876986
+      Catacombs-FloorVariantsTileset_7: 850461664
+      Catacombs-FloorVariantsTileset_8: -1407137461
+      Catacombs-FloorVariantsTileset_9: 1911358735
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
