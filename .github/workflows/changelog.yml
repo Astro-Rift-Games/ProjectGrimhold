@@ -86,7 +86,7 @@ jobs:
       - name: Regenerate and push technical summary and archives
         run: >
           bash tools/changelog/scripts/publish.sh New-Testing
-          "chore(changelog): update developer changelog [skip ci]" --only dev
+          "chore(changelog): update changelogs [skip ci]" --only all
 
       - name: Preview player notes pending release
         run: |

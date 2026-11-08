@@ -7,6 +7,7 @@ import { developerVersions } from './commits.js';
 import { validateOverrides, playerVersions } from './players.js';
 import { developerArtifacts } from './render-dev.js';
 import { obsoleteDeveloperFiles } from './artifacts.js';
+import { createReleasePlan } from './release-plan.js';
 import {
   playersDocument,
   renderPlayers,
@@ -146,12 +147,12 @@ function requireValidDocument(document) {
   }
 }
 
-function outputFiles(versions, document, settings) {
+function outputFiles(versions, document, settings, pending = null, plannedVersion = null) {
   return [
     ...developerArtifacts(developerVersions(versions), settings),
     {
       name: settings.playersFile,
-      text: renderPlayers(document),
+      text: renderPlayers(document, pending, plannedVersion),
       type: 'players',
     },
     {
@@ -246,7 +247,14 @@ function runCommand(command, options) {
     if (command === 'release-notes') {
       printReleaseNotes(document, options.tag, settings);
     } else {
-      const files = outputFiles(versions, document, settings);
+      let plannedVersion = null;
+      try {
+        const plan = createReleasePlan(root, ref);
+        plannedVersion = plan.version;
+      } catch {
+        plannedVersion = null;
+      }
+      const files = outputFiles(versions, document, settings, pending, plannedVersion);
       synchronizeOutputs(command, options, root, files, settings);
     }
   }

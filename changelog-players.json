@@ -2,5 +2,455 @@
   "schemaVersion": 1,
   "game": "Project Grimhold",
   "locale": "en",
-  "releases": []
+  "releases": [
+    {
+      "version": "0.5.0",
+      "tag": "v0.5.0",
+      "date": "2026-11-08",
+      "commit": "07f13443b31d2faa85f2c3848c926cdb9056a71e",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/releases/tag/v0.5.0",
+      "categories": [
+        {
+          "id": "added",
+          "title": "Added",
+          "entries": [
+            {
+              "id": "24d88d867cd4-1",
+              "text": "When the dungeon collapses after time runs out, remaining raiders are definitively defeated and leave their corpses behind."
+            },
+            {
+              "id": "19ca2337d8bb-1",
+              "text": "Dungeon lighting darkens and shifts toward crimson as the instance nears collapse, accompanied by tremors and flickering torches."
+            },
+            {
+              "id": "fbff95087fb0-1",
+              "text": "Added dynamic edge vignette shading that intensifies as dungeon pressure rises."
+            },
+            {
+              "id": "90b01f5f9370-1",
+              "text": "Weapon sets, stamina and progression show clearer feedback."
+            },
+            {
+              "id": "90b01f5f9370-2",
+              "text": "Consumables take time and are interrupted by damage."
+            },
+            {
+              "id": "90b01f5f9370-3",
+              "text": "Purification removes and prevents rival trap immobilization."
+            },
+            {
+              "id": "90b01f5f9370-4",
+              "text": "A confirmation appears before receiving a recovery weapon."
+            },
+            {
+              "id": "acf33edce336-1",
+              "text": "Use a weapon or shield in either hand with independent attacks."
+            },
+            {
+              "id": "ab58a9464b04-1",
+              "text": "The main menu now has working Settings, Credits, Exit and Log out options."
+            },
+            {
+              "id": "fce29a1d02be-1",
+              "text": "Sound settings can now be opened from the Town options and from the menu during a raid."
+            },
+            {
+              "id": "06c164e9c6cf-1",
+              "text": "Inventories and the Stash now have a Sort button, and items stay in the order you leave them."
+            },
+            {
+              "id": "3925da99a497-1",
+              "text": "In expedition preparation you can select another party member's card to see all of their equipment and check each item's details."
+            },
+            {
+              "id": "17ebd026725c-1",
+              "text": "Camera shake accessibility scale to reduce motion sickness."
+            },
+            {
+              "id": "a5ccb45149e5-1",
+              "text": "Torch and brazier lighting props that extinguish during collapse."
+            },
+            {
+              "id": "eb00230abb5f-1",
+              "text": "Dramatic collapse presentation with ceiling dust and collapse music."
+            },
+            {
+              "id": "4bf2cb8be6b6-1",
+              "text": "Complete MVP catalog of 39 non-equippable items, including creature remains, arcane components, cursed and divine treasures, offensive throwing consumables, and expedition utilities."
+            },
+            {
+              "id": "01e86d0f58f6-1",
+              "text": "Carrying the Chaos Coin now grants your team an independent 20% chance to find bonus loot when opening dungeon chests."
+            },
+            {
+              "id": "9e7f6c4d170a-1",
+              "text": "Bombs, throwing daggers, and smoke bombs can now be used from quick slots."
+            },
+            {
+              "id": "3945782aa49a-1",
+              "text": "Rune Compass and Arcane Detector expedition utilities are now usable in raids."
+            },
+            {
+              "id": "a3d47120d9e7-1",
+              "text": "Dungeon collapse progression accelerates dynamically based on monster kills and acquired treasures while preserving the 8-minute early collapse barrier and 17-minute final closure."
+            },
+            {
+              "id": "68e2be370e27-1",
+              "text": "World pickup prefabs for explosive bombs, smoke bombs, and throwing daggers are now available in raids."
+            },
+            {
+              "id": "a51a721ce19d-1",
+              "text": "Added physical knockback reaction animations in all six directions when players receive knockback impulses."
+            },
+            {
+              "id": "41f48d4a61d1-1",
+              "text": "Teammates can no longer hurt, push or down each other in a raid unless the host enables friendly fire, and even then they can never knock an ally down."
+            },
+            {
+              "id": "984c7706c154-1",
+              "text": "Downing an enemy player now earns experience once they are finally defeated, and a teammate who helped earns assist experience; reviving the enemy cancels both."
+            },
+            {
+              "id": "0a3e1da8ff89-1",
+              "text": "The crossbow now has to reload after each shot; sprinting or switching weapon sets interrupts the reload and it starts over."
+            },
+            {
+              "id": "35f779e744ac-1",
+              "text": "Melee hits now splatter colored droplets from the struck enemy onto the floor, colored like the creature you hit."
+            },
+            {
+              "id": "735417b34141-1",
+              "text": "Your screen fades to black and white while you are downed and regains its colour as you are revived."
+            },
+            {
+              "id": "15e80657787f-1",
+              "text": "Carry a Self-reviver to get back up on your own while downed, or tap the interact key on a downed ally to give them yours."
+            },
+            {
+              "id": "07f13443b31d-1",
+              "text": "Locked chests can be opened with a lockpick after a short uninterrupted interaction."
+            }
+          ]
+        },
+        {
+          "id": "improved",
+          "title": "Improved",
+          "entries": [
+            {
+              "id": "a659c0282787-1",
+              "text": "The extraction HUD now shows how many squadmates are inside the sanctuary area during extraction."
+            },
+            {
+              "id": "88b84251f8e4-1",
+              "text": "Dungeon atmosphere now darkens with calibrated edge vignette effects during critical pressure and collapse."
+            },
+            {
+              "id": "d2c0824cd519-2",
+              "text": "Sword slashes in either hand now sweep in a natural arc from behind the body to the opposite side in every direction."
+            },
+            {
+              "id": "d2c0824cd519-3",
+              "text": "Two-handed swords and hammers are held with both hands while standing and walking."
+            },
+            {
+              "id": "ab58a9464b04-2",
+              "text": "Logging in keeps you on the main menu so you choose when to press Play."
+            },
+            {
+              "id": "6ae1e0997b4f-1",
+              "text": "The Play button only appears on the main menu once you are logged in."
+            },
+            {
+              "id": "06c164e9c6cf-2",
+              "text": "A two-handed weapon now shows its second hand slot as reserved, and the active weapon set is easy to spot."
+            },
+            {
+              "id": "06c164e9c6cf-3",
+              "text": "While downed you can still look at your inventory, but it clearly tells you it cannot be changed."
+            },
+            {
+              "id": "373ec313eb19-1",
+              "text": "The expedition preparation screen now shows a card for each party member with their character, ready state, main gear and who is the host."
+            },
+            {
+              "id": "384785d17e77-1",
+              "text": "Abilities purchased at the Town Ability Vendor now save reliably to your account and remain unlocked across game sessions."
+            },
+            {
+              "id": "6018d6d428e5-1",
+              "text": "Quick slots keep empty items assigned at count 0 so you don't lose bindings when running out of potions."
+            },
+            {
+              "id": "68e2be370e27-2",
+              "text": "Throwing daggers now orient towards aim direction, and smoke bombs simulate a parabolic arc before detonating."
+            },
+            {
+              "id": "2442d935cc8a-1",
+              "text": "Dungeon ambient particles now appear as subtle floating dust motes confined to open rooms instead of falling squares."
+            },
+            {
+              "id": "74e9e910a906-1",
+              "text": "Minimap walls now match the dungeon art instead of showing a dark band at their base."
+            },
+            {
+              "id": "66a08ee2d46f-1",
+              "text": "Equipped armor and robes now properly deform and match character movement during knockback reactions."
+            },
+            {
+              "id": "845668987ed4-1",
+              "text": "Knockbacks no longer stack: only a stronger hit replaces an ongoing push, armor can resist pushes, and players already downed are no longer pushed around."
+            },
+            {
+              "id": "3a91bd976051-1",
+              "text": "Raid inventory keeps stacks in their own slots and applies actions to the stack you selected."
+            },
+            {
+              "id": "2e026eabf23d-1",
+              "text": "Picking up a stack you can only partly carry now takes what fits and leaves the rest on the ground."
+            },
+            {
+              "id": "0a3e1da8ff89-2",
+              "text": "Attacking while sprinting now stops the sprint and attacks instantly, and sprint picks up again on its own if you keep holding it."
+            },
+            {
+              "id": "0a3e1da8ff89-3",
+              "text": "Abilities can no longer be cast in the middle of a weapon attack; the HUD tells you an attack is in progress."
+            },
+            {
+              "id": "95ba61759373-1",
+              "text": "Carrying the Wanderer's Eye now darkens the minimap instead of making it disappear."
+            },
+            {
+              "id": "8ee2e8bb66d2-1",
+              "text": "Melee weapons now deal damage when the blade visibly connects, with a short impact pause and a hit reaction that feels heavier for bigger weapons."
+            },
+            {
+              "id": "35f779e744ac-2",
+              "text": "Enemies flash bright white when struck by a melee weapon, making every hit easier to read."
+            }
+          ]
+        },
+        {
+          "id": "fixed",
+          "title": "Fixed",
+          "entries": [
+            {
+              "id": "45c2d064e694-1",
+              "text": "Team extraction progress, sanctuary assignment, and area countdown now update properly in real-time on client players during duo raids."
+            },
+            {
+              "id": "cb066c32b24c-1",
+              "text": "Prevent modified game clients from forging shop prices or item quantities."
+            },
+            {
+              "id": "dc7111d5b190-1",
+              "text": "Remote player extraction rewards are reliably published and secured in multiplayer raids."
+            },
+            {
+              "id": "bb7b1ce2c247-1",
+              "text": "Joining a multiplayer raid with a full loadout no longer gets stuck on the loading screen."
+            },
+            {
+              "id": "22719f50528b-1",
+              "text": "Disconnecting while solo or after a teammate dies now keeps your character recoverable within the reconnection window instead of evicting immediately."
+            },
+            {
+              "id": "22719f50528b-2",
+              "text": "Temporary connection dropouts during raid reconnection no longer discard the ability to retry reconnecting."
+            },
+            {
+              "id": "a98475c14e03-1",
+              "text": "Inventory and other Town menus are visible when opened."
+            },
+            {
+              "id": "d2c0824cd519-1",
+              "text": "Off-hand weapon attacks now stay in the left hand and the fist is no longer hidden behind the weapon."
+            },
+            {
+              "id": "d2c0824cd519-4",
+              "text": "Raising a shield held in the right hand no longer separates the hand from the shield."
+            },
+            {
+              "id": "5ad42e1074ad-2",
+              "text": "Attribute points can no longer be spent while you are marked as Ready for an expedition."
+            },
+            {
+              "id": "5ad42e1074ad-3",
+              "text": "Attacking or using an ability while sprinting now stops the sprint, and you can no longer start sprinting in the middle of an attack."
+            },
+            {
+              "id": "5ad42e1074ad-4",
+              "text": "Pressing attack while an ability is being cast no longer fires a basic attack on top of it."
+            },
+            {
+              "id": "088a773b350f-1",
+              "text": "Confirming a merchant trade with more than one item is now refused right away instead of failing after the merchant accepts it."
+            },
+            {
+              "id": "02e956b00784-1",
+              "text": "Passive effects from treasures in inventory now activate reliably, and dropped items display their correct name and sprite."
+            },
+            {
+              "id": "6425f4da2d37-1",
+              "text": "Prevent potential log exceptions from missing post-processing volume components in dungeon rooms."
+            },
+            {
+              "id": "7c43a127c470-1",
+              "text": "Minimap walls no longer flicker while your character moves."
+            },
+            {
+              "id": "739130e19def-1",
+              "text": "Health, mana and status rings now align correctly without the old rectangular backgrounds."
+            },
+            {
+              "id": "b8f57dcf0fd3-1",
+              "text": "Enemy shots can no longer slip through a wall right behind an already-used protective orb."
+            },
+            {
+              "id": "768c6a7abd50-1",
+              "text": "Gear equipped in Town now comes with you into the raid, and extracting keeps your loot."
+            },
+            {
+              "id": "916002017aca-1",
+              "text": "Enemies and players now visibly flash red when struck by a melee weapon."
+            },
+            {
+              "id": "15e80657787f-2",
+              "text": "Holding the interact key on a downed ally now keeps reviving them instead of stopping right away, and the revive bar now fills up."
+            }
+          ]
+        },
+        {
+          "id": "balanced",
+          "title": "Balanced",
+          "entries": [
+            {
+              "id": "d2c0824cd519-5",
+              "text": "The spellbook is now a two-handed weapon and can only be equipped in the main hand."
+            },
+            {
+              "id": "5ad42e1074ad-1",
+              "text": "Each attribute can now be raised up to 30 instead of 25."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "version": "0.4.0",
+      "tag": "v0.4.0",
+      "date": "2026-11-08",
+      "commit": "7c6c613cf1b871149ffc9e6a843333c4c066882a",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/releases/tag/v0.4.0",
+      "categories": [
+        {
+          "id": "added",
+          "title": "Added",
+          "entries": []
+        },
+        {
+          "id": "improved",
+          "title": "Improved",
+          "entries": []
+        },
+        {
+          "id": "fixed",
+          "title": "Fixed",
+          "entries": []
+        },
+        {
+          "id": "balanced",
+          "title": "Balanced",
+          "entries": []
+        }
+      ]
+    },
+    {
+      "version": "0.3.0",
+      "tag": "v0.3.0",
+      "date": "2026-11-08",
+      "commit": "9f7ec6fae3d03b7ee72815d4eeb0288d1c6bd451",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/releases/tag/v0.3.0",
+      "categories": [
+        {
+          "id": "added",
+          "title": "Added",
+          "entries": []
+        },
+        {
+          "id": "improved",
+          "title": "Improved",
+          "entries": []
+        },
+        {
+          "id": "fixed",
+          "title": "Fixed",
+          "entries": []
+        },
+        {
+          "id": "balanced",
+          "title": "Balanced",
+          "entries": []
+        }
+      ]
+    },
+    {
+      "version": "0.2.0",
+      "tag": "v0.2.0",
+      "date": "2026-11-08",
+      "commit": "ea2ce5344bd2d76bb34c2844e142442527d06a7e",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/releases/tag/v0.2.0",
+      "categories": [
+        {
+          "id": "added",
+          "title": "Added",
+          "entries": []
+        },
+        {
+          "id": "improved",
+          "title": "Improved",
+          "entries": []
+        },
+        {
+          "id": "fixed",
+          "title": "Fixed",
+          "entries": []
+        },
+        {
+          "id": "balanced",
+          "title": "Balanced",
+          "entries": []
+        }
+      ]
+    },
+    {
+      "version": "0.1.0",
+      "tag": "v0.1.0",
+      "date": "2026-11-08",
+      "commit": "98dd4a3aac4631c80b2b685b07ee1f5e9d2089c6",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/releases/tag/v0.1.0",
+      "categories": [
+        {
+          "id": "added",
+          "title": "Added",
+          "entries": []
+        },
+        {
+          "id": "improved",
+          "title": "Improved",
+          "entries": []
+        },
+        {
+          "id": "fixed",
+          "title": "Fixed",
+          "entries": []
+        },
+        {
+          "id": "balanced",
+          "title": "Balanced",
+          "entries": []
+        }
+      ]
+    }
+  ]
 }

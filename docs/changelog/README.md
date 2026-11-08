@@ -8,11 +8,12 @@ The initial history is partitioned by UTC author month; subsequent releases reta
 
 | Release / period | Original commits | Canonical entries |
 | --- | ---: | ---: |
-| [2026-11 — Unreleased history](history-2026-11.md) | 86 | 86 |
-| [2026-10 — Unreleased history](history-2026-10.md) | 396 | 394 |
-| [2026-09 — Unreleased history](history-2026-09.md) | 223 | 222 |
-| [2026-08 — Unreleased history](history-2026-08.md) | 170 | 170 |
-| [2026-07 — Unreleased history](history-2026-07.md) | 83 | 83 |
+| [Unreleased](unreleased.md) | 83 | 83 |
+| [v0.5.0 — 2026-11-08](v0.5.0.md) | 341 | 339 |
+| [v0.4.0 — 2026-11-08](v0.4.0.md) | 252 | 251 |
+| [v0.3.0 — 2026-11-08](v0.3.0.md) | 158 | 158 |
+| [v0.2.0 — 2026-11-08](v0.2.0.md) | 85 | 85 |
+| [2026-07 — initial history through v0.1.0](history-2026-07.md) | 41 | 41 |
 
 ## Reading the evidence
 

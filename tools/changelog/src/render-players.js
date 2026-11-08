@@ -52,12 +52,25 @@ export function categoryMarkdown(
   return cleanOutput(lines.length > 0 ? lines.join('\n') : emptyMessage);
 }
 
-export function renderPlayers(document) {
+export function renderPlayers(document, pending = null, plannedVersion = null) {
   const introduction = "What's new in Project Grimhold. Only changes included in published "
     + 'releases are listed, newest first.';
   const lines = ['# Changelog', '', introduction, ''];
 
-  if (document.releases.length === 0) {
+  if (pending && pending.notes && pending.notes.length > 0) {
+    const unreleasedCategories = releaseCategories(pending.notes);
+    if (unreleasedCategories.some(category => category.entries.length > 0)) {
+      const versionLabel = plannedVersion ? `v${plannedVersion}-dev` : 'En desarrollo';
+      lines.push(
+        `## [${versionLabel}] - En desarrollo`,
+        '',
+        categoryMarkdown(unreleasedCategories),
+        '',
+      );
+    }
+  }
+
+  if (document.releases.length === 0 && (!pending || !pending.notes || pending.notes.length === 0)) {
     lines.push('_No releases yet._');
   }
 

@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 958,
-  "canonicalEntries": 955,
+  "rawCommits": 960,
+  "canonicalEntries": 957,
   "before": {
-    "Features": 368,
+    "Features": 369,
+    "Architecture & Infrastructure": 16,
     "Bug Fixes": 99,
     "Other Changes": 354,
-    "Architecture & Infrastructure": 15,
     "Documentation": 82,
     "Tests": 26,
     "Refactoring": 14
   },
   "after": {
-    "Features": 505,
+    "Features": 506,
+    "Maintenance": 15,
     "Bug Fixes": 115,
     "Other Changes": 164,
-    "Maintenance": 14,
     "Documentation": 97,
     "Tests": 31,
     "Refactoring": 27,
@@ -23,13 +23,13 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Build & Tooling": 488,
+    "Documentation": 374,
+    "Abilities": 121,
     "Combat": 353,
-    "Abilities": 120,
     "Movement": 92,
     "Inventory & Loot": 381,
     "UI": 297,
-    "Build & Tooling": 486,
-    "Documentation": 373,
     "Tests": 589,
     "Networking & Sessions": 274,
     "World & Visibility": 127,
@@ -42,23 +42,23 @@
   },
   "canonical": {
     "sections": {
-      "Features": 504,
+      "Features": 505,
+      "Maintenance": 15,
       "Bug Fixes": 114,
       "Other Changes": 163,
-      "Maintenance": 14,
       "Documentation": 97,
       "Tests": 31,
       "Refactoring": 27,
       "Architecture & Infrastructure": 5
     },
     "systems": {
+      "Build & Tooling": 486,
+      "Documentation": 372,
+      "Abilities": 119,
       "Combat": 351,
-      "Abilities": 118,
       "Movement": 92,
       "Inventory & Loot": 381,
       "UI": 296,
-      "Build & Tooling": 484,
-      "Documentation": 371,
       "Tests": 587,
       "Networking & Sessions": 274,
       "World & Visibility": 125,
@@ -34192,47 +34192,315 @@
   ],
   "periods": [
     {
-      "key": "history-2026-11",
-      "title": "2026-11 — Unreleased history",
-      "version": "Unreleased",
-      "tag": null,
-      "originalCommits": 86,
-      "canonicalEntries": 86
-    },
-    {
-      "key": "history-2026-10",
-      "title": "2026-10 — Unreleased history",
-      "version": "Unreleased",
-      "tag": null,
-      "originalCommits": 396,
-      "canonicalEntries": 394
-    },
-    {
-      "key": "history-2026-09",
-      "title": "2026-09 — Unreleased history",
-      "version": "Unreleased",
-      "tag": null,
-      "originalCommits": 223,
-      "canonicalEntries": 222
-    },
-    {
-      "key": "history-2026-08",
-      "title": "2026-08 — Unreleased history",
-      "version": "Unreleased",
-      "tag": null,
-      "originalCommits": 170,
-      "canonicalEntries": 170
-    },
-    {
-      "key": "history-2026-07",
-      "title": "2026-07 — Unreleased history",
+      "key": "unreleased",
+      "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
       "originalCommits": 83,
       "canonicalEntries": 83
+    },
+    {
+      "key": "v0.5.0",
+      "title": "v0.5.0 — 2026-11-08",
+      "version": "0.5.0",
+      "tag": "v0.5.0",
+      "originalCommits": 341,
+      "canonicalEntries": 339
+    },
+    {
+      "key": "v0.4.0",
+      "title": "v0.4.0 — 2026-11-08",
+      "version": "0.4.0",
+      "tag": "v0.4.0",
+      "originalCommits": 252,
+      "canonicalEntries": 251
+    },
+    {
+      "key": "v0.3.0",
+      "title": "v0.3.0 — 2026-11-08",
+      "version": "0.3.0",
+      "tag": "v0.3.0",
+      "originalCommits": 158,
+      "canonicalEntries": 158
+    },
+    {
+      "key": "v0.2.0",
+      "title": "v0.2.0 — 2026-11-08",
+      "version": "0.2.0",
+      "tag": "v0.2.0",
+      "originalCommits": 85,
+      "canonicalEntries": 85
+    },
+    {
+      "key": "history-2026-07",
+      "title": "2026-07 — initial history through v0.1.0",
+      "version": "0.1.0",
+      "tag": "v0.1.0",
+      "originalCommits": 41,
+      "canonicalEntries": 41
     }
   ],
   "commits": [
+    {
+      "sha": "35c6f17e4835ace15e5ef7de72f58ccf38f3c8ad",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/35c6f17e4835ace15e5ef7de72f58ccf38f3c8ad",
+      "subject": "feat(changelog): support live development changelog and segment historical sprint tags",
+      "body": "Update changelog renderer and CLI to display unreleased development notes under a live section directly in CHANGELOG.md without waiting for production release tags. Update changelog workflow to publish all changelogs on push, synchronize Unity bundleVersion to 0.6.0-dev, and regenerate archives based on annotated sprint tags.\n",
+      "date": "2026-11-07T22:34:24-03:00",
+      "files": [
+        ".github/workflows/changelog.yml",
+        "CHANGELOG.md",
+        "CHANGELOG_DEV.md",
+        "Project Grimhold/ProjectSettings/ProjectSettings.asset",
+        "changelog-players.json",
+        "docs/changelog/README.md",
+        "docs/changelog/generated-files.json",
+        "docs/changelog/history-2026-07.md",
+        "docs/changelog/report.json",
+        "docs/changelog/unreleased.md",
+        "docs/changelog/v0.2.0.md",
+        "docs/changelog/v0.3.0.md",
+        "docs/changelog/v0.4.0.md",
+        "docs/changelog/v0.5.0.md",
+        "tools/changelog/src/cli.js",
+        "tools/changelog/src/render-players.js"
+      ],
+      "originalType": "feat",
+      "originalScope": "changelog",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Build & Tooling",
+        "Documentation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": ".github/workflows/changelog.yml",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "CHANGELOG.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "CHANGELOG_DEV.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "changelog-players.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/README.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/generated-files.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/history-2026-07.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/report.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/unreleased.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/v0.2.0.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/v0.3.0.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/v0.4.0.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/v0.5.0.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/src/cli.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/changelog/src/render-players.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "scope",
+          "value": "changelog",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "message-term",
+          "value": "changelog",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/README.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/generated-files.json",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/history-2026-07.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/report.json",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/unreleased.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/v0.2.0.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/v0.3.0.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/v0.4.0.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/changelog/v0.5.0.md",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "aaaff9161561130d938c8973e81f490679826404",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/aaaff9161561130d938c8973e81f490679826404",
+      "subject": "chore(skills): refine hacknplan task design to focus on scope",
+      "body": "Update hacknplan-task-design skill and templates to enforce functional scope definition and prevent prescribing technical implementation recipes in tickets.\n",
+      "date": "2026-11-07T22:33:04-03:00",
+      "files": [
+        ".agents/skills/hacknplan-task-design/SKILL.md",
+        ".agents/skills/hacknplan-task-design/assets/story-template.md",
+        ".agents/skills/hacknplan-task-design/assets/task-template.md",
+        ".agents/skills/hacknplan-task-design/references/workflow.md"
+      ],
+      "originalType": "chore",
+      "originalScope": "skills",
+      "originalSection": "Architecture & Infrastructure",
+      "breaking": false,
+      "reverts": null,
+      "section": "Maintenance",
+      "confidence": "explicit",
+      "systems": [
+        "Abilities",
+        "Build & Tooling"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "chore",
+          "supports": "Maintenance"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/hacknplan-task-design/SKILL.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/hacknplan-task-design/assets/story-template.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/hacknplan-task-design/assets/task-template.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/hacknplan-task-design/references/workflow.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "scope",
+          "value": "skills",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/hacknplan-task-design/SKILL.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/hacknplan-task-design/assets/story-template.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/hacknplan-task-design/assets/task-template.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/hacknplan-task-design/references/workflow.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "scope",
+          "value": "skills",
+          "supports": "Build & Tooling"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
     {
       "sha": "7c36b1a544a5d3f727e00b74b5738139ae3c1e4a",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7c36b1a544a5d3f727e00b74b5738139ae3c1e4a",
@@ -110198,6 +110466,522 @@
       "secondary": false
     },
     {
+      "sha": "4176aeb3569bdca0b3d3f71c3f097322896a4922",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4176aeb3569bdca0b3d3f71c3f097322896a4922",
+      "subject": "feat(dungeon-pressure): add phase change audio presenter and fix networked property weaving",
+      "body": "Implemented `DungeonPressureAudioPresenter` to handle global SFX on Dungeon Pressure Phase escalations using the local `AudioManager`. It uses `Render()` to ensure all clients play the SFX locally without RPC overhead.\n\nFixed a critical synchronization bug in `DungeonPressureController` by replacing `internal set` with public `set` in `[Networked]` properties. The previous access modifier caused Fusion's IL Weaver to silently ignore the properties, preventing the raid timer and state from updating.\n\nAdded explicit initialization validation for `DungeonPressureConfig` in `DungeonPressureController` to prevent silent null reference issues.\n\nAdded fallback warning logs in `EnemyReinforcementDirector` to detect cases where all reinforcement spawn points are rejected by the `MinDistanceToPlayer` constraint in small test maps.\n",
+      "date": "2026-09-30T17:20:21-03:00",
+      "files": [
+        "Project Grimhold/Assets/Prefabs/NetworkMatchController.prefab",
+        "Project Grimhold/Assets/Scenes/Gameplay.unity",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs.meta"
+      ],
+      "originalType": "feat",
+      "originalScope": "dungeon-pressure",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "World & Visibility",
+        "Audio",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "scope",
+          "value": "dungeon-pressure",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs",
+          "supports": "Audio"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs.meta",
+          "supports": "Audio"
+        },
+        {
+          "source": "message-term",
+          "value": "audio",
+          "supports": "Audio"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "a447dc95be169d5b60dace2ea8c4a6b760e2b032",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a447dc95be169d5b60dace2ea8c4a6b760e2b032",
+      "subject": "feat(dungeon-pressure): implement enemy reinforcement director",
+      "body": "Introduces ReinforcementPolicy on DungeonPressureConfig to dictate budget and spawn cadence per phase. Adds EnemyReinforcementDirector to periodically spawn reinforcements matching policy constraints and player safety distance. Refactors NetworkSpawnManager to expose TrySpawnReinforcement for safely injecting the correct origin.\n",
+      "date": "2026-09-30T17:01:15-03:00",
+      "files": [
+        "Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset",
+        "Project Grimhold/Assets/Prefabs/NetworkMatchController.prefab",
+        "Project Grimhold/Assets/Resources/BackendConfiguration.asset",
+        "Project Grimhold/Assets/Scenes/MainMenu.unity",
+        "Project Grimhold/Assets/Scriptable Objects/DefaultDungeonPressureConfig.asset",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureConfig.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyReinforcementDirector.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyReinforcementDirector.cs.meta",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementPolicy.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementPolicy.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+        "Project Grimhold/Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset"
+      ],
+      "originalType": "feat",
+      "originalScope": "dungeon-pressure",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "UI",
+        "World & Visibility",
+        "Persistence & Backend",
+        "Art & Animation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scenes/MainMenu.unity",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/DefaultDungeonPressureConfig.asset",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureConfig.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyReinforcementDirector.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyReinforcementDirector.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementPolicy.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementPolicy.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "scope",
+          "value": "dungeon-pressure",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Resources/BackendConfiguration.asset",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset",
+          "supports": "Art & Animation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "1a18a057a77cef0820313837d2cfa9d6eaebd044",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1a18a057a77cef0820313837d2cfa9d6eaebd044",
+      "subject": "feat(dungeon-pressure): implement active PvE population tracking",
+      "body": "EnemyPopulationOrigin to distinguish bootstrap from reinforcements. Adds PvePopulationTracker to NetworkSpawnManager to keep an authoritative count of alive enemies. Updates EnemyCharacter to register on spawn and unregister on death/despawn. Updates bootstrap spawn to inject origin data.\n",
+      "date": "2026-09-30T14:14:55-03:00",
+      "files": [
+        "Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset",
+        "Project Grimhold/Assets/Scripts/Character/EnemyCharacter.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyPopulationOrigin.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyPopulationOrigin.cs.meta",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/PvePopulationTracker.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/PvePopulationTracker.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+        "Project Grimhold/Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset"
+      ],
+      "originalType": "feat",
+      "originalScope": "dungeon-pressure",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "World & Visibility",
+        "Art & Animation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyPopulationOrigin.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyPopulationOrigin.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/PvePopulationTracker.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/PvePopulationTracker.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "scope",
+          "value": "dungeon-pressure",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset",
+          "supports": "Art & Animation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "432057850a8f137940cb55cdefe6c068c35235b9",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/432057850a8f137940cb55cdefe6c068c35235b9",
+      "subject": "feat(dungeon-pressure): add reinforcement spawn point registry and planner",
+      "body": "Introduces SpawnGroupType.Reinforcements and gracefully skips them during raid bootstrap. Adds ReinforcementPointRegistry on NetworkSpawnManager to cache points during scene load and clear them on closure. Includes the pure ReinforcementSpawnPlanner to evaluate safe spawning distances away from players.\n",
+      "date": "2026-09-30T01:39:23-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scenes/Gameplay.unity",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementPointRegistry.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementPointRegistry.cs.meta",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementSpawnPlanner.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementSpawnPlanner.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/InitialSpawnGroupPolicy.cs",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+        "Project Grimhold/Assets/Scripts/Networking/SpawnGroupType.cs"
+      ],
+      "originalType": "feat",
+      "originalScope": "dungeon-pressure",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "World & Visibility"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/InitialSpawnGroupPolicy.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SpawnGroupType.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementPointRegistry.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementPointRegistry.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementSpawnPlanner.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementSpawnPlanner.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "scope",
+          "value": "dungeon-pressure",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "dungeon",
+          "supports": "World & Visibility"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "4f240b46c2378364529f224f58abfb4f6c1adea8",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4f240b46c2378364529f224f58abfb4f6c1adea8",
+      "subject": "feat(dungeon-pressure): add authoritative expedition timer and phases",
+      "body": "DungeonPressureController to govern expedition duration alongside NetworkMatchController. It guarantees authoritative timer updates, handles Host Migration pauses, evaluates monotonic phase progression via a pure resolver, and stops processing on raid closure. Includes Config ScriptableObject and EditMode transition tests.\n",
+      "date": "2026-09-30T01:29:16-03:00",
+      "files": [
+        "Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset",
+        "Project Grimhold/Assets/Prefabs/NetworkMatchController.prefab",
+        "Project Grimhold/Assets/Scriptable Objects/DefaultDungeonPressureConfig.asset",
+        "Project Grimhold/Assets/Scriptable Objects/DefaultDungeonPressureConfig.asset.meta",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure.meta",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPhaseResolver.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPhaseResolver.cs.meta",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureConfig.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureConfig.cs.meta",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs.meta",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressurePhase.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressurePhase.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs.meta"
+      ],
+      "originalType": "feat",
+      "originalScope": "dungeon-pressure",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "World & Visibility",
+        "Art & Animation",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "Host Migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/DefaultDungeonPressureConfig.asset",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/DefaultDungeonPressureConfig.asset.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPhaseResolver.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPhaseResolver.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureConfig.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureConfig.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressurePhase.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressurePhase.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "scope",
+          "value": "dungeon-pressure",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
       "sha": "b108630aabde9753111827cf0318c9de73939a44",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b108630aabde9753111827cf0318c9de73939a44",
       "subject": "Add lobby tilesets and town prop layout update",
@@ -111692,522 +112476,6 @@
           "source": "message-term",
           "value": "textures",
           "supports": "Art & Animation"
-        }
-      ],
-      "diagnostics": [],
-      "generic": false,
-      "secondary": false
-    },
-    {
-      "sha": "4176aeb3569bdca0b3d3f71c3f097322896a4922",
-      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4176aeb3569bdca0b3d3f71c3f097322896a4922",
-      "subject": "feat(dungeon-pressure): add phase change audio presenter and fix networked property weaving",
-      "body": "Implemented `DungeonPressureAudioPresenter` to handle global SFX on Dungeon Pressure Phase escalations using the local `AudioManager`. It uses `Render()` to ensure all clients play the SFX locally without RPC overhead.\n\nFixed a critical synchronization bug in `DungeonPressureController` by replacing `internal set` with public `set` in `[Networked]` properties. The previous access modifier caused Fusion's IL Weaver to silently ignore the properties, preventing the raid timer and state from updating.\n\nAdded explicit initialization validation for `DungeonPressureConfig` in `DungeonPressureController` to prevent silent null reference issues.\n\nAdded fallback warning logs in `EnemyReinforcementDirector` to detect cases where all reinforcement spawn points are rejected by the `MinDistanceToPlayer` constraint in small test maps.\n",
-      "date": "2026-09-30T17:20:21-03:00",
-      "files": [
-        "Project Grimhold/Assets/Prefabs/NetworkMatchController.prefab",
-        "Project Grimhold/Assets/Scenes/Gameplay.unity",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs.meta"
-      ],
-      "originalType": "feat",
-      "originalScope": "dungeon-pressure",
-      "originalSection": "Features",
-      "breaking": false,
-      "reverts": null,
-      "section": "Features",
-      "confidence": "explicit",
-      "systems": [
-        "World & Visibility",
-        "Audio",
-        "Tests"
-      ],
-      "evidence": [
-        {
-          "source": "type",
-          "value": "feat",
-          "supports": "Features"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs.meta",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "scope",
-          "value": "dungeon-pressure",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "message-term",
-          "value": "dungeon",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs",
-          "supports": "Audio"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs.meta",
-          "supports": "Audio"
-        },
-        {
-          "source": "message-term",
-          "value": "audio",
-          "supports": "Audio"
-        },
-        {
-          "source": "message-term",
-          "value": "test",
-          "supports": "Tests"
-        }
-      ],
-      "diagnostics": [],
-      "generic": false,
-      "secondary": false
-    },
-    {
-      "sha": "a447dc95be169d5b60dace2ea8c4a6b760e2b032",
-      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a447dc95be169d5b60dace2ea8c4a6b760e2b032",
-      "subject": "feat(dungeon-pressure): implement enemy reinforcement director",
-      "body": "Introduces ReinforcementPolicy on DungeonPressureConfig to dictate budget and spawn cadence per phase. Adds EnemyReinforcementDirector to periodically spawn reinforcements matching policy constraints and player safety distance. Refactors NetworkSpawnManager to expose TrySpawnReinforcement for safely injecting the correct origin.\n",
-      "date": "2026-09-30T17:01:15-03:00",
-      "files": [
-        "Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset",
-        "Project Grimhold/Assets/Prefabs/NetworkMatchController.prefab",
-        "Project Grimhold/Assets/Resources/BackendConfiguration.asset",
-        "Project Grimhold/Assets/Scenes/MainMenu.unity",
-        "Project Grimhold/Assets/Scriptable Objects/DefaultDungeonPressureConfig.asset",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureConfig.cs",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyReinforcementDirector.cs",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyReinforcementDirector.cs.meta",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementPolicy.cs",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementPolicy.cs.meta",
-        "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
-        "Project Grimhold/Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset"
-      ],
-      "originalType": "feat",
-      "originalScope": "dungeon-pressure",
-      "originalSection": "Features",
-      "breaking": false,
-      "reverts": null,
-      "section": "Features",
-      "confidence": "explicit",
-      "systems": [
-        "Networking & Sessions",
-        "UI",
-        "World & Visibility",
-        "Persistence & Backend",
-        "Art & Animation"
-      ],
-      "evidence": [
-        {
-          "source": "type",
-          "value": "feat",
-          "supports": "Features"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
-          "supports": "Networking & Sessions"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scenes/MainMenu.unity",
-          "supports": "UI"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scriptable Objects/DefaultDungeonPressureConfig.asset",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureConfig.cs",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyReinforcementDirector.cs",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyReinforcementDirector.cs.meta",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementPolicy.cs",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementPolicy.cs.meta",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "scope",
-          "value": "dungeon-pressure",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "message-term",
-          "value": "dungeon",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Resources/BackendConfiguration.asset",
-          "supports": "Persistence & Backend"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset",
-          "supports": "Art & Animation"
-        }
-      ],
-      "diagnostics": [],
-      "generic": false,
-      "secondary": false
-    },
-    {
-      "sha": "1a18a057a77cef0820313837d2cfa9d6eaebd044",
-      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1a18a057a77cef0820313837d2cfa9d6eaebd044",
-      "subject": "feat(dungeon-pressure): implement active PvE population tracking",
-      "body": "EnemyPopulationOrigin to distinguish bootstrap from reinforcements. Adds PvePopulationTracker to NetworkSpawnManager to keep an authoritative count of alive enemies. Updates EnemyCharacter to register on spawn and unregister on death/despawn. Updates bootstrap spawn to inject origin data.\n",
-      "date": "2026-09-30T14:14:55-03:00",
-      "files": [
-        "Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset",
-        "Project Grimhold/Assets/Scripts/Character/EnemyCharacter.cs",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyPopulationOrigin.cs",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyPopulationOrigin.cs.meta",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/PvePopulationTracker.cs",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/PvePopulationTracker.cs.meta",
-        "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
-        "Project Grimhold/Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset"
-      ],
-      "originalType": "feat",
-      "originalScope": "dungeon-pressure",
-      "originalSection": "Features",
-      "breaking": false,
-      "reverts": null,
-      "section": "Features",
-      "confidence": "explicit",
-      "systems": [
-        "Networking & Sessions",
-        "World & Visibility",
-        "Art & Animation"
-      ],
-      "evidence": [
-        {
-          "source": "type",
-          "value": "feat",
-          "supports": "Features"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
-          "supports": "Networking & Sessions"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyPopulationOrigin.cs",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyPopulationOrigin.cs.meta",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/PvePopulationTracker.cs",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/PvePopulationTracker.cs.meta",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "scope",
-          "value": "dungeon-pressure",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "message-term",
-          "value": "dungeon",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset",
-          "supports": "Art & Animation"
-        }
-      ],
-      "diagnostics": [],
-      "generic": false,
-      "secondary": false
-    },
-    {
-      "sha": "432057850a8f137940cb55cdefe6c068c35235b9",
-      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/432057850a8f137940cb55cdefe6c068c35235b9",
-      "subject": "feat(dungeon-pressure): add reinforcement spawn point registry and planner",
-      "body": "Introduces SpawnGroupType.Reinforcements and gracefully skips them during raid bootstrap. Adds ReinforcementPointRegistry on NetworkSpawnManager to cache points during scene load and clear them on closure. Includes the pure ReinforcementSpawnPlanner to evaluate safe spawning distances away from players.\n",
-      "date": "2026-09-30T01:39:23-03:00",
-      "files": [
-        "Project Grimhold/Assets/Scenes/Gameplay.unity",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementPointRegistry.cs",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementPointRegistry.cs.meta",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementSpawnPlanner.cs",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementSpawnPlanner.cs.meta",
-        "Project Grimhold/Assets/Scripts/Networking/InitialSpawnGroupPolicy.cs",
-        "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
-        "Project Grimhold/Assets/Scripts/Networking/SpawnGroupType.cs"
-      ],
-      "originalType": "feat",
-      "originalScope": "dungeon-pressure",
-      "originalSection": "Features",
-      "breaking": false,
-      "reverts": null,
-      "section": "Features",
-      "confidence": "explicit",
-      "systems": [
-        "Networking & Sessions",
-        "World & Visibility"
-      ],
-      "evidence": [
-        {
-          "source": "type",
-          "value": "feat",
-          "supports": "Features"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Networking/InitialSpawnGroupPolicy.cs",
-          "supports": "Networking & Sessions"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
-          "supports": "Networking & Sessions"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Networking/SpawnGroupType.cs",
-          "supports": "Networking & Sessions"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementPointRegistry.cs",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementPointRegistry.cs.meta",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementSpawnPlanner.cs",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/ReinforcementSpawnPlanner.cs.meta",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "scope",
-          "value": "dungeon-pressure",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "message-term",
-          "value": "dungeon",
-          "supports": "World & Visibility"
-        }
-      ],
-      "diagnostics": [],
-      "generic": false,
-      "secondary": false
-    },
-    {
-      "sha": "4f240b46c2378364529f224f58abfb4f6c1adea8",
-      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4f240b46c2378364529f224f58abfb4f6c1adea8",
-      "subject": "feat(dungeon-pressure): add authoritative expedition timer and phases",
-      "body": "DungeonPressureController to govern expedition duration alongside NetworkMatchController. It guarantees authoritative timer updates, handles Host Migration pauses, evaluates monotonic phase progression via a pure resolver, and stops processing on raid closure. Includes Config ScriptableObject and EditMode transition tests.\n",
-      "date": "2026-09-30T01:29:16-03:00",
-      "files": [
-        "Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset",
-        "Project Grimhold/Assets/Prefabs/NetworkMatchController.prefab",
-        "Project Grimhold/Assets/Scriptable Objects/DefaultDungeonPressureConfig.asset",
-        "Project Grimhold/Assets/Scriptable Objects/DefaultDungeonPressureConfig.asset.meta",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure.meta",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPhaseResolver.cs",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPhaseResolver.cs.meta",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureConfig.cs",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureConfig.cs.meta",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs.meta",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressurePhase.cs",
-        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressurePhase.cs.meta",
-        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs",
-        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs.meta"
-      ],
-      "originalType": "feat",
-      "originalScope": "dungeon-pressure",
-      "originalSection": "Features",
-      "breaking": false,
-      "reverts": null,
-      "section": "Features",
-      "confidence": "explicit",
-      "systems": [
-        "Networking & Sessions",
-        "World & Visibility",
-        "Art & Animation",
-        "Build & Tooling",
-        "Tests"
-      ],
-      "evidence": [
-        {
-          "source": "type",
-          "value": "feat",
-          "supports": "Features"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs",
-          "supports": "Networking & Sessions"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs.meta",
-          "supports": "Networking & Sessions"
-        },
-        {
-          "source": "message-term",
-          "value": "Host Migration",
-          "supports": "Networking & Sessions"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scriptable Objects/DefaultDungeonPressureConfig.asset",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scriptable Objects/DefaultDungeonPressureConfig.asset.meta",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure.meta",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPhaseResolver.cs",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPhaseResolver.cs.meta",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureConfig.cs",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureConfig.cs.meta",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs.meta",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressurePhase.cs",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressurePhase.cs.meta",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs.meta",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "scope",
-          "value": "dungeon-pressure",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "message-term",
-          "value": "dungeon",
-          "supports": "World & Visibility"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Art/Fonts/alagard/alagard SDF.asset",
-          "supports": "Art & Animation"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs",
-          "supports": "Build & Tooling"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs.meta",
-          "supports": "Build & Tooling"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs",
-          "supports": "Tests"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPhaseResolverTests.cs.meta",
-          "supports": "Tests"
-        },
-        {
-          "source": "message-term",
-          "value": "tests",
-          "supports": "Tests"
         }
       ],
       "diagnostics": [],

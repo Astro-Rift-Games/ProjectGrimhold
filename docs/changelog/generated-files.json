@@ -5,10 +5,11 @@
     "docs/changelog/README.md",
     "docs/changelog/generated-files.json",
     "docs/changelog/history-2026-07.md",
-    "docs/changelog/history-2026-08.md",
-    "docs/changelog/history-2026-09.md",
-    "docs/changelog/history-2026-10.md",
-    "docs/changelog/history-2026-11.md",
-    "docs/changelog/report.json"
+    "docs/changelog/report.json",
+    "docs/changelog/unreleased.md",
+    "docs/changelog/v0.2.0.md",
+    "docs/changelog/v0.3.0.md",
+    "docs/changelog/v0.4.0.md",
+    "docs/changelog/v0.5.0.md"
   ]
 }
