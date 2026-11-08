@@ -238,6 +238,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         var joinData = new PlayerJoinData(profileId);
         byte[] token;
         RaidAdmissionData admissionData = default;
+        RaidAdmissionData localAdmissionData = default;
         AuthoritativeRaidAdmissionTicket authoritativeAdmissionTicket = default;
         if (launchContext != null)
         {
@@ -289,6 +290,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                 throw new ArgumentException("The local profile is not admitted by the supplied raid manifest.");
             }
 
+            localAdmissionData = admissionData;
             ApplicationAuthContext authContext = ApplicationAuthContext.Instance;
             if (authContext != null && authContext.IsAuthenticated &&
                 authContext.BackendConfig != null && !string.IsNullOrEmpty(authContext.Token))
@@ -523,7 +525,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             }
 
             if (launchContext != null &&
-                !await WaitForLocalRaidAdmissionAsync(loadoutReservation, authoritativeAdmissionTicket, cancellationToken))
+                !await WaitForLocalRaidAdmissionAsync(loadoutReservation, localAdmissionData, authoritativeAdmissionTicket, cancellationToken))
             {
                 Debug.LogError("[FusionSessionLauncher] Local raid admission did not complete with the exact reserved loadout.", this);
                 await ShutdownAndDestroyRunnerAsync();
@@ -553,6 +555,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
     private async Task<bool> WaitForLocalRaidAdmissionAsync(
         PendingLoadoutReservation reservation,
+        RaidAdmissionData localAdmission,
         AuthoritativeRaidAdmissionTicket authoritativeTicket,
         CancellationToken cancellationToken)
     {
@@ -579,11 +582,13 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                     equipment,
                     out PlayerExpeditionLootSnapshot ownership,
                     out _) &&
-                ((MatchesLoadout(reservation.Items, ownership.Inventory) &&
-                  MatchesPreparedEquipment(reservation.PreparedEquipment, equipment)) ||
-                 (authoritativeTicket.IsValid &&
-                  MatchesLootEntries(authoritativeTicket.ReservedItems, ownership.Inventory) &&
-                  MatchesPreparedEquipment(authoritativeTicket.PreparedEquipment, equipment))))
+                ((localAdmission.ProfileId == localProfile &&
+                  RaidAdmissionLoadoutMatcher.Matches(localAdmission, ownership, equipment, receiver.LootCatalog)) ||
+                 (authoritativeTicket.IsValid && authoritativeTicket.ProfileId == localProfile &&
+                  string.Equals(authoritativeTicket.ReservationId, reservation.ReservationId, StringComparison.Ordinal) &&
+                  authoritativeTicket.TryToRaidAdmissionData(out RaidAdmissionData canonicalAdmission,
+                      catalog: receiver.LootCatalog) &&
+                  RaidAdmissionLoadoutMatcher.Matches(canonicalAdmission, ownership, equipment, receiver.LootCatalog))))
             {
                 return true;
             }
@@ -622,67 +627,6 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         }
 
         return false;
-    }
-
-    private static bool MatchesLoadout(
-        System.Collections.Generic.IReadOnlyList<StashItem> expected,
-        System.Collections.Generic.IReadOnlyList<LootEntry> actual)
-    {
-        if (!ProfileInventoryRules.TryAggregate(expected, out var aggregate)) return false;
-        return MatchesLootEntries(aggregate, actual);
-    }
-
-    private static bool MatchesLootEntries(
-        System.Collections.Generic.IReadOnlyList<LootEntry> expected,
-        System.Collections.Generic.IReadOnlyList<LootEntry> actual)
-    {
-        if (expected == null || actual == null || expected.Count != actual.Count)
-        {
-            return false;
-        }
-
-        var matched = new bool[actual.Count];
-        for (int index = 0; index < expected.Count; index++)
-        {
-            bool found = false;
-            for (int actualIndex = 0; actualIndex < actual.Count; actualIndex++)
-            {
-                if (!matched[actualIndex] && expected[index].Equals(actual[actualIndex]))
-                {
-                    matched[actualIndex] = true;
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary>Confirms that every replicated Equipment slot matches the reserved preparation.</summary>
-    private static bool MatchesPreparedEquipment(
-        PreparedEquipmentLoadout expected,
-        PlayerWeaponEquipmentNetworkController equipment)
-    {
-        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
-        for (int index = 0; index < slots.Length; index++)
-        {
-            LootId actual = equipment.TryGetSlotLoot(slots[index], out LootEntry entry)
-                ? entry.LootId
-                : default;
-            if (actual != expected.Get(slots[index]))
-            {
-                return false;
-            }
-        }
-
-        return equipment.ActiveWeaponSetSlot ==
-            ((expected.HasWeaponSetAMainHand || expected.WeaponSetAOffHand.IsValid) ? WeaponSetSlot.SetA : WeaponSetSlot.SetB);
     }
 
     public async Task<bool> ShutdownAndDestroyRunnerAsync()

@@ -1,5 +1,4 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
-using System.Reflection;
 using NUnit.Framework;
 
 public sealed class RaidAdmissionSlotAggregationTests
@@ -27,13 +26,19 @@ public sealed class RaidAdmissionSlotAggregationTests
     public void ConfirmationComparison_AggregatesSplitStacks_RejectsRealQuantityMismatch(int actual, bool matches)
     {
         var bone = new LootId("bone");
-        var method = typeof(FusionSessionLauncher).GetMethod("MatchesLoadout", BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.That(method, Is.Not.Null);
-        Assert.That(method.Invoke(null, new object[]
-        {
+        Assert.That(RaidAdmissionLoadoutMatcherTests.MatchesInventory(
             new[] { new StashItem(bone, 3, 7), new StashItem(bone, 2, 1) },
-            new[] { new LootEntry(bone, actual) }
-        }), Is.EqualTo(matches));
+            new[] { new LootEntry(bone, actual) }), Is.EqualTo(matches));
+    }
+
+    [Test]
+    public void ConfirmationComparison_PreservesEquipmentUnitOwnership()
+    {
+        var sword = new LootId("arming_sword");
+        Assert.That(RaidAdmissionLoadoutMatcherTests.MatchesInventory(
+            new[] { new StashItem(sword, 1, 0, new EquipmentInstance(null, default(WeaponInstanceModifiers))) },
+            new[] { new LootEntry(sword, 1) }), Is.True,
+            "Runtime inventory aggregates equipment quantities without the admission unit marker.");
     }
 
     [Test]
