@@ -501,9 +501,9 @@ namespace Tests.PlayMode.Presentation
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             var equipmentCell = (RaidInventorySlotView)field.GetValue(_view);
             var source = LoadoutPanel().GetComponentsInChildren<RaidInventorySlotView>(true)[4];
-            LogAssert.Expect(LogType.Warning, new Regex("Stash action did not complete: Blocked"));
             Drag(source, equipmentCell);
             yield return null;
+            Assert.That(FeedbackText(), Is.EqualTo(LobbyStashPresenter.BuildLockedMessage));
             Assert.That(_remote.Calls, Is.Empty);
             Assert.That(_store.GetPreparedEquipment().WeaponSetAMainHand.IsValid, Is.False);
             Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(sword, 1, 4) }));
@@ -513,6 +513,54 @@ namespace Tests.PlayMode.Presentation
             Assert.That(_remote.Calls, Is.EqualTo(new[] { "equipment" }));
             Assert.That(_store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(sword));
             Assert.That(_store.GetLoadout(), Is.Empty);
+        }
+
+        [UnityTest]
+        public IEnumerator ReadyGate_BlocksEveryStashTransferShowsTheLockedLineAndNotReadyRestoresIt()
+        {
+            CreateScreen(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Bone, 3, 0));
+                snapshot.Loadout.Add(new StashItem(Bone, 2, 0));
+            });
+            var presenter = _instance.GetComponent<LobbyStashPresenter>();
+            bool ready = true;
+            presenter.SetEquipmentGate(() => !ready);
+            yield return null;
+
+            Button takeAll = GetButton("_takeAllButton");
+            Button leaveAll = GetButton("_leaveAllButton");
+            Assert.That(takeAll.IsInteractable(), Is.False, "Ready must close Take All.");
+            Assert.That(leaveAll.IsInteractable(), Is.False, "Ready must close Leave All.");
+            Assert.That(GetButton("_stashSortButton").IsInteractable(), Is.True, "Ready must not gate Sort.");
+            Assert.That(FeedbackText(), Is.EqualTo(LobbyStashPresenter.BuildLockedMessage));
+
+            RaidInventorySlotView[] stashCells = StashPanel().GetComponentsInChildren<RaidInventorySlotView>(true);
+            RaidInventorySlotView[] loadoutCells = LoadoutPanel().GetComponentsInChildren<RaidInventorySlotView>(true);
+            Drag(stashCells[0], loadoutCells[5]);
+            yield return null;
+            ClickMoveAll(StashPanel());
+            yield return null;
+            Assert.That(_remote.Calls, Is.Empty, "No Stash transfer may reach the backend while Ready.");
+            Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Bone, 3, 0) }));
+            Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Bone, 2, 0) }));
+
+            ready = false;
+            yield return null;
+            Assert.That(takeAll.IsInteractable(), Is.True, "NotReady must reopen transfers immediately.");
+            Assert.That(FeedbackText(), Is.Empty);
+            ClickButton(takeAll);
+            for (int frame = 0; frame < 5; frame++) yield return null;
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:bone:3" }));
+            Assert.That(_store.GetStash(), Is.Empty);
+        }
+
+        private string FeedbackText()
+        {
+            var field = typeof(LobbyStashUI).GetField("_gemFeedbackText",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var text = (TMPro.TMP_Text)field.GetValue(_view);
+            return text.gameObject.activeSelf ? text.text : string.Empty;
         }
 
         [UnityTest]

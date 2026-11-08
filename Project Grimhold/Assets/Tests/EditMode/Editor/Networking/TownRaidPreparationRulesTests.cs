@@ -274,6 +274,34 @@ public sealed class TownRaidPreparationRulesTests
         Assert.That(ContainsProfile(first, townAuthority), Is.False);
     }
 
+    [Test]
+    public void TownBuild_IsMutableOnlyWhileTheMemberIsNotReady_AndUnlocksWhenNotReadyAgain()
+    {
+        TownRaidPreparationSnapshot waiting = CreateWaiting("100001", 2, false);
+        ProfileId member = waiting.Members[1].ProfileId;
+        Assert.That(TownRaidPreparationRules.CanMutateTownBuild(waiting, member), Is.True);
+
+        Assert.That(TownRaidPreparationRules.TrySetReady(waiting, member, true, out var ready), Is.True);
+        Assert.That(TownRaidPreparationRules.CanMutateTownBuild(ready, member), Is.False);
+        Assert.That(TownRaidPreparationRules.CanMutateTownBuild(ready, waiting.HostProfileId), Is.True,
+            "One member's Ready must not lock another member's build.");
+
+        Assert.That(TownRaidPreparationRules.TrySetReady(ready, member, false, out var notReady), Is.True);
+        Assert.That(TownRaidPreparationRules.CanMutateTownBuild(notReady, member), Is.True);
+    }
+
+    [Test]
+    public void TownBuild_IsLockedForNonMembersInvalidSnapshotsAndFrozenLaunches()
+    {
+        TownRaidPreparationSnapshot waiting = CreateWaiting("100001", 2, false);
+        Assert.That(TownRaidPreparationRules.CanMutateTownBuild(waiting, new ProfileId("outsider")), Is.False);
+        Assert.That(TownRaidPreparationRules.CanMutateTownBuild(default, waiting.HostProfileId), Is.False);
+
+        TownRaidPreparationSnapshot allReady = CreateWaiting("100001", 2, true);
+        Assert.That(TownRaidPreparationRules.TryFreeze(allReady, allReady.HostProfileId, 1, out var frozen), Is.True);
+        Assert.That(TownRaidPreparationRules.CanMutateTownBuild(frozen, frozen.HostProfileId), Is.False);
+    }
+
     private static TownRaidPreparationSnapshot CreateWaiting(string codeValue, int count, bool ready)
     {
         RaidCode.TryParse(codeValue, out RaidCode code);

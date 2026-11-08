@@ -583,12 +583,18 @@ public sealed class LobbyStashUI : MonoBehaviour
         }
     }
 
-    public void SetActionsInteractable(bool interactable)
+    public void SetActionsInteractable(bool interactable) => SetActionsInteractable(interactable, interactable);
+
+    /// <summary>
+    /// Opens or closes the action buttons. <paramref name="transfersInteractable"/> governs only the bulk
+    /// transfers, so Sort can stay available while Ready locks the build.
+    /// </summary>
+    public void SetActionsInteractable(bool interactable, bool transfersInteractable)
     {
         _actionsInteractable = interactable;
         if (!interactable) CloseQuantityDialog();
-        if (_takeAllButton != null) _takeAllButton.interactable = interactable;
-        if (_leaveAllButton != null) _leaveAllButton.interactable = interactable;
+        if (_takeAllButton != null) _takeAllButton.interactable = transfersInteractable;
+        if (_leaveAllButton != null) _leaveAllButton.interactable = transfersInteractable;
         if (_stashSortButton != null) _stashSortButton.interactable = interactable;
         if (_loadoutSortButton != null) _loadoutSortButton.interactable = interactable;
     }

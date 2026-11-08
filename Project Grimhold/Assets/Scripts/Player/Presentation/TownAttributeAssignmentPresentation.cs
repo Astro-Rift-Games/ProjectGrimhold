@@ -16,6 +16,9 @@ public readonly struct TownAttributeAssignmentPresentation
     public bool CanAssignIntelligence { get; }
     public bool CanAssignLuck { get; }
 
+    /// <summary>True while Ready locks the build, so no attribute can be assigned whatever the points.</summary>
+    public bool IsBuildLocked { get; }
+
     private TownAttributeAssignmentPresentation(
         in CharacterAttributeState state,
         bool canAssignVitality,
@@ -23,7 +26,8 @@ public readonly struct TownAttributeAssignmentPresentation
         bool canAssignStrength,
         bool canAssignDexterity,
         bool canAssignIntelligence,
-        bool canAssignLuck)
+        bool canAssignLuck,
+        bool isBuildLocked)
     {
         Vitality = state.Vitality;
         Resistance = state.Resistance;
@@ -38,6 +42,7 @@ public readonly struct TownAttributeAssignmentPresentation
         CanAssignDexterity = canAssignDexterity;
         CanAssignIntelligence = canAssignIntelligence;
         CanAssignLuck = canAssignLuck;
+        IsBuildLocked = isBuildLocked;
     }
 
     public static bool TryCreate(
@@ -61,7 +66,8 @@ public readonly struct TownAttributeAssignmentPresentation
             canMutate && CanAssign(state, maximumAttributeValue, CharacterAttribute.Strength, out _),
             canMutate && CanAssign(state, maximumAttributeValue, CharacterAttribute.Dexterity, out _),
             canMutate && CanAssign(state, maximumAttributeValue, CharacterAttribute.Intelligence, out _),
-            canMutate && CanAssign(state, maximumAttributeValue, CharacterAttribute.Luck, out _));
+            canMutate && CanAssign(state, maximumAttributeValue, CharacterAttribute.Luck, out _),
+            !canMutate);
         return true;
     }
 

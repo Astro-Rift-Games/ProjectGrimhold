@@ -29,10 +29,16 @@ public class LobbyStashPresenter : MonoBehaviour
     private readonly TownLootGemInstallContextActionProvider _gemProvider = new();
     private LootContextActionContext _gemContext;
     private Func<bool> _canMutateEquipment = AllowEquipmentMutation;
+    private bool _presentedBuildLock;
+
+    /// <summary>The line shown while Ready locks the build; only Sort stays available.</summary>
+    public const string BuildLockedMessage = "Build bloqueada mientras estás Listo";
 
     /// <summary>
-    /// Supplies the Town Equipment gate (closed while the player is Ready). Without one, Equipment
-    /// changes are always allowed. The owner of the screen calls this before it opens.
+    /// Supplies the Town build gate (closed while the player is Ready). While it is closed every Stash
+    /// transfer, split, gem install and Equipment change is refused; only Sort stays available.
+    /// Without one, everything is allowed. The gate is observed every frame, so NotReady reopens the
+    /// screen immediately.
     /// </summary>
     public void SetEquipmentGate(Func<bool> canMutateEquipment)
     {
@@ -41,9 +47,13 @@ public class LobbyStashPresenter : MonoBehaviour
 
     private static bool AllowEquipmentMutation() => true;
 
+    private bool IsBuildLocked => !_canMutateEquipment();
+
     private void OnEnable()
     {
         _localProfileId = LocalProfileProvider.GetOrCreateLocalProfile();
+        // Unlocked is what an opened screen shows first; the next Update presents an active lock.
+        _presentedBuildLock = false;
 
         if (_stashUI != null)
         {
@@ -220,7 +230,8 @@ public class LobbyStashPresenter : MonoBehaviour
         }
     }
 
-    private void OnSortRequested(InventoryList list) => Run(coordinator => coordinator.SortAsync(list, _lootCatalog));
+    private void OnSortRequested(InventoryList list) =>
+        Run(coordinator => coordinator.SortAsync(list, _lootCatalog), allowWhileBuildLocked: true);
 
     private void OnTakeAllRequested() => Run(coordinator => coordinator.TakeAllAsync());
 
@@ -231,7 +242,7 @@ public class LobbyStashPresenter : MonoBehaviour
 
     private int ResolveSplitDestination(InventoryList list, int sourceSlot, LootId id, int observedQuantity, int amount)
     {
-        if (_coordinator == null || _pendingActions > 0 || _gemSession?.LocksMutations == true ||
+        if (_coordinator == null || _pendingActions > 0 || _gemSession?.LocksMutations == true || IsBuildLocked ||
             (list != InventoryList.Stash && list != InventoryList.Loadout) ||
             !_lootCatalog.TryGet(id.Value, out var definition) || EquipmentSlotRules.IsEquippableCategory(definition.Category) ||
             !QuantitySelectorRange.TryCreate(observedQuantity, out var range) || !range.Contains(amount)) return -1;
@@ -260,16 +271,41 @@ public class LobbyStashPresenter : MonoBehaviour
         Run(coordinator => coordinator.UnequipAsync(slot, _equipmentEndpoint));
 
     /// <summary>Queues one action on the coordinator and reports, without throwing, how it ended.</summary>
-    private void Run(Func<StashTransferCoordinator, Task<StashTransferOutcome>> action, bool split = false)
+    private void Run(
+        Func<StashTransferCoordinator, Task<StashTransferOutcome>> action,
+        bool split = false,
+        bool allowWhileBuildLocked = false)
     {
         if (_coordinator == null || _gemSession?.LocksMutations == true) return;
+        if (!allowWhileBuildLocked && IsBuildLocked)
+        {
+            _stashUI?.PresentGemFeedback(BuildLockedMessage, true);
+            return;
+        }
+
         _pendingActions++;
         UpdateActions();
         _ = ObserveAsync(action, _coordinator, split);
     }
 
-    private void UpdateActions() =>
-        _stashUI?.SetActionsInteractable(isActiveAndEnabled && _context != null && _coordinator != null && _pendingActions == 0 && _gemSession?.LocksMutations != true);
+    private void UpdateActions()
+    {
+        if (_stashUI == null) return;
+        bool interactable = isActiveAndEnabled && _context != null && _coordinator != null &&
+            _pendingActions == 0 && _gemSession?.LocksMutations != true;
+        _stashUI.SetActionsInteractable(interactable, transfersInteractable: interactable && !IsBuildLocked);
+    }
+
+    /// <summary>Follows the Ready gate: closes or reopens transfers and shows or clears the locked line.</summary>
+    private void ObserveBuildLock()
+    {
+        bool locked = IsBuildLocked;
+        if (locked == _presentedBuildLock) return;
+        _presentedBuildLock = locked;
+        UpdateActions();
+        if (_gemSession?.LocksMutations == true) return;
+        _stashUI?.PresentGemFeedback(locked ? BuildLockedMessage : string.Empty, true);
+    }
 
     private async Task ObserveAsync(
         Func<StashTransferCoordinator, Task<StashTransferOutcome>> action, StashTransferCoordinator coordinator, bool split)
@@ -299,6 +335,7 @@ public class LobbyStashPresenter : MonoBehaviour
 
     private void Update()
     {
+        ObserveBuildLock();
         if (_gemSession?.LocksMutations == true && !_gemSession.IsPending &&
             UnityEngine.InputSystem.Keyboard.current?.escapeKey.wasPressedThisFrame == true) _gemSession.Cancel();
     }
@@ -312,7 +349,8 @@ public class LobbyStashPresenter : MonoBehaviour
 
     private void CollectGemActions(InventoryList list, int slot, LootId id, List<LootContextActionDescriptor> actions)
     {
-        if (_gemSession == null || _pendingActions > 0 || !_lootCatalog.TryGet(id.Value, out var definition)) return;
+        if (_gemSession == null || _pendingActions > 0 || IsBuildLocked ||
+            !_lootCatalog.TryGet(id.Value, out var definition)) return;
         var items = list == InventoryList.Stash ? _context.Store.GetStash() : _context.Store.GetLoadout();
         foreach (var item in items)
         {

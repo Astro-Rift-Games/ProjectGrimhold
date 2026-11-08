@@ -88,6 +88,23 @@ public static class TownRaidPreparationRules
                IsValidSnapshot(snapshot) && FindMember(snapshot.Members, profileId) >= 0;
     }
 
+    /// <summary>
+    /// Returns whether a member may still change their Town build (attributes, abilities, Equipment and
+    /// Stash selection). Ready locks the exact prepared configuration until the member returns to
+    /// NotReady; a frozen launch, an unknown member or an invalid observation stays locked. Quick Slot
+    /// bindings are not part of the build and are not governed by this rule.
+    /// </summary>
+    public static bool CanMutateTownBuild(in TownRaidPreparationSnapshot snapshot, ProfileId profileId)
+    {
+        if (snapshot.State != TownRaidPreparationState.Waiting || !IsValidSnapshot(snapshot))
+        {
+            return false;
+        }
+
+        int memberIndex = FindMember(snapshot.Members, profileId);
+        return memberIndex >= 0 && !snapshot.Members[memberIndex].IsReady;
+    }
+
     /// <summary>Derives readiness from every member; no redundant aggregate state is stored.</summary>
     public static bool AreAllMembersReady(IReadOnlyList<TownRaidPreparationMember> members)
     {

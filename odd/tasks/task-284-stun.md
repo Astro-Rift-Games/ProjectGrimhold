@@ -20,12 +20,12 @@ Branch: `New-Testing` (no commits: repository AGENTS.md requires explicit author
 
 ## Tasks
 
-- [x] T1 — S2, S3, S4, S6, S10: `PlayerStunNetworkEffect` (networked expiry, SA forward-only apply, protection check, Downed clears, interrupt abilities with `Stun`), Purification purge + Stunned-caster rejection; tests. Route: inline. Commit: — (not authorized).
-- [x] T2 — S2, S8: player gates (voluntary movement, weapon attacks, consumables, interaction, ability start) through a shared predicate; tests. Route: inline. Commit: —
-- [x] T3 — S1, S7: creature Stun (movement + attacks blocked, Specter channel interrupted without detonation); tests. Route: inline. Commit: —
-- [x] T4 — S1, S5: Charge `ApplyImpact` applies configurable Stun (default 1 s) after damage to the valid enemy; tests. Route: inline. Commit: —
-- [x] T5 — S9, S11: observable stun flag/event + provisional tint presentation. Route: inline. Commit: —
-- [x] T6 — prefab composition, Architecture docs (AbilitySystem, PlayerMovement), Unity compile + focused EditMode/PlayMode, diff review, close. Route: inline. Commit: —
+- [x] T1 — S2, S3, S4, S6, S10: `PlayerStunNetworkEffect` (networked expiry, SA forward-only apply, protection check, Downed clears, interrupt abilities with `Stun`), Purification purge + Stunned-caster rejection; tests. Route: inline. Commit: 7c36b1a5.
+- [x] T2 — S2, S8: player gates (voluntary movement, weapon attacks, consumables, interaction, ability start) through a shared predicate; tests. Route: inline. Commit: 7c36b1a5.
+- [x] T3 — S1, S7: creature Stun (movement + attacks blocked, Specter channel interrupted without detonation); tests. Route: inline. Commit: 7c36b1a5.
+- [x] T4 — S1, S5: Charge `ApplyImpact` applies configurable Stun (default 1 s) after damage to the valid enemy; tests. Route: inline. Commit: 7c36b1a5.
+- [x] T5 — S9, S11: observable stun flag/event + provisional tint presentation. Route: inline. Commit: 7c36b1a5.
+- [x] T6 — prefab composition, Architecture docs (AbilitySystem, PlayerMovement), Unity compile + focused EditMode/PlayMode, diff review, close. Route: inline. Commit: 7c36b1a5.
 
 ## Log
 

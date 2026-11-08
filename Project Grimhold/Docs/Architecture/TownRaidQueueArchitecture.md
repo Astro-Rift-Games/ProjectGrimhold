@@ -60,6 +60,14 @@ Each preparation member controls only its own Ready flag. Only the Raid Host may
 when every current member is Ready. Start freezes the full preparation snapshot and the current ACK,
 release and deadline workflow operates exclusively on that frozen roster. `RaidLaunchContext`
 contains the code, Raid Host and up to 16 frozen profiles.
+
+Ready locks the member's Town build (Game Design 02 §7.2). `TownRaidPreparationRules.CanMutateTownBuild`
+is the single rule: a Waiting member who is not Ready may change attributes, abilities, Equipment and
+Stash selection; Ready, a frozen launch, a non-member or an invalid observation is locked.
+`TownEquipmentMutationGate` applies it to every Town screen (Attributes, Abilities, Inventory Equipment
+and Stash transfers/splits/gem installs); Stash Sort and Quick Slot bindings stay available. Town
+inventory is written through `LocalProfileStore` and the backend HTTP clients, not Fusion RPCs, so the
+lock is enforced at those client mutation endpoints; the backend does not observe Ready.
 `TownRaidPreparationSnapshot.FriendlyFireEnabled` is also frozen into immutable `RaidLaunchContext.FriendlyFireEnabled` (Host default: `false`). `SessionConnectionCoordinator` remains
 the only owner of Town/Raid runner replacement and local loadout reservation.
 

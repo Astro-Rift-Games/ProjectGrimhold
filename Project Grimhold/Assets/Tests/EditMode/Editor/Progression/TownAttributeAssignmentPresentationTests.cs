@@ -55,6 +55,7 @@ namespace Tests.EditMode.Progression
             {
                 Assert.That(TownAttributeAssignmentPresentation.TryCreate(
                     state, 25, out var presentation, canMutate), Is.True);
+                Assert.That(presentation.IsBuildLocked, Is.EqualTo(!canMutate));
                 foreach (CharacterAttribute attribute in System.Enum.GetValues(typeof(CharacterAttribute)))
                 {
                     Assert.That(presentation.TryGet(attribute, out _, out bool canAssign), Is.True);

@@ -24,6 +24,21 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
 
     public override void Spawned() => TryBind();
 
+    private bool _presentedCanMutate;
+
+    /// <summary>
+    /// Ready can change while the panel is open (a Host cancel resets it), so an open panel follows the
+    /// gate instead of waiting for the next open or profile commit.
+    /// </summary>
+    public override void Render()
+    {
+        if (_binding == null || _view == null || !_view.IsOpen) return;
+        bool canMutate = CanMutate();
+        if (canMutate == _presentedCanMutate) return;
+        _presentedCanMutate = canMutate;
+        _binding.Refresh();
+    }
+
     private bool CanMutate() =>
         TownEquipmentMutationGate.CanMutate(_preparationDirectory, _localProfileId);
 
@@ -196,6 +211,7 @@ public sealed class TownAttributeAssignmentPresenter : NetworkBehaviour
     private void OpenView()
     {
         // The Ready state can change without a profile commit, so showing the panel always refreshes.
+        _presentedCanMutate = CanMutate();
         _binding?.Refresh();
         _view.Open();
     }

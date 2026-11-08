@@ -71,7 +71,9 @@ public sealed class TownAttributeAssignmentView : MonoBehaviour
 
     public void Present(in TownAttributeAssignmentPresentation presentation)
     {
-        _availablePointsText.text = $"Available Points: {presentation.AvailablePoints}";
+        _availablePointsText.text = presentation.IsBuildLocked
+            ? $"Available Points: {presentation.AvailablePoints} — Locked while Ready"
+            : $"Available Points: {presentation.AvailablePoints}";
         foreach (TownAttributeAssignmentRowView row in _rows)
         {
             if (row != null && presentation.TryGet(row.Attribute, out int value, out bool canAssign))
