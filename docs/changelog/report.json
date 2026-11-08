@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 969,
-  "canonicalEntries": 966,
+  "rawCommits": 970,
+  "canonicalEntries": 967,
   "before": {
+    "Other Changes": 355,
     "Documentation": 83,
     "Bug Fixes": 100,
     "Features": 376,
     "Architecture & Infrastructure": 16,
-    "Other Changes": 354,
     "Tests": 26,
     "Refactoring": 14
   },
   "after": {
-    "Documentation": 98,
+    "Documentation": 99,
     "Bug Fixes": 116,
     "Features": 513,
     "Maintenance": 15,
@@ -23,13 +23,13 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Abilities": 123,
+    "Build & Tooling": 496,
+    "Tests": 599,
     "Combat": 359,
     "Networking & Sessions": 279,
     "Persistence & Backend": 213,
-    "Tests": 598,
     "Inventory & Loot": 388,
-    "Build & Tooling": 495,
-    "Abilities": 122,
     "UI": 300,
     "Documentation": 379,
     "World & Visibility": 130,
@@ -42,7 +42,7 @@
   },
   "canonical": {
     "sections": {
-      "Documentation": 98,
+      "Documentation": 99,
       "Bug Fixes": 115,
       "Features": 512,
       "Maintenance": 15,
@@ -52,13 +52,13 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
+      "Abilities": 121,
+      "Build & Tooling": 494,
+      "Tests": 597,
       "Combat": 357,
       "Networking & Sessions": 279,
       "Persistence & Backend": 213,
-      "Tests": 596,
       "Inventory & Loot": 388,
-      "Build & Tooling": 493,
-      "Abilities": 120,
       "UI": 299,
       "Documentation": 377,
       "World & Visibility": 128,
@@ -31501,6 +31501,65 @@
   ],
   "examples": [
     {
+      "sha": "9509f3b4842b9f6d1b936665435ae49f75904a3b",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9509f3b4842b9f6d1b936665435ae49f75904a3b",
+      "subject": "Enforce strict TDD in project workflows",
+      "body": "Update repository, task-execution, and Unity guidance to require Red-Green-Refactor TDD, discourage superficial tests and architectural shortcuts, and require observing failing tests before implementation.\n",
+      "date": "2026-11-08T20:22:49-03:00",
+      "files": [
+        ".agents/skills/grimhold-task-execution/SKILL.md",
+        "AGENTS.md",
+        "Project Grimhold/AGENTS.md"
+      ],
+      "originalType": null,
+      "originalScope": null,
+      "originalSection": "Other Changes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "inferred",
+      "systems": [
+        "Abilities",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "artifact-paths",
+          "value": ".agents/skills/grimhold-task-execution/SKILL.md, AGENTS.md, Project Grimhold/AGENTS.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/grimhold-task-execution/SKILL.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/grimhold-task-execution/SKILL.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "AGENTS.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/AGENTS.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
       "sha": "6305da4770409c95174a833f790004c0b65bc11c",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6305da4770409c95174a833f790004c0b65bc11c",
       "subject": "Update tests for current persistence contracts",
@@ -34016,178 +34075,6 @@
       "diagnostics": [],
       "generic": false,
       "secondary": false
-    },
-    {
-      "sha": "07cadabeb143738f810d41f4308a6165d609b4ba",
-      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/07cadabeb143738f810d41f4308a6165d609b4ba",
-      "subject": "Add chest opening presentation before loot UI",
-      "body": "Implements a chest-only opening presentation flow by adding `ChestOpeningPresenter` and `ChestOpeningPresentationState`, wiring it into the LootContainer prefab, and introducing an `OpeningContainer` mode in `RaidInventoryPresenter`. The inventory screen now waits for confirmed chest opening playback when available, while safely falling back to immediate UI display when presentation is missing/disabled. Includes extensive EditMode/PlayMode coverage for ordering, cancellation, and non-replay behavior, plus architecture docs updates for the new UI/presentation contract.\n",
-      "date": "2026-10-02T02:53:22-03:00",
-      "files": [
-        "Project Grimhold/Assets/Prefabs/LootContainer.prefab",
-        "Project Grimhold/Assets/Scripts/Gameplay/Presentation/ChestOpeningPresentationState.cs",
-        "Project Grimhold/Assets/Scripts/Gameplay/Presentation/ChestOpeningPresentationState.cs.meta",
-        "Project Grimhold/Assets/Scripts/Gameplay/Presentation/ChestOpeningPresenter.cs",
-        "Project Grimhold/Assets/Scripts/Gameplay/Presentation/ChestOpeningPresenter.cs.meta",
-        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
-        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresentationStateTests.cs",
-        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresentationStateTests.cs.meta",
-        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresenterTests.cs",
-        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresenterTests.cs.meta",
-        "Project Grimhold/Assets/Tests/PlayMode/DefeatedPlayerLootIntegrationPlayModeTests.cs",
-        "Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs",
-        "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs",
-        "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md"
-      ],
-      "originalType": null,
-      "originalScope": null,
-      "originalSection": "Other Changes",
-      "breaking": false,
-      "reverts": null,
-      "section": "Features",
-      "confidence": "inferred",
-      "systems": [
-        "Inventory & Loot",
-        "UI",
-        "Build & Tooling",
-        "Documentation",
-        "Tests"
-      ],
-      "evidence": [
-        {
-          "source": "subject-action",
-          "value": "Add chest opening presentation before loot UI",
-          "supports": "Features"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Prefabs/LootContainer.prefab",
-          "supports": "Inventory & Loot"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
-          "supports": "Inventory & Loot"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresentationStateTests.cs",
-          "supports": "Inventory & Loot"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresentationStateTests.cs.meta",
-          "supports": "Inventory & Loot"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresenterTests.cs",
-          "supports": "Inventory & Loot"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresenterTests.cs.meta",
-          "supports": "Inventory & Loot"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/PlayMode/DefeatedPlayerLootIntegrationPlayModeTests.cs",
-          "supports": "Inventory & Loot"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs",
-          "supports": "Inventory & Loot"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs",
-          "supports": "Inventory & Loot"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
-          "supports": "Inventory & Loot"
-        },
-        {
-          "source": "message-term",
-          "value": "loot",
-          "supports": "Inventory & Loot"
-        },
-        {
-          "source": "message-term",
-          "value": "UI",
-          "supports": "UI"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresentationStateTests.cs",
-          "supports": "Build & Tooling"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresentationStateTests.cs.meta",
-          "supports": "Build & Tooling"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresenterTests.cs",
-          "supports": "Build & Tooling"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresenterTests.cs.meta",
-          "supports": "Build & Tooling"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
-          "supports": "Documentation"
-        },
-        {
-          "source": "message-term",
-          "value": "architecture docs",
-          "supports": "Documentation"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresentationStateTests.cs",
-          "supports": "Tests"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresentationStateTests.cs.meta",
-          "supports": "Tests"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresenterTests.cs",
-          "supports": "Tests"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresenterTests.cs.meta",
-          "supports": "Tests"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/PlayMode/DefeatedPlayerLootIntegrationPlayModeTests.cs",
-          "supports": "Tests"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs",
-          "supports": "Tests"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs",
-          "supports": "Tests"
-        }
-      ],
-      "diagnostics": [],
-      "generic": false,
-      "secondary": false
     }
   ],
   "periods": [
@@ -34196,8 +34083,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 92,
-      "canonicalEntries": 92
+      "originalCommits": 93,
+      "canonicalEntries": 93
     },
     {
       "key": "v0.5.0",
@@ -34241,6 +34128,65 @@
     }
   ],
   "commits": [
+    {
+      "sha": "9509f3b4842b9f6d1b936665435ae49f75904a3b",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9509f3b4842b9f6d1b936665435ae49f75904a3b",
+      "subject": "Enforce strict TDD in project workflows",
+      "body": "Update repository, task-execution, and Unity guidance to require Red-Green-Refactor TDD, discourage superficial tests and architectural shortcuts, and require observing failing tests before implementation.\n",
+      "date": "2026-11-08T20:22:49-03:00",
+      "files": [
+        ".agents/skills/grimhold-task-execution/SKILL.md",
+        "AGENTS.md",
+        "Project Grimhold/AGENTS.md"
+      ],
+      "originalType": null,
+      "originalScope": null,
+      "originalSection": "Other Changes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "inferred",
+      "systems": [
+        "Abilities",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "artifact-paths",
+          "value": ".agents/skills/grimhold-task-execution/SKILL.md, AGENTS.md, Project Grimhold/AGENTS.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/grimhold-task-execution/SKILL.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": ".agents/skills/grimhold-task-execution/SKILL.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "AGENTS.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/AGENTS.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
     {
       "sha": "cdd69eb020f4b1b76d8ddffef3946559ea3fd172",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/cdd69eb020f4b1b76d8ddffef3946559ea3fd172",

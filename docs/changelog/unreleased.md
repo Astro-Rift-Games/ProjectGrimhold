@@ -4,18 +4,18 @@
 
 Release: Unreleased
 
-92 original commits; 92 canonical entries.
+93 original commits; 93 canonical entries.
 
 ## Canonical classification
 
-53 features; 22 bug fixes; 1 refactoring; 8 documentation; 2 tests; 4 maintenance; 2 other changes
+53 features; 22 bug fixes; 1 refactoring; 9 documentation; 2 tests; 4 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Abilities | 7 | 6 | 1 | 0 | 3 | 1 |
+| Abilities | 7 | 6 | 1 | 0 | 4 | 1 |
 | Art & Animation | 7 | 7 | 1 | 0 | 4 | 0 |
 | Audio | 3 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 32 | 14 | 1 | 0 | 5 | 2 |
+| Build & Tooling | 32 | 14 | 1 | 0 | 6 | 2 |
 | Combat | 32 | 5 | 0 | 0 | 6 | 0 |
 | Documentation | 24 | 8 | 0 | 0 | 4 | 0 |
 | Extraction | 7 | 2 | 0 | 0 | 2 | 0 |
@@ -24,12 +24,53 @@ Release: Unreleased
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 15 | 6 | 0 | 0 | 2 | 0 |
 | Persistence & Backend | 19 | 6 | 0 | 0 | 3 | 0 |
-| Tests | 51 | 19 | 1 | 0 | 6 | 0 |
+| Tests | 51 | 19 | 1 | 0 | 7 | 0 |
 | UI | 21 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
 | World & Visibility | 16 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 9509f3b4842b9f6d1b936665435ae49f75904a3b
+
+[9509f3b4842b9f6d1b936665435ae49f75904a3b](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9509f3b4842b9f6d1b936665435ae49f75904a3b)
+
+Date: 2026-11-08T20:22:49-03:00 · Classification: Documentation (inferred) · Systems: Abilities, Build & Tooling, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+Enforce strict TDD in project workflows
+```
+
+#### Original body
+
+```text
+Update repository, task-execution, and Unity guidance to require Red-Green-Refactor TDD, discourage superficial tests and architectural shortcuts, and require observing failing tests before implementation.
+```
+
+#### Changed paths
+
+```text
+.agents/skills/grimhold-task-execution/SKILL.md
+AGENTS.md
+Project Grimhold/AGENTS.md
+```
+
+#### Classification evidence
+
+- artifact-paths → Documentation: .agents/skills/grimhold-task-execution/SKILL.md, AGENTS.md, Project Grimhold/AGENTS.md
+- path → Abilities: .agents/skills/grimhold-task-execution/SKILL.md
+- path → Build &amp; Tooling: .agents/skills/grimhold-task-execution/SKILL.md
+- path → Build &amp; Tooling: AGENTS.md
+- path → Build &amp; Tooling: Project Grimhold/AGENTS.md
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### cdd69eb020f4b1b76d8ddffef3946559ea3fd172
 
