@@ -44,6 +44,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     private bool _isReserved;
     private bool _isInactiveSet;
+    private bool _isTransferRestricted;
     private const float ReservedIconAlpha = 0.35f;
     private const float InactiveSetAlpha = 0.45f;
 
@@ -80,6 +81,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     public LootId LootId => _lootId;
     public bool IsOccupied => _isOccupied;
+    public bool IsTransferRestricted => _isTransferRestricted;
     public int SourceInventorySlotIndex => _slotData.SourceInventorySlotIndex;
 
     private void Awake()
@@ -94,6 +96,7 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
 
     public void Present(in RaidInventorySlotData data)
     {
+        SetTransferRestricted(false);
         if (!data.IsOccupied)
         {
             Clear();
@@ -239,8 +242,22 @@ public sealed class RaidInventorySlotView : MonoBehaviour, IPointerClickHandler,
         _ => "Equipment"
     };
 
+    /// <summary>
+    /// Dims an occupied cell whose item cannot be deposited into containers (Doc 07 §15).
+    /// Visual only: gestures toward Equipment or Quick Slots remain available.
+    /// </summary>
+    public void SetTransferRestricted(bool restricted)
+    {
+        restricted &= _isOccupied;
+        if (_isTransferRestricted == restricted) return;
+        _isTransferRestricted = restricted;
+        if (_icon != null)
+            _icon.color = new Color(_icon.color.r, _icon.color.g, _icon.color.b, restricted ? ReservedIconAlpha : 1f);
+    }
+
     public void Clear()
     {
+        SetTransferRestricted(false);
         _isReserved = false;
         _isInactiveSet = false;
         _isDragging = false;

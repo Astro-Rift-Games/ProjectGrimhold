@@ -161,6 +161,32 @@ namespace Tests.PlayMode.Loot
             });
         }
 
+        [UnityTest]
+        public IEnumerator NonTransferableDeposit_IsRejectedWithoutChangingContentOrProvenance()
+        {
+            NetworkLootContainer container = Spawn(locked: false);
+            var nonTransferable = new LootId("training_dagger");
+            Assert.That(container.LootCatalog.TryGet(nonTransferable.Value, out LootDefinition definition), Is.True);
+            Assert.That(definition.CanBeTransferred, Is.False, "Fixture requires the authored non-transferable training weapon.");
+            Assert.That(container.TryGetLootContent(out IReadOnlyList<LootEntry> before), Is.True);
+            var origins = container.GetComponent<ContainerRaidLootOriginState>();
+            Assert.That(origins.TryGetEntries(container.LootCatalog, out IReadOnlyList<RaidLootOriginEntry> beforeOrigins), Is.True);
+            int sequence = container.LootChangeSequence;
+
+            var deposit = new LootTransferRequest(new EntityId(int.MaxValue), container.Id, nonTransferable, 1, _runner.Tick);
+            Assert.That(container.ValidateReceive(deposit), Is.EqualTo(LootTransferFailureReason.NotTransferable));
+            var transferable = new LootTransferRequest(new EntityId(int.MaxValue), container.Id, before[0].LootId, 1, _runner.Tick);
+            Assert.That(container.ValidateReceive(transferable), Is.EqualTo(LootTransferFailureReason.None),
+                "Transferable deposits into the same container remain valid.");
+
+            Assert.That(container.TryGetLootContent(out IReadOnlyList<LootEntry> after), Is.True);
+            Assert.That(after, Is.EqualTo(before));
+            Assert.That(origins.TryGetEntries(container.LootCatalog, out IReadOnlyList<RaidLootOriginEntry> afterOrigins), Is.True);
+            Assert.That(afterOrigins, Is.EqualTo(beforeOrigins));
+            Assert.That(container.LootChangeSequence, Is.EqualTo(sequence));
+            yield break;
+        }
+
         private NetworkLootContainer Spawn(bool locked, bool random = false)
         {
             NetworkObject spawned = _runner.Spawn(_prefab, Vector3.zero, Quaternion.identity,
