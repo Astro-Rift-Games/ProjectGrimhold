@@ -324,12 +324,27 @@ namespace Tests.EditMode.Combat
         }
 
         [Test]
-        public void CatalogValidation_AcceptsExactlySixOneHandedWeapons()
+        public void CatalogValidation_AcceptsNineOneHandedWeaponsIncludingTrainingFamilies()
         {
             var weapons = AssetDatabase.FindAssets("t:WeaponDefinition")
                 .Select(g => AssetDatabase.LoadAssetAtPath<WeaponDefinition>(AssetDatabase.GUIDToAssetPath(g)))
                 .Where(w => w.Handedness == WeaponHandedness.OneHanded && w.Presentation.HasGenericAttack).ToArray();
-            Assert.That(weapons, Has.Length.EqualTo(6));
+            Assert.That(weapons, Has.Length.EqualTo(9));
+            foreach (var family in new[]
+            {
+                new[] { "TrainingShortSword", "ArmingSword" },
+                new[] { "TrainingDagger", "RondelDagger" },
+                new[] { "TrainingWand", "MagicWand" }
+            })
+            {
+                var training = AssetDatabase.LoadAssetAtPath<LootDefinition>(
+                    $"Assets/Scriptable Objects/Loot/Definitions/{family[0]}.asset").WeaponDefinition;
+                var normal = AssetDatabase.LoadAssetAtPath<LootDefinition>(
+                    $"Assets/Scriptable Objects/Loot/Definitions/{family[1]}.asset").WeaponDefinition;
+                Assert.That(weapons, Does.Contain(training));
+                Assert.That(training.Presentation.OffHandAttackAnimationSet,
+                    Is.SameAs(normal.Presentation.OffHandAttackAnimationSet), family[0]);
+            }
             Assert.That(OffHandAnimationGenerator.TryValidateCatalog(weapons, out string error), Is.True, error);
             Assert.That(OffHandAnimationGenerator.TryValidateCatalog(out error), Is.True, error);
         }

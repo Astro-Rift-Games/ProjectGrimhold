@@ -13,7 +13,7 @@ namespace Tests.EditMode.Progression
         private const string PlayerPrefabPath = "Assets/Prefabs/NetworkPlayer.prefab";
 
         [Test]
-        public void ProductiveCatalog_CoversEveryLootIdWithExplicitPlaceholderValue()
+        public void ProductiveCatalog_CoversLootWithPlaceholderValueAndExcludesTrainingWeapons()
         {
             RaidLootValueCatalog values = AssetDatabase.LoadAssetAtPath<RaidLootValueCatalog>(ValueCatalogPath);
             LootDefinitionCatalog loot = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(LootCatalogPath);
@@ -26,9 +26,42 @@ namespace Tests.EditMode.Progression
             for (int index = 0; index < loot.DefinitionCount; index++)
             {
                 Assert.That(loot.TryGetByIndex(index, out LootDefinition definition), Is.True);
-                Assert.That(values.TryGetValuePerUnit(definition.LootId, out long value), Is.True);
+                bool covered = values.TryGetValuePerUnit(definition.LootId, out long value);
+                if (definition.IsTrainingWeapon)
+                {
+                    Assert.That(definition.CanBeFoundInDungeon, Is.False, definition.Id);
+                    Assert.That(covered, Is.False, definition.Id);
+                    Assert.That(value, Is.Zero, definition.Id);
+                    continue;
+                }
+                Assert.That(covered, Is.True, definition.Id);
                 Assert.That(value, Is.EqualTo(100), definition.Id);
             }
+        }
+
+        [TestCase("training_short_sword")]
+        [TestCase("training_dagger")]
+        [TestCase("training_wand")]
+        public void TrainingWeapon_CannotAcquireProgressionValueThroughAnExplicitEntry(string id)
+        {
+            var loot = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(LootCatalogPath);
+            Assert.That(loot.TryGet(id, out var training), Is.True);
+            var values = Object.Instantiate(AssetDatabase.LoadAssetAtPath<RaidLootValueCatalog>(ValueCatalogPath));
+            try
+            {
+                using var serialized = new SerializedObject(values);
+                var entries = serialized.FindProperty("_entries");
+                int index = entries.arraySize++;
+                var entry = entries.GetArrayElementAtIndex(index);
+                entry.FindPropertyRelative("_lootDefinition").objectReferenceValue = training;
+                entry.FindPropertyRelative("_valuePerUnit").longValue = 100;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                Assert.That(values.TryValidate(loot, out string error), Is.False);
+                Assert.That(error, Is.EqualTo($"Raid loot Value must not include training weapon '{id}'."));
+                Assert.That(values.TryGetValuePerUnit(training.LootId, out long value), Is.False);
+                Assert.That(value, Is.Zero);
+            }
+            finally { Object.DestroyImmediate(values); }
         }
 
         [Test]
