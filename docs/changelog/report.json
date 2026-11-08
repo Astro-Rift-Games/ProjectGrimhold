@@ -1,36 +1,36 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 968,
-  "canonicalEntries": 965,
+  "rawCommits": 969,
+  "canonicalEntries": 966,
   "before": {
+    "Documentation": 83,
     "Bug Fixes": 100,
     "Features": 376,
     "Architecture & Infrastructure": 16,
     "Other Changes": 354,
-    "Documentation": 82,
     "Tests": 26,
     "Refactoring": 14
   },
   "after": {
+    "Documentation": 98,
     "Bug Fixes": 116,
     "Features": 513,
     "Maintenance": 15,
     "Other Changes": 164,
-    "Documentation": 97,
     "Tests": 31,
     "Refactoring": 27,
     "Architecture & Infrastructure": 5
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Combat": 358,
+    "Combat": 359,
+    "Networking & Sessions": 279,
+    "Persistence & Backend": 213,
+    "Tests": 598,
     "Inventory & Loot": 388,
     "Build & Tooling": 495,
-    "Tests": 597,
     "Abilities": 122,
-    "Networking & Sessions": 278,
     "UI": 300,
-    "Persistence & Backend": 212,
     "Documentation": 379,
     "World & Visibility": 130,
     "Art & Animation": 229,
@@ -42,24 +42,24 @@
   },
   "canonical": {
     "sections": {
+      "Documentation": 98,
       "Bug Fixes": 115,
       "Features": 512,
       "Maintenance": 15,
       "Other Changes": 163,
-      "Documentation": 97,
       "Tests": 31,
       "Refactoring": 27,
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "Combat": 356,
+      "Combat": 357,
+      "Networking & Sessions": 279,
+      "Persistence & Backend": 213,
+      "Tests": 596,
       "Inventory & Loot": 388,
       "Build & Tooling": 493,
-      "Tests": 595,
       "Abilities": 120,
-      "Networking & Sessions": 278,
       "UI": 299,
-      "Persistence & Backend": 212,
       "Documentation": 377,
       "World & Visibility": 128,
       "Art & Animation": 226,
@@ -34196,8 +34196,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 91,
-      "canonicalEntries": 91
+      "originalCommits": 92,
+      "canonicalEntries": 92
     },
     {
       "key": "v0.5.0",
@@ -34241,6 +34241,60 @@
     }
   ],
   "commits": [
+    {
+      "sha": "cdd69eb020f4b1b76d8ddffef3946559ea3fd172",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/cdd69eb020f4b1b76d8ddffef3946559ea3fd172",
+      "subject": "docs(odd): record TASK-278 validation and delivery evidence",
+      "body": "Close the execution record with the backend, Unity and TASK-277 commit\nidentities, regression results, known full-suite failures and excluded\nworking-tree changes.\n\nRecord that the final independent source review passed with issues but\nits isolated focused test was unrun after setup timed out. Preserve the\nuser's explicit delivery disposition without treating it as verification.\n\nDocument exact temporary-directory cleanup and preservation of unrelated\nworking bytes and index entries. No push was authorized or performed.\n\nRefs: TASK-278, TASK-277\n",
+      "date": "2026-11-08T11:42:31-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scenes/Lobby-Town.unity",
+        "odd/tasks/task-278-training-weapons.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "odd",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Networking & Sessions",
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/task-278-training-weapons.md",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scenes/Lobby-Town.unity",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
     {
       "sha": "5fc0ebf17d638caba9aef9c3bbc5d01d8ef34d14",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5fc0ebf17d638caba9aef9c3bbc5d01d8ef34d14",

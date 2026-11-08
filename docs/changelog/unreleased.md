@@ -4,11 +4,11 @@
 
 Release: Unreleased
 
-91 original commits; 91 canonical entries.
+92 original commits; 92 canonical entries.
 
 ## Canonical classification
 
-53 features; 22 bug fixes; 1 refactoring; 7 documentation; 2 tests; 4 maintenance; 2 other changes
+53 features; 22 bug fixes; 1 refactoring; 8 documentation; 2 tests; 4 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -16,20 +16,70 @@ Release: Unreleased
 | Art & Animation | 7 | 7 | 1 | 0 | 4 | 0 |
 | Audio | 3 | 0 | 0 | 0 | 0 | 0 |
 | Build & Tooling | 32 | 14 | 1 | 0 | 5 | 2 |
-| Combat | 32 | 5 | 0 | 0 | 5 | 0 |
+| Combat | 32 | 5 | 0 | 0 | 6 | 0 |
 | Documentation | 24 | 8 | 0 | 0 | 4 | 0 |
 | Extraction | 7 | 2 | 0 | 0 | 2 | 0 |
 | Input | 0 | 0 | 0 | 0 | 1 | 0 |
 | Inventory & Loot | 45 | 19 | 1 | 0 | 6 | 1 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 15 | 6 | 0 | 0 | 1 | 0 |
-| Persistence & Backend | 19 | 6 | 0 | 0 | 2 | 0 |
-| Tests | 51 | 19 | 1 | 0 | 5 | 0 |
+| Networking & Sessions | 15 | 6 | 0 | 0 | 2 | 0 |
+| Persistence & Backend | 19 | 6 | 0 | 0 | 3 | 0 |
+| Tests | 51 | 19 | 1 | 0 | 6 | 0 |
 | UI | 21 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
 | World & Visibility | 16 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### cdd69eb020f4b1b76d8ddffef3946559ea3fd172
+
+[cdd69eb020f4b1b76d8ddffef3946559ea3fd172](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/cdd69eb020f4b1b76d8ddffef3946559ea3fd172)
+
+Date: 2026-11-08T11:42:31-03:00 · Classification: Documentation (explicit) · Systems: Combat, Networking & Sessions, Persistence & Backend, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(odd): record TASK-278 validation and delivery evidence
+```
+
+#### Original body
+
+```text
+Close the execution record with the backend, Unity and TASK-277 commit
+identities, regression results, known full-suite failures and excluded
+working-tree changes.
+
+Record that the final independent source review passed with issues but
+its isolated focused test was unrun after setup timed out. Preserve the
+user's explicit delivery disposition without treating it as verification.
+
+Document exact temporary-directory cleanup and preservation of unrelated
+working bytes and index entries. No push was authorized or performed.
+
+Refs: TASK-278, TASK-277
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scenes/Lobby-Town.unity
+odd/tasks/task-278-training-weapons.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+- path → Combat: odd/tasks/task-278-training-weapons.md
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scenes/Lobby-Town.unity
+- message-term → Persistence &amp; Backend: backend
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 5fc0ebf17d638caba9aef9c3bbc5d01d8ef34d14
 
