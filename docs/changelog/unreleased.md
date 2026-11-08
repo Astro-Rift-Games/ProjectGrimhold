@@ -4,32 +4,122 @@
 
 Release: Unreleased
 
-83 original commits; 83 canonical entries.
+84 original commits; 84 canonical entries.
 
 ## Canonical classification
 
-46 features; 21 bug fixes; 1 refactoring; 7 documentation; 2 tests; 4 maintenance; 2 other changes
+47 features; 21 bug fixes; 1 refactoring; 7 documentation; 2 tests; 4 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 6 | 6 | 1 | 0 | 3 | 1 |
 | Art & Animation | 6 | 7 | 1 | 0 | 4 | 0 |
 | Audio | 3 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 26 | 13 | 1 | 0 | 5 | 2 |
+| Build & Tooling | 27 | 13 | 1 | 0 | 5 | 2 |
 | Combat | 28 | 4 | 0 | 0 | 5 | 0 |
-| Documentation | 19 | 8 | 0 | 0 | 4 | 0 |
+| Documentation | 20 | 8 | 0 | 0 | 4 | 0 |
 | Extraction | 7 | 2 | 0 | 0 | 2 | 0 |
 | Input | 0 | 0 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 39 | 18 | 1 | 0 | 6 | 1 |
+| Inventory & Loot | 40 | 18 | 1 | 0 | 6 | 1 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 11 | 6 | 0 | 0 | 1 | 0 |
-| Persistence & Backend | 16 | 6 | 0 | 0 | 2 | 0 |
-| Tests | 44 | 18 | 1 | 0 | 5 | 0 |
-| UI | 18 | 5 | 1 | 0 | 4 | 0 |
+| Networking & Sessions | 12 | 6 | 0 | 0 | 1 | 0 |
+| Persistence & Backend | 17 | 6 | 0 | 0 | 2 | 0 |
+| Tests | 45 | 18 | 1 | 0 | 5 | 0 |
+| UI | 19 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
 | World & Visibility | 13 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### bde28bdcc1ef55562950e5f7c7562740f17b7d5e
+
+[bde28bdcc1ef55562950e5f7c7562740f17b7d5e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/bde28bdcc1ef55562950e5f7c7562740f17b7d5e)
+
+Date: 2026-11-07T23:08:42-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, Networking & Sessions, UI, Persistence & Backend, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(town): lock build, equipment and stash while Ready
+```
+
+#### Original body
+
+```text
+Ready now locks the exact prepared Town build (Game Design 02 §7.2)
+until the player returns to NotReady. Quick Slot bindings and Stash
+Sort stay available.
+
+- TownRaidPreparationRules.CanMutateTownBuild is the single rule: only
+  a Waiting member who is not Ready may change the build; a frozen
+  launch, a non-member or an invalid snapshot stays locked.
+  TownEquipmentMutationGate delegates to it for every Town screen.
+- LobbyStashPresenter refuses transfers, drags, splits, gem installs
+  and Equipment changes while locked, closes Take All/Leave All, shows
+  a persistent locked line and reopens as soon as Ready is cleared.
+- The attribute panel marks "Locked while Ready" and follows the gate
+  while open (e.g. a Host cancel resetting Ready).
+
+Town inventory is written through LocalProfileStore and the backend
+HTTP clients, not Fusion RPCs, so the lock lives at the client
+mutation endpoints; backend enforcement is a follow-up.
+
+Tests:
+- TownRaidPreparationRulesTests: Ready lock/unlock, per-member scope,
+  non-member, invalid and frozen snapshots.
+- TownAttributeAssignmentPresentationTests: IsBuildLocked.
+- LobbyStashPresenterPlayModeTests: Ready blocks every transfer, shows
+  the locked line, keeps Sort, NotReady restores transfers.
+
+Docs: TownRaidQueueArchitecture.md documents the Ready build lock.
+
+Refs: TASK-266
+Player-Improved: While you are Ready in Town your build, equipment and Stash are locked with a clear notice, and your Quick Slots can still be rearranged.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationRules.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownAttributeAssignmentPresentation.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownAttributeAssignmentPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownAttributeAssignmentView.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownEquipmentMutationGate.cs
+Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs
+Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidPreparationRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Progression/TownAttributeAssignmentPresentationTests.cs
+Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs
+Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md
+odd/tasks/task-284-stun.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/TownEquipmentMutationGate.cs
+- message-term → Inventory &amp; Loot: equipment
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationRules.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidPreparationRulesTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md
+- path → UI: Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs
+- message-term → Persistence &amp; Backend: backend
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidPreparationRulesTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/TownAttributeAssignmentPresentationTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidPreparationRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/TownAttributeAssignmentPresentationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### d074a912f9b0012a63ae2f255f4da93177155bff
 
