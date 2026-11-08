@@ -6,7 +6,7 @@ using Grimhold.Backend;
 /// Handles backend synchronization for the stash/loadout inventory system.
 /// Intended to be called by Presenters before applying local state changes.
 /// </summary>
-public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, ISlotRemoteInventoryService, IRemoteGemInstallService
+public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, ISlotRemoteInventoryService, IRemoteGemInstallService, IRecoveryWeaponReservationService
 {
     public async Task<(bool success, MoveItemResult data, BackendError error)> InstallGemAsync(InstallGemRequest request)
     {
@@ -238,6 +238,52 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, IS
         {
             _mutationLock.Release();
         }
+    }
+
+    /// <summary>
+    /// Stages a consented fallback without publishing a partial response or revision-only save.
+    /// No automatic POST retry: an ambiguous outcome is resolved through full reconciliation.
+    /// </summary>
+    public async Task<(bool success, SaveReservationResult data, BackendError error)> ReserveRecoveryWeaponAsync(string reservationId, System.Func<bool> isCurrent)
+    {
+        string token = AuthToken;
+        LocalProfileStore store = _store;
+        if (string.IsNullOrEmpty(token) || string.IsNullOrWhiteSpace(reservationId))
+            return (false, default, new BackendError { error = "UNAUTHORIZED" });
+        await _mutationLock.WaitAsync();
+        try
+        {
+            // Consent/profile can change while queued behind another inventory mutation.
+            if (!ReferenceEquals(store, _store) || token != AuthToken || isCurrent == null || !isCurrent() ||
+                store == null || store.InventorySchemaVersion != 3 || store.RequiresEquipmentHydration)
+                return (false, default, new BackendError { error = "INVENTORY_MIGRATION_REQUIRED" });
+            var result = await InventoryClient.SavePendingReservationAsync(_backendConfig, token,
+                new SaveReservationRequest { reservationId = reservationId });
+            if (!result.success && result.error.error == BackendErrorUtility.Unauthorized)
+                ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+            return result;
+        }
+        finally { _mutationLock.Release(); }
+    }
+
+    /// <summary>Guarded cleanup only; full authority must be hydrated before recovery is published.</summary>
+    public async Task<(bool success, BackendError error)> RollbackRecoveryWeaponAsync(string expectedReservationId, System.Func<bool> isCurrent)
+    {
+        string token = AuthToken;
+        LocalProfileStore store = _store;
+        if (string.IsNullOrEmpty(token) || string.IsNullOrWhiteSpace(expectedReservationId))
+            return (false, new BackendError { error = "UNAUTHORIZED" });
+        await _mutationLock.WaitAsync();
+        try
+        {
+            if (!ReferenceEquals(store, _store) || token != AuthToken || isCurrent == null || !isCurrent())
+                return (false, new BackendError { error = "RESERVATION_MISMATCH" });
+            var response = await InventoryClient.RollbackPendingReservationAsync(_backendConfig, token, expectedReservationId);
+            if (!response.success && response.error.error == BackendErrorUtility.Unauthorized)
+                ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+            return (response.success, response.error);
+        }
+        finally { _mutationLock.Release(); }
     }
 
     /// <summary>

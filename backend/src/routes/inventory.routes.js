@@ -208,7 +208,8 @@ router.post('/me/inventory/reservation/admit', inventoryProtocol, admitReservati
 router.delete('/me/inventory/reservation', inventoryProtocol, async (req, res, next) => {
   try {
     const rollback = req.query.rollback === 'true' || req.body?.rollback === true;
-    const result = await InventoryService.clearPendingReservation(req.accountId, { rollback });
+    const expectedReservationId = req.query.expectedReservationId ?? req.body?.expectedReservationId;
+    const result = await InventoryService.clearPendingReservation(req.accountId, { rollback, expectedReservationId });
     res.json(result);
   } catch (err) {
     next(err);

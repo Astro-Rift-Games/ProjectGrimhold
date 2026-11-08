@@ -71,6 +71,8 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     private readonly HashSet<ProfileId> _departedProfiles = new();
     private TownRaidPreparationDirectory _directory;
     private int _observedSnapshotRevision = -1;
+    private int _observedLocalLaunchRevision = -1;
+    private bool _localLaunchPreparationPending;
     private int _acknowledgedLocalRevision;
     private int _rejectedLocalRevision;
     private bool _cancelLaunchRequested;
@@ -106,6 +108,9 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     public override void Render()
     {
         TryRequestLocalWeaponConsent();
+        // Async local materialization is not a replicated snapshot change. Resume at most once
+        // per rendered frame while pending, before the snapshot notification short-circuit.
+        TryMaterializeLocalLaunchContext();
         if (_observedSnapshotRevision == SnapshotRevision)
         {
             return;
@@ -114,7 +119,6 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         _observedSnapshotRevision = SnapshotRevision;
         ResolveDirectory();
         _directory?.NotifyPreparationChanged(this);
-        TryMaterializeLocalLaunchContext();
     }
 
     public override void FixedUpdateNetwork()
@@ -558,21 +562,37 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
             return;
         }
 
-        RaidLaunchPreparationResult preparation = coordinator.TryStoreRaidLaunchContext(context, partyContinuation);
+        if (AdvanceLocalLaunch(snapshot, localProfile, coordinator, partyContinuation, RPC_AcknowledgeLocalLaunch) == RaidLaunchPreparationResult.Rejected)
+            RejectLocalLaunch(snapshot.LaunchRevision);
+    }
+
+    private void RPC_AcknowledgeLocalLaunch(int revision) => RPC_AcknowledgeLaunch(revision);
+
+    /// <summary>One main-thread local observation; used by Render and isolated controller integration tests.</summary>
+    public RaidLaunchPreparationResult AdvanceLocalLaunch(TownRaidPreparationSnapshot snapshot, ProfileId localProfile,
+        SessionConnectionCoordinator coordinator, TownPartyContinuationContext partyContinuation, Action<int> acknowledge)
+    {
+        if (!isActiveAndEnabled ||
+            (!_localLaunchPreparationPending && _observedLocalLaunchRevision == snapshot.SnapshotRevision))
+            return RaidLaunchPreparationResult.NotReady;
+        _localLaunchPreparationPending = false;
+        _observedLocalLaunchRevision = snapshot.SnapshotRevision;
+        if (_acknowledgedLocalRevision == snapshot.LaunchRevision || _rejectedLocalRevision == snapshot.LaunchRevision ||
+            coordinator == null || partyContinuation == null ||
+            !TownRaidPreparationRules.TryCreateLaunchContext(snapshot, localProfile, out var context))
+            return RaidLaunchPreparationResult.NotReady;
+        var preparation = coordinator.TryStoreRaidLaunchContext(context, partyContinuation);
         if (preparation == RaidLaunchPreparationResult.NotReady)
         {
-            return;
+            _localLaunchPreparationPending = true;
+            return preparation;
         }
-
         if (preparation != RaidLaunchPreparationResult.Success ||
             !coordinator.HasActiveLaunchTicket(snapshot.RaidCode.Value, snapshot.LaunchRevision, localProfile))
-        {
-            RejectLocalLaunch(snapshot.LaunchRevision);
-            return;
-        }
-
+            return RaidLaunchPreparationResult.Rejected;
         _acknowledgedLocalRevision = snapshot.LaunchRevision;
-        RPC_AcknowledgeLaunch(snapshot.LaunchRevision);
+        acknowledge(snapshot.LaunchRevision);
+        return RaidLaunchPreparationResult.Success;
     }
 
     /// <summary>
@@ -845,6 +865,8 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
     private void ResetLaunchRuntime()
     {
+        _localLaunchPreparationPending = false;
+        _observedLocalLaunchRevision = -1;
         _requestedLocalConsentRevision = 0;
         _localConsentRaidCode = default;
         _acknowledgedLocalRevision = 0;

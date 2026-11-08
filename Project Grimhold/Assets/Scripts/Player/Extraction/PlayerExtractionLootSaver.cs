@@ -758,11 +758,9 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         }
         else
         {
-            store.TrySyncProgression(
-                result.level,
-                result.experience,
-                result.characterAttributes);
-            store.ClearPendingExtractionCommit();
+            var reconciliation = context.GetComponent<ProfileReconciliationService>();
+            if (reconciliation == null || !await reconciliation.CompleteExtractionAsync(receipt, result.revision))
+                Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: Backend extraction succeeded but authoritative hydration failed. Pending extraction retained for login retry.");
         }
     }
 

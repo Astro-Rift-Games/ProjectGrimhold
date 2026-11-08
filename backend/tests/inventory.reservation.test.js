@@ -69,6 +69,88 @@ function makeItem(lootId, amount) {
 // Tests
 // ---------------------------------------------------------------------------
 
+test('expected-ID rollback HTTP contract', async t => {
+  const request = require('supertest');
+  const jwt = require('jsonwebtoken');
+  const app = require('../src/app');
+  const env = require('../src/config/env');
+  const Revoked = require('../src/models/RevokedToken');
+  const originals = [Character.findOne, Character.findOneAndUpdate, Revoked.exists];
+  const account = 'aaaaaaaaaaaaaaaaaaaaaaaa';
+  const token = jwt.sign({ sub: account }, env.jwtSecret);
+  let stored, writes, race;
+  t.after(() => {
+    [Character.findOne, Character.findOneAndUpdate, Revoked.exists] = originals;
+  });
+  t.beforeEach(() => {
+    writes = 0; race = false;
+    stored = JSON.parse(JSON.stringify(makeCharacter({ accountId: account, revision: 4 })));
+    stored.inventory.inventorySchemaVersion = 3;
+    stored.inventory.preparedEquipment = Object.fromEntries(Object.keys(stored.inventory.preparedEquipment).map(key => [key, null]));
+    stored.inventory.pendingReservation = {
+      reservationId: 'expected', admittedAt: null,
+      items: [{ slot: 3, lootId: 'wood', amount: 7 }],
+      preparedEquipment: { weaponSlot1: { lootId: 'arming_sword', instance: {
+        instanceId: '111111111111111111111111', modifiers: { gemSocketCount: 1, gems: [null] }
+      } } }
+    };
+    Character.findOne = async () => structuredClone(stored);
+    Revoked.exists = async () => false;
+    Character.findOneAndUpdate = async (filter, update) => {
+      if (race) { stored.inventory.pendingReservation.reservationId = 'newer'; race = false; }
+      if (filter.revision !== stored.revision ||
+          ('inventory.pendingReservation.reservationId' in filter &&
+           filter['inventory.pendingReservation.reservationId'] !== stored.inventory.pendingReservation?.reservationId)) return null;
+      writes++; applyUpdate(stored, update); return structuredClone(stored);
+    };
+  });
+  const remove = id => {
+    const query = id === undefined ? '' : `&expectedReservationId=${encodeURIComponent(id)}`;
+    return request(app).delete(`/character/me/inventory/reservation?rollback=true${query}`)
+      .set('Authorization', `Bearer ${token}`);
+  };
+  await t.test('matching ID restores exact ownership once; repeated request is read-only', async () => {
+    const expected = structuredClone(stored.inventory.pendingReservation);
+    const first = await remove('expected');
+    assert.strictEqual(first.status, 200); assert.deepStrictEqual(first.body, { pendingReservation: null, revision: 5 });
+    assert.deepStrictEqual(stored.inventory.loadout, expected.items);
+    assert.deepStrictEqual(stored.inventory.preparedEquipment.weaponSlot1, expected.preparedEquipment.weaponSlot1);
+    assert.strictEqual(writes, 1);
+    const before = structuredClone(stored);
+    const second = await remove('expected');
+    assert.strictEqual(second.status, 200); assert.deepStrictEqual(second.body, first.body);
+    assert.deepStrictEqual(stored, before); assert.strictEqual(writes, 1);
+  });
+  await t.test('stale client cannot delete newer reservation or change revision', async () => {
+    stored.inventory.pendingReservation.reservationId = 'newer';
+    const before = structuredClone(stored);
+    const response = await remove('expected');
+    assert.strictEqual(response.status, 409); assert.strictEqual(response.body.error, 'RESERVATION_MISMATCH');
+    assert.deepStrictEqual(stored, before); assert.strictEqual(writes, 0);
+  });
+  await t.test('expected identity participates in atomic filter even if revision is unchanged', async () => {
+    race = true;
+    const before = structuredClone(stored);
+    const response = await remove('expected');
+    assert.strictEqual(response.status, 409); assert.strictEqual(response.body.error, 'REVISION_CONFLICT');
+    before.inventory.pendingReservation.reservationId = 'newer';
+    assert.deepStrictEqual(stored, before); assert.strictEqual(writes, 0);
+  });
+  await t.test('legacy omitted ID keeps rollback and revision behavior', async () => {
+    assert.strictEqual((await remove()).status, 200);
+    assert.strictEqual(stored.inventory.pendingReservation, null);
+    assert.strictEqual(stored.inventory.loadout[0].amount, 7);
+    assert.strictEqual(stored.revision, 5); assert.strictEqual(writes, 1);
+  });
+  await t.test('invalid typed ID rejects without mutation', async () => {
+    const before = structuredClone(stored);
+    const response = await request(app).delete('/character/me/inventory/reservation?rollback=true')
+      .set('Authorization', `Bearer ${token}`).send({ expectedReservationId: 7 });
+    assert.strictEqual(response.status, 400); assert.strictEqual(response.body.error, 'VALIDATION_FAILED');
+    assert.deepStrictEqual(stored, before); assert.strictEqual(writes, 0);
+  });
+});
+
 test('InventoryService - savePendingReservation', async (t) => {
   const originalFindOne = Character.findOne;
   const originalFindOneAndUpdate = Character.findOneAndUpdate;

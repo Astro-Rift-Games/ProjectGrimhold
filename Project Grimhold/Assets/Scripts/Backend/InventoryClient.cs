@@ -204,9 +204,11 @@ namespace Grimhold.Backend
         /// Rolls back the pending reservation on the backend, restoring reserved items and equipment to active loadout/preparedEquipment.
         /// </summary>
         public static async Task<(bool success, ClearPendingReservationResult data, BackendError error)>
-            RollbackPendingReservationAsync(BackendConfiguration config, string token)
+            RollbackPendingReservationAsync(BackendConfiguration config, string token, string expectedReservationId = null)
         {
             var url = $"{config.BaseUrl}/character/me/inventory/reservation?rollback=true";
+            if (expectedReservationId != null)
+                url += "&expectedReservationId=" + System.Uri.EscapeDataString(expectedReservationId);
             using var request = InventoryProtocol.Delete(url);
             request.SetRequestHeader("Authorization", $"Bearer {token}");
             request.downloadHandler = new DownloadHandlerBuffer();

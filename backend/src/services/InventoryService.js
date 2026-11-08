@@ -917,7 +917,13 @@ class InventoryService {
    * Admitted reservations can never roll back, and pending extraction blocks loss.
    * @throws 404 if no character found.
    */
-  static async clearPendingReservation(accountId, { rollback = false } = {}) {
+  static async clearPendingReservation(accountId, { rollback = false, expectedReservationId } = {}) {
+    const guarded = expectedReservationId !== undefined;
+    if (guarded && (typeof expectedReservationId !== 'string' ||
+        expectedReservationId.length < 1 || expectedReservationId.length > 128 ||
+        !/^[A-Za-z0-9_-]+$/.test(expectedReservationId))) {
+      throw { statusCode: 400, errorCode: 'VALIDATION_FAILED', message: 'Invalid expected reservation ID.' };
+    }
     const character = await Character.findOne({ accountId });
     if (!character) {
       throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
@@ -932,6 +938,12 @@ class InventoryService {
       await assertNoPendingExtractionResult(character.accountId);
     }
 
+    if (guarded) {
+      if (!character.inventory.pendingReservation)
+        return { pendingReservation: null, revision: character.revision };
+      if (character.inventory.pendingReservation.reservationId !== expectedReservationId)
+        throw { statusCode: 409, errorCode: 'RESERVATION_MISMATCH', message: 'A different reservation is active.' };
+    }
     const setFields = { 'inventory.pendingReservation': null };
     if (rollback && character.inventory.pendingReservation) {
       const currentEq = character.inventory.preparedEquipment || {};
@@ -947,7 +959,8 @@ class InventoryService {
     }
 
     const updated = await Character.findOneAndUpdate(
-      { accountId, revision: character.revision },
+      { accountId, revision: character.revision,
+        ...(guarded ? { 'inventory.pendingReservation.reservationId': expectedReservationId } : {}) },
       {
         $set: setFields,
         $inc: { revision: 1 }

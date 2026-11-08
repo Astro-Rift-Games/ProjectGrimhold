@@ -996,7 +996,15 @@ public sealed class LocalProfileStore : IMissionClaimService
         Grimhold.Backend.InventoryData? inventoryData,
         Grimhold.Backend.ProgressionData? progressionData,
         LootDefinitionCatalog catalog,
-        AbilityDefinitionCatalog abilityCatalog)
+        AbilityDefinitionCatalog abilityCatalog) =>
+        ReconcileRemoteStateCore(inventoryData, progressionData, catalog, abilityCatalog, null);
+
+    private StashOperationResult ReconcileRemoteStateCore(
+        Grimhold.Backend.InventoryData? inventoryData,
+        Grimhold.Backend.ProgressionData? progressionData,
+        LootDefinitionCatalog catalog,
+        AbilityDefinitionCatalog abilityCatalog,
+        Func<LocalProfileSnapshot, bool> validateCandidate)
     {
         lock (_sync)
         {
@@ -1009,6 +1017,9 @@ public sealed class LocalProfileStore : IMissionClaimService
                 {
                     return StashOperationResult.HydrationFailed;
                 }
+
+                if (validateCandidate != null && !validateCandidate(next))
+                    return StashOperationResult.HydrationFailed;
 
                 // The revision is directly assigned from the backend data, bypassing
                 // Math.Max to ensure it matches the server exactly even if it was rolled back or reset.
@@ -1873,6 +1884,66 @@ public sealed class LocalProfileStore : IMissionClaimService
             return preparation != null && preparation.Matches(this, _repository.Snapshot) && IsAvailable;
     }
 
+    /// <summary>The backend's existing fallback protocol supports only arming_sword.</summary>
+    public bool CanReserveRecoveryWeapon(RecoveryWeaponPreparation preparation)
+    {
+        lock (_sync)
+            return IsRecoveryWeaponPreparationCurrent(preparation) && preparation.RequiresConsent &&
+                   InventorySchemaVersion == 3 && !RequiresEquipmentHydration &&
+                   _recoveryWeaponLootId == new LootId("arming_sword") && PendingReservation == null &&
+                   PendingExtractionCommit == null;
+    }
+
+    /// <summary>Hydrates the full authoritative aggregate before publishing reserved ownership.</summary>
+    public ExpeditionPreparationResult TryApplyRecoveryWeaponReservation(
+        RecoveryWeaponPreparation preparation, string reservationId, int minimumRevision,
+        RecoveryWeaponAuthorityState state)
+    {
+        lock (_sync)
+        {
+            if (!CanReserveRecoveryWeapon(preparation) || state == null || string.IsNullOrWhiteSpace(reservationId))
+                return ExpeditionPreparationResult.ProfileUnavailable;
+            var inventory = state.Inventory;
+            if (inventory.inventorySchemaVersion != 3 || inventory.stash == null || inventory.loadout == null ||
+                inventory.revision < minimumRevision || inventory.revision != state.Progression.revision ||
+                inventory.pendingReservation.reservationId != reservationId ||
+                !string.IsNullOrEmpty(inventory.pendingReservation.admittedAt) ||
+                inventory.pendingReservation.items == null)
+                return ExpeditionPreparationResult.ReservationFailed;
+            StashOperationResult result = ReconcileRemoteStateCore(inventory, state.Progression, _lootCatalog, _abilityCatalog, candidate =>
+            {
+                var reservation = candidate.PendingReservation;
+                var equipment = reservation?.PreparedEquipment ?? default;
+                return reservation != null && reservation.ReservationId == reservationId &&
+                       candidate.Loadout.Count == 0 && !candidate.PreparedEquipment.HasAnyEquipment &&
+                       equipment.WeaponSetAMainHand == _recoveryWeaponLootId &&
+                       equipment.GetInstance(EquipmentSlot.WeaponSetAMainHand)?.HasIdentity == true &&
+                       PreparedEquipmentLoadout.TryValidate(equipment, _lootCatalog, true, out _) &&
+                       PreparedEquipmentLoadout.TryValidateWeaponRequirements(equipment, candidate.CharacterAttributes, _lootCatalog, out _);
+            });
+            return result == StashOperationResult.Success ? ExpeditionPreparationResult.Success :
+                result == StashOperationResult.PersistenceFailed ? ExpeditionPreparationResult.PersistenceFailed :
+                ExpeditionPreparationResult.ReservationFailed;
+        }
+    }
+
+    /// <summary>Publish restored ownership only for the unchanged local cleanup binding.</summary>
+    public bool TryApplyRecoveredReservation(RecoveryWeaponPreparation binding, string expectedReservationId,
+        RecoveryWeaponAuthorityState state)
+    {
+        lock (_sync)
+        {
+            if (!IsRecoveryWeaponPreparationCurrent(binding) || state == null ||
+                (PendingReservation != null && PendingReservation.ReservationId != expectedReservationId)) return false;
+            var inventory = state.Inventory;
+            if (inventory.inventorySchemaVersion != 3 || inventory.stash == null || inventory.loadout == null ||
+                !string.IsNullOrEmpty(inventory.pendingReservation.reservationId) ||
+                inventory.revision != state.Progression.revision || inventory.revision < binding.RemoteRevision) return false;
+            return ReconcileRemoteStateCore(inventory, state.Progression, _lootCatalog, _abilityCatalog,
+                candidate => candidate.PendingReservation == null) == StashOperationResult.Success;
+        }
+    }
+
     /// <summary>Commits the inspected profile revision through the existing recovery ownership helper.</summary>
     public ExpeditionPreparationResult TryPrepareExpeditionEquipment(RecoveryWeaponPreparation preparation)
     {
@@ -1911,18 +1982,18 @@ public sealed class LocalProfileStore : IMissionClaimService
         }
 
         LocalProfileSnapshot next = current.Clone();
-        if (FindAmount(next.Loadout, _recoveryWeaponLootId) >= 1)
-        {
-            TryRemove(next.Loadout, _recoveryWeaponLootId, 1);
-        }
-        else if (FindAmount(next.Stash, _recoveryWeaponLootId) >= 1)
-        {
-            TryRemove(next.Stash, _recoveryWeaponLootId, 1);
-        }
+        List<StashItem> source = FindIndex(next.Loadout, _recoveryWeaponLootId) >= 0 ? next.Loadout : next.Stash;
+        int index = FindIndex(source, _recoveryWeaponLootId);
+        EquipmentInstance instance = index >= 0 ? source[index].Instance : null;
+        // A strict v3 cache cannot grant a durable ID. Its consented path must await authority.
+        if (current.InventorySchemaVersion == 3 && (current.RequiresEquipmentHydration || instance?.HasIdentity != true))
+            return ExpeditionPreparationResult.ProfileUnavailable;
+        if (index >= 0 && !TryRemove(source, _recoveryWeaponLootId, 1))
+            return ExpeditionPreparationResult.PersistenceFailed;
 
-        // Only Set A Main Hand is granted: all other prepared Equipment remains untouched.
+        // Only Set A Main Hand changes; retain the exact owned unit and every other assignment.
         next.PreparedEquipment = next.PreparedEquipment
-            .With(EquipmentSlot.WeaponSetAMainHand, _recoveryWeaponLootId);
+            .With(EquipmentSlot.WeaponSetAMainHand, _recoveryWeaponLootId, instance);
         return Commit(next) == StashOperationResult.Success
             ? ExpeditionPreparationResult.Success
             : ExpeditionPreparationResult.PersistenceFailed;
@@ -2147,15 +2218,54 @@ public sealed class LocalProfileStore : IMissionClaimService
             next.Level, next.CurrentExperience, Math.Max(0, next.Level - current.Level));
         return Commit(next, progression);
     }
-    public void ClearPendingExtractionCommit()
+    /// <summary>Accepts backend-issued extraction instances and retires the retry payload in one write.</summary>
+    public StashOperationResult TryCompleteExtractionCommit(
+        ExtractionReceipt receipt,
+        int acknowledgedRevision,
+        Grimhold.Backend.InventoryData inventory,
+        Grimhold.Backend.ProgressionData progression)
     {
-        LocalProfileSnapshot current = _repository.Snapshot;
-        if (current == null || current.PendingExtractionCommit == null)
-            return;
-            
-        LocalProfileSnapshot next = current.Clone();
-        next.PendingExtractionCommit = null;
-        Commit(next);
+        lock (_sync)
+        {
+            LocalProfileSnapshot current = _repository.Snapshot;
+            if (!IsAvailable || current == null || current.ProfileId != _profileId)
+                return StashOperationResult.PersistenceFailed;
+            if (!receipt.IsValid || receipt.ProfileId != _profileId ||
+                current.PendingExtractionCommit == null ||
+                !current.PendingExtractionCommit.Receipt.Equals(receipt) ||
+                inventory.revision != progression.revision ||
+                inventory.revision < acknowledgedRevision || inventory.revision < current.RemoteRevision ||
+                inventory.lastAppliedExtractionReceipt.raidId != receipt.RaidId ||
+                inventory.lastAppliedExtractionReceipt.resultSequence != receipt.ResultSequence ||
+                !string.IsNullOrEmpty(inventory.pendingReservation.reservationId) ||
+                inventory.loadout == null || inventory.stash == null)
+                return StashOperationResult.HydrationFailed;
+
+            LocalProfileSnapshot next = current.Clone();
+            // Ordinary reconciliation intentionally retains unsent extraction ownership. Only this
+            // receipt-bound acknowledgement can replace it with durable backend instances.
+            next.PendingExtractionCommit = null;
+            if (!ApplicationStashServiceBootstrapper.HydrateSnapshot(
+                    _profileId, next, inventory, progression, _lootCatalog, _abilityCatalog))
+                return StashOperationResult.HydrationFailed;
+            return Commit(next);
+        }
+    }
+
+    public StashOperationResult ClearPendingExtractionCommit()
+    {
+        lock (_sync)
+        {
+            LocalProfileSnapshot current = _repository.Snapshot;
+            if (current == null) return StashOperationResult.PersistenceFailed;
+            if (current.PendingExtractionCommit == null) return StashOperationResult.Success;
+            LocalProfileSnapshot next = current.Clone();
+            next.PendingExtractionCommit = null;
+            StashOperationResult result = Commit(next);
+            if (result != StashOperationResult.Success)
+                Debug.LogError($"[LocalProfileStore] ClearPendingExtractionCommit failed: {result}. Pending extraction retained.");
+            return result;
+        }
     }
 
     public StashOperationResult TrySyncProgression(int level, long experience, Grimhold.Backend.CharacterAttributesData attributes)

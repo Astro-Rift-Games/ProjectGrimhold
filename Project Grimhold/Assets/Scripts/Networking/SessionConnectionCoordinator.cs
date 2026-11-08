@@ -91,6 +91,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private Action<bool> _recoveryConsentCompletion;
     private RaidCode _recoveryConsentRaidCode;
     private int _recoveryConsentRevision;
+    private RecoveryWeaponReservationPreparation _recoveryReservationPreparation;
+    private RaidLaunchContext _recoveryReservationLaunch;
 
     public SessionConnectionState State => _stateMachine.State;
     public RaidTransitionTicket? ActiveTicket => _activeTicket;
@@ -142,7 +144,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         _recoveryConsentRevision = revision;
         _recoveryConsentCompletion = completion;
         ApplicationStashContext context = ResolveRecoveryStashContext();
-        if (State != SessionConnectionState.Town || _operationActive || context == null ||
+        if (State != SessionConnectionState.Town || _operationActive || !_participationOutcomeTask.IsCompleted || context == null ||
             context.ProfileId != LocalProfileProvider.GetOrCreateLocalProfile() || context.Store == null)
         {
             CompleteRecoveryWeaponConsent(false);
@@ -170,6 +172,9 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     public void CancelRecoveryWeaponConsent(RaidCode raidCode, int revision)
     {
         if (_recoveryConsentRaidCode != raidCode || _recoveryConsentRevision != revision) return;
+        _recoveryReservationPreparation?.Cancel();
+        if (_recoveryReservationPreparation != null && State == SessionConnectionState.Town && !_operationActive)
+            _participationOutcomeTask = RecoverPendingRecoveryWeaponAsync();
         _recoveryWeaponConsentView?.Close();
         _recoveryConsentCompletion = null;
         _pendingRecoveryPreparation = null;
@@ -263,7 +268,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         RaidLaunchContext launchContext,
         TownPartyContinuationContext partyContinuation)
     {
-        if (launchContext == null || State != SessionConnectionState.Town || _operationActive ||
+        if (!isActiveAndEnabled || _isQuitting || launchContext == null || State != SessionConnectionState.Town || _operationActive ||
             !_participationOutcomeTask.IsCompleted)
         {
             return RaidLaunchPreparationResult.NotReady;
@@ -296,10 +301,54 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 RaidLaunchPreparationResult.ConfigurationError);
         }
 
-        // Normalizing the prepared Weapon Equipment happens before the reservation boundary, so
-        // the reservation keeps rejecting a genuinely invalid loadout as a domain invariant.
-        ExpeditionPreparationResult preparation =
-            PrepareConsentedExpeditionEquipment(stashContext, launchContext.RaidCode);
+        bool authoritativeRecovery = false;
+        if (_recoveryReservationPreparation != null && !MatchesRecoveryLaunch(launchContext))
+        {
+            _recoveryReservationPreparation.Cancel();
+            if (!_recoveryReservationPreparation.HasRecovered)
+            {
+                _participationOutcomeTask = RecoverPendingRecoveryWeaponAsync();
+                return RaidLaunchPreparationResult.NotReady;
+            }
+            _recoveryReservationPreparation = null;
+            _recoveryReservationLaunch = null;
+        }
+        if (_recoveryReservationPreparation == null && stashContext.Store != null &&
+            stashContext.Store.InventorySchemaVersion == 3 &&
+            stashContext.Store.InspectRecoveryWeaponPreparation(out var inspection) == ExpeditionPreparationResult.Success &&
+            inspection.RequiresConsent)
+        {
+            LocalProfileStore store = stashContext.Store;
+            RecoveryWeaponPreparation consent = _approvedRecoveryPreparation;
+            if (_recoveryConsentRaidCode != launchContext.RaidCode || !store.CanReserveRecoveryWeapon(consent))
+                return RejectLaunchPreparation(ExpeditionPreparationResult.ProfileUnavailable, RaidLaunchPreparationResult.ConfigurationError);
+            var remote = stashContext.GetComponent<IRecoveryWeaponReservationService>();
+            var authority = stashContext.GetComponent<IRecoveryWeaponAuthorityReader>();
+            if (remote == null || authority == null)
+                return RejectLaunchPreparation(ExpeditionPreparationResult.ProfileUnavailable, RaidLaunchPreparationResult.ConfigurationError);
+            _recoveryReservationLaunch = launchContext;
+            _recoveryReservationPreparation = new RecoveryWeaponReservationPreparation(store, consent, () =>
+                this != null && isActiveAndEnabled && !_isQuitting && !_operationActive && State == SessionConnectionState.Town &&
+                ResolveRecoveryStashContext() == stashContext && stashContext.Store == store &&
+                LocalProfileProvider.GetOrCreateLocalProfile() == localProfile && stashContext.ProfileId == localProfile &&
+                ReferenceEquals(_approvedRecoveryPreparation, consent) && _recoveryConsentRaidCode == launchContext.RaidCode);
+            _recoveryReservationPreparation.Start(remote, authority);
+            return RaidLaunchPreparationResult.NotReady;
+        }
+        ExpeditionPreparationResult preparation;
+        if (_recoveryReservationPreparation != null)
+        {
+            if (!_recoveryReservationPreparation.Completion.IsCompleted)
+                return RaidLaunchPreparationResult.NotReady;
+            preparation = !_recoveryReservationPreparation.CanPublish(stashContext.Store)
+                ? ExpeditionPreparationResult.ProfileUnavailable
+                : _recoveryReservationPreparation.Completion.Result;
+            authoritativeRecovery = preparation == ExpeditionPreparationResult.Success;
+        }
+        else
+        {
+            preparation = PrepareConsentedExpeditionEquipment(stashContext, launchContext.RaidCode);
+        }
         if (preparation != ExpeditionPreparationResult.Success)
         {
             return RejectLaunchPreparation(
@@ -310,7 +359,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                     : RaidLaunchPreparationResult.Rejected);
         }
 
-        string reservationId = Guid.NewGuid().ToString("N");
+        string reservationId = authoritativeRecovery ? _recoveryReservationPreparation.ReservationId : Guid.NewGuid().ToString("N");
         StashOperationResult reservationResult = stashContext.LoadoutService.TryCreateLoadoutReservation(
             localProfile,
             reservationId,
@@ -338,11 +387,28 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             return RaidLaunchPreparationResult.Rejected;
         }
         var remoteInventoryService = stashContext.GetComponent<RemoteInventoryService>();
-        if (remoteInventoryService != null)
+        if (remoteInventoryService != null && !authoritativeRecovery)
         {
             _ = remoteInventoryService.SavePendingReservationAsync(reservation);
         }
         return RaidLaunchPreparationResult.Success;
+    }
+
+    private bool MatchesRecoveryLaunch(RaidLaunchContext launch) =>
+        _recoveryReservationLaunch != null && launch != null &&
+        _recoveryReservationLaunch.RaidCode == launch.RaidCode &&
+        _recoveryReservationLaunch.LaunchRevision == launch.LaunchRevision &&
+        _recoveryReservationLaunch.LocalProfileId == launch.LocalProfileId &&
+        _recoveryReservationLaunch.HostProfileId == launch.HostProfileId &&
+        _recoveryReservationLaunch.FriendlyFireEnabled == launch.FriendlyFireEnabled &&
+        SameRecoveryParticipants(_recoveryReservationLaunch, launch);
+
+    private static bool SameRecoveryParticipants(RaidLaunchContext left, RaidLaunchContext right)
+    {
+        if (left.Participants.Count != right.Participants.Count) return false;
+        for (int i = 0; i < left.Participants.Count; i++)
+            if (!left.Participants[i].Equals(right.Participants[i])) return false;
+        return true;
     }
 
     private RaidLaunchPreparationResult RejectLaunchPreparation(
@@ -416,6 +482,12 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     /// </summary>
     public void CancelPendingRaidLaunch(string raidCode, int launchSequence)
     {
+        if (_recoveryReservationLaunch != null && _recoveryReservationLaunch.RaidCode.Value == raidCode &&
+            _recoveryReservationLaunch.LaunchRevision == launchSequence)
+        {
+            _recoveryReservationPreparation?.Cancel();
+            _participationOutcomeTask = RecoverPendingRecoveryWeaponAsync();
+        }
         if (State != SessionConnectionState.Town || _operationActive ||
             !_activeTicket.HasValue ||
             !CanConsumeLaunchRelease(
@@ -429,6 +501,14 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
         _acknowledgedLaunchSequence = 0;
         _launchDispatchActive = false;
+        if (_recoveryReservationPreparation != null &&
+            _activeTicket.Value.LoadoutReservation.ReservationId == _recoveryReservationPreparation.ReservationId)
+        {
+            // The guarded cleanup task owns restoration; never run the legacy local-first rollback.
+            _activeTicket = null;
+            _pendingPartyContinuation = null;
+            return;
+        }
         if (!TryRollbackActiveReservation())
         {
             Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Could not roll back the cancelled raid reservation.", this);
@@ -780,8 +860,19 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     }
 #endif
 
+    private void OnDisable() => SuspendRecoveryWeaponPreparation();
+
+    /// <summary>Lifecycle policy shared with explicit cancellation; safe without an active runner.</summary>
+    public void SuspendRecoveryWeaponPreparation()
+    {
+        _recoveryReservationPreparation?.Cancel();
+        if (_recoveryReservationPreparation != null && State == SessionConnectionState.Town && !_operationActive)
+            _participationOutcomeTask = RecoverPendingRecoveryWeaponAsync();
+    }
+
     private void BeginTermination()
     {
+        _recoveryReservationPreparation?.Cancel();
         if (_isQuitting)
         {
             return;
@@ -1694,12 +1785,33 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             $"LoadoutService={(auditStash?.LoadoutService != null ? "ok" : "null")}.",
             this);
 
+        if (_recoveryReservationPreparation != null && !_raidAdmissionConfirmed)
+        {
+            SessionTransitionResult result = await RecoverFailedRecoveryWeaponStartAsync(
+                () => RestoreTownAfterRaidFailureAsync(failure));
+            if (result == SessionTransitionResult.LoadoutRollbackFailed)
+                TransitionTo(SessionConnectionState.Failed);
+            return result;
+        }
         if (!TryRollbackActiveReservation())
         {
             TransitionTo(SessionConnectionState.Failed);
             return SessionTransitionResult.LoadoutRollbackFailed;
         }
 
+        return await RestoreTownAfterRaidFailureAsync(failure);
+    }
+
+    /// <summary>Runner replacement is reached only after guarded ownership restoration is persisted.</summary>
+    public async Task<SessionTransitionResult> RecoverFailedRecoveryWeaponStartAsync(Func<Task<SessionTransitionResult>> restoreTown)
+    {
+        if (!await RecoverPendingRecoveryWeaponAsync()) return SessionTransitionResult.LoadoutRollbackFailed;
+        if (this == null || _isQuitting) return SessionTransitionResult.ConnectionFailed;
+        return await restoreTown();
+    }
+
+    private async Task<SessionTransitionResult> RestoreTownAfterRaidFailureAsync(SessionTransitionResult failure)
+    {
         _pendingTransitionFailure = failure;
         TransitionTo(SessionConnectionState.ReturningTown);
         UpdateTicketState(SessionConnectionState.ReturningTown);
@@ -1758,6 +1870,19 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         return failure;
     }
 
+    /// <summary>Shared cancellation/failed-start ownership restoration, without replacing the runner.</summary>
+    public Task<bool> RecoverPendingRecoveryWeaponAsync()
+    {
+        var stage = _recoveryReservationPreparation;
+        var context = ResolveRecoveryStashContext();
+        var store = context != null ? context.Store : null;
+        ProfileId profile = _recoveryReservationLaunch?.LocalProfileId ?? default;
+        if (stage == null || store == null || !profile.IsValid) return Task.FromResult(false);
+        return stage.RecoverAsync(() => this != null && !_isQuitting &&
+            ResolveRecoveryStashContext() == context && context.Store == store &&
+            store.ProfileId == profile && LocalProfileProvider.GetOrCreateLocalProfile() == profile);
+    }
+
     private bool TryRollbackActiveReservation()
     {
         // Recovery after admission must never restore the Town ownership. The transition
@@ -1772,6 +1897,11 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             return true;
         }
 
+        if (_recoveryReservationPreparation != null &&
+            _activeTicket.Value.LoadoutReservation.ReservationId == _recoveryReservationPreparation.ReservationId)
+        {
+            return _recoveryReservationPreparation.HasRecovered;
+        }
         ApplicationStashContext stashContext = FindAnyObjectByType<ApplicationStashContext>();
 
         // [AUDIT] Log state of ApplicationStashContext at rollback time
@@ -1924,6 +2054,14 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             {
                 _ = MarkReservationAdmittedAsync(remoteInventoryService,
                     _activeTicket.Value.LoadoutReservation.ReservationId);
+            }
+            // Confirmation consumed this exact local reservation. Its preparation stage can no
+            // longer own rollback: retaining its pre-admission binding poisons the next launch.
+            if (_recoveryReservationPreparation != null &&
+                _recoveryReservationPreparation.ReservationId == _activeTicket.Value.LoadoutReservation.ReservationId)
+            {
+                _recoveryReservationPreparation = null;
+                _recoveryReservationLaunch = null;
             }
             _loadoutConfirmationPending = false;
             return true;

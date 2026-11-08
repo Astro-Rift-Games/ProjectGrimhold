@@ -77,7 +77,28 @@ backend hydration; legacy equipment-ownership repair never runs on v11. Cache-on
 v11 cache saves until an inventory hydration succeeds. Local Equip/Unequip, Stash Equip and remote
 prepared-equipment updates reject while it is set; gem install requires a backend-issued instance ID.
 Unity never synthesizes IDs for those transient entries (Item Instances §9).
-Pending extraction preserves per-unit modifiers. Older builds reject unsupported future cache
+Pending extraction preserves per-unit modifiers. After a successful backend extraction commit,
+both the live extraction path and login retry fetch revision-consistent authoritative inventory and
+progression. `LocalProfileStore.TryCompleteExtractionCommit` binds that state to the pending receipt,
+validates it through the existing hydration/codec boundary and replaces the ID-free extraction
+ownership with backend-issued instances while clearing `PendingExtractionCommit` in **one write**.
+Level, experience and attributes are hydrated in that same write. Fetch, validation or write failure
+is reported and retains the pending payload and current snapshot for idempotent login retry; ordinary
+reconciliation continues to preserve pending extraction ownership. Unity never fabricates instance IDs
+or relaxes reservation validation to acknowledge extraction.
+
+Known limitations (follow-up, not yet handled):
+
+- **Superseded pending extraction.** Acknowledgement requires the backend's
+  `lastAppliedExtractionReceipt` to match the pending receipt. If the backend has already applied a
+  *later* extraction for the profile (for example from another device), the receipts never match:
+  the pending payload is retained and logged on every login and keeps blocking new loadout
+  reservations. This fails safe (no ownership is lost or invented) but there is no automatic
+  recovery; a future rule must decide when a newer backend receipt proves the pending one applied.
+- **Misleading live-path error.** When the pending extraction was already acknowledged (for example
+  by the login retry), `PlayerExtractionLootSaver` still logs "authoritative hydration failed" after
+  `CompleteExtractionAsync` returns false, although no state changed.
+Older builds reject unsupported future cache
 versions as `UnsupportedVersion`; backend hydration remains authoritative.
 The atomic operation's boolean result is the acceptance boundary, not a claim of filesystem flush durability.
 
@@ -432,6 +453,16 @@ deterministic and idempotent, so retrying a launch never grants or duplicates an
 * A prepared weapon whose requirements exceed the confirmed attributes fails explicitly as
   `AttributeRequirementsNotMet`; no assignment, ownership or reservation state is changed.
 
+Owned recovery units are selected from Loadout before Stash, at the lowest physical slot within
+that source; assignment preserves the exact instance ID, modifiers and gem sockets. When strict-v3
+ownership contains no reusable unit, the consented Town stage issues one reservation POST with a
+stable reservation ID, then fetches full revision-consistent inventory and progression. It validates
+the frozen launch, consent, profile and Store binding around awaits and persists through the real
+repository before publishing a ticket or ACK. A partial POST response is never a profile snapshot,
+and Unity never fabricates an instance ID or admits an ID-less fallback. The Town controller resumes
+pending local materialization on its main-thread Render path even when SnapshotRevision is unchanged;
+that continuation does not advance the frozen launch revision and ACKs once per launch.
+
 Raid never grants a recovery weapon. Preparation is inert while a reservation is pending.
 
 ### Loadout reservation boundary
@@ -485,6 +516,24 @@ extraction commit is discarded locally without restoring items and cleared on th
 a pending extraction commit keeps its retry path. Previously admission deleted the backend
 reservation, which made every player-hosted extraction publish fail with `NO_ACTIVE_RESERVATION`
 and left the backend Loadout empty for the next Raid.
+
+Recovery-grant cancellation and failed Raid startup use guarded rollback before exposing recovered
+Town ownership or replacing the Town runner. `DELETE /character/me/inventory/reservation?rollback=true`
+accepts optional `expectedReservationId` (query, or request body when omitted from the query). It must
+be a 1–128 character identifier containing only letters, digits, `_` or `-`; invalid values return
+`400 VALIDATION_FAILED`. A different active ID returns `409 RESERVATION_MISMATCH` without writes.
+The ID is also part of the atomic account/revision write filter, so a replacement after the read
+cannot be deleted; a failed atomic match returns `409 REVISION_CONFLICT`. Guarded already-absent
+reservations are read-only, making repeated cleanup harmless. Omitted-ID callers retain the legacy
+rollback/clear behavior, including its revision semantics; admitted-reservation protections remain.
+
+Unity waits for the original POST before guarded cleanup and reuses one cleanup task per launch.
+After a successful or ambiguous DELETE it reads the full inventory/progression authority, verifies
+matching revisions, no pending reservation and the unchanged profile/Store binding, then hydrates
+and persists that aggregate before allowing a subsequent launch. Explicit ownership/auth rejection,
+partial reads, binding drift and repository refusal fail closed without publishing recovered state.
+The restored aggregate, not the local rollback planner or the DELETE response, owns exact instances,
+slots, modifiers and progression. Unrelated local-only fields retain normal hydration preservation.
 
 ### Extraction boundary
 

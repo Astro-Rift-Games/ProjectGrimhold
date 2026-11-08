@@ -129,15 +129,7 @@ public static class ApplicationStashServiceBootstrapper
                 store.TryConfirmLoadoutReservation(store.PendingReservation.ReservationId);
             }
             
-            var authToken = ApplicationAuthContext.Instance?.Token;
-            if (!string.IsNullOrEmpty(authToken) && _configuration != null)
-            {
-                var backendConfig = ApplicationAuthContext.Instance?.BackendConfig ?? Resources.Load<BackendConfiguration>("BackendConfiguration");
-                if (backendConfig != null)
-                {
-                    _ = RetryPendingExtractionAsync(store, backendConfig, authToken);
-                }
-            }
+            // Start the retry only after the application reconciliation service is initialized.
         }
         else if (store.PendingReservation != null)
         {
@@ -181,6 +173,14 @@ public static class ApplicationStashServiceBootstrapper
         _context.Initialize(store, stashService, loadoutService, currencyService, shopTransactionService, abilityPurchaseService);
         // HydrateSnapshot deliberately excludes this memory-only, backend-owned ledger.
         if (inventoryData.HasValue) _context.HydrateBuyback(inventoryData.Value);
+
+        if (store.PendingExtractionCommit != null)
+        {
+            var authToken = ApplicationAuthContext.Instance?.Token;
+            var backendConfig = ApplicationAuthContext.Instance?.BackendConfig ?? Resources.Load<BackendConfiguration>("BackendConfiguration");
+            if (!string.IsNullOrEmpty(authToken) && backendConfig != null)
+                _ = RetryPendingExtractionAsync(store, backendConfig, authToken, reconciliationService);
+        }
 
         _initializedProfileId = profileId;
         Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Store initialized for ProfileId {profileId.Value}.");
@@ -489,7 +489,8 @@ public static class ApplicationStashServiceBootstrapper
     private static async System.Threading.Tasks.Task RetryPendingExtractionAsync(
         LocalProfileStore store,
         BackendConfiguration backendConfig,
-        string authToken)
+        string authToken,
+        ProfileReconciliationService reconciliationService)
     {
         var commit = store.PendingExtractionCommit;
         if (commit == null) return;
@@ -531,9 +532,10 @@ public static class ApplicationStashServiceBootstrapper
 
         if (success)
         {
-            Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Successfully recovered pending extraction commit.");
-            store.SetRemoteRevision(result.revision);
-            store.ClearPendingExtractionCommit();
+            if (await reconciliationService.CompleteExtractionAsync(commit.Receipt, result.revision))
+                Debug.Log($"[{nameof(ApplicationStashServiceBootstrapper)}] Successfully recovered pending extraction commit.");
+            else
+                Debug.LogError($"[{nameof(ApplicationStashServiceBootstrapper)}] Backend extraction succeeded but authoritative hydration failed. Pending extraction retained for retry.");
         }
         else
         {

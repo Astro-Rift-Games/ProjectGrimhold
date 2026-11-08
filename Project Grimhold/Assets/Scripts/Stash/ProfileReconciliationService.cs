@@ -6,7 +6,7 @@ using Grimhold.Backend;
 /// Service responsible for fetching authoritative state from the backend and applying it to the LocalProfileStore
 /// when a revision conflict is detected.
 /// </summary>
-public class ProfileReconciliationService : MonoBehaviour, IProfileReconciliation
+public class ProfileReconciliationService : MonoBehaviour, IProfileReconciliation, IRecoveryWeaponAuthorityReader
 {
     private BackendConfiguration _config;
     private LocalProfilePersistenceConfiguration _localConfig;
@@ -37,10 +37,55 @@ public class ProfileReconciliationService : MonoBehaviour, IProfileReconciliatio
 
     public async Task<bool> ReconcileAsync()
     {
+        RecoveryWeaponAuthorityState state = await FetchRecoveryWeaponAuthorityAsync();
+        if (state == null) return false;
+        var result = _store.ReconcileRemoteState(state.Inventory, state.Progression,
+            _localConfig.LootCatalog, _localConfig.AbilityCatalog);
+        if (result != StashOperationResult.Success)
+        {
+            Debug.LogError($"[ProfileReconciliationService] ReconcileRemoteState failed with result: {result}");
+            return false;
+        }
+        _buybackLedger?.Replace(state.Inventory.buyback);
+        return true;
+    }
+
+    /// <summary>Fetches durable extraction instances before atomically retiring the local retry.</summary>
+    public async Task<bool> CompleteExtractionAsync(ExtractionReceipt receipt, int acknowledgedRevision)
+    {
+        string token = AuthToken;
+        try
+        {
+            RecoveryWeaponAuthorityState state = await FetchRecoveryWeaponAuthorityAsync();
+            if (state == null || token != AuthToken || _store == null || _localConfig == null)
+            {
+                Debug.LogError("[ProfileReconciliationService] Extraction hydration fetch failed or session changed. Pending extraction retained for retry.");
+                return false;
+            }
+            StashOperationResult result = _store.TryCompleteExtractionCommit(
+                receipt, acknowledgedRevision, state.Inventory, state.Progression);
+            if (result != StashOperationResult.Success)
+            {
+                Debug.LogError($"[ProfileReconciliationService] Extraction hydration failed: {result}. Pending extraction retained for retry.");
+                return false;
+            }
+            _buybackLedger?.Replace(state.Inventory.buyback);
+            return true;
+        }
+        catch (System.Exception exception)
+        {
+            Debug.LogError($"[ProfileReconciliationService] Extraction hydration failed: {exception.Message}. Pending extraction retained for retry.");
+            return false;
+        }
+    }
+
+    /// <summary>Shares ordinary reconciliation's consistent full-read boundary without applying it.</summary>
+    public async Task<RecoveryWeaponAuthorityState> FetchRecoveryWeaponAuthorityAsync()
+    {
         if (string.IsNullOrEmpty(AuthToken) || _store == null || _localConfig == null)
         {
             Debug.LogError("[ProfileReconciliationService] Not initialized or not authenticated.");
-            return false;
+            return null;
         }
 
         var inventoryTask = InventoryClient.GetInventoryAsync(_config, AuthToken);
@@ -68,35 +113,21 @@ public class ProfileReconciliationService : MonoBehaviour, IProfileReconciliatio
             (!progOk && progErr.error == BackendErrorUtility.Unauthorized))
         {
             ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
-            return false;
+            return null;
         }
 
         if (!invOk || !progOk)
         {
             Debug.LogError("[ProfileReconciliationService] Failed to fetch state for reconciliation.");
-            return false;
+            return null;
         }
 
         if (invData.revision != progData.revision)
         {
             Debug.LogError($"[ProfileReconciliationService] Mismatch in remote revisions after retry: Inv({invData.revision}) vs Prog({progData.revision})");
-            return false; // Still mismatching, can't safely reconcile
+            return null; // Still mismatching, can't safely reconcile
         }
 
-        // Use catalogs from local configuration instead of Resources.Load
-        var catalog = _localConfig.LootCatalog;
-        var abilityCatalog = _localConfig.AbilityCatalog;
-
-        // Apply authoritative data directly to the local store
-        var result = _store.ReconcileRemoteState(invData, progData, catalog, abilityCatalog);
-        
-        if (result != StashOperationResult.Success)
-        {
-            Debug.LogError($"[ProfileReconciliationService] ReconcileRemoteState failed with result: {result}");
-            return false;
-        }
-        
-        _buybackLedger?.Replace(invData.buyback);
-        return true;
+        return new RecoveryWeaponAuthorityState(invData, progData);
     }
 }
