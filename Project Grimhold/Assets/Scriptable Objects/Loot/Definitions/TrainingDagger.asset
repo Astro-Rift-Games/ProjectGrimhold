@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aeed099a389008b44ad97674fa3f48c3, type: 3}
+  m_Name: TrainingDagger
+  m_EditorClassIdentifier: Assembly-CSharp::LootDefinition
+  _id: training_dagger
+  _displayName: Training Dagger
+  _description: A fast training dagger with fixed damage provided for low-risk expeditions.
+  _icon: {fileID: 21300000, guid: 3d5db5ca8c3e11d41b4f4dc034e4c5f0, type: 3}
+  _worldSprite: {fileID: 21300000, guid: 3d5db5ca8c3e11d41b4f4dc034e4c5f0, type: 3}
+  _category: 5
+  _rarity: 0
+  _objectValue: 0
+  _stackMax: 1
+  _maxTransportable: 1
+  _family: Weapons
+  _tags: []
+  _tradable: 0
+  _canBeTransferred: 0
+  _canEnterDungeon: 1
+  _canBeFoundInDungeon: 0
+  _canBeDiscarded: 0
+  _canBeUsed: 0
+  _missionCompatible: 0
+  _useMode: 0
+  _isTrainingWeapon: 1
+  _extractionValuePerUnit: 0
+  _sellValuePerUnit: 0
+  _buyValuePerUnit: 0
+  _defaultPickupQuantity: 1
+  _consumableDefinition: {fileID: 0}
+  _weaponDefinition: {fileID: 11400000, guid: 591f96d83c3c4994bf5d595f1c2ba24c, type: 2}
+  _shieldDefinition: {fileID: 0}
+  _armorDefinition: {fileID: 0}
+  _gemDefinition: {fileID: 0}
+  _equipmentVisualDefinition: {fileID: 0}
+  _defenseSprites:
+    _north: {fileID: 0}
+    _northEast: {fileID: 0}
+    _southEast: {fileID: 0}
+    _south: {fileID: 0}
+    _southWest: {fileID: 0}
+    _northWest: {fileID: 0}
+  _quickSlotCompatible: 0

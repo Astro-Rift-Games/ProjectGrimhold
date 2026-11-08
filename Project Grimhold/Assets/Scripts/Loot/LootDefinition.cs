@@ -83,6 +83,10 @@ public sealed class LootDefinition : ScriptableObject
     [Tooltip("Modalidad de uso (Instant, Channeled, AimedQuickSlot).")]
     private ItemUseMode _useMode = ItemUseMode.None;
 
+    [SerializeField]
+    [Tooltip("¿Es un arma de entrenamiento de cortesía (Doc 09 §15)?")]
+    private bool _isTrainingWeapon;
+
     [Header("Legacy & Derived Values")]
     [SerializeField]
     private int _extractionValuePerUnit;
@@ -150,6 +154,7 @@ public sealed class LootDefinition : ScriptableObject
     public bool CanBeUsed => _canBeUsed;
     public bool MissionCompatible => _missionCompatible;
     public ItemUseMode UseMode => _useMode;
+    public bool IsTrainingWeapon => _isTrainingWeapon;
     public int ExtractionValuePerUnit => _extractionValuePerUnit;
     public int SellValuePerUnit => _sellValuePerUnit;
     public int BuyValuePerUnit => _buyValuePerUnit;
@@ -395,6 +400,45 @@ public sealed class LootDefinition : ScriptableObject
         {
             error = $"Loot definition '{_id}' has an invalid EquipmentVisualDefinition: {equipError}";
             return false;
+        }
+
+        if (_isTrainingWeapon)
+        {
+            if (_category != LootCategory.Weapon)
+            {
+                error = $"Loot definition '{_id}' is marked as a training weapon but its category is {_category}.";
+                return false;
+            }
+
+            if (_canBeDiscarded)
+            {
+                error = $"Loot definition '{_id}' is a training weapon and cannot be discarded.";
+                return false;
+            }
+
+            if (_canBeTransferred)
+            {
+                error = $"Loot definition '{_id}' is a training weapon and cannot be transferred.";
+                return false;
+            }
+
+            if (_tradable)
+            {
+                error = $"Loot definition '{_id}' is a training weapon and cannot be tradable.";
+                return false;
+            }
+
+            if (_sellValuePerUnit > 0 || _buyValuePerUnit > 0 || _objectValue > 0 || _extractionValuePerUnit > 0)
+            {
+                error = $"Loot definition '{_id}' is a training weapon and must have 0 value.";
+                return false;
+            }
+
+            if (_weaponDefinition != null && _weaponDefinition.OffensiveScaling.HasScaling)
+            {
+                error = $"Loot definition '{_id}' is a training weapon and must not have offensive scaling.";
+                return false;
+            }
         }
 
         return true;

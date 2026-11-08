@@ -477,6 +477,84 @@ namespace Tests.EditMode.Loot
             }
         }
 
+        [Test]
+        public void TrainingWeapon_RequiresWeaponCategory()
+        {
+            SetValidDefaults();
+            SetField("_isTrainingWeapon", true);
+            SetField("_category", LootCategory.Valuable);
+
+            bool result = _loot.TryValidate(out string error);
+            Assert.That(result, Is.False);
+            Assert.That(error, Does.Contain("marked as a training weapon but its category is"));
+        }
+
+        [Test]
+        public void TrainingWeapon_CannotBeDiscarded()
+        {
+            SetValidDefaults();
+            SetField("_isTrainingWeapon", true);
+            SetField("_category", LootCategory.Weapon);
+            SetField("_canBeDiscarded", true);
+
+            bool result = _loot.TryValidate(out string error);
+            Assert.That(result, Is.False);
+            Assert.That(error, Does.Contain("cannot be discarded"));
+        }
+
+        [Test]
+        public void TrainingWeapon_CannotBeTransferred()
+        {
+            SetValidDefaults();
+            SetField("_isTrainingWeapon", true);
+            SetField("_category", LootCategory.Weapon);
+            SetField("_canBeDiscarded", false);
+            SetField("_canBeTransferred", true);
+
+            bool result = _loot.TryValidate(out string error);
+            Assert.That(result, Is.False);
+            Assert.That(error, Does.Contain("cannot be transferred"));
+        }
+
+        [Test]
+        public void TrainingWeapon_CannotBeTradable()
+        {
+            SetValidDefaults();
+            SetField("_isTrainingWeapon", true);
+            SetField("_category", LootCategory.Weapon);
+            SetField("_canBeDiscarded", false);
+            SetField("_canBeTransferred", false);
+            SetField("_tradable", true);
+
+            bool result = _loot.TryValidate(out string error);
+            Assert.That(result, Is.False);
+            Assert.That(error, Does.Contain("cannot be tradable"));
+        }
+
+        [Test]
+        public void TrainingWeapon_MustHaveZeroValue()
+        {
+            SetValidDefaults();
+            SetField("_isTrainingWeapon", true);
+            SetField("_category", LootCategory.Weapon);
+            SetField("_canBeDiscarded", false);
+            SetField("_canBeTransferred", false);
+            SetField("_tradable", false);
+            SetField("_objectValue", 10);
+
+            bool result = _loot.TryValidate(out string error);
+            Assert.That(result, Is.False);
+            Assert.That(error, Does.Contain("must have 0 value"));
+        }
+
+        [Test]
+        public void TrainingWeapon_FlagExposedCorrectly()
+        {
+            SetValidDefaults();
+            SetField("_isTrainingWeapon", true);
+            Assert.That(_loot.IsTrainingWeapon, Is.True);
+        }
+
         private static GemDefinition CreateGemDefinition(int damageBonus)
         {
             GemDefinition gem = ScriptableObject.CreateInstance<GemDefinition>();

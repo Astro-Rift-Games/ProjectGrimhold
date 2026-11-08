@@ -41,6 +41,13 @@ namespace Tests.EditMode.Loot
             .Concat(new[] { "shield" })
             .ToArray();
 
+        private static readonly string[] TrainingWeaponIds =
+        {
+            "training_short_sword",
+            "training_dagger",
+            "training_wand"
+        };
+
         private static readonly Dictionary<string, ulong> DefaultLootWeights = new Dictionary<string, ulong>
         {
             ["arming_sword"] = 6,
@@ -90,7 +97,7 @@ namespace Tests.EditMode.Loot
             for (int index = 0; index < _catalog.DefinitionCount; index++)
             {
                 Assert.That(_catalog.TryGetByIndex(index, out LootDefinition definition), Is.True);
-                if (definition.Category == LootCategory.Weapon || definition.Category == LootCategory.Shield)
+                if (!definition.IsTrainingWeapon && (definition.Category == LootCategory.Weapon || definition.Category == LootCategory.Shield))
                 {
                     actualEquipmentIds.Add(definition.Id);
                 }
@@ -172,6 +179,52 @@ namespace Tests.EditMode.Loot
             AssertWeapon("spell_book", 34f, 1.1f, 2.5f, 15f, 0f, DamageType.Magical,
                 WeaponHandedness.TwoHanded, CharacterAttribute.Intelligence, 0, 0, 10,
                 typeof(MeleeAttackConfig));
+        }
+
+        [Test]
+        public void TrainingWeapons_MatchApprovedTrainingConfiguration()
+        {
+            foreach (string id in TrainingWeaponIds)
+            {
+                Assert.That(_catalog.TryGet(id, out LootDefinition definition), Is.True, id);
+                Assert.That(definition, Is.Not.Null, id);
+                Assert.That(definition.TryValidate(out string error), Is.True, $"{id}: {error}");
+                Assert.That(AssetDatabase.GetAssetPath(definition.Icon), Does.StartWith(WeaponArtRoot), id);
+                Assert.That(AssetDatabase.GetAssetPath(definition.WorldSprite), Does.StartWith(WeaponArtRoot), id);
+                Assert.That(definition.Category, Is.EqualTo(LootCategory.Weapon), id);
+                Assert.That(definition.IsTrainingWeapon, Is.True, id);
+                Assert.That(definition.ExtractionValuePerUnit, Is.Zero, id);
+                Assert.That(definition.SellValuePerUnit, Is.Zero, id);
+                Assert.That(definition.BuyValuePerUnit, Is.Zero, id);
+                Assert.That(definition.ObjectValue, Is.Zero, id);
+                Assert.That(definition.CanBeDiscarded, Is.False, id);
+                Assert.That(definition.CanBeTransferred, Is.False, id);
+                Assert.That(definition.Tradable, Is.False, id);
+                Assert.That(definition.CanEnterDungeon, Is.True, id);
+                Assert.That(definition.CanBeFoundInDungeon, Is.False, id);
+                Assert.That(definition.Rarity, Is.EqualTo(LootRarity.Common), id);
+                Assert.That(definition.StackMax, Is.EqualTo(1), id);
+                Assert.That(definition.MaxTransportable, Is.EqualTo(1), id);
+                Assert.That(definition.Icon, Is.Not.Null, id);
+                Assert.That(definition.WorldSprite, Is.Not.Null, id);
+                Assert.That(definition.WeaponDefinition, Is.Not.Null, id);
+                Assert.That(definition.WeaponDefinition.OffensiveScaling.HasScaling, Is.False, id);
+                Assert.That(definition.WeaponDefinition.AttributeRequirements.MinimumStrength, Is.Zero, id);
+                Assert.That(definition.WeaponDefinition.AttributeRequirements.MinimumDexterity, Is.Zero, id);
+                Assert.That(definition.WeaponDefinition.AttributeRequirements.MinimumIntelligence, Is.Zero, id);
+            }
+
+            AssertWeapon("training_short_sword", 22f, 1f, 1.5f, 15f, 5f, DamageType.Physical,
+                WeaponHandedness.OneHanded, CharacterAttribute.Strength, 0, 0, 0,
+                typeof(MeleeAttackConfig));
+
+            AssertWeapon("training_dagger", 14f, 0.55f, 1f, 10f, 0f, DamageType.Physical,
+                WeaponHandedness.OneHanded, CharacterAttribute.Dexterity, 0, 0, 0,
+                typeof(MeleeAttackConfig));
+
+            AssertWeapon("training_wand", 16f, 0.7f, 5f, 10f, 0f, DamageType.Magical,
+                WeaponHandedness.OneHanded, CharacterAttribute.Intelligence, 0, 0, 0,
+                typeof(RangedAttackConfig));
         }
 
         // GD 09 gives the Spellbook an "area / proximity" identity but no numbers: it hits several targets in a
