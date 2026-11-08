@@ -17,6 +17,7 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - Added the Catacombs Specter enemy with alternating physical immunity, ground telegraph attacks, and spectral relocation.
 - Charge now stuns the enemy it hits for a moment, stopping it from moving or attacking and cancelling the Specter's area attack.
 - Added basic training short sword, dagger, and wand for contingency expeditions.
+- If you return to Town before your partner, you now see that they are still in the Dungeon and can start the next expedition together once they are back.
 
 ### Improved
 

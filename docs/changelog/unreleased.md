@@ -4,32 +4,128 @@
 
 Release: Unreleased
 
-85 original commits; 85 canonical entries.
+86 original commits; 86 canonical entries.
 
 ## Canonical classification
 
-48 features; 21 bug fixes; 1 refactoring; 7 documentation; 2 tests; 4 maintenance; 2 other changes
+49 features; 21 bug fixes; 1 refactoring; 7 documentation; 2 tests; 4 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 6 | 6 | 1 | 0 | 3 | 1 |
 | Art & Animation | 7 | 7 | 1 | 0 | 4 | 0 |
 | Audio | 3 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 28 | 13 | 1 | 0 | 5 | 2 |
+| Build & Tooling | 29 | 13 | 1 | 0 | 5 | 2 |
 | Combat | 29 | 4 | 0 | 0 | 5 | 0 |
-| Documentation | 20 | 8 | 0 | 0 | 4 | 0 |
+| Documentation | 21 | 8 | 0 | 0 | 4 | 0 |
 | Extraction | 7 | 2 | 0 | 0 | 2 | 0 |
 | Input | 0 | 0 | 0 | 0 | 1 | 0 |
 | Inventory & Loot | 41 | 18 | 1 | 0 | 6 | 1 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 12 | 6 | 0 | 0 | 1 | 0 |
+| Networking & Sessions | 13 | 6 | 0 | 0 | 1 | 0 |
 | Persistence & Backend | 17 | 6 | 0 | 0 | 2 | 0 |
-| Tests | 46 | 18 | 1 | 0 | 5 | 0 |
-| UI | 19 | 5 | 1 | 0 | 4 | 0 |
+| Tests | 47 | 18 | 1 | 0 | 5 | 0 |
+| UI | 20 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
-| World & Visibility | 13 | 4 | 0 | 0 | 0 | 0 |
+| World & Visibility | 14 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 89699bb0ba7727f71dc35ca84f5f92b145baeca7
+
+[89699bb0ba7727f71dc35ca84f5f92b145baeca7](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/89699bb0ba7727f71dc35ca84f5f92b145baeca7)
+
+Date: 2026-11-08T03:21:35-03:00 · Classification: Features (explicit) · Systems: Networking & Sessions, UI, World & Visibility, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(town): block a new expedition while the Duo partner is in Dungeon
+```
+
+#### Original body
+
+```text
+A player who returns to Town before their partner can no longer Ready,
+Start, create or join a Raid while the partner's expedition is still
+active (Game Design 01 §6.3/§10, 02 §18). The lock lifts on its own
+once the partner returns and the Party is restored.
+
+- Town cannot observe the Raid runner, so the signal is the unresolved
+  Duo TownPartyContinuationContext: TownPartyRules
+  .IsAwaitingPartyCompletion holds for a pending two-member context.
+- SessionConnectionCoordinator exposes it, SocialPlayerIdentity
+  replicates IsAwaitingPartyCompletion from its State Authority and
+  TownPartyDirectory reads it per player. TownRaidPreparationDirectory
+  rejects Ready (cancel stays allowed), Start and Join from that player.
+- TownRaidPreparationView locks Ready/Start/Create/Join with the notice
+  "Tu compañero sigue en la Dungeon. Espera a que finalice su
+  expedición"; the presenter repaints when the lock flips.
+- A continuation whose other member already owns a Town Party
+  (TownPartyRules.IsContinuationSuperseded) is withdrawn and
+  invalidated, so the claimant is not locked forever.
+- Editor-only "Simulate Party Member In Dungeon" on
+  SessionConnectionCoordinator forces the lock for single-client tests.
+
+A partner who never reaches Town again (quit, Host loss) keeps the
+lock until the player returns to the main menu; expiry is FIX-07.
+
+Tests:
+- TownPartyRulesTests: awaiting holds for a pending Duo and lifts on
+  restore, never for Solo; supersession only by another member.
+- SessionConnectionStateMachineTests: coordinator awaiting state across
+  restore, abandonment, Solo and the Editor simulation flag.
+- TownRaidPreparationViewPlayModeTests: lock, notice, busy interplay
+  and unlock.
+
+Docs: TownRaidQueueArchitecture.md documents the awaiting-partner lock.
+
+Refs: TASK-267
+Player-Added: If you return to Town before your partner, you now see that they are still in the Dungeon and can start the next expedition together once they are back.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+Project Grimhold/Assets/Scripts/Networking/SocialPlayerIdentity.cs
+Project Grimhold/Assets/Scripts/Networking/TownPartyDirectory.cs
+Project Grimhold/Assets/Scripts/Networking/TownPartyRules.cs
+Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationDirectory.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidPreparationPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidPreparationView.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownPartyRulesTests.cs
+Project Grimhold/Assets/Tests/PlayMode/Presentation/TownRaidPreparationViewPlayModeTests.cs
+Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/SocialPlayerIdentity.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownPartyDirectory.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownPartyRules.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationDirectory.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownPartyRulesTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md
+- message-term → UI: menu
+- message-term → World &amp; Visibility: Dungeon
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownPartyRulesTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownPartyRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/Presentation/TownRaidPreparationViewPlayModeTests.cs
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 11e6ae82d2bcb0571de16fb34590fd62250d41b4
 

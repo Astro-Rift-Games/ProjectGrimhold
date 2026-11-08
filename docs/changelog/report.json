@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 962,
-  "canonicalEntries": 959,
+  "rawCommits": 963,
+  "canonicalEntries": 960,
   "before": {
-    "Features": 371,
+    "Features": 372,
     "Architecture & Infrastructure": 16,
     "Bug Fixes": 99,
     "Other Changes": 354,
@@ -12,7 +12,7 @@
     "Refactoring": 14
   },
   "after": {
-    "Features": 508,
+    "Features": 509,
     "Maintenance": 15,
     "Bug Fixes": 115,
     "Other Changes": 164,
@@ -23,18 +23,18 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Networking & Sessions": 276,
+    "UI": 299,
+    "World & Visibility": 128,
+    "Build & Tooling": 491,
+    "Documentation": 376,
+    "Tests": 592,
     "Combat": 354,
     "Inventory & Loot": 383,
     "Art & Animation": 229,
-    "Build & Tooling": 490,
-    "Tests": 591,
-    "Networking & Sessions": 275,
-    "UI": 298,
     "Persistence & Backend": 210,
-    "Documentation": 375,
     "Abilities": 121,
     "Movement": 92,
-    "World & Visibility": 127,
     "Extraction": 130,
     "Input": 29,
     "Unassigned": 20,
@@ -42,7 +42,7 @@
   },
   "canonical": {
     "sections": {
-      "Features": 507,
+      "Features": 508,
       "Maintenance": 15,
       "Bug Fixes": 114,
       "Other Changes": 163,
@@ -52,18 +52,18 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
+      "Networking & Sessions": 276,
+      "UI": 298,
+      "World & Visibility": 126,
+      "Build & Tooling": 489,
+      "Documentation": 374,
+      "Tests": 590,
       "Combat": 352,
       "Inventory & Loot": 383,
       "Art & Animation": 226,
-      "Build & Tooling": 488,
-      "Tests": 589,
-      "Networking & Sessions": 275,
-      "UI": 297,
       "Persistence & Backend": 210,
-      "Documentation": 373,
       "Abilities": 119,
       "Movement": 92,
-      "World & Visibility": 125,
       "Extraction": 130,
       "Input": 29,
       "Unassigned": 20,
@@ -34196,8 +34196,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 85,
-      "canonicalEntries": 85
+      "originalCommits": 86,
+      "canonicalEntries": 86
     },
     {
       "key": "v0.5.0",
@@ -34241,6 +34241,136 @@
     }
   ],
   "commits": [
+    {
+      "sha": "89699bb0ba7727f71dc35ca84f5f92b145baeca7",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/89699bb0ba7727f71dc35ca84f5f92b145baeca7",
+      "subject": "feat(town): block a new expedition while the Duo partner is in Dungeon",
+      "body": "A player who returns to Town before their partner can no longer Ready,\nStart, create or join a Raid while the partner's expedition is still\nactive (Game Design 01 §6.3/§10, 02 §18). The lock lifts on its own\nonce the partner returns and the Party is restored.\n\n- Town cannot observe the Raid runner, so the signal is the unresolved\n  Duo TownPartyContinuationContext: TownPartyRules\n  .IsAwaitingPartyCompletion holds for a pending two-member context.\n- SessionConnectionCoordinator exposes it, SocialPlayerIdentity\n  replicates IsAwaitingPartyCompletion from its State Authority and\n  TownPartyDirectory reads it per player. TownRaidPreparationDirectory\n  rejects Ready (cancel stays allowed), Start and Join from that player.\n- TownRaidPreparationView locks Ready/Start/Create/Join with the notice\n  \"Tu compañero sigue en la Dungeon. Espera a que finalice su\n  expedición\"; the presenter repaints when the lock flips.\n- A continuation whose other member already owns a Town Party\n  (TownPartyRules.IsContinuationSuperseded) is withdrawn and\n  invalidated, so the claimant is not locked forever.\n- Editor-only \"Simulate Party Member In Dungeon\" on\n  SessionConnectionCoordinator forces the lock for single-client tests.\n\nA partner who never reaches Town again (quit, Host loss) keeps the\nlock until the player returns to the main menu; expiry is FIX-07.\n\nTests:\n- TownPartyRulesTests: awaiting holds for a pending Duo and lifts on\n  restore, never for Solo; supersession only by another member.\n- SessionConnectionStateMachineTests: coordinator awaiting state across\n  restore, abandonment, Solo and the Editor simulation flag.\n- TownRaidPreparationViewPlayModeTests: lock, notice, busy interplay\n  and unlock.\n\nDocs: TownRaidQueueArchitecture.md documents the awaiting-partner lock.\n\nRefs: TASK-267\nPlayer-Added: If you return to Town before your partner, you now see that they are still in the Dungeon and can start the next expedition together once they are back.\n",
+      "date": "2026-11-08T03:21:35-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+        "Project Grimhold/Assets/Scripts/Networking/SocialPlayerIdentity.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownPartyDirectory.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownPartyRules.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationDirectory.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidPreparationPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidPreparationView.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownPartyRulesTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Presentation/TownRaidPreparationViewPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "town",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "UI",
+        "World & Visibility",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SocialPlayerIdentity.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownPartyDirectory.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownPartyRules.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationDirectory.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownPartyRulesTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "menu",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "Dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownPartyRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownPartyRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/TownRaidPreparationViewPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "11e6ae82d2bcb0571de16fb34590fd62250d41b4",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/11e6ae82d2bcb0571de16fb34590fd62250d41b4",
