@@ -6,6 +6,7 @@ using Grimhold.Backend;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 public sealed class PhysicalProfileSlotTests
 {
@@ -186,6 +187,121 @@ public sealed class PhysicalProfileSlotTests
         {
             new StashItem(Bone, 9, 0), new StashItem(Bone, 9, 1), new StashItem(Bone, 2, 2), new StashItem(Bone, 3, 3)
         }));
+    }
+
+    [TestCase(1)]
+    [TestCase(30)]
+    public void RaidAdmissionCapacity_ExtractionThenReservation_KeepsEquipmentOutsideBackpack(int backpackUnits)
+    {
+        LocalProfileStore store = CreateCapacityStore(out var repository, out var files);
+        var profile = repository.Snapshot.ProfileId;
+        var weapon = new LootId("arming_sword");
+        Assert.That(Catalog.TryGet(weapon.Value, out var definition), Is.True);
+        var modifiers = EquipmentInstance.PlainCache(definition).Modifiers;
+        var items = Enumerable.Range(0, backpackUnits)
+            .Select(slot => new StashItem(weapon, 1, slot,
+                new EquipmentInstance((slot + 1).ToString("x24"), modifiers))).ToArray();
+        var equippedInstance = new EquipmentInstance("ffffffffffffffffffffffff", modifiers);
+        var equipment = default(PreparedEquipmentLoadout)
+            .With(EquipmentSlot.WeaponSetAMainHand, weapon, equippedInstance);
+        var receipt = new ExtractionReceipt("capacity-raid", profile, 1);
+        int events = 0;
+        store.ProfileCommitted += _ => events++;
+        Assert.That(store.TryCommitExtraction(receipt, items, equipment, 0, 1, 0),
+            Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.GetLoadout(), Is.EqualTo(items));
+        int writes = files.Writes;
+        // RED must report the reservation rejection, not fail merely because it logged it.
+        LogAssert.ignoreFailingMessages = true;
+        try
+        {
+            Assert.That(store.TryCreateLoadoutReservation("capacity-next", out var reservation),
+                Is.EqualTo(StashOperationResult.Success));
+            Assert.That(reservation.Items, Is.EqualTo(items));
+            Assert.That(reservation.PreparedEquipment, Is.EqualTo(equipment));
+            Assert.That(reservation.PreparedEquipment.GetInstance(EquipmentSlot.WeaponSetAMainHand),
+                Is.EqualTo(equippedInstance));
+        }
+        finally { LogAssert.ignoreFailingMessages = false; }
+        Assert.That(store.GetLoadout(), Is.Empty);
+        Assert.That(store.GetPreparedEquipment().HasAnyEquipment, Is.False);
+        Assert.That(store.GetStash(), Is.Empty);
+        Assert.That(store.GetCurrency(), Is.EqualTo(10));
+        Assert.That(store.PendingExtractionCommit.Receipt, Is.EqualTo(receipt));
+        Assert.That(events, Is.EqualTo(2));
+        Assert.That(files.Writes, Is.EqualTo(writes + 1));
+        Assert.That(store.TryCreateLoadoutReservation("capacity-next", out var retry),
+            Is.EqualTo(StashOperationResult.Success));
+        Assert.That(retry.Items, Is.EqualTo(items));
+        Assert.That(retry.PreparedEquipment, Is.EqualTo(equipment));
+        Assert.That(files.Writes, Is.EqualTo(writes + 1));
+        Assert.That(events, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void RaidAdmissionCapacity_TrueBackpackStackOverflow_LeavesProfileAndCountersUnchanged()
+    {
+        LocalProfileStore store = CreateCapacityStore(out var repository, out var files);
+        Assert.That(Catalog.TryGet(Bone.Value, out var definition), Is.True);
+        var receipt = new ExtractionReceipt("capacity-overflow", repository.Snapshot.ProfileId, 1);
+        var items = new[] { new StashItem(Bone, definition.StackMax * 31) };
+        Assert.That(store.TryCommitExtraction(receipt, items, default, 0, 1, 0),
+            Is.EqualTo(StashOperationResult.Success));
+        string before = LocalProfileSaveCodec.Encode(repository.Snapshot);
+        int writes = files.Writes, events = 0;
+        store.ProfileCommitted += _ => events++;
+        LogAssert.Expect(LogType.Error,
+            "[LocalProfileStore] TryCreateLoadoutReservation failed. Physical slots required (31) exceeds MaxLoadoutSlots (30).");
+        Assert.That(store.TryCreateLoadoutReservation("capacity-rejected", out var reservation),
+            Is.EqualTo(StashOperationResult.InventoryFull));
+        Assert.That(reservation, Is.Null);
+        Assert.That(store.PendingReservation, Is.Null);
+        Assert.That(LocalProfileSaveCodec.Encode(repository.Snapshot), Is.EqualTo(before));
+        Assert.That(store.GetStash(), Is.Empty);
+        Assert.That(files.Writes, Is.EqualTo(writes));
+        Assert.That(events, Is.Zero);
+    }
+
+    private LocalProfileStore CreateCapacityStore(out LocalProfileRepository repository,
+        out CapacityProfileFiles files)
+    {
+        var profile = new ProfileId("49494949494949494949494949494949");
+        files = new CapacityProfileFiles();
+        repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, Catalog), Is.True, repository.LastError);
+        var store = new LocalProfileStore(repository, profile, Catalog);
+        Assert.That(store.ReconcileRemoteState(new InventoryData
+        {
+            inventorySchemaVersion = 3, revision = 7, currency = 10,
+            stash = System.Array.Empty<InventoryItemData>(),
+            loadout = System.Array.Empty<InventoryItemData>(), preparedEquipment = new PreparedEquipmentData()
+        }, null, Catalog, null), Is.EqualTo(StashOperationResult.Success));
+        return store;
+    }
+
+    private sealed class CapacityProfileFiles : ILocalProfileFileStore
+    {
+        private readonly Dictionary<string, string> _contents = new();
+        public int Writes { get; private set; }
+        public bool Exists(string path) => _contents.ContainsKey(path);
+        public bool TryRead(string path, out string contents, out string error)
+        {
+            error = _contents.TryGetValue(path, out contents) ? null : "Missing";
+            return error == null;
+        }
+        public bool TryWriteAtomically(string mainPath, string temporaryPath, string backupPath,
+            string contents, out string error)
+        {
+            _contents[mainPath] = contents;
+            Writes++;
+            error = null;
+            return true;
+        }
+        public bool TryRestoreMainFromBackup(string mainPath, string backupPath, out string error)
+        {
+            error = "Not used";
+            return false;
+        }
     }
 
     [Test]

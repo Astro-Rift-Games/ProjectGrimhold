@@ -1970,7 +1970,7 @@ public sealed class LocalProfileStore : IMissionClaimService
             return StashOperationResult.InventoryFull;
         }
 
-        int totalPhysicalSlots = CalculatePhysicalSlots(current.Loadout, current.PreparedEquipment, _lootCatalog);
+        int totalPhysicalSlots = CalculatePhysicalSlots(current.Loadout, _lootCatalog);
         if (totalPhysicalSlots > LocalProfileSnapshot.MaxLoadoutSlots)
         {
             Debug.LogError($"[LocalProfileStore] TryCreateLoadoutReservation failed. Physical slots required ({totalPhysicalSlots}) exceeds MaxLoadoutSlots ({LocalProfileSnapshot.MaxLoadoutSlots}).");
@@ -2234,7 +2234,6 @@ public sealed class LocalProfileStore : IMissionClaimService
 
     private static int CalculatePhysicalSlots(
         IReadOnlyList<StashItem> loadout,
-        PreparedEquipmentLoadout equipment,
         LootDefinitionCatalog catalog)
     {
         if (catalog == null)
@@ -2242,35 +2241,31 @@ public sealed class LocalProfileStore : IMissionClaimService
             return loadout != null ? loadout.Count : 0;
         }
 
-        var counts = new Dictionary<LootId, int>();
+        // Prepared Equipment has separate capacity; only the backpack is materialized here.
+        // Backpack Equipment never stacks, even when several units share a template.
+        var counts = new Dictionary<LootId, long>();
+        long totalSlots = 0;
         if (loadout != null)
         {
             for (int i = 0; i < loadout.Count; i++)
             {
                 StashItem item = loadout[i];
-                if (item.LootId.IsValid && item.Amount > 0)
+                if (!item.LootId.IsValid || item.Amount <= 0) continue;
+                if (catalog.TryGet(item.LootId.Value, out LootDefinition definition) &&
+                    EquipmentInstance.IsEquipment(definition))
                 {
-                    counts[item.LootId] = counts.TryGetValue(item.LootId, out int existing)
+                    totalSlots += item.Amount;
+                }
+                else
+                {
+                    counts[item.LootId] = counts.TryGetValue(item.LootId, out long existing)
                         ? existing + item.Amount
                         : item.Amount;
                 }
             }
         }
 
-        EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
-        for (int i = 0; i < slots.Length; i++)
-        {
-            LootId eqId = equipment.Get(slots[i]);
-            if (eqId.IsValid)
-            {
-                counts[eqId] = counts.TryGetValue(eqId, out int existing)
-                    ? existing + 1
-                    : 1;
-            }
-        }
-
-        int totalSlots = 0;
-        foreach (KeyValuePair<LootId, int> pair in counts)
+        foreach (KeyValuePair<LootId, long> pair in counts)
         {
             if (catalog.TryGet(pair.Key.Value, out LootDefinition def) && def != null && def.StackMax > 0)
             {
@@ -2282,7 +2277,7 @@ public sealed class LocalProfileStore : IMissionClaimService
             }
         }
 
-        return totalSlots;
+        return totalSlots > int.MaxValue ? int.MaxValue : (int)totalSlots;
     }
 
 }

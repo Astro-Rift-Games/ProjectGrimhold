@@ -2267,10 +2267,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 // In case full admission token was sent directly (e.g. unit tests)
                 if (RaidAdmissionDataCodec.TryDecode(token, out admission) &&
                     IsRaidAdmissionValid(admission) &&
-                    RaidLoadoutRules.TryValidate(
-                        admission.ReservedLoadout,
+                    admission.TryProjectLoadout(
                         _lootCatalog,
                         LocalProfileSnapshot.MaxLoadoutSlots,
+                        out _, out _,
                         out _) &&
                     PreparedAbilityLoadout.TryValidateAdmission(
                         admission.PreparedAbilities,
@@ -2545,10 +2545,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
-        if (!RaidLoadoutRules.TryValidate(
-                admission.ReservedLoadout,
+        if (!admission.TryProjectLoadout(
                 _lootCatalog,
                 LocalProfileSnapshot.MaxLoadoutSlots,
+                out _, out _,
                 out string validationError))
         {
             Debug.LogWarning($"[NetworkSpawnManager] Rejected loadout for profile '{admission.ProfileId.Value}': {validationError}.");
@@ -2604,10 +2604,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (RaidAdmissionDataCodec.TryDecode(token, out RaidAdmissionData admission))
         {
             if (RaidAdmissionRules.IsAdmitted(_launchContext, admission) &&
-                RaidLoadoutRules.TryValidate(
-                    admission.ReservedLoadout,
+                admission.TryProjectLoadout(
                     _lootCatalog,
                     LocalProfileSnapshot.MaxLoadoutSlots,
+                    out _, out _,
                     out _) &&
                 PreparedAbilityLoadout.TryValidateAdmission(
                     admission.PreparedAbilities,
@@ -2627,10 +2627,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     {
         return RaidAdmissionDataCodec.TryDecode(token, out admission) &&
                IsRaidAdmissionValid(admission) &&
-               RaidLoadoutRules.TryValidate(
-                   admission.ReservedLoadout,
+               admission.TryProjectLoadout(
                    _lootCatalog,
                    LocalProfileSnapshot.MaxLoadoutSlots,
+                   out _, out _,
                    out _) &&
                PreparedAbilityLoadout.TryValidateAdmission(
                    admission.PreparedAbilities,
@@ -2881,10 +2881,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
-        if (!RaidLoadoutRules.TryValidate(
-                resolvedAdmission.ReservedLoadout,
+        if (!resolvedAdmission.TryProjectLoadout(
                 _lootCatalog,
                 LocalProfileSnapshot.MaxLoadoutSlots,
+                out _, out _,
                 out string loadoutError))
         {
             Debug.LogWarning($"[NetworkSpawnManager] Loadout validation failed for {player}: {loadoutError}");
@@ -2986,6 +2986,37 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         {
             _admittedProfiles.Remove(profileToRemove);
         }
+    }
+
+    /// <summary>
+    /// Materializes ownership on a fresh admitted avatar. On failure the caller must discard
+    /// the avatar; this is not an initializer for restored or already admitted players.
+    /// </summary>
+    public static bool TryInitializeRaidAdmission(
+        in RaidAdmissionData admission,
+        LootDefinitionCatalog catalog,
+        RaidParticipantId participantId,
+        PlayerLootReceiver lootReceiver,
+        PlayerWeaponEquipmentNetworkController equipment,
+        out string error)
+    {
+        if (lootReceiver == null || equipment == null ||
+            lootReceiver.gameObject != equipment.gameObject ||
+            !lootReceiver.HasStateAuthority || !equipment.HasStateAuthority ||
+            equipment.HasAnyEquipment)
+        {
+            error = "Raid admission requires fresh Inventory and Equipment under State Authority.";
+            return false;
+        }
+        if (!admission.TryProjectLoadout(catalog, lootReceiver.SlotCapacity,
+                out LootEntry[] backpack, out LootEntry[] equipmentUnits, out error)) return false;
+
+        // Stage only the referenced units. Equipping consumes all of them, leaving the
+        // physical inventory empty before its independent backpack payload is admitted.
+        if (!lootReceiver.TryInitializeRaidLoadout(equipmentUnits, participantId, out error) ||
+            !equipment.TryInitializePreparedEquipment(admission.ReservedLoadout,
+                admission.EntryIndicesPlusOne, admission.ActiveWeaponSet, out error)) return false;
+        return lootReceiver.TryInitializeRaidLoadout(backpack, participantId, out error);
     }
 
     private bool SpawnPlayer(NetworkRunner runner, PlayerRef player)
@@ -3099,24 +3130,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                         return;
                     }
 
-                    loadoutInitialized = lootReceiver.TryInitializeRaidLoadout(
-                        admission.ReservedLoadout,
-                        raidParticipantId,
-                        out string loadoutError);
+                    loadoutInitialized = TryInitializeRaidAdmission(admission, _lootCatalog,
+                        raidParticipantId, lootReceiver, equipment, out string loadoutError);
                     if (!loadoutInitialized)
                     {
                         Debug.LogError($"[NetworkSpawnManager] Failed to initialize loadout for player {player}: {loadoutError}.", obj);
-                        return;
-                    }
-
-                    loadoutInitialized = equipment.TryInitializePreparedEquipment(
-                        admission.ReservedLoadout,
-                        admission.EntryIndicesPlusOne,
-                        admission.ActiveWeaponSet,
-                        out string equipmentError);
-                    if (!loadoutInitialized)
-                    {
-                        Debug.LogError($"[NetworkSpawnManager] Failed to initialize Equipment for player {player}: {equipmentError}.", obj);
                     }
                 }
             });

@@ -1179,6 +1179,134 @@ namespace Tests.PlayMode.Equipment
         }
 
         [UnityTest]
+        public IEnumerator RaidAdmissionCapacity_FullBackpackKeepsModifiedEquipmentSeparate()
+        {
+            yield return StartRaidPlayer(CreateAttributes(strength: 10));
+            yield return SyncInventory(Array.Empty<LootEntry>());
+            RaidAdmissionData admission = CreateCapacityAdmission(30);
+            yield return InSlotSimulation(() =>
+            {
+                Assert.That(NetworkSpawnManager.TryInitializeRaidAdmission(admission, _catalog,
+                    CapacityParticipant(), _receiver, _equipment, out string error), Is.True, error);
+                Assert.That(_equipment.TryGetSlotModifiers(EquipmentSlot.WeaponSetAMainHand,
+                    out var modifiers), Is.True);
+                Assert.That(modifiers, Is.EqualTo(EncodeSword(CreateRubySocketedSword())));
+                AssertCapacityOwnership(admission, 30, 31);
+            });
+        }
+
+        [UnityTest]
+        public IEnumerator RaidAdmissionCapacity_SharedLegacyReferencesConsumeOneUnitEach()
+        {
+            yield return StartRaidPlayer(CreateAttributes(strength: 10));
+            yield return SyncInventory(Array.Empty<LootEntry>());
+            Assert.That(RaidCode.TryParse("123456", out var code), Is.True);
+            var admission = new RaidAdmissionData(code, new ProfileId("equipment-test-profile"),
+                "capacity-legacy", new[] { new LootEntry(_meleeWeapon.LootId, 3) },
+                CreateAttributes(strength: 10), new[] { 1, 1, 0, 0, 0, 0, 0, 0 },
+                activeWeaponSet: WeaponSetSlot.SetB);
+            yield return InSlotSimulation(() =>
+            {
+                Assert.That(NetworkSpawnManager.TryInitializeRaidAdmission(admission, _catalog,
+                    CapacityParticipant(), _receiver, _equipment, out string error), Is.True, error);
+                Assert.That(_equipment.TryGetSlotLoot(EquipmentSlot.WeaponSetBMainHand, out _), Is.True);
+                AssertCapacityOwnership(admission, 1, 3);
+            });
+        }
+
+        [UnityTest]
+        public IEnumerator RaidAdmissionCapacity_TwoModifiedSetsPreserveExactUnitsAndActiveSet()
+        {
+            yield return StartRaidPlayer(CreateAttributes(strength: 10));
+            yield return SyncInventory(Array.Empty<LootEntry>());
+            RaidAdmissionData admission = CreateCapacityAdmission(30, twoSets: true);
+            yield return InSlotSimulation(() =>
+            {
+                Assert.That(NetworkSpawnManager.TryInitializeRaidAdmission(admission, _catalog,
+                    CapacityParticipant(), _receiver, _equipment, out string error), Is.True, error);
+                Assert.That(_equipment.TryGetSlotModifiers(EquipmentSlot.WeaponSetAMainHand,
+                    out var first), Is.True);
+                Assert.That(_equipment.TryGetSlotModifiers(EquipmentSlot.WeaponSetBMainHand,
+                    out var second), Is.True);
+                Assert.That(first, Is.EqualTo(EncodeSword(admission.ReservedLoadout[30].Modifiers.Value)));
+                Assert.That(second, Is.EqualTo(EncodeSword(admission.ReservedLoadout[31].Modifiers.Value)));
+                Assert.That(first, Is.Not.EqualTo(second));
+                AssertCapacityOwnership(admission, 30, 32);
+            });
+        }
+
+        [UnityTest]
+        public IEnumerator RaidAdmissionCapacity_OverflowAndInvalidReferencesLeaveOwnershipUnchanged()
+        {
+            yield return StartRaidPlayer(CreateAttributes(strength: 10));
+            yield return SyncInventory(Array.Empty<LootEntry>());
+            var overflow = CreateCapacityAdmission(31);
+            var invalid = new RaidAdmissionData(overflow.RaidCode, overflow.ProfileId,
+                "capacity-invalid", new[] { new LootEntry(_meleeWeapon.LootId, 1, isEquipmentUnit: true) },
+                CreateAttributes(strength: 10), new[] { 2, 0, 0, 0, 0, 0, 0, 0 });
+            yield return InSlotSimulation(() =>
+            {
+                int inventoryRevision = _receiver.Revision;
+                int equipmentRevision = _equipment.EquipmentRevision;
+                foreach (var admission in new[] { overflow, invalid })
+                {
+                    Assert.That(NetworkSpawnManager.TryInitializeRaidAdmission(admission, _catalog,
+                        CapacityParticipant(), _receiver, _equipment, out string error), Is.False);
+                    Assert.That(error, Is.Not.Empty);
+                    Assert.That(_receiver.GetLootContent(), Is.Empty);
+                    Assert.That(_equipment.HasAnyEquipment, Is.False);
+                    Assert.That(_receiver.Revision, Is.EqualTo(inventoryRevision));
+                    Assert.That(_equipment.EquipmentRevision, Is.EqualTo(equipmentRevision));
+                }
+            });
+        }
+
+        private RaidAdmissionData CreateCapacityAdmission(int backpackUnits, bool twoSets = false)
+        {
+            var combined = new List<LootEntry>();
+            for (int i = 0; i < backpackUnits; i++)
+                combined.Add(new LootEntry(_meleeWeapon.LootId, 1, isEquipmentUnit: true));
+            combined.Add(new LootEntry(_meleeWeapon.LootId, 1, CreateRubySocketedSword(), isEquipmentUnit: true));
+            var indices = new int[EquipmentSlotRules.AllSlots.Length];
+            indices[0] = combined.Count;
+            if (twoSets)
+            {
+                Assert.That(WeaponInstanceModifiers.TryCreate(default, default,
+                    _meleeWeapon.WeaponDefinition.NaturalScalingAttribute, 2, default, default,
+                    out var modifiers, out string error), Is.True, error);
+                combined.Add(new LootEntry(_meleeWeapon.LootId, 1, modifiers, isEquipmentUnit: true));
+                indices[1] = combined.Count;
+            }
+            Assert.That(RaidCode.TryParse("123456", out var code), Is.True);
+            return new RaidAdmissionData(code, new ProfileId("equipment-test-profile"),
+                "capacity-reservation", combined, CreateAttributes(strength: 10), indices,
+                activeWeaponSet: twoSets ? WeaponSetSlot.SetB : WeaponSetSlot.SetA);
+        }
+
+        private static RaidParticipantId CapacityParticipant()
+        {
+            Assert.That(RaidParticipantId.TryCreate(1, out var participant), Is.True);
+            return participant;
+        }
+
+        private void AssertCapacityOwnership(RaidAdmissionData admission, int backpackUnits, int combinedUnits)
+        {
+            Assert.That(_receiver.GetLootAmount(_meleeWeapon.LootId), Is.EqualTo(backpackUnits));
+            Assert.That(_equipment.ActiveWeaponSetSlot, Is.EqualTo(admission.ActiveWeaponSet));
+            Assert.That(PlayerExpeditionLootSnapshot.TryCapture(_receiver, _equipment,
+                out var snapshot, out string error), Is.True, error);
+            Assert.That(TotalIn(snapshot.Combined, _meleeWeapon.LootId), Is.EqualTo(combinedUnits));
+            Assert.That(RaidAdmissionLoadoutMatcher.Matches(admission, snapshot, _equipment, _catalog), Is.True);
+            Assert.That(RaidTeamId.TryCreate(1, out var team), Is.True);
+            Assert.That(RaidInitialAffiliationSnapshot.TryCreate(
+                new[] { new RaidLaunchParticipant(admission.ProfileId, team) }, out var affiliations), Is.True);
+            Assert.That(RaidLootEligibilityResolver.TryResolve(CapacityParticipant(), snapshot,
+                affiliations, out var eligibility, out error), Is.True, error);
+            Assert.That(eligibility.TotalAmount, Is.EqualTo(combinedUnits));
+            Assert.That(eligibility.EligibleAmount, Is.Zero, "All introduced units retain their participant provenance.");
+        }
+
+        [UnityTest]
         public IEnumerator PreparedEquipment_EquipsTheReferencedUnitWithItsModifiers()
         {
             yield return StartRaidPlayer(CreateAttributes(strength: 10));

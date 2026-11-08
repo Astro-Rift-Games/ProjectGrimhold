@@ -188,6 +188,79 @@ public readonly struct RaidAdmissionData
         return true;
     }
 
+    /// <summary>
+    /// Projects combined ownership into its separate physical destinations without changing the
+    /// transported references. Each Equipment reference consumes exactly one reserved unit.
+    /// </summary>
+    public bool TryProjectLoadout(
+        LootDefinitionCatalog catalog,
+        int backpackCapacity,
+        out LootEntry[] backpack,
+        out LootEntry[] equipment,
+        out string error)
+    {
+        backpack = equipment = null;
+        error = null;
+        if (!IsValid || !LootInventoryRules.IsValidSlotCapacity(
+                backpackCapacity, LocalProfileSnapshot.MaxLoadoutSlots))
+        {
+            error = "Raid admission or backpack capacity is invalid.";
+            return false;
+        }
+        if (!RaidLoadoutRules.TryValidate(ReservedLoadout, catalog,
+                RaidLoadoutRules.MaximumEntries, out error)) return false;
+
+        var referenced = new int[ReservedLoadout.Count];
+        foreach (int reference in EntryIndicesPlusOne)
+            if (reference > 0) referenced[reference - 1]++;
+
+        var inventoryEntries = new List<LootEntry>();
+        var equipmentEntries = new List<LootEntry>();
+        var transported = new Dictionary<LootId, int>();
+        int physicalSlots = 0;
+        for (int index = 0; index < ReservedLoadout.Count; index++)
+        {
+            LootEntry entry = ReservedLoadout[index];
+            catalog.TryGet(entry.LootId.Value, out LootDefinition definition);
+            int prepared = referenced[index];
+            bool isEquipment = EquipmentInstance.IsEquipment(definition);
+            if (prepared > 0 && !isEquipment)
+            {
+                error = "Prepared references must identify Equipment.";
+                return false;
+            }
+            int total = transported.TryGetValue(entry.LootId, out int previous)
+                ? previous + entry.Amount : entry.Amount;
+            transported[entry.LootId] = total;
+            if (definition.MaxTransportable > 0 && total > definition.MaxTransportable)
+            {
+                error = "Loadout exceeds item transport limits.";
+                return false;
+            }
+            if (prepared > 0)
+                equipmentEntries.Add(new LootEntry(entry.LootId, prepared, entry.Modifiers,
+                    isEquipmentUnit: entry.IsEquipmentUnit));
+            int remaining = entry.Amount - prepared;
+            if (remaining <= 0) continue;
+            inventoryEntries.Add(new LootEntry(entry.LootId, remaining, entry.Modifiers,
+                isEquipmentUnit: entry.IsEquipmentUnit));
+            int stackMax = definition.StackMax > 0 ? definition.StackMax : 1;
+            physicalSlots += isEquipment ? remaining : (remaining - 1) / stackMax + 1;
+        }
+        if (physicalSlots > backpackCapacity)
+        {
+            error = "Loadout exceeds physical backpack capacity.";
+            return false;
+        }
+        if (!RaidLoadoutRules.TryValidate(inventoryEntries, catalog, backpackCapacity, out error) ||
+            !RaidLoadoutRules.TryValidate(equipmentEntries, catalog, backpackCapacity, out error))
+            return false;
+
+        backpack = inventoryEntries.ToArray();
+        equipment = equipmentEntries.ToArray();
+        return true;
+    }
+
     public PlayerJoinData ToPlayerJoinData()
     {
         return new PlayerJoinData(ProfileId);
