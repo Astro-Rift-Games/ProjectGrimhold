@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 956,
-  "canonicalEntries": 953,
+  "rawCommits": 957,
+  "canonicalEntries": 954,
   "before": {
+    "Features": 367,
     "Bug Fixes": 99,
     "Other Changes": 354,
-    "Features": 366,
     "Architecture & Infrastructure": 15,
     "Documentation": 82,
     "Tests": 26,
     "Refactoring": 14
   },
   "after": {
+    "Features": 504,
     "Bug Fixes": 115,
     "Other Changes": 164,
-    "Features": 503,
     "Maintenance": 14,
     "Documentation": 97,
     "Tests": 31,
@@ -23,18 +23,18 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Combat": 351,
+    "Combat": 352,
+    "Inventory & Loot": 380,
+    "Networking & Sessions": 274,
+    "UI": 296,
+    "World & Visibility": 127,
+    "Persistence & Backend": 209,
+    "Build & Tooling": 485,
+    "Documentation": 372,
+    "Tests": 588,
     "Extraction": 130,
-    "Inventory & Loot": 379,
-    "Networking & Sessions": 273,
-    "Persistence & Backend": 208,
-    "Build & Tooling": 484,
-    "Documentation": 371,
-    "Tests": 587,
-    "World & Visibility": 126,
     "Art & Animation": 228,
     "Abilities": 119,
-    "UI": 295,
     "Input": 29,
     "Unassigned": 20,
     "Audio": 33,
@@ -42,9 +42,9 @@
   },
   "canonical": {
     "sections": {
+      "Features": 503,
       "Bug Fixes": 114,
       "Other Changes": 163,
-      "Features": 502,
       "Maintenance": 14,
       "Documentation": 97,
       "Tests": 31,
@@ -52,18 +52,18 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "Combat": 349,
+      "Combat": 350,
+      "Inventory & Loot": 380,
+      "Networking & Sessions": 274,
+      "UI": 295,
+      "World & Visibility": 125,
+      "Persistence & Backend": 209,
+      "Build & Tooling": 483,
+      "Documentation": 370,
+      "Tests": 586,
       "Extraction": 130,
-      "Inventory & Loot": 379,
-      "Networking & Sessions": 273,
-      "Persistence & Backend": 208,
-      "Build & Tooling": 482,
-      "Documentation": 369,
-      "Tests": 585,
-      "World & Visibility": 124,
       "Art & Animation": 225,
       "Abilities": 117,
-      "UI": 294,
       "Input": 29,
       "Unassigned": 20,
       "Audio": 33,
@@ -34196,8 +34196,8 @@
       "title": "2026-11 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 84,
-      "canonicalEntries": 84
+      "originalCommits": 85,
+      "canonicalEntries": 85
     },
     {
       "key": "history-2026-10",
@@ -34233,6 +34233,467 @@
     }
   ],
   "commits": [
+    {
+      "sha": "93e9bcb3b91e96a60a1df5f6e50c01ec9eeb732f",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/93e9bcb3b91e96a60a1df5f6e50c01ec9eeb732f",
+      "subject": "feat(inventory): add quantity selector for stack split and partial drop",
+      "body": "Add a numeric quantity selector dialog (slider synced with a TMP input,\nrange [1, stack - 1], Confirm/Cancel) and use it for \"Dividir\" in the\nRaid inventory and Town stash and for \"Soltar cantidad...\" in the Raid\ninventory (TASK-282).\n\n- Partial drop sends the requested amount as an intention through the\n  new LootTransferQuantityMode.ExactAmount; State Authority accepts only\n  slot-addressed amounts in [1, slot quantity - 1] and spawns the pickup\n  with that exact amount.\n- Raid split goes through a new Input Authority request,\n  PlayerLootSplitNetworkController, into PlayerLootReceiver.TrySplitStack;\n  Stash split uses StashTransferCoordinator.SplitAsync. Both target the\n  lowest-index empty slot and disable \"Dividir\" when none is available.\n- Author the dialog prefab with an idempotent Editor menu item and wire\n  it into NetworkPlayer, RaidInventoryUI and StashInventory with minimal\n  prefab edits.\n- Update the inventory, loot interaction and persistence architecture\n  docs, and track execution in odd/tasks/task-282-quantity-selector-partial-drop.md.\n",
+      "date": "2026-11-07T21:07:33-03:00",
+      "files": [
+        ".pi/subagents/unity-operator.md",
+        "Project Grimhold/Assets/Editor/Task282Composition.cs",
+        "Project Grimhold/Assets/Editor/Task282Composition.cs.meta",
+        "Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab",
+        "Project Grimhold/Assets/Prefabs/UI/PlayerUI/RaidInventoryUI.prefab",
+        "Project Grimhold/Assets/Prefabs/UI/QuantitySelectorDialog.prefab",
+        "Project Grimhold/Assets/Prefabs/UI/QuantitySelectorDialog.prefab.meta",
+        "Project Grimhold/Assets/Prefabs/UI/StashInventory.prefab",
+        "Project Grimhold/Assets/Scripts/Core/LootTransferQuantityMode.cs",
+        "Project Grimhold/Assets/Scripts/Core/LootTransferQuantityResolver.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/PlayerLootReceiver.cs",
+        "Project Grimhold/Assets/Scripts/Player/Combat/EnemyCombatAIController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/LootDropClientRequestState.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/LootDropConfirmation.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/LootDropRequestIdentity.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootDropNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootSplitNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootSplitNetworkController.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerHudBinder.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/LootDropContextActionProvider.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/LootSplitContextActionProvider.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/LootSplitContextActionProvider.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/QuantitySelectorDialogView.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/QuantitySelectorDialogView.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/QuantitySelectorRange.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/QuantitySelectorRange.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryView.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs",
+        "Project Grimhold/Assets/Scripts/Stash/StashTransferCoordinator.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContextActionProviderTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDropExactAmountTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDropExactAmountTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootSplitContextActionProviderTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootSplitContextActionProviderTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/QuantitySelectorRangeTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/QuantitySelectorRangeTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RpcAcceptanceContractTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/PlayerLootReceiverSlotsPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs",
+        "Project Grimhold/Docs/Architecture/InventoryWorldDropArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+        "odd/tasks/task-282-quantity-selector-partial-drop.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "inventory",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "World & Visibility",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Combat/EnemyCombatAIController.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/PlayerUI/RaidInventoryUI.prefab",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/StashInventory.prefab",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Core/LootTransferQuantityMode.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Core/LootTransferQuantityResolver.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/PlayerLootReceiver.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/LootDropClientRequestState.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/LootDropConfirmation.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/LootDropRequestIdentity.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootDropNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootSplitNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootSplitNetworkController.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/LootDropContextActionProvider.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/LootSplitContextActionProvider.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/LootSplitContextActionProvider.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryView.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContextActionProviderTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDropExactAmountTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDropExactAmountTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootSplitContextActionProviderTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootSplitContextActionProviderTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/QuantitySelectorRangeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/QuantitySelectorRangeTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerLootReceiverSlotsPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/InventoryWorldDropArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RpcAcceptanceContractTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/PlayerUI/RaidInventoryUI.prefab",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/QuantitySelectorDialog.prefab",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/QuantitySelectorDialog.prefab.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/StashInventory.prefab",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/LocalPlayerHudBinder.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "menu",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/InventoryWorldDropArchitecture.md",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "persistence",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/Task282Composition.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/Task282Composition.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContextActionProviderTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDropExactAmountTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDropExactAmountTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootSplitContextActionProviderTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootSplitContextActionProviderTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/QuantitySelectorRangeTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/QuantitySelectorRangeTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RpcAcceptanceContractTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/InventoryWorldDropArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContextActionProviderTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDropExactAmountTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDropExactAmountTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootSplitContextActionProviderTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootSplitContextActionProviderTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/QuantitySelectorRangeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/QuantitySelectorRangeTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RpcAcceptanceContractTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerLootReceiverSlotsPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "5ea17995d1b8a1f8c73b33240927566a884bd0ad",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5ea17995d1b8a1f8c73b33240927566a884bd0ad",
