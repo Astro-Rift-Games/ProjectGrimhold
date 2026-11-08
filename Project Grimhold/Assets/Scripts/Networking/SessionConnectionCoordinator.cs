@@ -60,6 +60,10 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     [SerializeField]
     private bool _developmentFriendlyFireEnabled;
 
+    [SerializeField]
+    [Tooltip("Editor only: treats the local player as awaiting a partner still in the Dungeon so the Town Ready lock can be validated with one client.")]
+    private bool _simulatePartyMemberInDungeon;
+
     private readonly SessionConnectionStateMachine _stateMachine = new();
     private bool _operationActive;
     private bool _isQuitting;
@@ -115,6 +119,20 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     }
     public TownPartyContinuationContext PendingPartyContinuation => _pendingPartyContinuation;
     public bool HasPendingPartyContinuation => _pendingPartyContinuation != null;
+
+    /// <summary>Whether a Duo partner is still in the active expedition, which blocks a new one from Town.</summary>
+    public bool IsAwaitingPartyCompletion =>
+        TownPartyRules.IsAwaitingPartyCompletion(_pendingPartyContinuation) || SimulatePartyMemberInDungeon;
+
+#if UNITY_EDITOR
+    public bool SimulatePartyMemberInDungeon
+    {
+        get => _simulatePartyMemberInDungeon;
+        set => _simulatePartyMemberInDungeon = value;
+    }
+#else
+    private bool SimulatePartyMemberInDungeon => false;
+#endif
     public bool IsTransitioning => _operationActive;
 
     public event Action<SessionConnectionState> StateChanged;

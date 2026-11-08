@@ -35,7 +35,12 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     private TownRaidPreparationPresentation _lastPresentation;
     private bool _inspectionConfigurationErrorLogged;
     private bool _cardConfigurationErrorLogged;
+    public const string AwaitingPartyCompletionMessage =
+        "Tu compañero sigue en la Dungeon. Espera a que finalice su expedición";
+
     private bool _localReady;
+    private bool _awaitingPartyCompletion;
+    private bool _busy;
     private string _rejectionNotice;
 
     public event Action<ProfileId> MemberSelected;
@@ -187,12 +192,16 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         SetBusy(false);
     }
 
-    public void PresentNoPreparation()
+    /// <param name="awaitingPartyCompletion">
+    /// True while a Duo partner is still in the active Dungeon: no new expedition may be created or joined.
+    /// </param>
+    public void PresentNoPreparation(bool awaitingPartyCompletion = false)
     {
         _lastPresentation = default;
         HideInspection();
         HideMemberCards();
         _localReady = false;
+        _awaitingPartyCompletion = awaitingPartyCompletion;
         HideReconnectOpportunity();
         if (_codeInput != null)
         {
@@ -200,9 +209,19 @@ public sealed class TownRaidPreparationView : MonoBehaviour
             _codeInput.interactable = true;
         }
 
-        ShowStatus("Creá una raid o ingresá el código de una sesión existente.");
-        if (_createButton != null) _createButton.gameObject.SetActive(true);
-        if (_joinButton != null) _joinButton.gameObject.SetActive(true);
+        ShowStatus(awaitingPartyCompletion
+            ? AwaitingPartyCompletionMessage
+            : "Creá una raid o ingresá el código de una sesión existente.");
+        if (_createButton != null)
+        {
+            _createButton.gameObject.SetActive(true);
+            _createButton.interactable = !_busy && !awaitingPartyCompletion;
+        }
+        if (_joinButton != null)
+        {
+            _joinButton.gameObject.SetActive(true);
+            _joinButton.interactable = !_busy && !awaitingPartyCompletion;
+        }
         if (_copyButton != null) _copyButton.gameObject.SetActive(false);
         if (_readyButton != null) _readyButton.gameObject.SetActive(false);
         if (_startButton != null) _startButton.gameObject.SetActive(false);
@@ -216,6 +235,8 @@ public sealed class TownRaidPreparationView : MonoBehaviour
             }
         }
     }
+
+    private bool CanToggleReady() => !_awaitingPartyCompletion || _localReady;
 
     public void Close()
     {
@@ -244,16 +265,17 @@ public sealed class TownRaidPreparationView : MonoBehaviour
 
     public void SetBusy(bool busy, string status = null)
     {
+        _busy = busy;
         if (_codeInput != null)
         {
             _codeInput.interactable = !busy;
         }
 
-        if (_createButton != null) _createButton.interactable = !busy;
-        if (_joinButton != null) _joinButton.interactable = !busy;
+        if (_createButton != null) _createButton.interactable = !busy && !_awaitingPartyCompletion;
+        if (_joinButton != null) _joinButton.interactable = !busy && !_awaitingPartyCompletion;
         if (_copyButton != null) _copyButton.interactable = !busy;
-        if (_readyButton != null) _readyButton.interactable = !busy;
-        if (_startButton != null) _startButton.interactable = !busy;
+        if (_readyButton != null) _readyButton.interactable = !busy && CanToggleReady();
+        if (_startButton != null) _startButton.interactable = !busy && !_awaitingPartyCompletion;
         if (_leaveButton != null) _leaveButton.interactable = !busy;
         if (_reconnectButton != null) _reconnectButton.interactable = !busy;
         if (_discardReconnectButton != null) _discardReconnectButton.interactable = !busy;
@@ -265,9 +287,14 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         }
     }
 
-    public void PresentPreparation(in TownRaidPreparationPresentation presentation)
+    /// <param name="awaitingPartyCompletion">
+    /// True while a Duo partner is still in the active Dungeon: Ready and Start stay locked, while an
+    /// already Ready member may still cancel Ready.
+    /// </param>
+    public void PresentPreparation(in TownRaidPreparationPresentation presentation, bool awaitingPartyCompletion = false)
     {
         _lastPresentation = presentation;
+        _awaitingPartyCompletion = awaitingPartyCompletion;
         if (_inspectionView != null && _inspectionView.IsOpen)
         {
             if (TownRaidPreparationInspectionRules.TryFindInspectable(presentation,
@@ -303,6 +330,11 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         }
 
         status.Append(presentation.IsHost ? "Preparación del Host." : "Esperando al Host...");
+        if (awaitingPartyCompletion)
+        {
+            status.AppendLine().Append(AwaitingPartyCompletionMessage);
+        }
+
         ShowStatus(status.ToString());
         if (_createButton != null) _createButton.gameObject.SetActive(false);
         if (_joinButton != null) _joinButton.gameObject.SetActive(false);
@@ -311,11 +343,12 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         {
             _readyButton.gameObject.SetActive(true);
             _readyButton.GetComponentInChildren<TMP_Text>().text = presentation.LocalReady ? "Cancelar Ready" : "Ready";
+            _readyButton.interactable = !_busy && CanToggleReady();
         }
         if (_startButton != null)
         {
             _startButton.gameObject.SetActive(presentation.IsHost);
-            _startButton.interactable = presentation.CanStart;
+            _startButton.interactable = !_busy && presentation.CanStart && !awaitingPartyCompletion;
         }
         if (_leaveButton != null)
         {

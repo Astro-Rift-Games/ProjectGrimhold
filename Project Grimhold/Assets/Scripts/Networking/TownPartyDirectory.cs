@@ -142,6 +142,17 @@ public sealed class TownPartyDirectory : NetworkBehaviour, IStateAuthorityChange
         return true;
     }
 
+    /// <summary>
+    /// Whether this Town player's Duo partner is still in the active Dungeon, as published by the
+    /// player's own replicated identity. While true the player may not prepare a new expedition.
+    /// </summary>
+    public bool IsAwaitingPartyCompletion(PlayerRef player)
+    {
+        NetworkObject playerObject = Runner != null ? Runner.GetPlayerObject(player) : null;
+        return playerObject != null && playerObject.TryGetBehaviour(out SocialPlayerIdentity identity) &&
+               identity.IsAwaitingPartyCompletion;
+    }
+
     public bool TryResolvePlayer(ProfileId profileId, out PlayerRef player)
     {
         player = PlayerRef.None;
@@ -271,6 +282,13 @@ public sealed class TownPartyDirectory : NetworkBehaviour, IStateAuthorityChange
         {
             if (context.Matches(existing)) RPC_AcknowledgeContinuation(info.Source, hostValue, memberCount, firstValue, secondValue);
             else RPC_InvalidateContinuation(info.Source, hostValue, memberCount, firstValue, secondValue);
+            return default;
+        }
+
+        if (TownPartyRules.IsContinuationSuperseded(context, claimant, member => TryGetParty(member, out _)))
+        {
+            _continuationClaims.Withdraw(claimant, context);
+            RPC_InvalidateContinuation(info.Source, hostValue, memberCount, firstValue, secondValue);
             return default;
         }
 

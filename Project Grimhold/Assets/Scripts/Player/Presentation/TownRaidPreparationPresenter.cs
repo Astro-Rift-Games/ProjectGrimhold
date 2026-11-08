@@ -29,6 +29,7 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
     private PlayerInputReader _inputReader;
     private int _presentedRevision = -1;
     private bool _showingNoPreparation;
+    private bool _presentedAwaitingPartyCompletion;
     private NetworkObject _openNpc;
     private bool _reportedMissingViewPrefab;
 
@@ -203,6 +204,13 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
             return;
         }
 
+        bool awaitingPartyCompletion = coordinator != null && coordinator.IsAwaitingPartyCompletion;
+        if (awaitingPartyCompletion != _presentedAwaitingPartyCompletion)
+        {
+            force = true;
+            _presentedAwaitingPartyCompletion = awaitingPartyCompletion;
+        }
+
         ProfileId localProfile = GetLocalProfile();
         TownRaidPreparationNetworkController preparation = null;
         bool hasPreparation = _directory != null && _directory.TryGetPreparation(localProfile, out preparation);
@@ -211,7 +219,7 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
         {
             if (force || !_showingNoPreparation)
             {
-                _view.PresentNoPreparation();
+                _view.PresentNoPreparation(awaitingPartyCompletion);
                 _showingNoPreparation = true;
                 _presentedPreparation = null;
                 _presentedPresentation = default;
@@ -247,7 +255,7 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
         {
             if (force || !_showingNoPreparation)
             {
-                _view.PresentNoPreparation();
+                _view.PresentNoPreparation(awaitingPartyCompletion);
                 _showingNoPreparation = true;
                 _presentedPreparation = null;
                 _presentedPresentation = default;
@@ -261,7 +269,7 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
         _presentedPreparation = preparation;
         _presentedRevision = preparation.SnapshotRevision;
         _presentedPresentation = presentation;
-        _view.PresentPreparation(presentation);
+        _view.PresentPreparation(presentation, awaitingPartyCompletion);
     }
 
     private bool MemberPresentationMatches(in TownRaidPreparationSnapshot snapshot)

@@ -151,6 +151,7 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerLeft
     {
         if (!CanMutate || !RaidCode.TryParse(requestedCode.ToString(), out RaidCode code) ||
             !TryResolveSender(info.Source, out ProfileId profile) || _cache.TryResolve(profile, out _) ||
+            IsAwaitingPartyCompletion(info.Source) ||
             !_cache.TryResolve(code, out TownRaidPreparationNetworkController preparation) || !preparation.HasStateAuthority ||
             !preparation.AuthorityTryAddMember(profile)) return default;
         _profileByPlayer[info.Source] = profile;
@@ -174,6 +175,7 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerLeft
         if (!CanMutate || !TryResolveSender(info.Source, out ProfileId profile) ||
             !_cache.TryResolve(profile, out TownRaidPreparationNetworkController preparation) || !preparation.HasStateAuthority) return default;
         _profileByPlayer[info.Source] = profile;
+        if (ready && IsAwaitingPartyCompletion(info.Source)) return default;
         preparation.AuthorityTrySetReady(profile, ready);
         return default;
     }
@@ -184,8 +186,15 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerLeft
         if (!CanMutate || !TryResolveSender(info.Source, out ProfileId profile) ||
             !_cache.TryResolve(profile, out TownRaidPreparationNetworkController preparation) || !preparation.HasStateAuthority) return default;
         _profileByPlayer[info.Source] = profile;
+        if (IsAwaitingPartyCompletion(info.Source)) return default;
         preparation.AuthorityTryStart(profile);
         return default;
+    }
+
+    private bool IsAwaitingPartyCompletion(PlayerRef player)
+    {
+        TownPartyDirectory partyDirectory = Runner.GetComponent<TownPartyDirectoryContext>()?.Directory;
+        return partyDirectory != null && partyDirectory.IsAwaitingPartyCompletion(player);
     }
 
     private bool TrySpawnPreparation(RaidCode code, ProfileId host, IReadOnlyList<ProfileId> members)

@@ -94,10 +94,27 @@ Continuation claims are emitted only at lifecycle/replicated-state observation b
 abandonment tombstones the local claim. This is application-session continuity; backend Party
 persistence and global presence remain out of scope.
 
+A member may return while the Duo partner is still in the Dungeon (Game Design 01 §6.3/§10, 02 §18):
+only one expedition may be active per shared session. Town cannot observe the Raid runner, so the
+unresolved Duo continuation is the signal: `TownPartyRules.IsAwaitingPartyCompletion` holds while the
+local `TownPartyContinuationContext` has two members and has not been restored, which happens only
+when the partner returns. `SessionConnectionCoordinator.IsAwaitingPartyCompletion` exposes it,
+`SocialPlayerIdentity.IsAwaitingPartyCompletion` replicates it and `TownPartyDirectory` reads it per
+player. `TownRaidPreparationDirectory` rejects Ready (cancelling Ready stays allowed) and Start from such
+a player, and the panel locks Ready, Start, Create and Join with the notice
+"Tu compañero sigue en la Dungeon. Espera a que finalice su expedición". The lock lifts automatically
+when the restored Party clears the continuation. A claim whose other member already belongs to a Town
+Party (`TownPartyRules.IsContinuationSuperseded`, for example a partner who went through the main menu)
+is withdrawn and invalidated so the claimant abandons it and is unlocked. A partner who never reaches
+Town again (application quit or Host loss) keeps the continuation pending; it has no expiry today and is
+released only by returning to the main menu. In the Editor, `SessionConnectionCoordinator` "Simulate Party Member In Dungeon" forces
+the lock for single-client validation.
+
 ## Presentation
 
 `TownRaidPreparationPresenter` projects only the local profile's preparation. Without one it always
-shows the initial `Crear raid` / code-join state, regardless of Party or pending continuity. The
+shows the initial `Crear raid` / code-join state; a pending Duo continuity only locks it with the
+awaiting-partner notice described above. The
 existing panel presents the 1-16 roster in its bounded scroll area.
 
 `TownPartyHudPresenter` projects the authoritative Party only for `HasInputAuthority`. The preauthored

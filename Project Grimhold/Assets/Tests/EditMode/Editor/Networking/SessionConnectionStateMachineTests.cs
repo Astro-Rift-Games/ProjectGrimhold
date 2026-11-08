@@ -128,6 +128,56 @@ public sealed class SessionConnectionStateMachineTests
     }
 
     [Test]
+    public void AwaitingPartyCompletion_HoldsForPendingDuoAndLiftsOnRestoreOrAbandonment()
+    {
+        ProfileId previousProfile = LocalProfileProvider.GetOrCreateLocalProfile();
+        var owner = new GameObject("Awaiting party completion test");
+        owner.AddComponent<HubSessionLauncher>();
+        owner.AddComponent<FusionSessionLauncher>();
+        SessionConnectionCoordinator coordinator = owner.AddComponent<SessionConnectionCoordinator>();
+        var host = new ProfileId("11111111111111111111111111111111");
+        var client = new ProfileId("22222222222222222222222222222222");
+        TownPartyContinuationContext.TryCreate(host, new[] { host, client }, out TownPartyContinuationContext duo);
+        TownPartyContinuationContext.TryCreate(client, new[] { client }, out TownPartyContinuationContext solo);
+
+        try
+        {
+            LocalProfileProvider.SetRemoteCharacterId(client);
+            Assert.That(coordinator.IsAwaitingPartyCompletion, Is.False);
+
+            // The Client returned first: its Duo continuation stays pending while the Host is in the Dungeon.
+            Assert.That(coordinator.TryPreservePartyContinuation(duo), Is.True);
+            InvokePrivateMethod(coordinator, "CompleteTownEntry", new object[] { null });
+            Assert.That(coordinator.IsAwaitingPartyCompletion, Is.True);
+            Assert.That(coordinator.ConfirmPartyContinuationRestored(new TownPartySnapshot(7, host, new[] { host, client }, 1)), Is.True);
+            Assert.That(coordinator.IsAwaitingPartyCompletion, Is.False);
+
+            Assert.That(coordinator.TryPreservePartyContinuation(duo), Is.True);
+            Assert.That(coordinator.AbandonPartyContinuation(coordinator.PendingPartyContinuation), Is.True);
+            Assert.That(coordinator.IsAwaitingPartyCompletion, Is.False);
+
+            Assert.That(coordinator.TryPreservePartyContinuation(solo), Is.True);
+            Assert.That(coordinator.IsAwaitingPartyCompletion, Is.False, "A Solo expedition never waits for a partner.");
+
+            coordinator.SimulatePartyMemberInDungeon = true;
+            Assert.That(coordinator.IsAwaitingPartyCompletion, Is.True);
+        }
+        finally
+        {
+            if (previousProfile.IsValid)
+            {
+                LocalProfileProvider.SetRemoteCharacterId(previousProfile);
+            }
+            else
+            {
+                LocalProfileProvider.ClearRemoteCharacterId();
+            }
+
+            Object.DestroyImmediate(owner);
+        }
+    }
+
+    [Test]
     public void InvalidTransition_IsRejectedWithoutChangingState()
     {
         var stateMachine = new SessionConnectionStateMachine();

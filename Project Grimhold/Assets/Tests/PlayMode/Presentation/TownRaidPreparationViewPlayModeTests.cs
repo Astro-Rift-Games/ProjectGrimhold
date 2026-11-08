@@ -186,7 +186,41 @@ namespace Tests.PlayMode.Presentation
             Assert.That(tooltip.IsOpen, Is.False);
         }
 
-        private void Present(int count, int localIndex = 0)
+        [Test]
+        public void AwaitingPartyCompletion_LocksNewExpeditionWithNoticeUntilLifted()
+        {
+            var ready = Field<Button>(_view, "_readyButton");
+            var start = Field<Button>(_view, "_startButton");
+            var create = Field<Button>(_view, "_createButton");
+            var join = Field<Button>(_view, "_joinButton");
+            var status = Field<TMP_Text>(_view, "_statusText");
+
+            Present(2, 1, true);
+            Assert.That(ready.interactable, Is.False, "A NotReady member cannot become Ready while the partner is in the Dungeon.");
+            Assert.That(status.text, Does.Contain(TownRaidPreparationView.AwaitingPartyCompletionMessage));
+            _view.SetBusy(false);
+            Assert.That(ready.interactable, Is.False, "Clearing a busy state must not lift the lock.");
+
+            Present(1, 0, true);
+            Assert.That(start.interactable, Is.False, "The Host cannot start while the partner is in the Dungeon.");
+            Assert.That(ready.interactable, Is.True, "A Ready member may still cancel Ready.");
+
+            Present(2, 1);
+            Assert.That(ready.interactable, Is.True);
+            Assert.That(status.text, Does.Not.Contain(TownRaidPreparationView.AwaitingPartyCompletionMessage));
+
+            _view.PresentNoPreparation(true);
+            Assert.That(create.interactable, Is.False);
+            Assert.That(join.interactable, Is.False);
+            Assert.That(status.text, Does.Contain(TownRaidPreparationView.AwaitingPartyCompletionMessage));
+
+            _view.PresentNoPreparation();
+            Assert.That(create.interactable, Is.True);
+            Assert.That(join.interactable, Is.True);
+            Assert.That(status.text, Does.Not.Contain(TownRaidPreparationView.AwaitingPartyCompletionMessage));
+        }
+
+        private void Present(int count, int localIndex = 0, bool awaitingPartyCompletion = false)
         {
             Assert.That(RaidCode.TryParse("100002", out var code), Is.True);
             var members = new TownRaidPreparationMember[count];
@@ -206,7 +240,7 @@ namespace Tests.PlayMode.Presentation
             Assert.That(TownRaidPreparationPresentation.TryCreate(snapshot, Profile(localIndex),
                 ResolveName, ResolveEquipment, out var presentation), Is.True);
             Assert.That(presentation.IsHost, Is.EqualTo(localIndex == 0));
-            _view.PresentPreparation(presentation);
+            _view.PresentPreparation(presentation, awaitingPartyCompletion);
         }
 
         private static ProfileId Profile(int index) => new("profile-" + index);

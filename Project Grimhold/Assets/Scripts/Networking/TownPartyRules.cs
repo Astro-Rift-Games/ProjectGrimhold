@@ -42,4 +42,31 @@ public static class TownPartyRules
         roster = new[] { creator };
         return true;
     }
+
+    /// <summary>
+    /// Returns whether a Town player still belongs to a Duo expedition that has not finished: the
+    /// pending continuation is cleared only when the partner returns and the Party is restored, so an
+    /// unresolved Duo continuation means the shared session's expedition is still active.
+    /// </summary>
+    public static bool IsAwaitingPartyCompletion(TownPartyContinuationContext pendingContinuation) =>
+        pendingContinuation != null && pendingContinuation.Members.Count > 1;
+
+    /// <summary>
+    /// Returns whether a continuation can never be restored because another of its members already
+    /// belongs to a Town Party (they left the Duo, for example through the main menu). Waiting on such a
+    /// claim would keep the claimant awaiting a partner who is no longer in the expedition.
+    /// </summary>
+    public static bool IsContinuationSuperseded(
+        TownPartyContinuationContext context,
+        ProfileId claimant,
+        System.Predicate<ProfileId> hasTownParty)
+    {
+        if (context == null || hasTownParty == null) return false;
+        for (int index = 0; index < context.Members.Count; index++)
+        {
+            ProfileId member = context.Members[index];
+            if (member != claimant && hasTownParty(member)) return true;
+        }
+        return false;
+    }
 }

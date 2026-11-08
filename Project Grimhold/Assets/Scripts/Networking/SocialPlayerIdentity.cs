@@ -21,6 +21,9 @@ public sealed class SocialPlayerIdentity : NetworkBehaviour
     [Networked]
     public NetworkBool HasPendingPartyContinuation { get; private set; }
 
+    [Networked]
+    public NetworkBool IsAwaitingPartyCompletion { get; private set; }
+
     private string _lastPrewarmedTicket;
 
     public override void Spawned()
@@ -86,10 +89,17 @@ public sealed class SocialPlayerIdentity : NetworkBehaviour
 
     private void RefreshContinuationState()
     {
-        bool hasPending = SessionConnectionCoordinator.Instance?.HasPendingPartyContinuation ?? false;
+        SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
+        bool hasPending = coordinator != null && coordinator.HasPendingPartyContinuation;
         if ((bool)HasPendingPartyContinuation != hasPending)
         {
             HasPendingPartyContinuation = hasPending;
+        }
+
+        bool awaitingPartyCompletion = coordinator != null && coordinator.IsAwaitingPartyCompletion;
+        if ((bool)IsAwaitingPartyCompletion != awaitingPartyCompletion)
+        {
+            IsAwaitingPartyCompletion = awaitingPartyCompletion;
         }
     }
 }
