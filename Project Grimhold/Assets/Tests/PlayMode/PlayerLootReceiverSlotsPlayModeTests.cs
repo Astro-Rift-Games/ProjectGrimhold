@@ -699,6 +699,43 @@ namespace Tests.PlayMode.Loot
             });
         }
 
+        [UnityTest]
+        public IEnumerator NonDiscardableDropAuthority_RejectsEveryModeWithoutSpawnOrExtraction()
+        {
+            yield return Execute(() =>
+            {
+                // Rejection precedes placement/spawning, so the fixture catalog needs no geometry setup.
+                SetField(_boneDefinition, "_canBeDiscarded", false);
+                var controller = _receiver.GetComponent<PlayerLootDropNetworkController>();
+                SetField(controller, "_lootCatalog", _catalog);
+                Assert.That(_catalog.TryGetIndex(Bone, out int catalogIndex), Is.True);
+                Receive(_receiver, Bone, 5, RaidLootOrigin.Dungeon);
+                LootInventorySlot[] before = SnapshotSlots(_receiver);
+                int revision = _receiver.Revision;
+                int pickupsBefore = CountValidPickups();
+                var cases = new[]
+                {
+                    (mode: LootTransferQuantityMode.SingleUnit, slot: 0, rev: revision, amount: 0),
+                    (mode: LootTransferQuantityMode.FullStack, slot: 0, rev: revision, amount: 0),
+                    (mode: LootTransferQuantityMode.ExactAmount, slot: 0, rev: revision, amount: 2),
+                    (mode: LootTransferQuantityMode.FullStack, slot: -1, rev: -1, amount: 0)
+                };
+                uint sequence = 1;
+                foreach (var c in cases)
+                {
+                    var identity = new LootDropRequestIdentity(sequence++, catalogIndex, c.mode, c.slot, c.rev, c.amount);
+                    LootDropConfirmation confirmation = InvokeAuthority<LootDropConfirmation>(controller, identity);
+                    Assert.That(confirmation.Result.Success, Is.False, c.ToString());
+                    Assert.That(confirmation.Result.FailureReason, Is.EqualTo(LootDropFailureReason.NotDiscardable), c.ToString());
+                    Assert.That(confirmation.Result.DroppedAmount, Is.Zero, c.ToString());
+                    AssertSlots(_receiver, before);
+                    Assert.That(_receiver.Revision, Is.EqualTo(revision), c.ToString());
+                    Assert.That(_receiver.GetLootAmount(Bone), Is.EqualTo(5), c.ToString());
+                    Assert.That(CountValidPickups(), Is.EqualTo(pickupsBefore), c.ToString());
+                }
+            });
+        }
+
         private static int CountValidPickups()
         {
             int count = 0;

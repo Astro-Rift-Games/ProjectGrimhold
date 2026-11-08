@@ -68,6 +68,39 @@ namespace Tests.EditMode.Loot
         }
 
         [Test]
+        public void NonDiscardableDefinition_DisablesEveryDropAction()
+        {
+            var holder = new GameObject("Drop provider test");
+            try
+            {
+                var provider = new LootDropContextActionProvider();
+                provider.Bind(holder.AddComponent<PlayerLootDropNetworkController>());
+                bool selectorOpened = false;
+                provider.SetPartialDropHandler(_ => selectorOpened = true);
+                var context = new LootContextActionContext(new LootEntry(new LootId("coin"), 2),
+                    _definition, 0, 0);
+                var actions = new List<LootContextActionDescriptor>();
+                provider.CollectActions(context, actions);
+                Assert.That(actions[0].IsEnabled && actions[1].IsEnabled && actions[2].IsEnabled, Is.True,
+                    "A discardable partial stack must enable every drop action.");
+
+                SetField("_canBeDiscarded", false);
+                actions.Clear();
+                provider.CollectActions(context, actions);
+
+                Assert.That(actions, Has.Count.EqualTo(3));
+                Assert.That(actions[0].IsEnabled, Is.False);
+                Assert.That(actions[1].IsEnabled, Is.False);
+                Assert.That(actions[2].IsEnabled, Is.False);
+                Assert.That(provider.TryExecute(LootDropContextActionProvider.DropSingleId, context), Is.False);
+                Assert.That(provider.TryExecute(LootDropContextActionProvider.DropAmountId, context), Is.False);
+                Assert.That(selectorOpened, Is.False, "The quantity selector must not open for a non-discardable item.");
+                Assert.That(provider.TryExecute(LootDropContextActionProvider.DropAllId, context), Is.False);
+            }
+            finally { Object.DestroyImmediate(holder); }
+        }
+
+        [Test]
         public void InvalidDefinition_ContributesNoActions()
         {
             var provider = new LootDropContextActionProvider();

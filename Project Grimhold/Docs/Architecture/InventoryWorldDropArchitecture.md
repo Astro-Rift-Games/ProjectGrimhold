@@ -43,6 +43,10 @@ in this order for valid loot:
    identity/revision change, inventory close, Downed read-only or rebind close the dialog without a request.
 3. `Soltar todo`, mapped to `LootTransferQuantityMode.FullStack`.
 
+All three actions stay listed but disabled for a definition with `CanBeDiscarded == false`
+(`LootInventoryRules.CanDiscardItem`, Doc 07 §15, TASK-268), and the provider refuses to execute
+them. Dragging a slot outside the inventory never drops into the world.
+
 The menu closes after an action, on an outside left click, Escape, inventory close,
 interaction-mode change, source identity/revision change, rebind, drag start or a new drop request.
 Before dispatch the presenter revalidates the captured source without replacing its revision or
@@ -60,7 +64,9 @@ that metadata unchanged through the existing addressed public overload; malforme
 addresses never fall back to the legacy route. Legacy constructors/callers remain unaddressed
 `-1/-1`. Revisions are opaque integers except reserved `-1`.
 State Authority validates address, revision and item identity before resolving the selected slot's
-quantity and exact origin, player life, facing, world position and valid placement.
+quantity and exact origin, player life, facing, world position and valid placement. A resolved
+definition that is not discardable is rejected with `LootDropFailureReason.NotDiscardable` before
+any quantity, origin, placement or spawn work, so the Inventory and its revision stay unchanged.
 
 Only one local request and one authority-side pending request are allowed at a
 time. `LootDropRequestState` records the last processed identity and typed
@@ -86,7 +92,7 @@ transfer caller emits it (Stash transfer amounts are resolved only from `SingleU
 
 The authoritative transaction is deliberately ordered:
 
-1. Validate authority, player availability, catalog identity and current stack.
+1. Validate authority, player availability, catalog identity, discardability and current stack.
 2. Resolve quantity and a collision-free position.
 3. Spawn an unpublished `NetworkLootPickup` with the intended content.
 4. Verify its network identity, content and quantity.

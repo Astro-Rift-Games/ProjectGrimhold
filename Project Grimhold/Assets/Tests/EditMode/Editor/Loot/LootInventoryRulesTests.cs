@@ -1,9 +1,34 @@
+using System.Reflection;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Tests.EditMode.Loot
 {
     public sealed class LootInventoryRulesTests
     {
+        [TestCase(true)]
+        [TestCase(false)]
+        public void CanDiscardItem_FollowsDefinitionCanBeDiscarded(bool canBeDiscarded)
+        {
+            var definition = ScriptableObject.CreateInstance<LootDefinition>();
+            try
+            {
+                FieldInfo field = typeof(LootDefinition).GetField("_canBeDiscarded",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(field, Is.Not.Null);
+                field.SetValue(definition, canBeDiscarded);
+
+                Assert.That(LootInventoryRules.CanDiscardItem(definition), Is.EqualTo(canBeDiscarded));
+            }
+            finally { Object.DestroyImmediate(definition); }
+        }
+
+        [Test]
+        public void CanDiscardItem_MissingDefinition_IsRejected()
+        {
+            Assert.That(LootInventoryRules.CanDiscardItem(null), Is.False);
+        }
+
         [Test]
         public void WeaponReceptionExtractionAndRejectedSplit_KeepParallelModifiersInLockstep()
         {

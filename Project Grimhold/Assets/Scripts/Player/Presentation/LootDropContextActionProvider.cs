@@ -35,7 +35,8 @@ public sealed class LootDropContextActionProvider : ILootContextActionProvider
             return;
         }
 
-        bool enabled = _controller != null && !_controller.HasRequestInFlight;
+        bool enabled = _controller != null && !_controller.HasRequestInFlight &&
+            LootInventoryRules.CanDiscardItem(context.Definition);
         actions.Add(new LootContextActionDescriptor(
             DropSingleId,
             "Soltar",
@@ -57,7 +58,8 @@ public sealed class LootDropContextActionProvider : ILootContextActionProvider
         LootContextActionId actionId,
         in LootContextActionContext context)
     {
-        if (_controller == null || _controller.HasRequestInFlight || !context.IsValid)
+        if (_controller == null || _controller.HasRequestInFlight || !context.IsValid ||
+            !LootInventoryRules.CanDiscardItem(context.Definition))
         {
             return false;
         }

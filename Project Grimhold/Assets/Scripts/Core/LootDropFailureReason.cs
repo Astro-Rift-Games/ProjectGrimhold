@@ -11,5 +11,6 @@ public enum LootDropFailureReason
     InsufficientAmount = 5,
     NoValidPosition = 6,
     SpawnFailed = 7,
-    MissingAuthority = 8
+    MissingAuthority = 8,
+    NotDiscardable = 9
 }

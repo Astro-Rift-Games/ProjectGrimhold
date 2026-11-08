@@ -340,6 +340,10 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
             return Rejected(identity, tick, LootDropFailureReason.InvalidLoot);
         }
 
+        // Non-discardable definitions never reach extraction or provisional spawning.
+        if (!LootInventoryRules.CanDiscardItem(definition))
+            return Rejected(identity, tick, LootDropFailureReason.NotDiscardable);
+
         if (!LootTransferRequest.IsValidInventorySource(identity.SourceInventorySlotIndex, identity.ExpectedInventoryRevision))
             return Rejected(identity, tick, LootDropFailureReason.InvalidLoot);
 

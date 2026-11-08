@@ -1811,6 +1811,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             LootDropFailureReason.NoValidPosition => "No hay espacio para soltar el objeto",
             LootDropFailureReason.SpawnFailed => "No se pudo crear el pickup",
             LootDropFailureReason.MissingAuthority => "Drop sin autoridad",
+            LootDropFailureReason.NotDiscardable => "Este objeto no se puede soltar",
             _ => "No se pudo soltar el loot"
         };
     }
