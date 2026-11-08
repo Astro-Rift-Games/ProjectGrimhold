@@ -730,9 +730,16 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
             return LootTransferFailureReason.ContainerUnavailable;
         }
 
-        if (!_lootCatalog.TryGetIndex(request.LootId, out int index))
+        if (!_lootCatalog.TryGetIndex(request.LootId, out int index) ||
+            !_lootCatalog.TryGetByIndex(index, out LootDefinition definition))
         {
             return LootTransferFailureReason.InvalidLoot;
+        }
+
+        // Every Inventory-to-container deposit converges here; forced corpse conversion does not.
+        if (!LootInventoryRules.CanTransferItem(definition))
+        {
+            return LootTransferFailureReason.NotTransferable;
         }
 
         if (request.RequestedAmount <= 0)

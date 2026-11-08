@@ -184,7 +184,11 @@ panel appropriate to the bound context; Town Equipment is mutable only through i
 capability. Loot mode makes occupied slots in both the player and container panels selectable at
 full capacity, including empty slots and `Contenedor vacío`; empty content does not close the
 screen. A container-slot right click withdraws to the player, while a physical player-slot right click
-deposits into the open container. Drag/drop preserves those directions. `FullStack` from a player
+deposits into the open container. Drag/drop preserves those directions. While the Inventory is in
+Transfer mode, cells whose definition has `CanBeTransferred == false` are dimmed but remain
+draggable toward Equipment and Quick Slots. A deposit gesture with such an item sends no request and
+shows `Este objeto no se puede transferir a contenedores`, the same text used when State Authority
+returns `NotTransferable`. `FullStack` from a player
 cell means only that selected physical slot's quantity, not the item's aggregate; from a container
 it keeps the existing aggregate-stack meaning. Left click does not transfer. These gestures do not
 define authoritative sorting, moving, splitting, swapping, multiple selection or destination-hover

@@ -60,9 +60,25 @@ public sealed class RaidLootPanelPresenter
 
         _occupiedEntries = aggregate;
         if (view.Present(_slotData, totalValue, false, interactionMode, selectedLootId, selectedInventorySlotIndex))
+        {
+            // Deposit gestures exist only in Transfer mode, so only then is non-transferability shown.
+            if (interactionMode == RaidLootSlotInteractionMode.Transfer)
+                MarkTransferRestricted(catalog, view);
             return true;
+        }
         view.ShowUnavailable();
         return false;
+    }
+
+    private void MarkTransferRestricted(LootDefinitionCatalog catalog, RaidLootPanelView view)
+    {
+        for (int i = 0; i < _slotData.Count; i++)
+        {
+            RaidInventorySlotData data = _slotData[i];
+            view.SetTransferRestricted(i, data.IsOccupied &&
+                catalog.TryGet(data.LootId.Value, out LootDefinition definition) &&
+                !LootInventoryRules.CanTransferItem(definition));
+        }
     }
 
     public bool Refresh(

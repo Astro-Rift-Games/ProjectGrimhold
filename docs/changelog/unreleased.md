@@ -4,32 +4,135 @@
 
 Release: Unreleased
 
-87 original commits; 87 canonical entries.
+88 original commits; 88 canonical entries.
 
 ## Canonical classification
 
-50 features; 21 bug fixes; 1 refactoring; 7 documentation; 2 tests; 4 maintenance; 2 other changes
+51 features; 21 bug fixes; 1 refactoring; 7 documentation; 2 tests; 4 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 6 | 6 | 1 | 0 | 3 | 1 |
 | Art & Animation | 7 | 7 | 1 | 0 | 4 | 0 |
 | Audio | 3 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 30 | 13 | 1 | 0 | 5 | 2 |
-| Combat | 29 | 4 | 0 | 0 | 5 | 0 |
-| Documentation | 22 | 8 | 0 | 0 | 4 | 0 |
+| Build & Tooling | 31 | 13 | 1 | 0 | 5 | 2 |
+| Combat | 30 | 4 | 0 | 0 | 5 | 0 |
+| Documentation | 23 | 8 | 0 | 0 | 4 | 0 |
 | Extraction | 7 | 2 | 0 | 0 | 2 | 0 |
 | Input | 0 | 0 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 42 | 18 | 1 | 0 | 6 | 1 |
+| Inventory & Loot | 43 | 18 | 1 | 0 | 6 | 1 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 13 | 6 | 0 | 0 | 1 | 0 |
 | Persistence & Backend | 17 | 6 | 0 | 0 | 2 | 0 |
-| Tests | 48 | 18 | 1 | 0 | 5 | 0 |
+| Tests | 49 | 18 | 1 | 0 | 5 | 0 |
 | UI | 20 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
 | World & Visibility | 15 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 43c23186e748216fb04bc40b661bb10c607bd9d1
+
+[43c23186e748216fb04bc40b661bb10c607bd9d1](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/43c23186e748216fb04bc40b661bb10c607bd9d1)
+
+Date: 2026-11-08T04:18:52-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(loot): reject deposits of non-transferable items into containers
+```
+
+#### Original body
+
+```text
+Enforce LootDefinition.CanBeTransferred for Inventory-to-container
+deposits (Doc 07 section 15, TASK-269). NetworkLootContainer
+.ValidateReceive rejects a non-transferable definition right after
+catalog resolution, before capacity or commit, so chests, Raid stashes
+and defeated-player containers never receive it and the source slot is
+unchanged. Defeat conversion into a player container is forced loss,
+not a transfer, and stays ungated.
+
+- Add LootInventoryRules.CanTransferItem (false for a missing
+  definition).
+- Append LootTransferFailureReason.NotTransferable; existing values
+  keep their wire numbers and LootTransferResult accepts it as a
+  rejection reason.
+- In container mode the Raid Inventory dims non-transferable cells
+  while keeping drags to Equipment and Quick Slots; drag and
+  right-click deposits send no request and show "Este objeto no se
+  puede transferir a contenedores", also used for the host rejection.
+
+Only the three training weapons are authored as non-transferable.
+
+Tests:
+- LootInventoryRulesTests: CanTransferItem true/false/missing
+  definition; NotTransferable is a valid rejection.
+- LockedLootContainerPlayModeTests: a non-transferable deposit is
+  rejected without changing content, provenance or change sequence,
+  while a transferable deposit stays valid.
+- RaidInventoryViewPlayModeTests: transfer restriction dims the icon,
+  keeps the cell draggable and resets on re-present or empty cells.
+
+Docs: Contratos_Base (new failure reason), LootInteractionArchitecture
+and RaidInventoryUIArchitecture.
+
+Player-Improved: Training weapons now appear dimmed when a chest is open and can no longer be stored in chests or other containers.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Core/LootTransferFailureReason.cs
+Project Grimhold/Assets/Scripts/Core/LootTransferResult.cs
+Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs
+Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventorySlotView.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelView.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs
+Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryViewPlayModeTests.cs
+Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md
+Project Grimhold/Docs/Architecture/Project_Grimhold_Contratos_Base_v1.md
+Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- message-term → Combat: weapons
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Core/LootTransferFailureReason.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Core/LootTransferResult.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventorySlotView.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelPresenter.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelView.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryViewPlayModeTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md
+- path → Inventory &amp; Loot: Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/Project\_Grimhold\_Contratos\_Base\_v1.md
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryViewPlayModeTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### c6c8df367e772cf5a01d909963fc753ebc003e19
 

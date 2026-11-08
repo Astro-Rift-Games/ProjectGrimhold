@@ -30,6 +30,7 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - Inventory item icons and labels are easier to read.
 - While you are Ready in Town your build, equipment and Stash are locked with a clear notice, and your Quick Slots can still be rearranged.
 - Items that cannot be dropped, such as training weapons, now show their drop options disabled and can no longer be thrown on the ground.
+- Training weapons now appear dimmed when a chest is open and can no longer be stored in chests or other containers.
 
 ### Fixed
 

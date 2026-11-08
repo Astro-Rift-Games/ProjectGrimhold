@@ -22,6 +22,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private RaidInventoryView _view;
 
     [SerializeField]
+    private const string NotTransferableMessage = "Este objeto no se puede transferir a contenedores";
     private LootDefinitionCatalog _lootCatalog;
 
     [SerializeField]
@@ -852,6 +853,13 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         }
         _containerSelection.Clear();
         _view.HideTransferFeedback();
+        if (IsContainerDepositRestricted(data.LootId))
+        {
+            _playerSelection.Clear();
+            _view.ShowTransferFeedback(NotTransferableMessage);
+            RefreshTransferInteraction();
+            return;
+        }
         if (!TryRequestTransferWithFeedback(_lootReceiver.Id, _container.Id, data.LootId, quantityMode,
             data.SourceInventorySlotIndex, data.ExpectedInventoryRevision))
             _view.ShowTransferFeedback("No se pudo solicitar la transferencia");
@@ -930,7 +938,9 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
 
         if (payload.Source == DragSlotLocation.Inventory && targetLocation == DragSlotLocation.Container)
         {
-            if (_container != null && _transferController != null)
+            if (IsContainerDepositRestricted(payload.LootId))
+                _view.ShowTransferFeedback(NotTransferableMessage);
+            else if (_container != null && _transferController != null)
                 TryRequestTransferWithFeedback(_lootReceiver.Id, _container.Id, payload.LootId, LootTransferQuantityMode.FullStack,
                     payload.SourceInventorySlotIndex, payload.ExpectedInventoryRevision);
         }
@@ -1552,6 +1562,11 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         RefreshTransferInteraction();
     }
 
+    // State Authority rejects these deposits too; the local check only avoids a doomed request.
+    private bool IsContainerDepositRestricted(LootId lootId) =>
+        _lootCatalog != null && _lootCatalog.TryGet(lootId.Value, out LootDefinition definition) &&
+        !LootInventoryRules.CanTransferItem(definition);
+
     private bool TryRequestTransferWithFeedback(
         EntityId sourceId, EntityId destinationId, LootId lootId, LootTransferQuantityMode mode,
         int sourceInventorySlotIndex = -1, int expectedInventoryRevision = -1,
@@ -1785,6 +1800,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             LootTransferFailureReason.PlayerUnavailable => "Jugador no disponible",
             LootTransferFailureReason.Overflow => "La cantidad excede el límite",
             LootTransferFailureReason.MaxTransportableExceeded => "Límite transportable alcanzado",
+            LootTransferFailureReason.NotTransferable => NotTransferableMessage,
             _ => isDeposit ? "No se pudo depositar el loot" : "No se pudo retirar el loot"
         };
     }

@@ -70,6 +70,12 @@ public sealed class RaidLootPanelView : MonoBehaviour
     public RaidInventorySlotView GetAuthoredSlot(int index) =>
         index >= 0 && index < AuthoredSlotCount ? _authoredSlots[index] : null;
 
+    /// <summary>Marks one presented cell as non-depositable into containers; out-of-range indices are ignored.</summary>
+    public void SetTransferRestricted(int index, bool restricted)
+    {
+        if (index >= 0 && index < _slots.Count) _slots[index].SetTransferRestricted(restricted);
+    }
+
     /// <summary>An ID-only confirmation cannot identify a physical destination cell.</summary>
     public bool ShowTransferSuccess(LootId lootId)
     {

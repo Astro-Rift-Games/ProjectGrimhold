@@ -12,6 +12,10 @@ public static class LootInventoryRules
     public static bool CanDiscardItem(LootDefinition definition) =>
         definition != null && definition.CanBeDiscarded;
 
+    /// <summary>Whether a definition may be deposited from Inventory into a world container (Doc 07 §15).</summary>
+    public static bool CanTransferItem(LootDefinition definition) =>
+        definition != null && definition.CanBeTransferred;
+
     /// <summary>Joint quantity/origin/modifier reception. Weapons are individual units, never stacks.</summary>
     public static LootTransferFailureReason TryReceive(Span<LootInventorySlot> slots,
         Span<WeaponInstanceModifiersNetworkData> modifiers, int catalogIndex, RaidLootOrigin origin,

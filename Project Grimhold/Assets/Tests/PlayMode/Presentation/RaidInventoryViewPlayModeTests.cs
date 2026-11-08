@@ -107,6 +107,45 @@ namespace Tests.PlayMode.Presentation
         }
 
         [Test]
+        public void TransferRestriction_DimsIconKeepsGesturesAndResetsOnPresent()
+        {
+            var root = new GameObject("Restricted slot", typeof(RectTransform), typeof(RaidInventorySlotView));
+            root.transform.SetParent(_canvasObject.transform);
+            var slot = root.GetComponent<RaidInventorySlotView>();
+            var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+            icon.transform.SetParent(root.transform);
+            var button = root.AddComponent<Button>();
+            typeof(RaidInventorySlotView).GetField("_button", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(slot, button);
+            typeof(RaidInventorySlotView).GetField("_icon", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(slot, icon);
+            var sprite = Sprite.Create(Texture2D.whiteTexture, new Rect(0, 0, 1, 1), Vector2.zero);
+            try
+            {
+                var data = RaidInventorySlotData.Create(new LootEntry(new LootId("training_dagger"), 1), null, sprite);
+                slot.SetDragLocation(DragSlotLocation.Inventory, default);
+                slot.Present(in data);
+                slot.SetInteraction(RaidLootSlotInteractionMode.Transfer, false);
+                slot.SetTransferRestricted(true);
+
+                Assert.That(slot.IsTransferRestricted, Is.True);
+                Assert.That(icon.color.a, Is.LessThan(1f));
+                Assert.That(button.interactable, Is.True, "Equipment and Quick Slot drags must stay available.");
+                int drags = 0;
+                slot.DragStarted += _ => drags++;
+                slot.OnBeginDrag(new PointerEventData(EventSystem.current));
+                Assert.That(drags, Is.EqualTo(1));
+
+                slot.Present(in data);
+                Assert.That(slot.IsTransferRestricted, Is.False);
+                Assert.That(icon.color.a, Is.EqualTo(1f));
+
+                slot.Clear();
+                slot.SetTransferRestricted(true);
+                Assert.That(slot.IsTransferRestricted, Is.False, "Empty cells are never marked.");
+            }
+            finally { Object.DestroyImmediate(sprite); }
+        }
+
+        [Test]
         public void ReservedProjection_UsesCorrespondingMainHandData()
         {
             var data = new RaidInventorySlotData[EquipmentSlotRules.AllSlots.Length];

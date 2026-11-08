@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 964,
-  "canonicalEntries": 961,
+  "rawCommits": 965,
+  "canonicalEntries": 962,
   "before": {
-    "Features": 373,
+    "Features": 374,
     "Architecture & Infrastructure": 16,
     "Bug Fixes": 99,
     "Other Changes": 354,
@@ -12,7 +12,7 @@
     "Refactoring": 14
   },
   "after": {
-    "Features": 510,
+    "Features": 511,
     "Maintenance": 15,
     "Bug Fixes": 115,
     "Other Changes": 164,
@@ -23,14 +23,14 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Inventory & Loot": 384,
+    "Combat": 355,
+    "Inventory & Loot": 385,
+    "Build & Tooling": 493,
+    "Documentation": 378,
+    "Tests": 594,
     "World & Visibility": 129,
-    "Build & Tooling": 492,
-    "Documentation": 377,
-    "Tests": 593,
     "Networking & Sessions": 276,
     "UI": 299,
-    "Combat": 354,
     "Art & Animation": 229,
     "Persistence & Backend": 210,
     "Abilities": 121,
@@ -42,7 +42,7 @@
   },
   "canonical": {
     "sections": {
-      "Features": 509,
+      "Features": 510,
       "Maintenance": 15,
       "Bug Fixes": 114,
       "Other Changes": 163,
@@ -52,14 +52,14 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "Inventory & Loot": 384,
+      "Combat": 353,
+      "Inventory & Loot": 385,
+      "Build & Tooling": 491,
+      "Documentation": 376,
+      "Tests": 592,
       "World & Visibility": 127,
-      "Build & Tooling": 490,
-      "Documentation": 375,
-      "Tests": 591,
       "Networking & Sessions": 276,
       "UI": 298,
-      "Combat": 352,
       "Art & Animation": 226,
       "Persistence & Backend": 210,
       "Abilities": 119,
@@ -34196,8 +34196,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 87,
-      "canonicalEntries": 87
+      "originalCommits": 88,
+      "canonicalEntries": 88
     },
     {
       "key": "v0.5.0",
@@ -34241,6 +34241,173 @@
     }
   ],
   "commits": [
+    {
+      "sha": "43c23186e748216fb04bc40b661bb10c607bd9d1",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/43c23186e748216fb04bc40b661bb10c607bd9d1",
+      "subject": "feat(loot): reject deposits of non-transferable items into containers",
+      "body": "Enforce LootDefinition.CanBeTransferred for Inventory-to-container\ndeposits (Doc 07 section 15, TASK-269). NetworkLootContainer\n.ValidateReceive rejects a non-transferable definition right after\ncatalog resolution, before capacity or commit, so chests, Raid stashes\nand defeated-player containers never receive it and the source slot is\nunchanged. Defeat conversion into a player container is forced loss,\nnot a transfer, and stays ungated.\n\n- Add LootInventoryRules.CanTransferItem (false for a missing\n  definition).\n- Append LootTransferFailureReason.NotTransferable; existing values\n  keep their wire numbers and LootTransferResult accepts it as a\n  rejection reason.\n- In container mode the Raid Inventory dims non-transferable cells\n  while keeping drags to Equipment and Quick Slots; drag and\n  right-click deposits send no request and show \"Este objeto no se\n  puede transferir a contenedores\", also used for the host rejection.\n\nOnly the three training weapons are authored as non-transferable.\n\nTests:\n- LootInventoryRulesTests: CanTransferItem true/false/missing\n  definition; NotTransferable is a valid rejection.\n- LockedLootContainerPlayModeTests: a non-transferable deposit is\n  rejected without changing content, provenance or change sequence,\n  while a transferable deposit stays valid.\n- RaidInventoryViewPlayModeTests: transfer restriction dims the icon,\n  keeps the cell draggable and resets on re-present or empty cells.\n\nDocs: Contratos_Base (new failure reason), LootInteractionArchitecture\nand RaidInventoryUIArchitecture.\n\nPlayer-Improved: Training weapons now appear dimmed when a chest is open and can no longer be stored in chests or other containers.\n",
+      "date": "2026-11-08T04:18:52-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Core/LootTransferFailureReason.cs",
+        "Project Grimhold/Assets/Scripts/Core/LootTransferResult.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventorySlotView.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelView.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryViewPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/Project_Grimhold_Contratos_Base_v1.md",
+        "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "message-term",
+          "value": "weapons",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Core/LootTransferFailureReason.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Core/LootTransferResult.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventorySlotView.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelPresenter.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelView.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryViewPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/Project_Grimhold_Contratos_Base_v1.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LockedLootContainerPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryViewPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "c6c8df367e772cf5a01d909963fc753ebc003e19",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c6c8df367e772cf5a01d909963fc753ebc003e19",

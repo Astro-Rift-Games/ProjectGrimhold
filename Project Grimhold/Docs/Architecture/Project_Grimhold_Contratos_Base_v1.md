@@ -258,6 +258,7 @@ The stable domain reasons are:
 | `MissingAuthority` | The operation is not running under the required State Authority. |
 | `ContainerUnavailable` | A resolved endpoint cannot currently participate in the operation. |
 | `Overflow` | Applying the complete quantity would exceed the supported integer range. |
+| `NotTransferable` | The item's definition has `CanBeTransferred == false`, so a world container rejects it as a deposit. Appended after the existing values so their wire numbers are unchanged. |
 | `PlayerUnavailable` | The player endpoint is unavailable or in Extracted process state. |
 
 Catalog index failures and Fusion representation details are not public failure reasons. Integrations diagnose them locally and translate them to an appropriate stable reason, such as `InvalidLoot` or `ContainerUnavailable`.

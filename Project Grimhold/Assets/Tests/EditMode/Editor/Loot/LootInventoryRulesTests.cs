@@ -29,6 +29,37 @@ namespace Tests.EditMode.Loot
             Assert.That(LootInventoryRules.CanDiscardItem(null), Is.False);
         }
 
+        [TestCase(true)]
+        [TestCase(false)]
+        public void CanTransferItem_FollowsDefinitionCanBeTransferred(bool canBeTransferred)
+        {
+            var definition = ScriptableObject.CreateInstance<LootDefinition>();
+            try
+            {
+                FieldInfo field = typeof(LootDefinition).GetField("_canBeTransferred",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(field, Is.Not.Null);
+                field.SetValue(definition, canBeTransferred);
+
+                Assert.That(LootInventoryRules.CanTransferItem(definition), Is.EqualTo(canBeTransferred));
+            }
+            finally { Object.DestroyImmediate(definition); }
+        }
+
+        [Test]
+        public void CanTransferItem_MissingDefinition_IsRejected()
+        {
+            Assert.That(LootInventoryRules.CanTransferItem(null), Is.False);
+        }
+
+        [Test]
+        public void NotTransferable_IsRecognizedAsRejectionReason()
+        {
+            LootTransferResult result = LootTransferResult.Rejected(LootTransferFailureReason.NotTransferable);
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.FailureReason, Is.EqualTo(LootTransferFailureReason.NotTransferable));
+        }
+
         [Test]
         public void WeaponReceptionExtractionAndRejectedSplit_KeepParallelModifiersInLockstep()
         {
