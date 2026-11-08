@@ -16,6 +16,7 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - Weapons inside Dungeon chests and enemy drops now each have their own slot, showing their gems and bonus damage, and you take exactly the one you pick.
 - Added the Catacombs Specter enemy with alternating physical immunity, ground telegraph attacks, and spectral relocation.
 - Charge now stuns the enemy it hits for a moment, stopping it from moving or attacking and cancelling the Specter's area attack.
+- Added basic training short sword, dagger, and wand for contingency expeditions.
 
 ### Improved
 

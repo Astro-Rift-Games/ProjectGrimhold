@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 961,
-  "canonicalEntries": 958,
+  "rawCommits": 962,
+  "canonicalEntries": 959,
   "before": {
-    "Features": 370,
+    "Features": 371,
     "Architecture & Infrastructure": 16,
     "Bug Fixes": 99,
     "Other Changes": 354,
@@ -12,7 +12,7 @@
     "Refactoring": 14
   },
   "after": {
-    "Features": 507,
+    "Features": 508,
     "Maintenance": 15,
     "Bug Fixes": 115,
     "Other Changes": 164,
@@ -23,26 +23,26 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Inventory & Loot": 382,
+    "Combat": 354,
+    "Inventory & Loot": 383,
+    "Art & Animation": 229,
+    "Build & Tooling": 490,
+    "Tests": 591,
     "Networking & Sessions": 275,
     "UI": 298,
     "Persistence & Backend": 210,
-    "Build & Tooling": 489,
     "Documentation": 375,
-    "Tests": 590,
     "Abilities": 121,
-    "Combat": 353,
     "Movement": 92,
     "World & Visibility": 127,
     "Extraction": 130,
-    "Art & Animation": 228,
     "Input": 29,
     "Unassigned": 20,
     "Audio": 33
   },
   "canonical": {
     "sections": {
-      "Features": 506,
+      "Features": 507,
       "Maintenance": 15,
       "Bug Fixes": 114,
       "Other Changes": 163,
@@ -52,19 +52,19 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "Inventory & Loot": 382,
+      "Combat": 352,
+      "Inventory & Loot": 383,
+      "Art & Animation": 226,
+      "Build & Tooling": 488,
+      "Tests": 589,
       "Networking & Sessions": 275,
       "UI": 297,
       "Persistence & Backend": 210,
-      "Build & Tooling": 487,
       "Documentation": 373,
-      "Tests": 588,
       "Abilities": 119,
-      "Combat": 351,
       "Movement": 92,
       "World & Visibility": 125,
       "Extraction": 130,
-      "Art & Animation": 225,
       "Input": 29,
       "Unassigned": 20,
       "Audio": 33
@@ -34196,8 +34196,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 84,
-      "canonicalEntries": 84
+      "originalCommits": 85,
+      "canonicalEntries": 85
     },
     {
       "key": "v0.5.0",
@@ -34241,6 +34241,271 @@
     }
   ],
   "commits": [
+    {
+      "sha": "11e6ae82d2bcb0571de16fb34590fd62250d41b4",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/11e6ae82d2bcb0571de16fb34590fd62250d41b4",
+      "subject": "feat(weapons): add training weapon definitions and catalog entries",
+      "body": "Define ScriptableObjects for the 3 MVP training weapons (short sword, dagger, and wand) with fixed base damage, zero attribute requirements, and no scaling per Doc 09 §15. Add IsTrainingWeapon operational lifecycle flag and validation in LootDefinition, register definitions in LootDefinitionCatalog, and cover parameters and catalog integration with EditMode tests.\n\nPlayer-Added: Added basic training short sword, dagger, and wand for contingency expeditions.\n",
+      "date": "2026-11-07T23:32:22-03:00",
+      "files": [
+        "Project Grimhold/Assets/Art/Weapons/TrainingDagger.png",
+        "Project Grimhold/Assets/Art/Weapons/TrainingDagger.png.meta",
+        "Project Grimhold/Assets/Art/Weapons/TrainingSword.png",
+        "Project Grimhold/Assets/Art/Weapons/TrainingSword.png.meta",
+        "Project Grimhold/Assets/Art/Weapons/TrainingWand.png",
+        "Project Grimhold/Assets/Art/Weapons/TrainingWand.png.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDagger.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDagger.asset.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDaggerWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDaggerWeaponDefinition.asset.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSword.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSword.asset.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSwordWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSwordWeaponDefinition.asset.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWand.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWand.asset.meta",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWandWeaponDefinition.asset",
+        "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWandWeaponDefinition.asset.meta",
+        "Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs"
+      ],
+      "originalType": "feat",
+      "originalScope": "weapons",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Art & Animation",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Weapons/TrainingDagger.png",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Weapons/TrainingDagger.png.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Weapons/TrainingSword.png",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Weapons/TrainingSword.png.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Weapons/TrainingWand.png",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Weapons/TrainingWand.png.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDaggerWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDaggerWeaponDefinition.asset.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSwordWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSwordWeaponDefinition.asset.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWandWeaponDefinition.asset",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWandWeaponDefinition.asset.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "scope",
+          "value": "weapons",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapons",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDagger.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDagger.asset.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDaggerWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDaggerWeaponDefinition.asset.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSword.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSword.asset.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSwordWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSwordWeaponDefinition.asset.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWand.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWand.asset.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWandWeaponDefinition.asset",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWandWeaponDefinition.asset.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Weapons/TrainingDagger.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Weapons/TrainingDagger.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Weapons/TrainingSword.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Weapons/TrainingSword.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Weapons/TrainingWand.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Weapons/TrainingWand.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "bde28bdcc1ef55562950e5f7c7562740f17b7d5e",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/bde28bdcc1ef55562950e5f7c7562740f17b7d5e",

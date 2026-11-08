@@ -4,32 +4,131 @@
 
 Release: Unreleased
 
-84 original commits; 84 canonical entries.
+85 original commits; 85 canonical entries.
 
 ## Canonical classification
 
-47 features; 21 bug fixes; 1 refactoring; 7 documentation; 2 tests; 4 maintenance; 2 other changes
+48 features; 21 bug fixes; 1 refactoring; 7 documentation; 2 tests; 4 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 6 | 6 | 1 | 0 | 3 | 1 |
-| Art & Animation | 6 | 7 | 1 | 0 | 4 | 0 |
+| Art & Animation | 7 | 7 | 1 | 0 | 4 | 0 |
 | Audio | 3 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 27 | 13 | 1 | 0 | 5 | 2 |
-| Combat | 28 | 4 | 0 | 0 | 5 | 0 |
+| Build & Tooling | 28 | 13 | 1 | 0 | 5 | 2 |
+| Combat | 29 | 4 | 0 | 0 | 5 | 0 |
 | Documentation | 20 | 8 | 0 | 0 | 4 | 0 |
 | Extraction | 7 | 2 | 0 | 0 | 2 | 0 |
 | Input | 0 | 0 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 40 | 18 | 1 | 0 | 6 | 1 |
+| Inventory & Loot | 41 | 18 | 1 | 0 | 6 | 1 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 12 | 6 | 0 | 0 | 1 | 0 |
 | Persistence & Backend | 17 | 6 | 0 | 0 | 2 | 0 |
-| Tests | 45 | 18 | 1 | 0 | 5 | 0 |
+| Tests | 46 | 18 | 1 | 0 | 5 | 0 |
 | UI | 19 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
 | World & Visibility | 13 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 11e6ae82d2bcb0571de16fb34590fd62250d41b4
+
+[11e6ae82d2bcb0571de16fb34590fd62250d41b4](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/11e6ae82d2bcb0571de16fb34590fd62250d41b4)
+
+Date: 2026-11-07T23:32:22-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, Art & Animation, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(weapons): add training weapon definitions and catalog entries
+```
+
+#### Original body
+
+```text
+Define ScriptableObjects for the 3 MVP training weapons (short sword, dagger, and wand) with fixed base damage, zero attribute requirements, and no scaling per Doc 09 §15. Add IsTrainingWeapon operational lifecycle flag and validation in LootDefinition, register definitions in LootDefinitionCatalog, and cover parameters and catalog integration with EditMode tests.
+
+Player-Added: Added basic training short sword, dagger, and wand for contingency expeditions.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Art/Weapons/TrainingDagger.png
+Project Grimhold/Assets/Art/Weapons/TrainingDagger.png.meta
+Project Grimhold/Assets/Art/Weapons/TrainingSword.png
+Project Grimhold/Assets/Art/Weapons/TrainingSword.png.meta
+Project Grimhold/Assets/Art/Weapons/TrainingWand.png
+Project Grimhold/Assets/Art/Weapons/TrainingWand.png.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDagger.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDagger.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDaggerWeaponDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDaggerWeaponDefinition.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSword.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSword.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSwordWeaponDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSwordWeaponDefinition.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWand.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWand.asset.meta
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWandWeaponDefinition.asset
+Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWandWeaponDefinition.asset.meta
+Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Art/Weapons/TrainingDagger.png
+- path → Combat: Project Grimhold/Assets/Art/Weapons/TrainingDagger.png.meta
+- path → Combat: Project Grimhold/Assets/Art/Weapons/TrainingSword.png
+- path → Combat: Project Grimhold/Assets/Art/Weapons/TrainingSword.png.meta
+- path → Combat: Project Grimhold/Assets/Art/Weapons/TrainingWand.png
+- path → Combat: Project Grimhold/Assets/Art/Weapons/TrainingWand.png.meta
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDaggerWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDaggerWeaponDefinition.asset.meta
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSwordWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSwordWeaponDefinition.asset.meta
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWandWeaponDefinition.asset
+- path → Combat: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWandWeaponDefinition.asset.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+- scope → Combat: weapons
+- message-term → Combat: weapons
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDagger.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDagger.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDaggerWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingDaggerWeaponDefinition.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSword.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSword.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSwordWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingShortSwordWeaponDefinition.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWand.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWand.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWandWeaponDefinition.asset
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scriptable Objects/Loot/Definitions/TrainingWandWeaponDefinition.asset.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Weapons/TrainingDagger.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Weapons/TrainingDagger.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Weapons/TrainingSword.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Weapons/TrainingSword.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Weapons/TrainingWand.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Weapons/TrainingWand.png.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### bde28bdcc1ef55562950e5f7c7562740f17b7d5e
 
