@@ -160,6 +160,11 @@ class SessionTicketService {
       };
     }
 
+    if (!reservation.preparedEquipment?.weaponSlot1 && !reservation.preparedEquipment?.weaponSlot2) {
+      throw { statusCode: 409, errorCode: 'PREPARED_WEAPON_REQUIRED',
+        message: 'Equip a weapon in a Weapon Set or ask the Trainer before preparing an expedition.' };
+    }
+
     const now = Math.floor(Date.now() / 1000);
     const expiresAt = now + RAID_TICKET_TTL_SECONDS;
 
@@ -197,7 +202,7 @@ class SessionTicketService {
         ? Object.fromEntries(Object.entries(reservation.preparedEquipment).map(([slot, item]) =>
           [slot, admissionEquipment(item)]))
         : {
-        weaponSlot1: reservation.preparedEquipment?.weaponSlot1 || (!reservation.preparedEquipment?.weaponSlot2 ? 'arming_sword' : ''),
+        weaponSlot1: reservation.preparedEquipment?.weaponSlot1 || '',
         weaponSlot2: reservation.preparedEquipment?.weaponSlot2 || '',
         offHand1:    reservation.preparedEquipment?.offHand1 || '',
         helmet:      reservation.preparedEquipment?.helmet || '',

@@ -23,6 +23,15 @@ const { inventoryVersion, copyEntry, serializeItems, requireMigratedInventory,
   requireSlotInventory, requireSplitEnabled, requireSourceSlot, assertUnambiguousItems, matchesLootId,
   CAPACITIES, inventoryFull, assertSlot, lowestItemIndex, receiveItem, restoreEntries, addAmount } = require('./InventoryEntries');
 
+const TRAINING_WEAPONS = Object.freeze([
+  'training_short_sword',
+  'training_dagger',
+  'training_wand'
+]);
+function isTrainingWeapon(lootId) {
+  return typeof lootId === 'string' && TRAINING_WEAPONS.includes(normalizeLootId(lootId));
+}
+
 const { INSTANCE_ID, invalidInventory, createEquipment, validateResultItems, resultEquipmentToInstances,
   equipmentToResult } = require('./ItemInstances');
 
@@ -150,32 +159,34 @@ async function updateInstanceEquipment(character, requested, expectedRevision) {
       const index = list?.findIndex(entry => entry.instance?.instanceId === intent.instanceId);
       if (list) { const entry = list.splice(index, 1)[0]; item = { lootId: entry.lootId, instance: copyEntry(entry.instance) }; }
     }
-    if (!item || !matchesLootId(item, intent.lootId)) {
+    if (!item) {
+      throw { statusCode: 422, errorCode: 'ITEM_NOT_FOUND', message: 'The equipment instance is not present in the loadout, stash or prepared equipment.' };
+    }
+    if (!matchesLootId(item, intent.lootId)) {
       throw { statusCode: 422, errorCode: 'ITEM_NOT_FOUND', message: 'The equipment instance is not present in the loadout, stash or prepared equipment.' };
     }
     selected.add(intent.instanceId); equipment[slot] = copyEntry(item);
   }
   for (const item of available.values()) {
-    if (!selected.has(item.instance.instanceId)) receiveItem(loadout, 'loadout', { ...copyEntry(item), amount: 1 }, 3);
+    if (!selected.has(item.instance.instanceId)) {
+      receiveItem(loadout, 'loadout', { ...copyEntry(item), amount: 1 }, 3);
+    }
   }
   const snapshot = await writeSlotLists(character, expectedRevision, { stash, loadout, preparedEquipment: equipment });
   return { preparedEquipment: equipment, ...snapshot };
 }
 
-function takeRecoveryWeapon(loadout, stash) {
-  for (const list of [loadout, stash]) {
-    const index = lowestItemIndex(list, 'arming_sword');
-    if (index !== -1) {
-      const item = list.splice(index, 1)[0];
-      return { lootId: item.lootId, instance: copyEntry(item.instance) };
-    }
+function requirePreparedWeapon(equipment) {
+  if (!equipment?.weaponSlot1 && !equipment?.weaponSlot2) {
+    throw { statusCode: 409, errorCode: 'PREPARED_WEAPON_REQUIRED',
+      message: 'Equip a weapon in a Weapon Set or ask the Trainer before preparing an expedition.' };
   }
-  return createEquipment('arming_sword');
 }
 
 // Plan a sale on an in-memory candidate. No persisted state changes until the caller commits.
 function applyShopSale(loadout, version, lootId, amount, sourceSlot) {
-  const sellOffer = version === 3 && getEquipmentTemplate(lootId) ? getEquipmentTemplate(lootId) : getSellOffer(lootId);
+  const sellOffer = isTrainingWeapon(lootId) ? null :
+    version === 3 && getEquipmentTemplate(lootId) ? getEquipmentTemplate(lootId) : getSellOffer(lootId);
   if (!sellOffer) throw { statusCode: 404, errorCode: 'ITEM_NOT_SELLABLE', message: `Item '${lootId}' cannot be sold to the shop.` };
   const index = loadout.findIndex(i => matchesLootId(i, lootId) && (version === 1 || i.slot === sourceSlot));
   const source = loadout[index];
@@ -735,6 +746,79 @@ class InventoryService {
     };
   }
 
+  static async requestTrainingWeapon(accountId, weaponId, destinationSlot = '', expectedRevision) {
+    weaponId = normalizeLootId(weaponId);
+    if (!TRAINING_WEAPONS.includes(weaponId)) {
+      throw { statusCode: 400, errorCode: 'INVALID_ITEM', message: `'${weaponId}' is not a valid training weapon.` };
+    }
+    if (destinationSlot && !['weaponSlot1', 'weaponSlot2'].includes(destinationSlot)) {
+      throw { statusCode: 400, errorCode: 'INVALID_SLOT', message: `'${destinationSlot}' is not a valid weapon slot.` };
+    }
+
+    const character = await Character.findOne({ accountId });
+    if (!character) {
+      throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
+    }
+
+    requireMigratedInventory(character);
+    const version = inventoryVersion(character);
+
+    requireSlotInventory(character);
+    if (character.inventory.pendingReservation) {
+      throw { statusCode: 409, errorCode: 'RESERVATION_PENDING', message: 'Cannot request a training weapon while a raid reservation is pending.' };
+    }
+    if (character.revision !== expectedRevision) {
+      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
+    }
+
+    const stash = inventoryItems(character, 'stash');
+    const loadout = inventoryItems(character, 'loadout');
+    const equipment = serializePreparedEquipment(character.inventory.preparedEquipment, version);
+
+    for (const list of [stash, loadout]) {
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (isTrainingWeapon(list[i].lootId)) list.splice(i, 1);
+      }
+    }
+
+    for (const slot of EQUIPMENT_SLOTS) {
+      const current = equipment[slot];
+      const currentLootId = version === 3 ? current?.lootId : current;
+      if (isTrainingWeapon(currentLootId)) {
+        equipment[slot] = version === 3 ? null : '';
+      }
+    }
+
+    if (destinationSlot) {
+      const previous = equipment[destinationSlot];
+      if (previous && (version === 3 ? previous.lootId : previous)) {
+        const previousLootId = version === 3 ? previous.lootId : previous;
+        if (!isTrainingWeapon(previousLootId)) {
+          const displacedEntry = version === 3 ? { ...copyEntry(previous), amount: 1 } : { lootId: previous, amount: 1 };
+          receiveItem(loadout, 'loadout', displacedEntry, version);
+        }
+      }
+
+      if (version === 3) {
+        equipment[destinationSlot] = createEquipment(weaponId);
+      } else {
+        equipment[destinationSlot] = weaponId;
+      }
+    } else {
+      if (version === 3) {
+        const item = { ...createEquipment(weaponId), amount: 1 };
+        receiveItem(loadout, 'loadout', item, version);
+      } else {
+        receiveItem(loadout, 'loadout', { lootId: weaponId, amount: 1 }, version);
+      }
+    }
+
+    const snapshot = await writeSlotLists(character, expectedRevision, {
+      stash, loadout, preparedEquipment: equipment
+    }, true);
+    return { preparedEquipment: equipment, ...snapshot };
+  }
+
   /**
    * Persists a raid reservation snapshot.
    * Called when the player commits a loadout for a raid.
@@ -760,31 +844,9 @@ class InventoryService {
       await assertNoPendingExtractionResult(character.accountId);
     }
 
-    // Idempotency: if already reserved with the same reservationId, ensure recovery weapon invariant and return
+    // Valid same-ID retries are read-only; invalid legacy reservations fail closed.
     if (character.inventory.pendingReservation && character.inventory.pendingReservation.reservationId === reservationId) {
-      const existingEq = character.inventory.pendingReservation.preparedEquipment || {};
-      if (!existingEq.weaponSlot1 && !existingEq.weaponSlot2) {
-        existingEq.weaponSlot1 = version === 3
-          ? takeRecoveryWeapon(character.inventory.pendingReservation.items, character.inventory.stash) : 'arming_sword';
-        character.inventory.pendingReservation.preparedEquipment = existingEq;
-        if (version >= 2) {
-          const updated = await Character.findOneAndUpdate(
-            { accountId, revision: character.revision, 'inventory.pendingReservation.reservationId': reservationId },
-            { $set: { 'inventory.pendingReservation.preparedEquipment.weaponSlot1': existingEq.weaponSlot1,
-                ...(version === 3 ? { 'inventory.pendingReservation.items': character.inventory.pendingReservation.items,
-                  'inventory.stash': character.inventory.stash } : {}) }, $inc: { revision: 1 } },
-            { returnDocument: 'after' }
-          );
-          if (!updated) throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during reservation.' };
-          return { pendingReservation: serializePendingReservation(updated.inventory.pendingReservation, true, version), revision: updated.revision };
-        }
-        if (typeof Character.updateOne === 'function') {
-          await Character.updateOne(
-            { _id: character._id },
-            { $set: { 'inventory.pendingReservation.preparedEquipment.weaponSlot1': 'arming_sword' } }
-          );
-        }
-      }
+      requirePreparedWeapon(character.inventory.pendingReservation.preparedEquipment);
       return {
         pendingReservation: serializePendingReservation(character.inventory.pendingReservation, version >= 2, version),
         revision: character.revision || 0
@@ -808,34 +870,9 @@ class InventoryService {
     }
     if (version >= 2 && character.inventory.loadout.length > CAPACITIES.loadout) inventoryFull();
 
-    // Mirror LocalProfileStore.TryPrepareExpeditionEquipment / TryPrepareRecoveryWeapon:
-    // Guarantee at least one Main Hand weapon ('arming_sword') before creating the reservation,
-    // reusing an owned unit from loadout or stash before granting the recovery weapon.
-    if (version === 3 && !character.inventory.preparedEquipment.weaponSlot1 && !character.inventory.preparedEquipment.weaponSlot2) {
-      character.inventory.preparedEquipment.weaponSlot1 = takeRecoveryWeapon(character.inventory.loadout, character.inventory.stash);
-    } else if (!character.inventory.preparedEquipment.weaponSlot1 && !character.inventory.preparedEquipment.weaponSlot2) {
-      const recoveryWeaponId = 'arming_sword';
-      const loadoutIndex = version === 2 ? lowestItemIndex(character.inventory.loadout, recoveryWeaponId)
-        : character.inventory.loadout.findIndex(i => matchesLootId(i, recoveryWeaponId) && i.amount >= 1);
-      if (loadoutIndex !== -1) {
-        if (character.inventory.loadout[loadoutIndex].amount === 1) {
-          character.inventory.loadout.splice(loadoutIndex, 1);
-        } else {
-          character.inventory.loadout[loadoutIndex].amount -= 1;
-        }
-      } else {
-        const stashIndex = version === 2 ? lowestItemIndex(character.inventory.stash, recoveryWeaponId)
-          : character.inventory.stash.findIndex(i => matchesLootId(i, recoveryWeaponId) && i.amount >= 1);
-        if (stashIndex !== -1) {
-          if (character.inventory.stash[stashIndex].amount === 1) {
-            character.inventory.stash.splice(stashIndex, 1);
-          } else {
-            character.inventory.stash[stashIndex].amount -= 1;
-          }
-        }
-      }
-      character.inventory.preparedEquipment.weaponSlot1 = recoveryWeaponId;
-    }
+    // Validate after aborted-launch restoration, before any persisted write.
+    // Ownership in Stash/Loadout does not imply an equipped weapon.
+    requirePreparedWeapon(character.inventory.preparedEquipment);
 
     // Derive the reservation from the current persisted loadout and preparedEquipment
     const items = inventoryItems(character, 'loadout');
@@ -1286,7 +1323,7 @@ class InventoryService {
     const entry = character.inventory.buyback?.entries?.find(e => e.entryId === entryId);
     if (!entry) throw { statusCode: 404, errorCode: 'BUYBACK_ENTRY_NOT_FOUND', message: 'Buyback entry not found in this Town session.' };
     // v3 disables equipment buy-back, including ledger entries sold before the instance migration.
-    if (version >= 3 && !isBuybackEligible(entry.lootId, version)) {
+    if (isTrainingWeapon(entry.lootId) || (version >= 3 && !isBuybackEligible(entry.lootId, version))) {
       throw { statusCode: 409, errorCode: 'BUYBACK_NOT_ELIGIBLE', message: 'This item cannot be bought back.' };
     }
     if (amount > entry.amount) throw { statusCode: 409, errorCode: 'INSUFFICIENT_BUYBACK_UNITS', message: 'Not enough units in this sale line.' };

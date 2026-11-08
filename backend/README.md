@@ -77,6 +77,7 @@ Rutas protegidas (prefijo `/character`):
 | PUT | `/me/inventory/order`, `/me/inventory/prepared-equipment` |
 | POST | `/me/inventory/stash/move-to-loadout`, `/me/inventory/loadout/move-to-stash`, `/me/inventory/slots/move`, `/me/inventory/slots/split` (si está habilitado) |
 | POST | `/me/inventory/shop/sell`, `/me/inventory/shop/buy`, `/me/inventory/shop/buyback`, `/me/inventory/shop/trade` |
+| POST | `/me/inventory/training-weapon` |
 | POST / DELETE | `/me/inventory/reservation` |
 | POST | `/me/inventory/reservation/admit`, `/me/inventory/extraction`, `/me/extraction/commit` |
 | POST | `/debug/mock-fusion-result`, `/me/raid/admission-ticket`, `/raid/verify-admission`, `/raid/extraction-result` |
@@ -89,6 +90,27 @@ con el gate activo. Nunca se habilitan por enviar el header.
 Ability purchase, progression commit y Town session ticket quedan exentos porque sus updates
 son path-scoped y no reescriben listas (auditoría V3-V5 abajo). `PATCH /me/profile` tampoco
 reescribe listas y utiliza el esquema ampliado al guardar.
+
+### Solicitud de arma de entrenamiento (TASK-278)
+
+`POST /character/me/inventory/training-weapon`, JWT y gate de protocolo compartido.
+Body exacto: `{weaponId, destinationSlot?, expectedRevision}`; no se aceptan aliases ni campos
+adicionales. `weaponId`: `training_short_sword`, `training_dagger` o `training_wand`;
+`destinationSlot`: omitido o `''` para Loadout, `weaponSlot1` o `weaponSlot2` para equipar.
+`expectedRevision` es entero no negativo obligatorio. Requiere inventario v2/v3.
+Retira todas las armas de entrenamiento de Stash, Loadout y equipo preparado y entrega exactamente
+una nueva; el arma normal desplazada vuelve a Loadout. Una única escritura guardada por revisión y
+ausencia de reserva incrementa revisión una vez. Desequipar conserva la instancia en Loadout.
+HTTP 200: `{preparedEquipment,stash,loadout,revision}`; listas completas ordenadas por slot,
+equipo v2 como strings y v3 como `null | {lootId,instance}`. No incluye currency ni buyback.
+Errores: `400 VALIDATION_FAILED`, `401` autenticación, `404 CHARACTER_NOT_FOUND`,
+`409 INVENTORY_MIGRATION_REQUIRED`, `409 RESERVATION_PENDING`, `409 REVISION_CONFLICT`,
+`409 INVENTORY_FULL`, `400 INVALID_INVENTORY`, `426 CLIENT_UPGRADE_REQUIRED`.
+Forma compartida: `{error,message,details?}`. Rechazos no escriben ni incrementan revisión.
+Las armas de entrenamiento no se venden (`404 ITEM_NOT_SELLABLE`) ni se recompran
+(`409 BUYBACK_NOT_ELIGIBLE`) en ninguna versión; su clasificación de equipo no implica elegibilidad.
+Sólo esta solicitud emite armas de entrenamiento: PUT prepared-equipment exige una instancia propia
+existente y rechaza IDs inventados con `422 ITEM_NOT_FOUND`.
 
 ### Escrituras durante B1
 
@@ -271,8 +293,13 @@ characterAttributes,revision}`; el payload autoritativo sigue agregado, y `loado
 - Equipment v2 reasigna primero unidades ya equipadas entre assignments sin recepción intermedia;
   para unidades adicionales consume el stack de menor slot Loadout, luego Stash, antes de devolver desplazados
   a Loadout con la regla de recepción; capacidad se evalúa sobre el intercambio final. No compacta.
-- Reserva guarda entradas completas con slots exactos. El arma recovery consume el stack de menor
-  slot si existe antes de garantizar una. Más de 30 entradas Loadout rechaza `INVENTORY_FULL`.
+- Reserva guarda entradas completas con slots exactos. Requiere un arma equipada en `weaponSlot1`
+  o `weaponSlot2` después de restaurar una reserva abortada; las armas de entrenamiento cuentan.
+  Sin arma: **409 `PREPARED_WEAPON_REQUIRED`**, sin escritura ni incremento de revisión.
+  Mensaje: `Equip a weapon in a Weapon Set or ask the Trainer before preparing an expedition.`
+  La misma regla aplica al replay de reserva y a la emisión del ticket de admisión.
+  Nunca equipa ni entrega armas automáticamente, aunque haya una `arming_sword` en Loadout/Stash.
+  El ticket conserva exactamente el arma reservada. Más de 30 entradas Loadout rechaza `INVENTORY_FULL`.
   Rollback pre-admisión conserva posiciones originales libres primero; colisiones usan menor hueco
   libre y luego menor overflow libre. Nunca fusiona ni pierde unidades, aunque haya Loadout nuevo.
   Equipment reservado no sobrescribe asignaciones nuevas: se restaura en slots vacíos y los
@@ -380,11 +407,11 @@ los precios comunes se alinean con Unity (tabla abajo). El gate de instancias **
   {"weaponSlot1":{"lootId":"arming_sword","instanceId":"0123456789abcdef01234567"},"weaponSlot2":null,"expectedRevision":4}
   ```
 
-- Buy crea una instancia por unidad; migration/fallback también usan el emisor central.
+- Buy crea una instancia por unidad; migration y la solicitud al Entrenador usan el emisor central.
   Un arma plain tiene `{gemSocketCount:0,gems:[]}` y primary según el coeficiente legacy de su
-  template (actualmente los 14 son 0: sin primary, daño previo intacto). Fallback sigue siendo
-  `arming_sword`, consumiendo una instancia propia antes de emitir una nueva.
-- Cada instancia de equipo se puede vender, **incluso por 0**. Valor = template + cada gema
+  template (actualmente los 14 son 0: sin primary, daño previo intacto). No existe arma fallback:
+  reserva y ticket requieren un arma equipada (`409 PREPARED_WEAPON_REQUIRED` si falta).
+- Cada instancia de equipo excepto armas de entrenamiento se puede vender, **incluso por 0**. Valor = template + cada gema
   instalada (hoy 70 por gema); se ignora `declaredSellValue`. La venta v3 no añade buy-back.
   El endpoint de recompra sigue disponible para líneas preexistentes; no crea nuevas líneas v3.
 

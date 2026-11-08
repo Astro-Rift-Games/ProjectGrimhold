@@ -189,7 +189,7 @@ test('InventoryService - savePendingReservation', async (t) => {
     const mockChar = makeCharacter();
     mockChar.inventory.loadout = [makeItem('potion', 2)];
     mockChar.inventory.preparedEquipment = {
-      weaponSlot1: '', weaponSlot2: '', helmet: 'iron_helm', armor: '', gloves: '', boots: ''
+      weaponSlot1: 'training_dagger', weaponSlot2: '', helmet: 'iron_helm', armor: '', gloves: '', boots: ''
     };
     setupMocks(mockChar);
 

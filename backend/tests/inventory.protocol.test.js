@@ -236,7 +236,7 @@ test('inventory protocol B1', async t => {
 
   await t.test('v2 admission ticket aggregates duplicate IDs only in the Raid boundary payload', async () => {
     character.inventory.inventorySchemaVersion = 2;
-    character.inventory.pendingReservation = { reservationId: 'res', items: character.inventory.stash.slice(), preparedEquipment: {} };
+    character.inventory.pendingReservation = { reservationId: 'res', items: character.inventory.stash.slice(), preparedEquipment: { weaponSlot2: 'training_wand' } };
     const before = JSON.stringify(character);
     const res = await Session.issueRaidAdmissionTicket(accountId, 'ABC123', 'res');
     assert.deepEqual(res.snapshot.items, [{ lootId: 'bone', amount: 3 }]);

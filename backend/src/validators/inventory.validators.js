@@ -207,4 +207,15 @@ const shopTradeValidator = [
   handleValidationErrors
 ];
 
-module.exports = { shopTradeValidator, slotSplitValidator, slotMoveValidator, shopBuybackValidator, inventoryOrderValidator, moveItemValidator, preparedEquipmentValidator, pendingReservationValidator, admitReservationValidator, commitExtractionValidator, shopSellValidator, shopBuyValidator };
+const trainingWeaponValidator = [
+  body('weaponId')
+    .isString().bail().trim().notEmpty().isIn(['training_short_sword', 'training_dagger', 'training_wand'])
+    .withMessage('must be one of: training_short_sword, training_dagger, training_wand'),
+  body().custom(value => Object.keys(value).every(key => ['weaponId', 'destinationSlot', 'expectedRevision'].includes(key)))
+    .withMessage('Unknown training weapon request field.'),
+  body('destinationSlot').optional().isString().isIn(['', 'weaponSlot1', 'weaponSlot2']),
+  body('expectedRevision').isInt({ min: 0 }).custom(value => Number.isSafeInteger(value)),
+  handleValidationErrors
+];
+
+module.exports = { trainingWeaponValidator, shopTradeValidator, slotSplitValidator, slotMoveValidator, shopBuybackValidator, inventoryOrderValidator, moveItemValidator, preparedEquipmentValidator, pendingReservationValidator, admitReservationValidator, commitExtractionValidator, shopSellValidator, shopBuyValidator };

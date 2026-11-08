@@ -177,8 +177,9 @@ test('v3 instance public HTTP/service contract', async t => {
     assert.deepEqual(stored, before);
   });
 
-  await t.test('reservation, admission snapshot and rollback retain exact instances; new fallback is plain', async () => {
-    stored.inventory.loadout = [unit(8, 'arming_sword', 1, mods()), unit(3, 'shield', 2)];
+  await t.test('reservation and admission retain exact equipped instances; weaponless replacement rejects', async () => {
+    stored.inventory.preparedEquipment.weaponSlot1 = equipment('arming_sword', 1, mods());
+    stored.inventory.loadout = [unit(3, 'shield', 2)];
     const reserved = await Inventory.savePendingReservation(accountId, 'reserve');
     assert.deepEqual(reserved.pendingReservation.items, [unit(3, 'shield', 2)]);
     assert.deepEqual(reserved.pendingReservation.preparedEquipment.weaponSlot1, equipment('arming_sword', 1, mods()));
@@ -199,12 +200,11 @@ test('v3 instance public HTTP/service contract', async t => {
     assert.deepEqual(admitted.pendingReservation.items, reserved.pendingReservation.items); assert.equal(admitted.revision, 6);
     await rejected(() => Inventory.clearPendingReservation(accountId, { rollback: true }), 'RESERVATION_ADMITTED');
     await Inventory.clearPendingReservation(accountId); assert.equal((await snapshot()).pendingReservation, null);
-    const fallback = await Inventory.savePendingReservation(accountId, 'fallback');
-    const weapon = fallback.pendingReservation.preparedEquipment.weaponSlot1;
-    assert.equal(weapon.lootId, 'arming_sword'); assert.match(weapon.instance.instanceId, /^[a-f0-9]{24}$/);
-    assert.deepEqual(weapon.instance.modifiers, plain());
-    await Inventory.clearPendingReservation(accountId, { rollback: true });
-    assert.deepEqual((await snapshot()).preparedEquipment.weaponSlot1, weapon);
+    const beforeRejection = structuredClone(stored);
+    const beforeWrites = writes;
+    await rejected(() => Inventory.savePendingReservation(accountId, 'fallback'), 'PREPARED_WEAPON_REQUIRED');
+    assert.deepEqual(stored, beforeRejection);
+    assert.equal(writes, beforeWrites);
   });
 
   await t.test('admission signs ID-free individual weapons in slot order without changing the reservation', async () => {
@@ -383,8 +383,9 @@ test('v3 instance public HTTP/service contract', async t => {
     assert.equal(sold.currency, 485); assert.equal(sold.buyback.entries.length, 1);
     const line = sold.buyback.entries[0];
     assert.deepEqual((await Inventory.shopBuyback(accountId, line.entryId, 1, 12, 'rebuy')).loadout.at(-1), { slot: 2, lootId: 'placeholder_helmet', amount: 1 });
+    stored.inventory.preparedEquipment.weaponSlot1 = 'training_dagger';
     const reserved = await Inventory.savePendingReservation(accountId, 'reserve');
-    assert.equal(reserved.pendingReservation.preparedEquipment.weaponSlot1, 'arming_sword');
+    assert.equal(reserved.pendingReservation.preparedEquipment.weaponSlot1, 'training_dagger');
     const admitted = await Inventory.admitPendingReservation(accountId, 'reserve'); assert.ok(admitted.pendingReservation.admittedAt);
     assert.deepEqual((await Session.issueRaidAdmissionTicket(accountId, 'ABC123', 'reserve')).snapshot.items,
       [{ lootId: 'bone', amount: 4 }, { lootId: 'placeholder_helmet', amount: 1 }]);

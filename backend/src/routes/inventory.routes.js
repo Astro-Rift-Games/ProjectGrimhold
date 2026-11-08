@@ -14,6 +14,7 @@ const {
   slotSplitValidator,
   moveItemValidator,
   preparedEquipmentValidator,
+  trainingWeaponValidator,
   pendingReservationValidator,
   admitReservationValidator,
   commitExtractionValidator,
@@ -166,6 +167,21 @@ router.put('/me/inventory/prepared-equipment', inventoryProtocol, preparedEquipm
     }
     const expectedRevision = req.body.expectedRevision;
     const result = await InventoryService.updatePreparedEquipment(req.accountId, slots, expectedRevision);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /character/me/inventory/training-weapon
+// Body: { weaponId: string, destinationSlot?: ''|'weaponSlot1'|'weaponSlot2', expectedRevision: number }
+router.post('/me/inventory/training-weapon', inventoryProtocol, trainingWeaponValidator, async (req, res, next) => {
+  try {
+    const { weaponId, destinationSlot = '' } = req.body;
+    const expectedRevision = req.body.expectedRevision;
+    const result = await InventoryService.requestTrainingWeapon(
+      req.accountId, weaponId, destinationSlot, expectedRevision
+    );
     res.json(result);
   } catch (err) {
     next(err);
