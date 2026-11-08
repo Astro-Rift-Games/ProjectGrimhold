@@ -35,13 +35,36 @@ namespace Tests.EditMode.Loot
 
             provider.CollectActions(context, actions);
 
-            Assert.That(actions, Has.Count.EqualTo(2));
+            Assert.That(actions, Has.Count.EqualTo(3));
             Assert.That(actions[0].Id, Is.EqualTo(LootDropContextActionProvider.DropSingleId));
             Assert.That(actions[0].Label, Is.EqualTo("Soltar"));
-            Assert.That(actions[1].Id, Is.EqualTo(LootDropContextActionProvider.DropAllId));
-            Assert.That(actions[1].Label, Is.EqualTo("Soltar todo"));
+            Assert.That(actions[1].Id, Is.EqualTo(new LootContextActionId("drop.amount")));
+            Assert.That(actions[1].Label, Is.EqualTo("Soltar cantidad..."));
+            Assert.That(actions[2].Id, Is.EqualTo(LootDropContextActionProvider.DropAllId));
+            Assert.That(actions[2].Label, Is.EqualTo("Soltar todo"));
+            Assert.That(actions[2].IsEnabled, Is.False);
             Assert.That(actions[0].IsEnabled, Is.False);
             Assert.That(actions[1].IsEnabled, Is.False);
+        }
+
+        [TestCase(1, false, false)]
+        [TestCase(2, false, false)]
+        [TestCase(1, true, false)]
+        [TestCase(2, true, true)]
+        public void DropAmount_RequiresAddressAndPartialStack(int amount, bool addressed, bool expected)
+        {
+            var holder = new GameObject("Drop provider test");
+            try
+            {
+                var provider = new LootDropContextActionProvider();
+                provider.Bind(holder.AddComponent<PlayerLootDropNetworkController>());
+                var context = new LootContextActionContext(new LootEntry(new LootId("coin"), amount),
+                    _definition, addressed ? 0 : -1, addressed ? 0 : -1);
+                var actions = new List<LootContextActionDescriptor>();
+                provider.CollectActions(context, actions);
+                Assert.That(actions[1].IsEnabled, Is.EqualTo(expected));
+            }
+            finally { Object.DestroyImmediate(holder); }
         }
 
         [Test]

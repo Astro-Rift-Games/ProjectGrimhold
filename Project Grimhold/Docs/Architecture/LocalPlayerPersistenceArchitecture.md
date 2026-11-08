@@ -299,7 +299,8 @@ implemented even with the gate off; that is not permission to migrate production
 Before gate activation the rollback floor is B1 (no older backend), with any client. After migration,
 retain at least B1 and U2 and never turn the gate off; older writers can merge/drop slot data.
 Backup restore is safe only inside the window before the first post-migration write. Split enablement
-is independent of migration/protocol activation; TASK-282 UI remains a separate delivery.
+is independent of migration/protocol activation; the TASK-282 "Dividir" UI calls it and reports the remote
+failure while the flag is off.
 
 ### Progression transaction
 

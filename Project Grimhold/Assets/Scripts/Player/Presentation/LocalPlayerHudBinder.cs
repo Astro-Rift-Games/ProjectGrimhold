@@ -120,11 +120,13 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
     private EntityRegistry _entityRegistry;
     private RaidAvatarParticipantLink _participantLink;
     private QuickSlotController _quickSlots;
+    private PlayerLootSplitNetworkController _lootSplitController;
     private bool _missingQuickSlotDependenciesReported;
 
     private void Awake()
     {
         _participantLink = GetComponent<RaidAvatarParticipantLink>();
+        _lootSplitController = GetComponent<PlayerLootSplitNetworkController>();
     }
 
     public override void Spawned()
@@ -202,7 +204,7 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
             _combatFeedbackPresenter == null || _abilityHudPresenter == null ||
             _abilityController == null || _manaController == null ||
             _candidateSource == null || _interactionController == null || _lootReceiver == null ||
-            _lootTransferController == null || _lootDropController == null || _consumableController == null ||
+            _lootTransferController == null || _lootDropController == null || _lootSplitController == null || _consumableController == null ||
             _weaponEquipmentController == null ||
             _playerCharacter == null || _staminaController == null ||
             _combatController == null || _extractionController == null)
@@ -439,7 +441,8 @@ public sealed class LocalPlayerHudBinder : NetworkBehaviour
                 _weaponEquipmentController,
                 Runner,
                 transform,
-                _quickSlots);
+                _quickSlots,
+                _lootSplitController);
 
             if (_menuPresenter != null)
             {

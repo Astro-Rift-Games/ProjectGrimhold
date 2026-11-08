@@ -51,6 +51,8 @@ public class LobbyStashPresenter : MonoBehaviour
             _stashUI.ContextActionsRequested += CollectGemActions;
             _stashUI.GemContextActionRequested += ExecuteGemAction;
             _stashUI.SlotTransferRequested += OnTransferRequested;
+            _stashUI.SplitRequested += OnSplitRequested;
+            _stashUI.BindSplit(ResolveSplitDestination);
             _stashUI.SlotDragStarted += OnSlotDragStarted;
             _stashUI.SlotDropReceived += OnSlotDropReceived;
             _stashUI.TakeAllRequested += OnTakeAllRequested;
@@ -100,6 +102,8 @@ public class LobbyStashPresenter : MonoBehaviour
             _stashUI.ContextActionsRequested -= CollectGemActions;
             _stashUI.GemContextActionRequested -= ExecuteGemAction;
             _stashUI.SlotTransferRequested -= OnTransferRequested;
+            _stashUI.SplitRequested -= OnSplitRequested;
+            _stashUI.BindSplit(null);
             _stashUI.SlotDragStarted -= OnSlotDragStarted;
             _stashUI.SlotDropReceived -= OnSlotDropReceived;
             _stashUI.TakeAllRequested -= OnTakeAllRequested;
@@ -225,6 +229,30 @@ public class LobbyStashPresenter : MonoBehaviour
     private void OnTransferRequested(int sourceSlot, LootId lootId, bool isFromStash, LootTransferQuantityMode mode) =>
         Run(coordinator => coordinator.TransferAsync(sourceSlot, lootId, isFromStash, mode));
 
+    private int ResolveSplitDestination(InventoryList list, int sourceSlot, LootId id, int observedQuantity, int amount)
+    {
+        if (_coordinator == null || _pendingActions > 0 || _gemSession?.LocksMutations == true ||
+            (list != InventoryList.Stash && list != InventoryList.Loadout) ||
+            !_lootCatalog.TryGet(id.Value, out var definition) || EquipmentSlotRules.IsEquippableCategory(definition.Category) ||
+            !QuantitySelectorRange.TryCreate(observedQuantity, out var range) || !range.Contains(amount)) return -1;
+        var items = list == InventoryList.Stash ? _stashService.GetStash(_localProfileId) : _loadoutService.GetLoadout(_localProfileId);
+        bool matches = false;
+        var occupied = new HashSet<int>();
+        foreach (var item in items)
+        {
+            occupied.Add(item.Slot);
+            if (item.Slot == sourceSlot && item.LootId == id && item.Amount == observedQuantity) matches = true;
+        }
+        if (!matches) return -1;
+        int destination = 0;
+        while (occupied.Contains(destination)) destination++;
+        return _coordinator.EvaluateSplit(list, sourceSlot, amount, destination, id) == StashOperationResult.Success
+            ? destination : -1;
+    }
+
+    private void OnSplitRequested(InventoryList list, int sourceSlot, int amount, int destinationSlot, LootId id) =>
+        Run(coordinator => coordinator.SplitAsync(list, sourceSlot, amount, destinationSlot, id), split: true);
+
     private void OnPreparedEquipmentAssignmentRequested(LootId lootId, EquipmentSlot slot, bool fromStash) =>
         Run(coordinator => coordinator.EquipAsync(lootId, slot, fromStash, _equipmentEndpoint));
 
@@ -232,19 +260,19 @@ public class LobbyStashPresenter : MonoBehaviour
         Run(coordinator => coordinator.UnequipAsync(slot, _equipmentEndpoint));
 
     /// <summary>Queues one action on the coordinator and reports, without throwing, how it ended.</summary>
-    private void Run(Func<StashTransferCoordinator, Task<StashTransferOutcome>> action)
+    private void Run(Func<StashTransferCoordinator, Task<StashTransferOutcome>> action, bool split = false)
     {
         if (_coordinator == null || _gemSession?.LocksMutations == true) return;
         _pendingActions++;
         UpdateActions();
-        _ = ObserveAsync(action, _coordinator);
+        _ = ObserveAsync(action, _coordinator, split);
     }
 
     private void UpdateActions() =>
         _stashUI?.SetActionsInteractable(isActiveAndEnabled && _context != null && _coordinator != null && _pendingActions == 0 && _gemSession?.LocksMutations != true);
 
     private async Task ObserveAsync(
-        Func<StashTransferCoordinator, Task<StashTransferOutcome>> action, StashTransferCoordinator coordinator)
+        Func<StashTransferCoordinator, Task<StashTransferOutcome>> action, StashTransferCoordinator coordinator, bool split)
     {
         try
         {
@@ -252,11 +280,15 @@ public class LobbyStashPresenter : MonoBehaviour
             if (!outcome.IsSuccess)
             {
                 Debug.LogWarning($"[{nameof(LobbyStashPresenter)}] Stash action did not complete: {outcome}.");
+                if (split && this != null && isActiveAndEnabled)
+                    _stashUI?.PresentGemFeedback("No se pudo dividir el stack", false);
             }
         }
         catch (Exception exception)
         {
             Debug.LogException(exception);
+            if (split && this != null && isActiveAndEnabled)
+                _stashUI?.PresentGemFeedback("No se pudo dividir el stack", false);
         }
         finally
         {

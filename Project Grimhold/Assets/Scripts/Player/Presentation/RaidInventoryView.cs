@@ -44,6 +44,30 @@ public sealed class RaidInventoryView : MonoBehaviour
     [SerializeField] private GemInstallConfirmationView _gemInstallView;
     public GemInstallConfirmationView GemInstallView => _gemInstallView;
 
+    [SerializeField] private QuantitySelectorDialogView _quantityDialogPrefab;
+    [SerializeField] private RectTransform _quantityDialogParent;
+    private QuantitySelectorDialogView _quantityDialog;
+
+    /// <summary>Instantiates the authored quantity selector over the inventory canvas on first use.</summary>
+    public QuantitySelectorDialogView QuantityDialog
+    {
+        get
+        {
+            if (_quantityDialog == null && _quantityDialogPrefab != null && _quantityDialogParent != null)
+            {
+                _quantityDialog = Instantiate(_quantityDialogPrefab, _quantityDialogParent);
+            }
+
+            return _quantityDialog;
+        }
+    }
+
+    public bool IsQuantityDialogOpen => _quantityDialog != null && _quantityDialog.IsOpen;
+    public void CloseQuantityDialog()
+    {
+        if (_quantityDialog != null) _quantityDialog.Close();
+    }
+
     [SerializeField]
     private GameObject _equipmentPanelRoot;
 

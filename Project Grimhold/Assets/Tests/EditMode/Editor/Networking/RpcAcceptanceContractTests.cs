@@ -16,6 +16,7 @@ public sealed class RpcAcceptanceContractTests
     {
         typeof(PlayerLootTransferNetworkController),
         typeof(PlayerLootDropNetworkController),
+        typeof(PlayerLootSplitNetworkController),
         typeof(PlayerWeaponEquipmentNetworkController),
         typeof(PlayerConsumableNetworkController)
     };

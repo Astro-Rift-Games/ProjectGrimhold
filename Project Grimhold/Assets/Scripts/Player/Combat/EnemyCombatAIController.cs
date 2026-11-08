@@ -72,6 +72,14 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
 
     public override void Spawned()
     {
+        // Fusion invokes Spawned even on disabled behaviours. Variants such as
+        // Specter replace standard combat and intentionally have no IAttack.
+        if (!enabled)
+        {
+            _dependenciesValid = false;
+            return;
+        }
+
         CacheDependencies();
         _entityRegistry = Runner != null ? Runner.GetComponent<EntityRegistry>() : null;
         _dependenciesValid = ValidateDependencies();

@@ -663,6 +663,51 @@ namespace Tests.PlayMode.Loot
         }
 
         [UnityTest]
+        public IEnumerator ExactAmountDropAuthority_RejectsInvalidAmountsStaleAndUnaddressedWithoutSpawnOrExtraction()
+        {
+            yield return Execute(() =>
+            {
+                LootDefinitionCatalog catalog = _prefab.GetComponent<PlayerLootReceiver>().LootCatalog;
+                SetField(_receiver, "_lootCatalog", catalog);
+                Assert.That(catalog.TryGetIndex(Bone, out int catalogIndex), Is.True);
+                Receive(_receiver, Coins, 1, RaidLootOrigin.Dungeon);
+                Receive(_receiver, Bone, 5, RaidLootOrigin.Dungeon);
+                int staleRevision = _receiver.Revision - 1;
+                LootInventorySlot[] before = SnapshotSlots(_receiver);
+                int revision = _receiver.Revision;
+                int pickupsBefore = CountValidPickups();
+                var controller = _receiver.GetComponent<PlayerLootDropNetworkController>();
+                var cases = new[]
+                {
+                    (slot: 1, rev: revision, amount: 5),
+                    (slot: 1, rev: revision, amount: 0),
+                    (slot: 1, rev: revision, amount: 6),
+                    (slot: 1, rev: staleRevision, amount: 2),
+                    (slot: -1, rev: -1, amount: 2)
+                };
+                uint sequence = 1;
+                foreach (var c in cases)
+                {
+                    var identity = new LootDropRequestIdentity(sequence++, catalogIndex,
+                        LootTransferQuantityMode.ExactAmount, c.slot, c.rev, c.amount);
+                    LootDropConfirmation confirmation = InvokeAuthority<LootDropConfirmation>(controller, identity);
+                    Assert.That(confirmation.Result.Success, Is.False, c.ToString());
+                    AssertSlots(_receiver, before);
+                    Assert.That(_receiver.Revision, Is.EqualTo(revision), c.ToString());
+                    Assert.That(CountValidPickups(), Is.EqualTo(pickupsBefore), c.ToString());
+                }
+            });
+        }
+
+        private static int CountValidPickups()
+        {
+            int count = 0;
+            foreach (NetworkLootPickup pickup in UnityEngine.Object.FindObjectsByType<NetworkLootPickup>(FindObjectsSortMode.None))
+                if (pickup.Object != null && pickup.Object.IsValid) count++;
+            return count;
+        }
+
+        [UnityTest]
         public IEnumerator AddressedDropAuthority_FullStackPublishesOnlySelectedStackAndOrigin()
         {
             yield return Execute(() =>

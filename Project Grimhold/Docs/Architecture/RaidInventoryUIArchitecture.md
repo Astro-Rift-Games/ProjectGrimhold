@@ -372,7 +372,12 @@ this is presentation, not a capacity exemption. Refresh preserves/clamps the pag
 page one. Page rebind/refresh dismisses tooltip/context and cancels drag. Context transfers capture
 `(sourceSlot, lootId)`; cell-to-cell drag/drop captures both list/slot addresses and calls
 `StashTransferCoordinator.MoveAsync` for move, total merge or swap, including within a list.
-Empty targets keep their real addresses. No quantity dialog or split UI is included (TASK-282).
+Empty targets keep their real addresses. Town split UI is the Stash screen's "Dividir" action ([Loot Interaction](LootInteractionArchitecture.md#physical-stack-split-task-281)).
+In Raid, "Soltar cantidad..." and "Dividir" open the shared quantity dialog with range
+`[1, selected slot quantity - 1]`. Confirming sends an addressed, revision-bound intention;
+"Dividir" chooses the lowest empty physical slot and is disabled without spare occupied-slot
+capacity or an empty slot. State Authority validates and commits, then confirmation refreshes
+the panel with operation-specific feedback. Closing, Downed or a changed revision cancels the dialog.
 Take All / Leave All still traverse the complete source inside the shared queue, never just a page.
 Capacity comes from the context's Store, not a global lookup.
 

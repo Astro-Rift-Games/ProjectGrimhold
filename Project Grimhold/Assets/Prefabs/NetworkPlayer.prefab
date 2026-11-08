@@ -5931,6 +5931,7 @@ GameObject:
   - component: {fileID: 8800000000000000002}
   - component: {fileID: 8800000000000000003}
   - component: {fileID: 8800000000000000004}
+  - component: {fileID: 8196296481128457015}
   - component: {fileID: 4100000000000000101}
   - component: {fileID: 4100000000000000102}
   - component: {fileID: 4100000000000000103}
@@ -6417,6 +6418,7 @@ MonoBehaviour:
   - {fileID: 8800000000000000002}
   - {fileID: 8800000000000000003}
   - {fileID: 8800000000000000004}
+  - {fileID: 8196296481128457015}
   - {fileID: 4100000000000000101}
   - {fileID: 4100000000000000102}
   - {fileID: 4100000000000000103}
@@ -6593,6 +6595,18 @@ MonoBehaviour:
   _worldCollisionMask:
     serializedVersion: 2
     m_Bits: 64
+--- !u!114 &8196296481128457015
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4369124737019072436}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0df2d6dd84161a741b545573ec3473f0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerLootSplitNetworkController
 --- !u!114 &4100000000000000101
 MonoBehaviour:
   m_ObjectHideFlags: 0

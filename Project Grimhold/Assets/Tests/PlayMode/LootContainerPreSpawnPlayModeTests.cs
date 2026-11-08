@@ -361,6 +361,51 @@ namespace Tests.PlayMode.Loot
         }
 
         [UnityTest]
+        public IEnumerator EnemyCombatSpawn_SpecterSkipsDisabledStandardCombat()
+        {
+            string guid = AssetDatabase.AssetPathToGUID("Assets/Prefabs/Enemies/NetworkEnemySpecter.prefab");
+            yield return StartRunnerAndLoadPrefab(guid);
+
+            NetworkObject spawned = _runner.Spawn(_prefab, Vector3.zero, Quaternion.identity);
+            EnemyCombatAIController combat = spawned.GetComponent<EnemyCombatAIController>();
+            Assert.That(combat, Is.Not.Null);
+            Assert.That(combat.enabled, Is.False);
+            Assert.That(spawned.GetComponent<ProjectGrimhold.Gameplay.Enemies.Specter.SpecterAIController>().enabled, Is.True);
+            Assert.That(spawned.GetComponent<IAttack>(), Is.Null);
+            Assert.That((bool)combat.IsAttackEnabled, Is.False);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator EnemyCombatSpawn_EnabledMissingAttackStillReportsConfigurationError()
+        {
+            string guid = AssetDatabase.AssetPathToGUID("Assets/Prefabs/Enemies/NetworkEnemy.prefab");
+            yield return StartRunnerAndLoadPrefab(guid);
+            LogAssert.Expect(UnityEngine.LogType.Error, "EnemyCombatAIController requires a component implementing IAttack.");
+
+            NetworkObject spawned = _runner.Spawn(_prefab, Vector3.zero, Quaternion.identity);
+
+            Assert.That(spawned.GetComponent<EnemyCombatAIController>().enabled, Is.True);
+            Assert.That(spawned.GetComponent<IAttack>(), Is.Null);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator EnemyCombatSpawn_StandardMeleeStillInitializes()
+        {
+            yield return StartRunnerAndLoadPrefab(EnemyMeleePrefabGuid);
+            NetworkObject spawned = _runner.Spawn(_prefab, Vector3.zero, Quaternion.identity);
+            EnemyCombatAIController combat = spawned.GetComponent<EnemyCombatAIController>();
+
+            Assert.That(combat.enabled, Is.True);
+            Assert.That(spawned.GetComponent<IAttack>(), Is.Not.Null);
+            Assert.That((bool)combat.IsAttackEnabled, Is.False);
+            Assert.That(combat.TrySetAttackEnabled(true), Is.True);
+            Assert.That((bool)combat.IsAttackEnabled, Is.True);
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator FatalEnemy_PersistsAndExposesItsOwnContainer()
         {
             yield return StartRunnerAndLoadPrefab(EnemyMeleePrefabGuid);

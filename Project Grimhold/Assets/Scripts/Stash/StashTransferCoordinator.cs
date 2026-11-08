@@ -84,6 +84,13 @@ public sealed class StashTransferCoordinator
                 : outcome;
         });
 
+    /// <summary>Read-only admission check for the Town split dialog, using the same local rules as commit.</summary>
+    public StashOperationResult EvaluateSplit(InventoryList list, int sourceSlot, int amount, int destinationSlot, LootId lootId) =>
+        _loadout is ISlotPlayerLoadoutService local && SupportsSlots(local.InventorySchemaVersion) &&
+        _remote is ISlotRemoteInventoryService
+            ? local.EvaluateSplit(_profileId, list, sourceSlot, amount, destinationSlot, lootId)
+            : StashOperationResult.InvalidInventory;
+
     public Task<StashTransferOutcome> SortAsync(InventoryList list, LootDefinitionCatalog catalog = null) =>
         RunExclusiveAsync(() => SortCoreAsync(list, catalog ?? _catalog));
 

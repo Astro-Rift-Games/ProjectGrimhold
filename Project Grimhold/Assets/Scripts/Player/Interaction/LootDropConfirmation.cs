@@ -56,7 +56,8 @@ public readonly struct LootDropConfirmation
         {
             if (droppedAmount <= 0 || failureReasonValue != (int)LootDropFailureReason.None ||
                 !resolvedLootId.HasValue ||
-                expected.QuantityMode == LootTransferQuantityMode.SingleUnit && droppedAmount != 1)
+                expected.QuantityMode == LootTransferQuantityMode.SingleUnit && droppedAmount != 1 ||
+                expected.QuantityMode == LootTransferQuantityMode.ExactAmount && droppedAmount != expected.RequestedAmount)
             {
                 error = "A successful drop has an invalid amount, reason or loot definition.";
                 return false;

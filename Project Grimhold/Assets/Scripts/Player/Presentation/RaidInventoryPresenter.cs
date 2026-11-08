@@ -40,6 +40,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private readonly RaidLootSelectionState _containerSelection = new();
     private readonly RaidLootTakeAllState _takeAllState = new();
     private readonly LootDropContextActionProvider _dropActionProvider = new();
+    private readonly LootSplitContextActionProvider _splitActionProvider = new();
+    private PlayerLootSplitNetworkController _splitController;
     private readonly LootConsumeContextActionProvider _consumeActionProvider = new();
     private readonly LootEquipContextActionProvider _equipActionProvider = new();
     private readonly TownLootEquipContextActionProvider _townEquipActionProvider = new();
@@ -47,6 +49,9 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     private readonly LootQuickSlotContextActionProvider _quickSlotActionProvider = new();
     private readonly List<ILootContextActionProvider> _contextActionProviders = new();
     private readonly List<LootContextActionDescriptor> _contextActions = new();
+    private QuantitySelectorDialogView _subscribedQuantityDialog;
+    private LootContextActionContext _pendingQuantityContext;
+    private Func<int, bool> _pendingQuantityCommit;
 
     // Retained empty for legacy diagnostics; Raid never permutes its physical projection.
     private readonly RaidInventoryDisplayOrder _displayOrder = new();
@@ -106,6 +111,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         {
             CancelActiveDrag();
             HideContextMenu();
+            CloseQuantityDialog();
             _view?.TooltipView?.Hide();
             CancelTakeAll();
         }
@@ -160,7 +166,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         PlayerWeaponEquipmentNetworkController equipmentController,
         NetworkRunner runner,
         Transform localPlayerTransform,
-        QuickSlotController quickSlots = null)
+        QuickSlotController quickSlots = null,
+        PlayerLootSplitNetworkController splitController = null)
     {
         Unbind();
 
@@ -181,13 +188,18 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _interactionController = interactionController;
         _transferController = transferController;
         _dropController = dropController;
+        _splitController = splitController;
+        _splitActionProvider.Bind(splitController, () => TryGetSplitDestination(out _));
+        _splitActionProvider.SetSplitHandler(OnSplitRequested);
         _consumableController = consumableController;
         _equipmentController = equipmentController;
         _dropActionProvider.Bind(dropController);
+        _dropActionProvider.SetPartialDropHandler(OnPartialDropRequested);
         _consumeActionProvider.Bind(consumableController);
         _equipActionProvider.Bind(equipmentController);
         _contextActionProviders.Clear();
         _contextActionProviders.Add(_dropActionProvider);
+        _contextActionProviders.Add(_splitActionProvider);
         _contextActionProviders.Add(_consumeActionProvider);
         _contextActionProviders.Add(_equipActionProvider);
         AttachQuickSlots(quickSlots);
@@ -293,6 +305,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         }
         Unsubscribe();
         Close();
+        UnsubscribeQuantityDialog();
         _displayOrder.Seed(null);
         _townSortCoordinator = null;
         _canSortTown = null;
@@ -340,6 +353,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _view?.SetDownedReadOnly(false);
         _mode = ScreenMode.Closed;
         HideContextMenu();
+        CloseQuantityDialog();
         ClearContainerBinding();
         _view?.HideTransferFeedback();
         _view?.SetContainerPanelVisible(false);
@@ -491,6 +505,7 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _dropController.RequestInFlightChanged += OnDropRequestInFlightChanged;
         _dropController.TransportRejected += OnDropTransportRejected;
         _dropController.DropConfirmed += OnDropConfirmed;
+        if (_splitController != null) _splitController.SplitConfirmed += OnSplitConfirmed;
         _consumableController.ConsumeConfirmed += OnConsumeConfirmed;
         _consumableController.ConsumeRejected += OnConsumeRejected;
         _equipmentController.EquipRequestResolved += OnEquipRequestResolved;
@@ -581,6 +596,8 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             _dropController.TransportRejected -= OnDropTransportRejected;
             _dropController.DropConfirmed -= OnDropConfirmed;
         }
+
+        if (_splitController != null) _splitController.SplitConfirmed -= OnSplitConfirmed;
 
         if (_consumableController != null)
         {
@@ -1065,6 +1082,127 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         }
 
         RefreshTransferInteraction();
+    }
+
+    private bool TryGetSplitDestination(out int destination)
+    {
+        destination = -1;
+        if (_lootReceiver == null || _lootReceiver.OccupiedSlotCount >= _lootReceiver.SlotCapacity) return false;
+        for (int index = 0; index < PlayerLootReceiver.PhysicalSlotCount; index++)
+        {
+            if (!_lootReceiver.TryGetInventorySlot(index, out LootInventorySlot slot)) return false;
+            if (!slot.IsEmpty) continue;
+            destination = index;
+            return true;
+        }
+        return false;
+    }
+
+    private bool OnSplitRequested(LootContextActionContext context) =>
+        OpenQuantityDialog("Dividir", context, amount => _splitController != null &&
+            _lootReceiver.Revision == context.ExpectedInventoryRevision && TryGetSplitDestination(out int destination) &&
+            _splitController.TryRequestSplit(context.SourceInventorySlotIndex, amount, destination,
+                context.ExpectedInventoryRevision));
+
+    private void OnSplitConfirmed(LootTransferFailureReason reason)
+    {
+        RefreshPlayerPanel();
+        if (_mode == ScreenMode.Personal)
+        {
+            if (reason == LootTransferFailureReason.None) _view.HideTransferFeedback();
+            else _view.ShowTransferFeedback(reason switch
+            {
+                LootTransferFailureReason.InventoryFull or LootTransferFailureReason.DestinationNotFound =>
+                    "No hay un espacio libre para dividir",
+                LootTransferFailureReason.InvalidAmount => "La cantidad no es válida",
+                LootTransferFailureReason.ContainerUnavailable => "El inventario cambió; vuelve a intentarlo",
+                LootTransferFailureReason.InsufficientAmount => "El stack ya no está disponible",
+                LootTransferFailureReason.PlayerUnavailable => "No se puede dividir en este estado",
+                LootTransferFailureReason.InvalidLoot => "El objeto no se puede dividir",
+                _ => "No se pudo dividir el stack"
+            });
+        }
+        RefreshTransferInteraction();
+    }
+
+    private bool OnPartialDropRequested(LootContextActionContext context)
+    {
+        PlayerLootDropNetworkController controller = _dropController;
+        return OpenQuantityDialog("Soltar cantidad", context, amount => controller != null &&
+            controller.TryRequestPartialDrop(context.Entry.LootId, amount,
+                context.SourceInventorySlotIndex, context.ExpectedInventoryRevision));
+    }
+
+    /// <summary>Opens the selector for one addressed slot; the commit runs only if that slot is still current.</summary>
+    private bool OpenQuantityDialog(string title, in LootContextActionContext context, Func<int, bool> commit)
+    {
+        QuantitySelectorDialogView dialog = ResolveQuantityDialog();
+        if (MutationsBlocked || _mode != ScreenMode.Personal || dialog == null || !context.HasInventorySlotAddress ||
+            !dialog.Open(title, context.Entry.Amount))
+        {
+            ClearPendingQuantity();
+            return false;
+        }
+
+        _pendingQuantityContext = context;
+        _pendingQuantityCommit = commit;
+        return true;
+    }
+
+    private QuantitySelectorDialogView ResolveQuantityDialog()
+    {
+        QuantitySelectorDialogView dialog = _view != null ? _view.QuantityDialog : null;
+        if (dialog != null && dialog != _subscribedQuantityDialog)
+        {
+            UnsubscribeQuantityDialog();
+            dialog.ConfirmRequested += OnQuantityConfirmed;
+            dialog.CancelRequested += ClearPendingQuantity;
+            _subscribedQuantityDialog = dialog;
+        }
+
+        return dialog;
+    }
+
+    private void UnsubscribeQuantityDialog()
+    {
+        if (_subscribedQuantityDialog != null)
+        {
+            _subscribedQuantityDialog.ConfirmRequested -= OnQuantityConfirmed;
+            _subscribedQuantityDialog.CancelRequested -= ClearPendingQuantity;
+        }
+
+        _subscribedQuantityDialog = null;
+        ClearPendingQuantity();
+    }
+
+    private void OnQuantityConfirmed(int amount)
+    {
+        Func<int, bool> commit = _pendingQuantityCommit;
+        bool current = IsPendingQuantitySlotCurrent();
+        ClearPendingQuantity();
+        if (commit == null || MutationsBlocked || _mode != ScreenMode.Personal || !current || !commit(amount))
+        {
+            _view?.ShowTransferFeedback("No se pudo solicitar la acción");
+        }
+
+        RefreshTransferInteraction();
+    }
+
+    private bool IsPendingQuantitySlotCurrent() =>
+        _pendingQuantityContext.IsValid && IsCurrentInventorySlot(_pendingQuantityContext.SourceInventorySlotIndex,
+            _pendingQuantityContext.ExpectedInventoryRevision, _pendingQuantityContext.Entry.LootId,
+            _pendingQuantityContext.Entry.Amount);
+
+    private void CloseQuantityDialog()
+    {
+        ClearPendingQuantity();
+        _view?.CloseQuantityDialog();
+    }
+
+    private void ClearPendingQuantity()
+    {
+        _pendingQuantityContext = default;
+        _pendingQuantityCommit = null;
     }
 
     private void OnContextMenuDismissRequested()
@@ -1698,6 +1836,12 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
             return;
         }
 
+        // A quantity choice is bound to one observed slot revision; any change invalidates it.
+        if (_pendingQuantityCommit != null && !IsPendingQuantitySlotCurrent())
+        {
+            CloseQuantityDialog();
+        }
+
         InvalidateStaleInventoryInteractions();
         int currentSequence = _inventorySource.Revision;
         if (currentSequence != _observedPlayerLootSequence)
@@ -2171,7 +2315,11 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _interactionController = null;
         _transferController = null;
         _dropController = null;
+        _splitController = null;
+        _splitActionProvider.Bind(null, null);
+        _splitActionProvider.SetSplitHandler(null);
         _dropActionProvider.Bind(null);
+        _dropActionProvider.SetPartialDropHandler(null);
         _consumableController = null;
         _consumeActionProvider.Bind(null);
         _equipmentController = null;

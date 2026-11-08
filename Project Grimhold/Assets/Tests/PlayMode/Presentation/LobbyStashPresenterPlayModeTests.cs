@@ -544,6 +544,106 @@ namespace Tests.PlayMode.Presentation
             }
         }
 
+        [UnityTest]
+        public IEnumerator TownSplit_ConfirmsExactAmountInBothListsRemoteFirst()
+        {
+            CreateScreen(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Bone, 5, 2));
+                snapshot.Loadout.Add(new StashItem(Bone, 5, 3));
+            });
+            yield return null;
+            foreach (var list in new[] { InventoryList.Stash, InventoryList.Loadout })
+            {
+                var panel = list == InventoryList.Stash ? StashPanel() : LoadoutPanel();
+                var action = SplitAction(panel);
+                Assert.That(action.IsInteractable(), Is.True);
+                action.onClick.Invoke();
+                var dialog = _canvasObject.GetComponentInChildren<QuantitySelectorDialogView>(true);
+                Assert.That(dialog, Is.Not.Null);
+                Assert.That(dialog.IsOpen, Is.True);
+                DialogField<TMPro.TMP_InputField>(dialog, "_input").text = "2";
+                var gate = new TaskCompletionSource<bool>();
+                _remote.Gates.Enqueue(gate.Task);
+                DialogField<Button>(dialog, "_confirmButton").onClick.Invoke();
+                yield return null;
+                int source = list == InventoryList.Stash ? 2 : 3;
+                Assert.That(_remote.Calls.Last(), Is.EqualTo($"split:{list}:{source}:2:0:bone"));
+                Assert.That(list == InventoryList.Stash ? _store.GetStash() : _store.GetLoadout(),
+                    Is.EqualTo(new[] { new StashItem(Bone, 5, source) }));
+                gate.SetResult(true);
+                for (int frame = 0; frame < 5; frame++) yield return null;
+                Assert.That(list == InventoryList.Stash ? _store.GetStash() : _store.GetLoadout(),
+                    Is.EqualTo(new[] { new StashItem(Bone, 2, 0), new StashItem(Bone, 3, source) }));
+                Assert.That(dialog.IsOpen, Is.False);
+            }
+            Assert.That(_remote.Calls.Count, Is.EqualTo(2));
+        }
+
+        [UnityTest]
+        public IEnumerator TownSplit_CancelAndRemoteFailureNeverMutate()
+        {
+            CreateScreen(snapshot => snapshot.Stash.Add(new StashItem(Bone, 5, 2)));
+            yield return null;
+            SplitAction(StashPanel()).onClick.Invoke();
+            var dialog = _canvasObject.GetComponentInChildren<QuantitySelectorDialogView>(true);
+            Assert.That(dialog, Is.Not.Null);
+            DialogField<Button>(dialog, "_cancelButton").onClick.Invoke();
+            Assert.That(dialog.IsOpen, Is.False);
+            Assert.That(_remote.Calls, Is.Empty);
+            Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Bone, 5, 2) }));
+            SplitAction(StashPanel()).onClick.Invoke();
+            _remote.FailSplit = true;
+            LogAssert.Expect(LogType.Warning, new Regex("Stash action did not complete: RecoveryFailed"));
+            DialogField<TMPro.TMP_InputField>(dialog, "_input").text = "2";
+            DialogField<Button>(dialog, "_confirmButton").onClick.Invoke();
+            yield return null;
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "split:Stash:2:2:0:bone" }));
+            Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Bone, 5, 2) }));
+            Assert.That(_store.GetLoadout(), Is.Empty);
+            Assert.That(_canvasObject.GetComponentsInChildren<TMPro.TMP_Text>(true).Any(t =>
+                t.gameObject.activeSelf && t.text == "No se pudo dividir el stack"), Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator TownSplit_MenuDisablesSingleUnitsEquipmentFullCapacityAndPending()
+        {
+            CreateScreen(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Bone, 1, 0));
+                snapshot.Stash.Add(new StashItem(new LootId("rapier"), 2, 1));
+                for (int slot = 0; slot < LocalProfileSnapshot.MaxLoadoutSlots; slot++)
+                    snapshot.Loadout.Add(new StashItem(Bone, 5, slot));
+            });
+            yield return null;
+            Assert.That(SplitAction(StashPanel(), 0).IsInteractable(), Is.False);
+            Assert.That(SplitAction(StashPanel(), 1).IsInteractable(), Is.False);
+            Assert.That(SplitAction(LoadoutPanel()).IsInteractable(), Is.False);
+            var gate = new TaskCompletionSource<bool>();
+            _remote.Gates.Enqueue(gate.Task);
+            ClickMoveAll(LoadoutPanel());
+            yield return null;
+            Assert.That(SplitAction(LoadoutPanel()).IsInteractable(), Is.False);
+            gate.SetResult(true);
+            for (int frame = 0; frame < 5; frame++) yield return null;
+        }
+
+        private Button SplitAction(RaidLootPanelView panel, int occupiedIndex = 0)
+        {
+            var cell = panel.GetComponentsInChildren<RaidInventorySlotView>(true).Where(s => s.IsOccupied).ElementAt(occupiedIndex);
+            cell.OnPointerClick(new PointerEventData(null) { button = PointerEventData.InputButton.Right });
+            var menu = _instance.GetComponentInChildren<RaidLootContextMenuView>(true);
+            Assert.That(menu.IsOpen, Is.True);
+            var action = menu.GetComponentsInChildren<RaidLootContextActionButton>(true).SingleOrDefault(a =>
+                a.gameObject.activeSelf && a.GetComponentInChildren<TMPro.TMP_Text>(true).text == "Dividir");
+            Assert.That(action, Is.Not.Null, "Both Town lists must offer the exact Dividir label.");
+            return action.GetComponent<Button>();
+        }
+
+        private static T DialogField<T>(QuantitySelectorDialogView dialog, string name) where T : UnityEngine.Object =>
+            (T)typeof(QuantitySelectorDialogView).GetField(name,
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(dialog);
+
         private void SeedGemScreen(int sockets = 1)
         {
             _catalog.TryGet("rapier", out var weapon);
@@ -854,9 +954,13 @@ namespace Tests.PlayMode.Presentation
             }
 
 
-            public Task<(bool success, BackendError error)> SplitSlotAsync(
-                InventoryList list, int sourceSlot, int amount, int destinationSlot, LootId lootId) =>
-                Run($"split:{list}:{sourceSlot}:{amount}:{destinationSlot}:{lootId.Value}");
+            public bool FailSplit;
+            public async Task<(bool success, BackendError error)> SplitSlotAsync(
+                InventoryList list, int sourceSlot, int amount, int destinationSlot, LootId lootId)
+            {
+                var result = await Run($"split:{list}:{sourceSlot}:{amount}:{destinationSlot}:{lootId.Value}");
+                return FailSplit ? (false, new BackendError { error = "FEATURE_DISABLED" }) : result;
+            }
 
             public Task<(bool success, BackendError error)> TransferAsync(int sourceSlot, LootId id, int amount, bool fromStash)
             {

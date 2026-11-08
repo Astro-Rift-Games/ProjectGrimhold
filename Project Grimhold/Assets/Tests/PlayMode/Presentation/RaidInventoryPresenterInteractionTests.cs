@@ -4,6 +4,7 @@ using System.Collections;
 using System.Reflection;
 using Fusion;
 using NUnit.Framework;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -797,6 +798,232 @@ namespace Tests.PlayMode.Presentation
         }
 
         [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalContextDropAmount_ConfirmSpawnsPickupWithChosenAmountAndKeepsRemainder()
+        {
+            yield return BeginPhysicalUi();
+            yield return UiTick(() => GrantUiLoot(Bone, 5, RaidLootOrigin.Dungeon));
+            LootDropConfirmation? confirmed = null;
+            _uiReceiver.GetComponent<PlayerLootDropNetworkController>().DropConfirmed += result => confirmed = result;
+            OpenUiContext(0);
+            yield return UiTick(() => ClickUiContextAction(LootDropContextActionProvider.DropAmountId));
+            QuantitySelectorDialogView dialog = _view.QuantityDialog;
+            Assert.That(dialog, Is.Not.Null);
+            Assert.That(dialog.IsOpen, Is.True);
+            Assert.That(dialog.Range.Max, Is.EqualTo(4));
+            Assert.That(CountRunnerPickups(), Is.Zero, "Choosing the action must not drop anything yet.");
+
+            DialogField<TMP_InputField>(dialog, "_input").text = "2";
+            Assert.That(dialog.SelectedAmount, Is.EqualTo(2));
+            Assert.That(DialogField<UnityEngine.UI.Slider>(dialog, "_slider").value, Is.EqualTo(2f));
+            yield return UiTick(() => DialogField<UnityEngine.UI.Button>(dialog, "_confirmButton").onClick.Invoke());
+            yield return WaitForUi(() => confirmed.HasValue);
+
+            Assert.That(confirmed.Value.Result.Success, Is.True);
+            Assert.That(confirmed.Value.Result.DroppedAmount, Is.EqualTo(2));
+            Assert.That(dialog.IsOpen, Is.False);
+            Assert.That(_uiReceiver.TryGetInventorySlot(0, out LootInventorySlot remaining), Is.True);
+            Assert.That(remaining.Quantity, Is.EqualTo(3));
+            Assert.That(_uiReceiver.GetLootAmount(Bone), Is.EqualTo(3));
+            Assert.That(CountRunnerPickups(expectedAmount: 2), Is.EqualTo(1));
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalContextDropAmount_CancelLeavesInventoryAndWorldUnchanged()
+        {
+            yield return BeginPhysicalUi();
+            yield return UiTick(() => GrantUiLoot(Bone, 5, RaidLootOrigin.Dungeon));
+            Assert.That(_uiReceiver.TryGetInventorySlot(0, out LootInventorySlot before), Is.True);
+            int revision = _uiReceiver.Revision;
+            OpenUiContext(0);
+            yield return UiTick(() => ClickUiContextAction(LootDropContextActionProvider.DropAmountId));
+            QuantitySelectorDialogView dialog = _view.QuantityDialog;
+            DialogField<TMP_InputField>(dialog, "_input").text = "3";
+            yield return UiTick(() => DialogField<UnityEngine.UI.Button>(dialog, "_cancelButton").onClick.Invoke());
+            yield return null;
+
+            Assert.That(dialog.IsOpen, Is.False);
+            Assert.That(GetPresenterField(_presenter, "_pendingQuantityCommit"), Is.Null);
+            Assert.That(_uiReceiver.GetComponent<PlayerLootDropNetworkController>().HasRequestInFlight, Is.False);
+            Assert.That(_uiReceiver.Revision, Is.EqualTo(revision));
+            Assert.That(_uiReceiver.TryGetInventorySlot(0, out LootInventorySlot after), Is.True);
+            Assert.That(after, Is.EqualTo(before));
+            Assert.That(CountRunnerPickups(), Is.Zero);
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalContextDropAmount_DialogRejectsOutOfRangeAndNonDigitInput()
+        {
+            yield return BeginPhysicalUi();
+            yield return UiTick(() => GrantUiLoot(Bone, 5, RaidLootOrigin.Dungeon));
+            OpenUiContext(0);
+            yield return UiTick(() => ClickUiContextAction(LootDropContextActionProvider.DropAmountId));
+            QuantitySelectorDialogView dialog = _view.QuantityDialog;
+            var input = DialogField<TMP_InputField>(dialog, "_input");
+            var slider = DialogField<UnityEngine.UI.Slider>(dialog, "_slider");
+            var confirm = DialogField<UnityEngine.UI.Button>(dialog, "_confirmButton");
+            Assert.That(slider.minValue, Is.EqualTo(1f));
+            Assert.That(slider.maxValue, Is.EqualTo(4f));
+            Assert.That(input.text, Is.EqualTo("1"));
+            Assert.That(confirm.interactable, Is.True);
+
+            Assert.That(input.onValidateInput("1", 1, 'a'), Is.EqualTo('\0'));
+            Assert.That(input.onValidateInput("1", 1, '-'), Is.EqualTo('\0'));
+            Assert.That(input.onValidateInput("", 0, '3'), Is.EqualTo('3'));
+
+            input.text = "5";
+            Assert.That(dialog.HasValidSelection, Is.False);
+            Assert.That(confirm.interactable, Is.False);
+            input.onEndEdit.Invoke(input.text);
+            Assert.That(dialog.SelectedAmount, Is.EqualTo(1));
+            Assert.That(input.text, Is.EqualTo("1"));
+
+            input.text = "0";
+            Assert.That(confirm.interactable, Is.False);
+            input.text = "3a";
+            Assert.That(confirm.interactable, Is.False);
+            input.text = "3";
+            Assert.That(confirm.interactable, Is.True);
+            slider.value = 4f;
+            Assert.That(dialog.SelectedAmount, Is.EqualTo(4));
+            Assert.That(input.text, Is.EqualTo("4"));
+            yield return UiTick(() => DialogField<UnityEngine.UI.Button>(dialog, "_cancelButton").onClick.Invoke());
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalContextDropAmount_SlotRevisionChangeClosesDialogWithoutDropping()
+        {
+            yield return BeginPhysicalUi();
+            yield return UiTick(() => GrantUiLoot(Bone, 5, RaidLootOrigin.Dungeon));
+            OpenUiContext(0);
+            yield return UiTick(() => ClickUiContextAction(LootDropContextActionProvider.DropAmountId));
+            QuantitySelectorDialogView dialog = _view.QuantityDialog;
+            Assert.That(dialog.IsOpen, Is.True);
+
+            yield return UiTick(() => GrantUiLoot(Bone, 1, RaidLootOrigin.Dungeon));
+            InvokeMethod(_presenter, "RefreshPlayerPanel");
+
+            Assert.That(dialog.IsOpen, Is.False);
+            Assert.That(GetPresenterField(_presenter, "_pendingQuantityCommit"), Is.Null);
+            Assert.That(_uiReceiver.GetLootAmount(Bone), Is.EqualTo(6));
+            Assert.That(CountRunnerPickups(), Is.Zero);
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalContextSplit_ConfirmUsesLowestEmptySlotAndPreservesOrigin()
+        {
+            yield return BeginPhysicalUi();
+            yield return UiTick(() => GrantUiLoot(Bone, 5, PlayerOrigin(2)));
+            Assert.That(_uiReceiver.TryGetInventorySlot(0, out LootInventorySlot before), Is.True);
+            int revision = _uiReceiver.Revision;
+            OpenUiContext(0);
+            yield return UiTick(() => ClickUiContextAction(new LootContextActionId("inventory.split")));
+            QuantitySelectorDialogView dialog = _view.QuantityDialog;
+            Assert.That(dialog, Is.Not.Null);
+            Assert.That(dialog.IsOpen, Is.True);
+            DialogField<TMP_InputField>(dialog, "_input").text = "2";
+            yield return UiTick(() => DialogField<UnityEngine.UI.Button>(dialog, "_confirmButton").onClick.Invoke());
+            yield return WaitForUi(() => _uiReceiver.Revision != revision);
+            Assert.That(_uiReceiver.TryGetInventorySlot(0, out LootInventorySlot source), Is.True);
+            Assert.That(_uiReceiver.TryGetInventorySlot(1, out LootInventorySlot destination), Is.True);
+            Assert.That(source.Quantity, Is.EqualTo(3));
+            Assert.That(destination.Quantity, Is.EqualTo(2));
+            Assert.That(source.CatalogIndex, Is.EqualTo(before.CatalogIndex));
+            Assert.That(destination.CatalogIndex, Is.EqualTo(before.CatalogIndex));
+            Assert.That(source.Origin, Is.EqualTo(before.Origin));
+            Assert.That(destination.Origin, Is.EqualTo(before.Origin));
+            Assert.That(_uiReceiver.GetLootAmount(Bone), Is.EqualTo(5));
+            Assert.That(_uiReceiver.Revision, Is.EqualTo(revision + 1));
+            Assert.That(CountRunnerPickups(), Is.Zero);
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalContextSplit_DownedBeforeProcessingRejectsWithoutMutation()
+        {
+            yield return BeginPhysicalUi();
+            yield return UiTick(() => GrantUiLoot(Bone, 5, RaidLootOrigin.Dungeon));
+            var split = _uiReceiver.GetComponent<PlayerLootSplitNetworkController>();
+            Assert.That(split, Is.Not.Null);
+            LootTransferFailureReason? confirmation = null;
+            split.SplitConfirmed += reason => confirmation = reason;
+            int revision = _uiReceiver.Revision;
+            var before = ReadUiInventory();
+            yield return UiTick(() =>
+            {
+                Assert.That(split.TryRequestSplit(0, 2, 1, revision), Is.True);
+                Assert.That(_uiReceiver.GetComponent<PlayerDownedStateNetworkController>().TryEnterDowned(), Is.True);
+            });
+            yield return WaitForUi(() => confirmation.HasValue);
+            Assert.That(confirmation.Value, Is.EqualTo(LootTransferFailureReason.PlayerUnavailable));
+            Assert.That(split.HasRequestInFlight, Is.False);
+            Assert.That(split.TryRequestSplit(0, 2, 1, revision), Is.False);
+            Assert.That(ReadUiInventory(), Is.EqualTo(before));
+            Assert.That(_uiReceiver.Revision, Is.EqualTo(revision));
+            Assert.That(_uiReceiver.GetLootAmount(Bone), Is.EqualTo(5));
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalContextSplit_GapBelowReducedCapacityUsesLowestEmptyAddress()
+        {
+            yield return BeginPhysicalUi();
+            yield return UiTick(() =>
+            {
+                GrantUiLoot(Bone, 6, RaidLootOrigin.Dungeon);
+                Assert.That(_uiReceiver.TrySplitStack(0, 1, 3, _uiReceiver.Revision), Is.EqualTo(LootTransferFailureReason.None));
+                EquipmentTestContent.SetField(_uiReceiver, "_slotCapacity", 3);
+            });
+            int revision = _uiReceiver.Revision;
+            OpenUiContext(0);
+            yield return UiTick(() => ClickUiContextAction(new LootContextActionId("inventory.split")));
+            QuantitySelectorDialogView dialog = _view.QuantityDialog;
+            DialogField<TMP_InputField>(dialog, "_input").text = "2";
+            yield return UiTick(() => DialogField<UnityEngine.UI.Button>(dialog, "_confirmButton").onClick.Invoke());
+            yield return WaitForUi(() => _uiReceiver.Revision != revision);
+
+            Assert.That(_uiReceiver.TryGetInventorySlot(0, out LootInventorySlot source), Is.True);
+            Assert.That(_uiReceiver.TryGetInventorySlot(1, out LootInventorySlot lowestEmpty), Is.True);
+            Assert.That(_uiReceiver.TryGetInventorySlot(2, out LootInventorySlot untouched), Is.True);
+            Assert.That(_uiReceiver.TryGetInventorySlot(3, out LootInventorySlot existing), Is.True);
+            Assert.That(source.Quantity, Is.EqualTo(3));
+            Assert.That(lowestEmpty.Quantity, Is.EqualTo(2));
+            Assert.That(untouched.IsEmpty, Is.True);
+            Assert.That(existing.Quantity, Is.EqualTo(1));
+            Assert.That(_uiReceiver.GetLootAmount(Bone), Is.EqualTo(6));
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
+        public IEnumerator PhysicalContextSplit_NoFreeCapacityPresentsDisabledAction()
+        {
+            yield return BeginPhysicalUi();
+            yield return UiTick(() =>
+            {
+                GrantUiLoot(Bone, 5, RaidLootOrigin.Dungeon);
+                EquipmentTestContent.SetField(_uiReceiver, "_slotCapacity", 1);
+            });
+            OpenUiContext(0);
+            var actions = (System.Collections.Generic.List<LootContextActionDescriptor>)GetPresenterField(_presenter, "_contextActions");
+            var action = actions.Find(candidate => candidate.Id == new LootContextActionId("inventory.split"));
+            Assert.That(action.Label, Is.EqualTo("Dividir"));
+            Assert.That(action.IsEnabled, Is.False);
+            Assert.That(_uiReceiver.GetLootAmount(Bone), Is.EqualTo(5));
+        }
+
+        private static T DialogField<T>(QuantitySelectorDialogView dialog, string name) where T : class =>
+            (T)typeof(QuantitySelectorDialogView).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
+                .GetValue(dialog);
+
+        private int CountRunnerPickups(int? expectedAmount = null)
+        {
+            int published = 0;
+            foreach (NetworkLootPickup pickup in UnityEngine.Object.FindObjectsByType<NetworkLootPickup>(FindObjectsSortMode.None))
+            {
+                if (pickup.Object == null || !pickup.Object.IsValid || pickup.Runner != _uiRunner) continue;
+                published++;
+                if (expectedAmount.HasValue) Assert.That(pickup.Amount, Is.EqualTo(expectedAmount.Value));
+            }
+            return published;
+        }
+
+        [UnityTest, Category(PhysicalUiCategory)]
         public IEnumerator PhysicalContextEquip_SecondSameOriginSlotLeavesFirstUntouched() => EquipThroughUi(useContext: true);
 
         [UnityTest, Category(PhysicalUiCategory)]
@@ -1007,7 +1234,8 @@ namespace Tests.PlayMode.Presentation
                 _presenter.Bind(_uiReceiver, _inputReader, _uiReceiver.GetComponent<PlayerInteractionNetworkController>(),
                     _uiReceiver.GetComponent<PlayerLootTransferNetworkController>(), drop,
                     _uiReceiver.GetComponent<PlayerConsumableNetworkController>(),
-                    _uiReceiver.GetComponent<PlayerWeaponEquipmentNetworkController>(), _uiRunner, _uiReceiver.transform);
+                    _uiReceiver.GetComponent<PlayerWeaponEquipmentNetworkController>(), _uiRunner, _uiReceiver.transform,
+                    splitController: _uiReceiver.GetComponent<PlayerLootSplitNetworkController>());
                 InvokeMethod(_presenter, "OpenPersonalInventory");
                 OpenUiContext(0);
                 Assert.That(ReadSuppressionCount(_inputReader), Is.EqualTo(1));
@@ -1070,7 +1298,7 @@ namespace Tests.PlayMode.Presentation
             _presenter.Bind(_uiReceiver, _inputReader, avatar.GetComponent<PlayerInteractionNetworkController>(),
                 avatar.GetComponent<PlayerLootTransferNetworkController>(), avatar.GetComponent<PlayerLootDropNetworkController>(),
                 avatar.GetComponent<PlayerConsumableNetworkController>(), avatar.GetComponent<PlayerWeaponEquipmentNetworkController>(),
-                _uiRunner, avatar.transform);
+                _uiRunner, avatar.transform, splitController: avatar.GetComponent<PlayerLootSplitNetworkController>());
             InvokeMethod(_presenter, "Subscribe");
             InvokeMethod(_presenter, "OpenPersonalInventory");
             Assert.That(_view.IsOpen, Is.True);

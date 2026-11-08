@@ -32,11 +32,16 @@ not execute gameplay. The presenter routes the identifier back to the owning
 provider with the captured context. This keeps future consume or equip rules
 outside the view and outside the drop controller.
 
-The inventory registers one `LootDropContextActionProvider` with two actions, always
+The inventory registers one `LootDropContextActionProvider` with three actions, always
 in this order for valid loot:
 
 1. `Soltar`, mapped to `LootTransferQuantityMode.SingleUnit`.
-2. `Soltar todo`, mapped to `LootTransferQuantityMode.FullStack`.
+2. `Soltar cantidad...`, mapped to `LootTransferQuantityMode.ExactAmount` (TASK-282). It is enabled
+   only for an addressed physical slot holding at least two units. Choosing it sends nothing: the
+   presenter opens `QuantitySelectorDialogView` with range `[1, quantity - 1]` for the captured slot
+   address and revision, and only `Confirmar` sends the chosen amount. `Cancelar`, a source
+   identity/revision change, inventory close, Downed read-only or rebind close the dialog without a request.
+3. `Soltar todo`, mapped to `LootTransferQuantityMode.FullStack`.
 
 The menu closes after an action, on an outside left click, Escape, inventory close,
 interaction-mode change, source identity/revision change, rebind, drag start or a new drop request.
@@ -49,7 +54,8 @@ pointer outside the popup does not close it. Rejection refreshes presentation wi
 `PlayerLootDropNetworkController` is colocated with the player's
 `PlayerLootReceiver` and runs the authoritative operation from
 `FixedUpdateNetwork`. Addressed UI requests transport catalog index, quantity mode, sequence,
-source Inventory address and the revision captured by the displayed snapshot. The provider passes
+source Inventory address, the revision captured by the displayed snapshot and, for `ExactAmount`
+only, the chosen amount (`0` for every other mode). The provider passes
 that metadata unchanged through the existing addressed public overload; malformed or stale
 addresses never fall back to the legacy route. Legacy constructors/callers remain unaddressed
 `-1/-1`. Revisions are opaque integers except reserved `-1`.
@@ -67,6 +73,14 @@ resimulation do not directly drive UI side effects.
 resolves to that slot's complete authoritative quantity only after the captured revision and
 identity match, never the item's aggregate or another same-origin stack. Legacy unaddressed
 callers retain aggregate quantity resolution. The UI sends intention, not an authoritative amount.
+`Soltar cantidad...` is the only intention that names an amount: it is valid only with a slot
+address, and State Authority accepts it only when it lies in `[1, quantity - 1]` of that slot at the
+captured revision (otherwise `InvalidAmount`/`InsufficientAmount`, never clamped or retargeted). The
+chosen amount is part of drop equality, hashing and same-sequence replay conflicts, and a successful
+confirmation must report exactly that amount. The pickup is spawned with that exact amount and the
+slot keeps the remainder; the requesting client observes the decrement through replicated Inventory
+state. `ExactAmount` is drop-only: the mode-only resolver and container transfers reject it, and no Stash
+transfer caller emits it (Stash transfer amounts are resolved only from `SingleUnit`/`FullStack`).
 
 ## Atomic extraction and provisional pickup
 

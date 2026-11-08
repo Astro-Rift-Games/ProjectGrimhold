@@ -13,7 +13,7 @@ public sealed class LootDropClientRequestState
         int catalogIndex,
         LootTransferQuantityMode quantityMode,
         out LootDropRequestIdentity identity) =>
-        TryCreateCandidateCore(catalogIndex, quantityMode, -1, -1, out identity);
+        TryCreateCandidateCore(catalogIndex, quantityMode, -1, -1, 0, out identity);
 
     public bool TryCreateCandidate(
         int catalogIndex,
@@ -24,7 +24,22 @@ public sealed class LootDropClientRequestState
     {
         identity = default;
         return LootTransferRequest.IsValidInventorySlotAddress(sourceInventorySlotIndex, expectedInventoryRevision) &&
-            TryCreateCandidateCore(catalogIndex, quantityMode, sourceInventorySlotIndex, expectedInventoryRevision, out identity);
+            TryCreateCandidateCore(catalogIndex, quantityMode, sourceInventorySlotIndex, expectedInventoryRevision, 0, out identity);
+    }
+
+    /// <summary>Creates an addressed partial-drop intention; State Authority still validates the amount.</summary>
+    public bool TryCreateExactAmountCandidate(
+        int catalogIndex,
+        int requestedAmount,
+        int sourceInventorySlotIndex,
+        int expectedInventoryRevision,
+        out LootDropRequestIdentity identity)
+    {
+        identity = default;
+        return requestedAmount >= 1 &&
+            LootTransferRequest.IsValidInventorySlotAddress(sourceInventorySlotIndex, expectedInventoryRevision) &&
+            TryCreateCandidateCore(catalogIndex, LootTransferQuantityMode.ExactAmount, sourceInventorySlotIndex,
+                expectedInventoryRevision, requestedAmount, out identity);
     }
 
     private bool TryCreateCandidateCore(
@@ -32,10 +47,12 @@ public sealed class LootDropClientRequestState
         LootTransferQuantityMode quantityMode,
         int sourceInventorySlotIndex,
         int expectedInventoryRevision,
+        int requestedAmount,
         out LootDropRequestIdentity identity)
     {
         identity = default;
-        if (_hasInFlight || catalogIndex < 0 || !IsSupported(quantityMode))
+        if (_hasInFlight || catalogIndex < 0 ||
+            !(IsSupported(quantityMode) || quantityMode == LootTransferQuantityMode.ExactAmount && requestedAmount >= 1))
         {
             return false;
         }
@@ -47,7 +64,7 @@ public sealed class LootDropClientRequestState
         }
 
         identity = new LootDropRequestIdentity(sequence, catalogIndex, quantityMode,
-            sourceInventorySlotIndex, expectedInventoryRevision);
+            sourceInventorySlotIndex, expectedInventoryRevision, requestedAmount);
         return true;
     }
 

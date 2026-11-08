@@ -113,15 +113,26 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
     /// State Authority resolves the final quantity from its current inventory snapshot.
     /// </summary>
     public bool TryRequestDrop(LootId lootId, LootTransferQuantityMode quantityMode) =>
-        TryRequestDropCore(lootId, quantityMode, -1, -1);
+        TryRequestDropCore(lootId, quantityMode, -1, -1, 0);
 
     public bool TryRequestDrop(LootId lootId, LootTransferQuantityMode quantityMode,
         int sourceInventorySlotIndex, int expectedInventoryRevision) =>
         LootTransferRequest.IsValidInventorySlotAddress(sourceInventorySlotIndex, expectedInventoryRevision) &&
-        TryRequestDropCore(lootId, quantityMode, sourceInventorySlotIndex, expectedInventoryRevision);
+        TryRequestDropCore(lootId, quantityMode, sourceInventorySlotIndex, expectedInventoryRevision, 0);
+
+    /// <summary>
+    /// Sends an addressed partial drop of a chosen amount. The amount is intention only: State
+    /// Authority accepts it when it lies in [1, slot quantity - 1] for the observed slot revision.
+    /// </summary>
+    public bool TryRequestPartialDrop(LootId lootId, int amount,
+        int sourceInventorySlotIndex, int expectedInventoryRevision) =>
+        amount >= 1 &&
+        LootTransferRequest.IsValidInventorySlotAddress(sourceInventorySlotIndex, expectedInventoryRevision) &&
+        TryRequestDropCore(lootId, LootTransferQuantityMode.ExactAmount, sourceInventorySlotIndex,
+            expectedInventoryRevision, amount);
 
     private bool TryRequestDropCore(LootId lootId, LootTransferQuantityMode quantityMode,
-        int sourceInventorySlotIndex, int expectedInventoryRevision)
+        int sourceInventorySlotIndex, int expectedInventoryRevision, int exactAmount)
     {
         if (!HasInputAuthority || !_dependenciesValid || !IsGameplayPhaseActive() ||
             (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)) ||
@@ -132,10 +143,13 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
         }
 
         LootDropRequestIdentity identity;
-        bool created = sourceInventorySlotIndex == -1
-            ? _clientRequest.TryCreateCandidate(catalogIndex, quantityMode, out identity)
-            : _clientRequest.TryCreateCandidate(catalogIndex, quantityMode,
-                sourceInventorySlotIndex, expectedInventoryRevision, out identity);
+        bool created = quantityMode == LootTransferQuantityMode.ExactAmount
+            ? _clientRequest.TryCreateExactAmountCandidate(catalogIndex, exactAmount,
+                sourceInventorySlotIndex, expectedInventoryRevision, out identity)
+            : sourceInventorySlotIndex == -1
+                ? _clientRequest.TryCreateCandidate(catalogIndex, quantityMode, out identity)
+                : _clientRequest.TryCreateCandidate(catalogIndex, quantityMode,
+                    sourceInventorySlotIndex, expectedInventoryRevision, out identity);
         if (!created) return false;
 
         RpcInvokeInfo invokeInfo = RPC_RequestDrop(
@@ -143,7 +157,8 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
             (int)quantityMode,
             identity.RequestSequence,
             identity.SourceInventorySlotIndex,
-            identity.ExpectedInventoryRevision);
+            identity.ExpectedInventoryRevision,
+            identity.RequestedAmount);
         if (!WasAccepted(invokeInfo, HasStateAuthority))
         {
             return false;
@@ -171,6 +186,7 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
         uint requestSequence,
         int sourceInventorySlotIndex,
         int expectedInventoryRevision,
+        int requestedAmount,
         RpcInfo info = default)
     {
         if (!HasStateAuthority || info.Source != Object.InputAuthority)
@@ -205,7 +221,8 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
             catalogIndex,
             (LootTransferQuantityMode)quantityModeValue,
             sourceInventorySlotIndex,
-            expectedInventoryRevision);
+            expectedInventoryRevision,
+            requestedAmount);
         LootDropRequestState.Disposition disposition =
             _authoritativeRequests.TryEnqueue(identity, out LootDropConfirmation cached);
 
@@ -329,11 +346,12 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
         if (identity.HasInventorySlotAddress)
         {
             quantityFailure = _lootReceiver.ResolveInventorySlotExtraction(_lootReceiver.Id, definition.LootId,
-                identity.QuantityMode, identity.SourceInventorySlotIndex, identity.ExpectedInventoryRevision, tick,
-                out originPlanningRequest);
+                identity.QuantityMode, identity.SourceInventorySlotIndex, identity.ExpectedInventoryRevision,
+                identity.RequestedAmount, tick, out originPlanningRequest);
         }
         else
         {
+            // Exact partial amounts are slot-addressed only; the mode-only resolver rejects them here.
             quantityFailure = LootTransferQuantityResolver.Resolve(identity.QuantityMode,
                 _lootReceiver.GetLootAmount(definition.LootId), out int amount);
             originPlanningRequest = new LootTransferRequest(_lootReceiver.Id, _lootReceiver.Id, definition.LootId, amount, tick);

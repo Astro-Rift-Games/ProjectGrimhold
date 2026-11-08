@@ -14,6 +14,7 @@ using TMPro;
 public sealed class LobbyStashUI : MonoBehaviour
 {
     private static readonly LootContextActionId MoveAllId = new("town.loadout.move-all");
+    private static readonly LootContextActionId SplitId = new("town.inventory.split");
 
     /// <summary>One contextual equip action per Equipment slot, in slot order.</summary>
     private static readonly LootContextActionId[] EquipActionIds =
@@ -56,6 +57,64 @@ public sealed class LobbyStashUI : MonoBehaviour
     [SerializeField] private EquipmentTooltipView _tooltipView;
     [SerializeField] private DragPreviewView _dragPreview;
     [SerializeField] private GemInstallConfirmationView _gemInstallView;
+    [SerializeField] private QuantitySelectorDialogView _quantityDialogPrefab;
+    [SerializeField] private RectTransform _quantityDialogParent;
+    private QuantitySelectorDialogView _quantityDialog;
+    private Func<InventoryList, int, LootId, int, int, int> _splitDestination;
+    private bool _actionsInteractable;
+    private InventoryList _splitList;
+    private int _splitSlot = -1;
+    private LootId _splitLootId;
+    private int _splitQuantity;
+
+    public event Action<InventoryList, int, int, int, LootId> SplitRequested;
+
+    /// <summary>The presenter supplies current-state split validation; the view owns only modal state.</summary>
+    public void BindSplit(Func<InventoryList, int, LootId, int, int, int> destination)
+    {
+        CloseQuantityDialog();
+        _splitDestination = destination;
+    }
+
+    private QuantitySelectorDialogView QuantityDialog
+    {
+        get
+        {
+            if (_quantityDialog == null && _quantityDialogPrefab != null && _quantityDialogParent != null)
+            {
+                _quantityDialog = Instantiate(_quantityDialogPrefab, _quantityDialogParent, false);
+                _quantityDialog.ConfirmRequested += ConfirmSplit;
+                _quantityDialog.CancelRequested += CloseQuantityDialog;
+            }
+            return _quantityDialog;
+        }
+    }
+
+    private void CloseQuantityDialog()
+    {
+        if (_quantityDialog != null) _quantityDialog.Close();
+        _splitSlot = -1;
+    }
+
+    private void ConfirmSplit(int amount)
+    {
+        int destination = _actionsInteractable && !_gemLocksMutations && _splitSlot >= 0
+            ? _splitDestination?.Invoke(_splitList, _splitSlot, _splitLootId, _splitQuantity, amount) ?? -1 : -1;
+        var list = _splitList;
+        int source = _splitSlot;
+        var id = _splitLootId;
+        CloseQuantityDialog();
+        if (destination >= 0) SplitRequested?.Invoke(list, source, amount, destination, id);
+    }
+
+    private RaidInventorySlotData ContextData => _contextIsFromStash
+        ? (_contextSlot >= 0 && _contextSlot < _stashItems.Count ? _stashItems[_contextSlot] : default)
+        : (_contextSlot >= 0 && _contextSlot < _loadoutProjection.Count ? _loadoutProjection[_contextSlot] : default);
+
+    private bool CanSplitContext() => _actionsInteractable && !_gemLocksMutations &&
+        QuantitySelectorRange.TryCreate(ContextData.Amount, out _) &&
+        (_splitDestination?.Invoke(_contextIsFromStash ? InventoryList.Stash : InventoryList.Loadout,
+            _contextSlot, _contextLootId, ContextData.Amount, 1) ?? -1) >= 0;
     [SerializeField] private TMP_Text _gemFeedbackText;
     private float _gemFeedbackRemaining;
     public GemInstallConfirmationView GemInstallView => _gemInstallView;
@@ -84,6 +143,7 @@ public sealed class LobbyStashUI : MonoBehaviour
     public void SetGemLocksMutations(bool locked)
     {
         _gemLocksMutations = locked;
+        if (locked) CloseQuantityDialog();
         if (locked) { _contextMenu?.Hide(); _tooltipView?.Hide(); }
         if (_equipmentSlotViews != null) foreach (var cell in _equipmentSlotViews)
             if (cell != null && locked) cell.SetInteraction(false, false);
@@ -181,6 +241,12 @@ public sealed class LobbyStashUI : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (_quantityDialog != null)
+        {
+            _quantityDialog.ConfirmRequested -= ConfirmSplit;
+            _quantityDialog.CancelRequested -= CloseQuantityDialog;
+            Destroy(_quantityDialog.gameObject);
+        }
         foreach (Action unbind in _unbindCells) unbind();
         _unbindCells.Clear();
         if (_stashPreviousPage != null) _stashPreviousPage.onClick.RemoveListener(OnPreviousStashPage);
@@ -244,6 +310,7 @@ public sealed class LobbyStashUI : MonoBehaviour
 
     private void DismissStashInteraction()
     {
+        CloseQuantityDialog();
         _tooltipView?.Hide();
         _contextMenu?.Hide();
         _contextLootId = default;
@@ -518,6 +585,8 @@ public sealed class LobbyStashUI : MonoBehaviour
 
     public void SetActionsInteractable(bool interactable)
     {
+        _actionsInteractable = interactable;
+        if (!interactable) CloseQuantityDialog();
         if (_takeAllButton != null) _takeAllButton.interactable = interactable;
         if (_leaveAllButton != null) _leaveAllButton.interactable = interactable;
         if (_stashSortButton != null) _stashSortButton.interactable = interactable;
@@ -563,6 +632,7 @@ public sealed class LobbyStashUI : MonoBehaviour
             ? "Mover todo al Inventario"
             : "Mover todo al Stash";
         _contextActions.Add(new LootContextActionDescriptor(MoveAllId, transferLabel, true, null));
+        _contextActions.Add(new LootContextActionDescriptor(SplitId, "Dividir", CanSplitContext(), null));
 
         LootCategory category = ResolveCategory(lootId);
         EquipmentSlot[] slots = EquipmentSlotRules.AllSlots;
@@ -639,6 +709,17 @@ public sealed class LobbyStashUI : MonoBehaviour
     {
         _contextMenu?.Hide();
         if (_gemLocksMutations || !_contextLootId.IsValid) return;
+        if (actionId == SplitId)
+        {
+            if (!CanSplitContext()) return;
+            _splitList = _contextIsFromStash ? InventoryList.Stash : InventoryList.Loadout;
+            _splitSlot = _contextSlot;
+            _splitLootId = _contextLootId;
+            _splitQuantity = ContextData.Amount;
+            QuantitySelectorDialogView dialog = QuantityDialog;
+            if (dialog == null || !dialog.Open("Dividir", _splitQuantity)) CloseQuantityDialog();
+            return;
+        }
         foreach (var action in _contextActions)
         {
             if (action.Id != actionId || !action.IsEnabled || action.Provider == null) continue;

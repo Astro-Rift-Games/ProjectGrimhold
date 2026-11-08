@@ -187,7 +187,14 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
     /// <summary>Builds an exact-address request without substituting another stack or revision.</summary>
     public LootTransferFailureReason ResolveInventorySlotExtraction(EntityId destinationId, LootId lootId,
         LootTransferQuantityMode quantityMode, int sourceInventorySlotIndex, int expectedInventoryRevision,
-        int simulationTick, out LootTransferRequest request)
+        int simulationTick, out LootTransferRequest request) =>
+        ResolveInventorySlotExtraction(destinationId, lootId, quantityMode, sourceInventorySlotIndex,
+            expectedInventoryRevision, 0, simulationTick, out request);
+
+    /// <summary>Same exact-address resolution, also accepting a validated exact partial amount.</summary>
+    public LootTransferFailureReason ResolveInventorySlotExtraction(EntityId destinationId, LootId lootId,
+        LootTransferQuantityMode quantityMode, int sourceInventorySlotIndex, int expectedInventoryRevision,
+        int exactAmount, int simulationTick, out LootTransferRequest request)
     {
         request = default;
         if (!LootTransferRequest.IsValidInventorySlotAddress(sourceInventorySlotIndex, expectedInventoryRevision))
@@ -197,7 +204,7 @@ public sealed class PlayerLootReceiver : NetworkBehaviour,
         LootTransferFailureReason failure = ValidateExtraction(unit);
         if (failure != LootTransferFailureReason.None) return failure;
         failure = LootTransferQuantityResolver.Resolve(quantityMode,
-            LootInventory[sourceInventorySlotIndex].Quantity, out int amount);
+            LootInventory[sourceInventorySlotIndex].Quantity, exactAmount, out int amount);
         if (failure != LootTransferFailureReason.None) return failure;
         request = new LootTransferRequest(Id, destinationId, lootId, amount, simulationTick,
             sourceInventorySlotIndex, expectedInventoryRevision);

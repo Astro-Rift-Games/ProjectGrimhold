@@ -268,6 +268,7 @@ public sealed class SessionCompositionConfigurationTests
             typeof(DamageResolver),
             typeof(PlayerLootTransferNetworkController),
             typeof(PlayerLootDropNetworkController),
+            typeof(PlayerLootSplitNetworkController),
             typeof(PlayerCorpseGenerationController),
             typeof(PlayerExtractionController),
             typeof(PlayerExtractionProgressController),
@@ -464,6 +465,7 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(networkPrefab.GetComponent<PlayerInteractionNetworkController>(), Is.Not.Null);
         Assert.That(networkPrefab.GetComponent<PlayerLootTransferNetworkController>(), Is.Not.Null);
         Assert.That(networkPrefab.GetComponent<PlayerLootDropNetworkController>(), Is.Not.Null);
+        Assert.That(networkPrefab.GetComponents<PlayerLootSplitNetworkController>(), Has.Length.EqualTo(1));
         Assert.That(networkPrefab.GetComponent<PlayerConsumableNetworkController>(), Is.Not.Null);
         Assert.That(networkPrefab.GetComponent<PlayerWeaponEquipmentNetworkController>(), Is.Not.Null);
 

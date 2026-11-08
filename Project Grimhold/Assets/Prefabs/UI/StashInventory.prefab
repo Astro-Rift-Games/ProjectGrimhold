@@ -14880,6 +14880,8 @@ MonoBehaviour:
   _tooltipView: {fileID: 820000000000000005}
   _dragPreview: {fileID: 916551931387730340}
   _gemInstallView: {fileID: 8068962391411198340}
+  _quantityDialogPrefab: {fileID: 8765060415202622442, guid: 3bc0a863b2141fa46aa19d7a318ecebe, type: 3}
+  _quantityDialogParent: {fileID: 6310942951655324734}
   _gemFeedbackText: {fileID: 3851729120240659649}
 --- !u!114 &7566694419370554141
 MonoBehaviour:
