@@ -9,10 +9,10 @@ Dependencias:
 - {{Distinguir referencias en descripción de relaciones de bloqueo realmente cargadas.}}
 
 Alcance:
-1. {{Unidad de trabajo concreta y resultado esperado.}}
-   - {{Contratos, consumidores, archivos/assets previstos y entregables pertinentes.}}
-2. {{Otra parte necesaria del mismo resultado, si aplica.}}
-   - {{Decisiones técnicas pendientes: qué se acuerda, con quién y antes de qué trabajo.}}
+1. {{Unidad funcional concreta y comportamiento esperado (definir el QUÉ observable; NUNCA recetar clases internas, métodos ni pseudo-código).}}
+   - {{Frontera funcional, subsistemas o assets involucrados y entregables observables.}}
+2. {{Otra parte necesaria del mismo resultado funcional, si aplica.}}
+   - {{Decisiones de diseño o producto pendientes: qué se acuerda, con quién y antes de qué trabajo.}}
 
 Fuera de alcance:
 - {{Límites que evitan duplicar trabajo o introducir gameplay, infraestructura, assets o refactors no solicitados.}}

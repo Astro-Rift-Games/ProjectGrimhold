@@ -24,6 +24,8 @@ Use exactly these labels, in this order, for every story, standalone task and ch
 
 Use numbered subsections under Alcance for detail. Add the story's task breakdown inside Alcance, not as a substitute for child records. For a section that genuinely does not apply, say so briefly rather than deleting the label or inventing material. Replace every template placeholder before publication.
 
+**Prohibido recetar arquitectura o código en Alcance**: HacknPlan define el alcance funcional (el QUÉ) y los criterios de aceptación observables. No redactes recetas técnicas prescriptivas (clases a crear, interfaces o NetworkBehaviours de Fusion, métodos específicos o pseudo-código). El diseño técnico concreto debe surgir orgánicamente durante el ciclo ODD (fase Explore) contrastando los contratos de `Docs/Architecture/` y el código fuente vivo.
+
 Choose the smallest useful unit: a task produces a concrete deliverable; a story groups work needed for a user outcome. Do not manufacture stories for one art prop task. Do not finish a default story-creation request without its executable children; skip children only on an explicit request to do so.
 
 A child includes its parent's real ID and the specific criterion/result it owns, its own deliverables, exclusions, dependencies, acceptance and validation. Split on coherent outcomes and ownership, not an arbitrary number of tasks or lines. Implementation tasks include focused regression tests; an integration-closure task complements those tests rather than deferring them.

@@ -14,6 +14,7 @@ Use for designing, drafting, creating, or explicitly restructuring HacknPlan wor
 ## Hard Rules
 
 - Default generated titles/descriptions to professional Spanish; honor explicit language overrides. Use the templates' seven labels in order, including child tasks.
+- HacknPlan defines SCOPE (the "WHAT"), never technical recipes (the "HOW"). Do not prescribe class hierarchies, method signatures, internal component interactions, or step-by-step code implementation in Alcance. The technical design must emerge organically during ODD's Explore phase against `Docs/Architecture/` and the live codebase.
 - Tags identify game systems, areas, or governing design documents in uppercase Spanish (`CATACUMBAS`, `COMBATE`, `COLAPSO`, `LOOT`, etc.), NEVER functional roles (`Arte`, `Programación`, `Backend`, `Level Design`, `Game Design`), which belong to title prefixes or category. Always reuse existing tags from the project catalog or create a new tag on demand when introducing an uncataloged system or area.
 - Planning-only requests do not authorize writes. Preserve existing work; do not duplicate stories, reopen completed items, or expand gameplay/infrastructure.
 - Every created story needs executable child work items linked through its actual `parentStoryId`, unless the user explicitly requests no children. A standalone task needs no artificial story.
@@ -35,7 +36,7 @@ Use for designing, drafting, creating, or explicitly restructuring HacknPlan wor
 
 1. Read applicable project instructions and [workflow](references/workflow.md). Inspect current sources and existing items; resolve project, board, category, stage, priority, and requested assignee from live data.
 2. Read the relevant [task](assets/task-template.md) or [story](assets/story-template.md) template. Preserve its labels; use numbered subsections within Alcance rather than inventing a different child-task format.
-3. Draft concrete results, exclusions, dependencies, observable acceptance, and applicable validation. Put every requested rule in a task; include its own regression proof, not testing postponed until the end.
+3. Draft concrete functional results, exclusions, dependencies, observable acceptance, and applicable validation. Define the observable boundaries and deliverables under Alcance without prescribing internal classes or code recipes. Put every requested rule in a task; include its own regression proof, not testing postponed until the end.
 4. Check duplicates, source conflicts, unresolved decisions, and tool capabilities before mutation. Parent creation precedes child creation; use returned IDs, not title suffixes.
 5. Execute only authorized operations. Capture each confirmed identity; stop blind retries on unknown mutation outcomes and reconcile read-only. Assign relevant reusable system/area tags to created items, creating any missing system/area tag on demand.
 6. Read back every created item, parent link, and tags. Verify requested assignments separately from creator metadata and preserve unrelated fields/items. Report partial work and missing capabilities honestly.

@@ -9,7 +9,7 @@ Dependencias:
 - {{Antecedentes y prerrequisitos reales, con IDs/enlaces verificados. No reabrir ni mover elementos anteriores sin autorización.}}
 
 Alcance:
-{{Frontera de esta historia y contratos/sistemas afectados.}}
+{{Frontera funcional de esta historia, subsistemas afectados y alcance observable (definir el QUÉ sin prescribir clases ni arquitectura interna).}}
 
 1. Desglose de tareas
    - {{Título de una tarea ejecutable y parte del resultado que cubre.}}
