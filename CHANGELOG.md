@@ -18,6 +18,7 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - Charge now stuns the enemy it hits for a moment, stopping it from moving or attacking and cancelling the Specter's area attack.
 - Added basic training short sword, dagger, and wand for contingency expeditions.
 - If you return to Town before your partner, you now see that they are still in the Dungeon and can start the next expedition together once they are back.
+- Ask the Trainer for a free training weapon in Town.
 
 ### Improved
 
@@ -52,6 +53,8 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - Joining a raid no longer fails when your loadout has split stacks or modified gear.
 - You can start a raid with a full backpack while wearing equipment.
 - After extracting, you can start another raid without the loadout failing to reserve.
+- Enter the Dungeon with the training weapon you selected.
+- Ready now directs you to the Trainer when no weapon is equipped.
 
 
 ## [0.5.0](https://github.com/Astro-Rift-Games/ProjectGrimhold/releases/tag/v0.5.0) - 2026-11-08

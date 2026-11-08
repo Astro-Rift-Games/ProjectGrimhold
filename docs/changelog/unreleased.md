@@ -4,32 +4,481 @@
 
 Release: Unreleased
 
-88 original commits; 88 canonical entries.
+91 original commits; 91 canonical entries.
 
 ## Canonical classification
 
-51 features; 21 bug fixes; 1 refactoring; 7 documentation; 2 tests; 4 maintenance; 2 other changes
+53 features; 22 bug fixes; 1 refactoring; 7 documentation; 2 tests; 4 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Abilities | 6 | 6 | 1 | 0 | 3 | 1 |
+| Abilities | 7 | 6 | 1 | 0 | 3 | 1 |
 | Art & Animation | 7 | 7 | 1 | 0 | 4 | 0 |
 | Audio | 3 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 31 | 13 | 1 | 0 | 5 | 2 |
-| Combat | 30 | 4 | 0 | 0 | 5 | 0 |
-| Documentation | 23 | 8 | 0 | 0 | 4 | 0 |
+| Build & Tooling | 32 | 14 | 1 | 0 | 5 | 2 |
+| Combat | 32 | 5 | 0 | 0 | 5 | 0 |
+| Documentation | 24 | 8 | 0 | 0 | 4 | 0 |
 | Extraction | 7 | 2 | 0 | 0 | 2 | 0 |
 | Input | 0 | 0 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 43 | 18 | 1 | 0 | 6 | 1 |
+| Inventory & Loot | 45 | 19 | 1 | 0 | 6 | 1 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 13 | 6 | 0 | 0 | 1 | 0 |
-| Persistence & Backend | 17 | 6 | 0 | 0 | 2 | 0 |
-| Tests | 49 | 18 | 1 | 0 | 5 | 0 |
-| UI | 20 | 5 | 1 | 0 | 4 | 0 |
+| Networking & Sessions | 15 | 6 | 0 | 0 | 1 | 0 |
+| Persistence & Backend | 19 | 6 | 0 | 0 | 2 | 0 |
+| Tests | 51 | 19 | 1 | 0 | 5 | 0 |
+| UI | 21 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
-| World & Visibility | 15 | 4 | 0 | 0 | 0 | 0 |
+| World & Visibility | 16 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 5fc0ebf17d638caba9aef9c3bbc5d01d8ef34d14
+
+[5fc0ebf17d638caba9aef9c3bbc5d01d8ef34d14](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5fc0ebf17d638caba9aef9c3bbc5d01d8ef34d14)
+
+Date: 2026-11-08T11:36:13-03:00 · Classification: Bug Fixes (explicit) · Systems: Combat, Inventory & Loot, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(loot): align training weapon validation and progression coverage
+```
+
+#### Original body
+
+```text
+Exclude training weapons from required progression-value coverage and
+reject explicit progression values for them. Preserve ordinary loot
+values while treating training weapons as non-progression equipment.
+
+Use valid training fixtures and assert all nine one-handed weapons in
+the OffHand catalog. Verify training weapons reuse their normal weapon
+family animation sets without regenerating authored animations.
+
+Validation: LootDefinitionTests 51/51, OffHandRetargetingTests 83/83 with
+regeneration excluded, and RaidLootValueCatalogTests 5/5. The regeneration
+test remains unchanged and was not run to protect dirty animation assets.
+
+Refs: TASK-277, TASK-278
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Progression/RaidLootValueCatalog.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/OffHandRetargetingTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Progression/RaidLootValueCatalogTests.cs
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/OffHandRetargetingTests.cs
+- message-term → Combat: weapon
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Progression/RaidLootValueCatalog.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/RaidLootValueCatalogTests.cs
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/OffHandRetargetingTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/RaidLootValueCatalogTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/OffHandRetargetingTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/RaidLootValueCatalogTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 95d8c7cb79d033bdfc5e1c85c3073e9c7762d9ba
+
+[95d8c7cb79d033bdfc5e1c85c3073e9c7762d9ba](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/95d8c7cb79d033bdfc5e1c85c3073e9c7762d9ba)
+
+Date: 2026-11-08T11:35:30-03:00 · Classification: Features (explicit) · Systems: Combat, Abilities, Inventory & Loot, Networking & Sessions, UI, Persistence & Backend, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(town): preserve Trainer equipment through raid preparation
+```
+
+#### Original body
+
+```text
+Request training weapons through the backend and apply its authoritative
+acknowledgement, including instance identity and revision. Reconcile lost
+responses and stale revisions without replaying the POST, while keeping
+the request gate held until reconciliation finishes.
+
+Add the Trainer interaction, data-driven selection view, prefab wiring
+and Town scene instance. Equip the selected weapon in Weapon Set A and
+preserve ordinary displaced equipment.
+
+Remove recovery-weapon configuration, services, consent UI and network
+state. Require an equipped weapon for Ready and direct weaponless players
+to the Trainer. Acknowledge launch only after reservation save succeeds;
+ignore cancelled and late completions.
+
+Migrate consumers, sandbox preparation and architecture documentation.
+Add admission, Host/Client ACK, cancellation and request regression tests.
+Keep the shared store and interface changes together to avoid missing
+consumers in an intermediate commit. Unity-generated assets contribute
+substantially to this large review unit.
+
+Validation: compilation and Fusion weaving/baking passed. Focused Unity
+and PlayMode suites passed; endpoint coverage now passes 21/21. The full
+EditMode run has 5,980 passes and 19 recorded failures out of 5,999 tests.
+OffHand regeneration and live multiplayer were not run. Independent
+source review passed with issues; final isolated execution was unrun.
+
+Refs: TASK-278
+Player-Added: Ask the Trainer for a free training weapon in Town.
+Player-Fixed: Ready now directs you to the Trainer when no weapon is equipped.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Editor/CharcoalUiMigrationManifest.json
+Project Grimhold/Assets/Editor/Task220Composition.cs
+Project Grimhold/Assets/Prefabs/SocialPlayer.prefab
+Project Grimhold/Assets/Prefabs/Systems.prefab
+Project Grimhold/Assets/Prefabs/TownTrainerNpc.prefab
+Project Grimhold/Assets/Prefabs/TownTrainerNpc.prefab.meta
+Project Grimhold/Assets/Resources/LocalProfilePersistenceConfiguration.asset
+Project Grimhold/Assets/Scenes/Lobby-Town.unity
+Project Grimhold/Assets/Scriptable Objects/DialogueSequences/TownTrainerNpcDialogue.asset
+Project Grimhold/Assets/Scriptable Objects/DialogueSequences/TownTrainerNpcDialogue.asset.meta
+Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs
+Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs
+Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs.meta
+Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs
+Project Grimhold/Assets/Scripts/Networking/TownTrainerNpcInteractable.cs
+Project Grimhold/Assets/Scripts/Networking/TownTrainerNpcInteractable.cs.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/ITownEquipmentMutationEndpoint.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RecoveryWeaponConsentView.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RecoveryWeaponConsentView.cs.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/TownEquipmentMutationEndpoint.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownInventoryBinder.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidPreparationView.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownTrainerPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownTrainerPresenter.cs.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/TownTrainerView.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownTrainerView.cs.meta
+Project Grimhold/Assets/Scripts/Sandbox/SandboxTestProfile.cs
+Project Grimhold/Assets/Scripts/Stash/ApplicationStashServiceBootstrapper.cs
+Project Grimhold/Assets/Scripts/Stash/ExpeditionPreparationResult.cs
+Project Grimhold/Assets/Scripts/Stash/IPlayerLoadoutService.cs
+Project Grimhold/Assets/Scripts/Stash/IRecoveryWeaponReservationService.cs
+Project Grimhold/Assets/Scripts/Stash/IRecoveryWeaponReservationService.cs.meta
+Project Grimhold/Assets/Scripts/Stash/LocalProfilePersistenceConfiguration.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+Project Grimhold/Assets/Scripts/Stash/ProfileReconciliationService.cs
+Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponAuthorityState.cs
+Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponAuthorityState.cs.meta
+Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponPreparation.cs
+Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponPreparation.cs.meta
+Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponPreparationLaunchRules.cs
+Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponPreparationLaunchRules.cs.meta
+Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DevelopmentProfileBootstrapTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionLoadoutMatcherTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownTrainerNpcPrefabTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownTrainerNpcPrefabTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownEquipmentMutationEndpointTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownTrainerPresenterTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownTrainerPresenterTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Sandbox/SandboxTestProfileTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponTownRequestTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponTownRequestTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/LocalProfilePersistenceEditModeTests.cs
+Project Grimhold/Assets/Tests/EditMode/Missions/MissionPersistenceTests.cs
+Project Grimhold/Assets/Tests/PlayMode/Presentation/TownInventoryPresenterPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/Presentation/TownTrainerRequestPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/Presentation/TownTrainerRequestPlayModeTests.cs.meta
+Project Grimhold/Assets/Tests/PlayMode/TrainingWeaponAdmissionPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/TrainingWeaponAdmissionPlayModeTests.cs.meta
+Project Grimhold/Docs/Architecture/AbilitySandbox.md
+Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md
+Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/RecoveryWeaponConsentView.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Presentation/RecoveryWeaponConsentView.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Stash/IRecoveryWeaponReservationService.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Stash/IRecoveryWeaponReservationService.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponAuthorityState.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponAuthorityState.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponPreparation.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponPreparation.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponPreparationLaunchRules.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponPreparationLaunchRules.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponTownRequestTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponTownRequestTests.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/PlayMode/TrainingWeaponAdmissionPlayModeTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/PlayMode/TrainingWeaponAdmissionPlayModeTests.cs.meta
+- path → Combat: Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+- message-term → Combat: weapons
+- path → Abilities: Project Grimhold/Docs/Architecture/AbilitySandbox.md
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/ITownEquipmentMutationEndpoint.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/TownEquipmentMutationEndpoint.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/TownInventoryBinder.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownEquipmentMutationEndpointTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/Presentation/TownInventoryPresenterPlayModeTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+- message-term → Inventory &amp; Loot: equipment
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scenes/Lobby-Town.unity
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownTrainerNpcInteractable.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownTrainerNpcInteractable.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DevelopmentProfileBootstrapTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionLoadoutMatcherTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownTrainerNpcPrefabTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownTrainerNpcPrefabTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- path → Networking &amp; Sessions: Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md
+- path → UI: Project Grimhold/Assets/Editor/CharcoalUiMigrationManifest.json
+- message-term → UI: UI
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Resources/LocalProfilePersistenceConfiguration.asset
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Sandbox/SandboxTestProfile.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfilePersistenceConfiguration.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/ProfileReconciliationService.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DevelopmentProfileBootstrapTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Sandbox/SandboxTestProfileTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/LocalProfilePersistenceEditModeTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Missions/MissionPersistenceTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+- message-term → Persistence &amp; Backend: backend
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/CharcoalUiMigrationManifest.json
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/Task220Composition.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DevelopmentProfileBootstrapTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionLoadoutMatcherTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownTrainerNpcPrefabTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownTrainerNpcPrefabTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownEquipmentMutationEndpointTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownTrainerPresenterTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownTrainerPresenterTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Sandbox/SandboxTestProfileTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponTownRequestTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponTownRequestTests.cs.meta
+- path → Documentation: Project Grimhold/Docs/Architecture/AbilitySandbox.md
+- path → Documentation: Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md
+- message-term → Documentation: documentation
+- path → Tests: Project Grimhold/Assets/Scripts/Sandbox/SandboxTestProfile.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DevelopmentProfileBootstrapTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionLoadoutMatcherTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownTrainerNpcPrefabTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownTrainerNpcPrefabTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownEquipmentMutationEndpointTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownTrainerPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownTrainerPresenterTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Sandbox/SandboxTestProfileTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponTownRequestTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponTownRequestTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/LocalProfilePersistenceEditModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Missions/MissionPersistenceTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/Presentation/TownInventoryPresenterPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/Presentation/TownTrainerRequestPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/Presentation/TownTrainerRequestPlayModeTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/TrainingWeaponAdmissionPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/TrainingWeaponAdmissionPlayModeTests.cs.meta
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 20111527450cdd438ce61effa14142e202220efd
+
+[20111527450cdd438ce61effa14142e202220efd](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/20111527450cdd438ce61effa14142e202220efd)
+
+Date: 2026-11-08T11:34:33-03:00 · Classification: Features (explicit) · Systems: Combat, Inventory & Loot, Networking & Sessions, World & Visibility, Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(inventory): issue training weapons through guarded requests
+```
+
+#### Original body
+
+```text
+Issue training equipment only through the authoritative training request.
+Require the current revision, reject pending reservations and legacy v1
+inventory, and replace previous training equipment atomically. Keep
+normal displaced weapons and reject training sales or buybacks.
+
+Remove recovery-weapon grants from reservations and admission tickets.
+Reject weaponless preparation with PREPARED_WEAPON_REQUIRED instead of
+silently assigning arming_sword. Reject unknown instances in equipment
+updates instead of minting equipment through PUT.
+
+Document the request and errors. Cover replacement, no-write rejections,
+reservation identity and signed admission with unit and integration tests.
+
+Validation: backend 581/581; integration 200/200; new HTTP probes 7/7.
+Independent source review passed with issues. The final isolated test
+execution was unrun after setup timed out; this is not a passing test.
+
+Refs: TASK-278, TASK-277
+Player-Fixed: Enter the Dungeon with the training weapon you selected.
+```
+
+#### Changed paths
+
+```text
+backend/README.md
+backend/src/config/shopCatalog.js
+backend/src/routes/inventory.routes.js
+backend/src/services/InventoryService.js
+backend/src/services/SessionTicketService.js
+backend/src/validators/inventory.validators.js
+backend/tests/integration/admission.integration.test.js
+backend/tests/integration/item.instances.test.js
+backend/tests/inventory.instances.test.js
+backend/tests/inventory.lifecycle.test.js
+backend/tests/inventory.protocol.test.js
+backend/tests/inventory.reservation.test.js
+backend/tests/inventory.service.test.js
+backend/tests/inventory.training.test.js
+backend/tests/inventory.training.verifier.test.js
+backend/tests/reservation.weapon-required.test.js
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: backend/tests/reservation.weapon-required.test.js
+- message-term → Combat: weapons
+- path → Inventory &amp; Loot: backend/src/routes/inventory.routes.js
+- path → Inventory &amp; Loot: backend/src/services/InventoryService.js
+- path → Inventory &amp; Loot: backend/src/validators/inventory.validators.js
+- path → Inventory &amp; Loot: backend/tests/inventory.instances.test.js
+- path → Inventory &amp; Loot: backend/tests/inventory.lifecycle.test.js
+- path → Inventory &amp; Loot: backend/tests/inventory.protocol.test.js
+- path → Inventory &amp; Loot: backend/tests/inventory.reservation.test.js
+- path → Inventory &amp; Loot: backend/tests/inventory.service.test.js
+- path → Inventory &amp; Loot: backend/tests/inventory.training.test.js
+- path → Inventory &amp; Loot: backend/tests/inventory.training.verifier.test.js
+- scope → Inventory &amp; Loot: inventory
+- message-term → Inventory &amp; Loot: inventory
+- path → Networking &amp; Sessions: backend/src/services/SessionTicketService.js
+- message-term → World &amp; Visibility: Dungeon
+- path → Persistence &amp; Backend: backend/README.md
+- path → Persistence &amp; Backend: backend/src/config/shopCatalog.js
+- path → Persistence &amp; Backend: backend/src/routes/inventory.routes.js
+- path → Persistence &amp; Backend: backend/src/services/InventoryService.js
+- path → Persistence &amp; Backend: backend/src/services/SessionTicketService.js
+- path → Persistence &amp; Backend: backend/src/validators/inventory.validators.js
+- path → Persistence &amp; Backend: backend/tests/integration/admission.integration.test.js
+- path → Persistence &amp; Backend: backend/tests/integration/item.instances.test.js
+- path → Persistence &amp; Backend: backend/tests/inventory.instances.test.js
+- path → Persistence &amp; Backend: backend/tests/inventory.lifecycle.test.js
+- path → Persistence &amp; Backend: backend/tests/inventory.protocol.test.js
+- path → Persistence &amp; Backend: backend/tests/inventory.reservation.test.js
+- path → Persistence &amp; Backend: backend/tests/inventory.service.test.js
+- path → Persistence &amp; Backend: backend/tests/inventory.training.test.js
+- path → Persistence &amp; Backend: backend/tests/inventory.training.verifier.test.js
+- path → Persistence &amp; Backend: backend/tests/reservation.weapon-required.test.js
+- message-term → Persistence &amp; Backend: backend
+- path → Tests: backend/tests/integration/admission.integration.test.js
+- path → Tests: backend/tests/integration/item.instances.test.js
+- path → Tests: backend/tests/inventory.instances.test.js
+- path → Tests: backend/tests/inventory.lifecycle.test.js
+- path → Tests: backend/tests/inventory.protocol.test.js
+- path → Tests: backend/tests/inventory.reservation.test.js
+- path → Tests: backend/tests/inventory.service.test.js
+- path → Tests: backend/tests/inventory.training.test.js
+- path → Tests: backend/tests/inventory.training.verifier.test.js
+- path → Tests: backend/tests/reservation.weapon-required.test.js
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 43c23186e748216fb04bc40b661bb10c607bd9d1
 

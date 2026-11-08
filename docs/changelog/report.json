@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 965,
-  "canonicalEntries": 962,
+  "rawCommits": 968,
+  "canonicalEntries": 965,
   "before": {
-    "Features": 374,
+    "Bug Fixes": 100,
+    "Features": 376,
     "Architecture & Infrastructure": 16,
-    "Bug Fixes": 99,
     "Other Changes": 354,
     "Documentation": 82,
     "Tests": 26,
     "Refactoring": 14
   },
   "after": {
-    "Features": 511,
+    "Bug Fixes": 116,
+    "Features": 513,
     "Maintenance": 15,
-    "Bug Fixes": 115,
     "Other Changes": 164,
     "Documentation": 97,
     "Tests": 31,
@@ -23,17 +23,17 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Combat": 355,
-    "Inventory & Loot": 385,
-    "Build & Tooling": 493,
-    "Documentation": 378,
-    "Tests": 594,
-    "World & Visibility": 129,
-    "Networking & Sessions": 276,
-    "UI": 299,
+    "Combat": 358,
+    "Inventory & Loot": 388,
+    "Build & Tooling": 495,
+    "Tests": 597,
+    "Abilities": 122,
+    "Networking & Sessions": 278,
+    "UI": 300,
+    "Persistence & Backend": 212,
+    "Documentation": 379,
+    "World & Visibility": 130,
     "Art & Animation": 229,
-    "Persistence & Backend": 210,
-    "Abilities": 121,
     "Movement": 92,
     "Extraction": 130,
     "Input": 29,
@@ -42,9 +42,9 @@
   },
   "canonical": {
     "sections": {
-      "Features": 510,
+      "Bug Fixes": 115,
+      "Features": 512,
       "Maintenance": 15,
-      "Bug Fixes": 114,
       "Other Changes": 163,
       "Documentation": 97,
       "Tests": 31,
@@ -52,17 +52,17 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "Combat": 353,
-      "Inventory & Loot": 385,
-      "Build & Tooling": 491,
-      "Documentation": 376,
-      "Tests": 592,
-      "World & Visibility": 127,
-      "Networking & Sessions": 276,
-      "UI": 298,
+      "Combat": 356,
+      "Inventory & Loot": 388,
+      "Build & Tooling": 493,
+      "Tests": 595,
+      "Abilities": 120,
+      "Networking & Sessions": 278,
+      "UI": 299,
+      "Persistence & Backend": 212,
+      "Documentation": 377,
+      "World & Visibility": 128,
       "Art & Animation": 226,
-      "Persistence & Backend": 210,
-      "Abilities": 119,
       "Movement": 92,
       "Extraction": 130,
       "Input": 29,
@@ -34196,8 +34196,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 88,
-      "canonicalEntries": 88
+      "originalCommits": 91,
+      "canonicalEntries": 91
     },
     {
       "key": "v0.5.0",
@@ -34241,6 +34241,1173 @@
     }
   ],
   "commits": [
+    {
+      "sha": "5fc0ebf17d638caba9aef9c3bbc5d01d8ef34d14",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5fc0ebf17d638caba9aef9c3bbc5d01d8ef34d14",
+      "subject": "fix(loot): align training weapon validation and progression coverage",
+      "body": "Exclude training weapons from required progression-value coverage and\nreject explicit progression values for them. Preserve ordinary loot\nvalues while treating training weapons as non-progression equipment.\n\nUse valid training fixtures and assert all nine one-handed weapons in\nthe OffHand catalog. Verify training weapons reuse their normal weapon\nfamily animation sets without regenerating authored animations.\n\nValidation: LootDefinitionTests 51/51, OffHandRetargetingTests 83/83 with\nregeneration excluded, and RaidLootValueCatalogTests 5/5. The regeneration\ntest remains unchanged and was not run to protect dirty animation assets.\n\nRefs: TASK-277, TASK-278\n",
+      "date": "2026-11-08T11:36:13-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Progression/RaidLootValueCatalog.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/OffHandRetargetingTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/RaidLootValueCatalogTests.cs"
+      ],
+      "originalType": "fix",
+      "originalScope": "loot",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/OffHandRetargetingTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Progression/RaidLootValueCatalog.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/RaidLootValueCatalogTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/OffHandRetargetingTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/RaidLootValueCatalogTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Combat/OffHandRetargetingTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootDefinitionTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/RaidLootValueCatalogTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "95d8c7cb79d033bdfc5e1c85c3073e9c7762d9ba",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/95d8c7cb79d033bdfc5e1c85c3073e9c7762d9ba",
+      "subject": "feat(town): preserve Trainer equipment through raid preparation",
+      "body": "Request training weapons through the backend and apply its authoritative\nacknowledgement, including instance identity and revision. Reconcile lost\nresponses and stale revisions without replaying the POST, while keeping\nthe request gate held until reconciliation finishes.\n\nAdd the Trainer interaction, data-driven selection view, prefab wiring\nand Town scene instance. Equip the selected weapon in Weapon Set A and\npreserve ordinary displaced equipment.\n\nRemove recovery-weapon configuration, services, consent UI and network\nstate. Require an equipped weapon for Ready and direct weaponless players\nto the Trainer. Acknowledge launch only after reservation save succeeds;\nignore cancelled and late completions.\n\nMigrate consumers, sandbox preparation and architecture documentation.\nAdd admission, Host/Client ACK, cancellation and request regression tests.\nKeep the shared store and interface changes together to avoid missing\nconsumers in an intermediate commit. Unity-generated assets contribute\nsubstantially to this large review unit.\n\nValidation: compilation and Fusion weaving/baking passed. Focused Unity\nand PlayMode suites passed; endpoint coverage now passes 21/21. The full\nEditMode run has 5,980 passes and 19 recorded failures out of 5,999 tests.\nOffHand regeneration and live multiplayer were not run. Independent\nsource review passed with issues; final isolated execution was unrun.\n\nRefs: TASK-278\nPlayer-Added: Ask the Trainer for a free training weapon in Town.\nPlayer-Fixed: Ready now directs you to the Trainer when no weapon is equipped.\n",
+      "date": "2026-11-08T11:35:30-03:00",
+      "files": [
+        "Project Grimhold/Assets/Editor/CharcoalUiMigrationManifest.json",
+        "Project Grimhold/Assets/Editor/Task220Composition.cs",
+        "Project Grimhold/Assets/Prefabs/SocialPlayer.prefab",
+        "Project Grimhold/Assets/Prefabs/Systems.prefab",
+        "Project Grimhold/Assets/Prefabs/TownTrainerNpc.prefab",
+        "Project Grimhold/Assets/Prefabs/TownTrainerNpc.prefab.meta",
+        "Project Grimhold/Assets/Resources/LocalProfilePersistenceConfiguration.asset",
+        "Project Grimhold/Assets/Scenes/Lobby-Town.unity",
+        "Project Grimhold/Assets/Scriptable Objects/DialogueSequences/TownTrainerNpcDialogue.asset",
+        "Project Grimhold/Assets/Scriptable Objects/DialogueSequences/TownTrainerNpcDialogue.asset.meta",
+        "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+        "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownTrainerNpcInteractable.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownTrainerNpcInteractable.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/ITownEquipmentMutationEndpoint.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RecoveryWeaponConsentView.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RecoveryWeaponConsentView.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownEquipmentMutationEndpoint.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownInventoryBinder.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidPreparationView.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownTrainerPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownTrainerPresenter.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownTrainerView.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownTrainerView.cs.meta",
+        "Project Grimhold/Assets/Scripts/Sandbox/SandboxTestProfile.cs",
+        "Project Grimhold/Assets/Scripts/Stash/ApplicationStashServiceBootstrapper.cs",
+        "Project Grimhold/Assets/Scripts/Stash/ExpeditionPreparationResult.cs",
+        "Project Grimhold/Assets/Scripts/Stash/IPlayerLoadoutService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/IRecoveryWeaponReservationService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/IRecoveryWeaponReservationService.cs.meta",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfilePersistenceConfiguration.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+        "Project Grimhold/Assets/Scripts/Stash/ProfileReconciliationService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponAuthorityState.cs",
+        "Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponAuthorityState.cs.meta",
+        "Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponPreparation.cs",
+        "Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponPreparation.cs.meta",
+        "Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponPreparationLaunchRules.cs",
+        "Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponPreparationLaunchRules.cs.meta",
+        "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DevelopmentProfileBootstrapTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionLoadoutMatcherTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownTrainerNpcPrefabTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownTrainerNpcPrefabTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownEquipmentMutationEndpointTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownTrainerPresenterTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownTrainerPresenterTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Sandbox/SandboxTestProfileTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponTownRequestTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponTownRequestTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/LocalProfilePersistenceEditModeTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Missions/MissionPersistenceTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Presentation/TownInventoryPresenterPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Presentation/TownTrainerRequestPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Presentation/TownTrainerRequestPlayModeTests.cs.meta",
+        "Project Grimhold/Assets/Tests/PlayMode/TrainingWeaponAdmissionPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/TrainingWeaponAdmissionPlayModeTests.cs.meta",
+        "Project Grimhold/Docs/Architecture/AbilitySandbox.md",
+        "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+        "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+        "Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "town",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Abilities",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RecoveryWeaponConsentView.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RecoveryWeaponConsentView.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/IRecoveryWeaponReservationService.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/IRecoveryWeaponReservationService.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponAuthorityState.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponAuthorityState.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponPreparation.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponPreparation.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponPreparationLaunchRules.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponPreparationLaunchRules.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponTownRequestTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponTownRequestTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/TrainingWeaponAdmissionPlayModeTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/TrainingWeaponAdmissionPlayModeTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapons",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/AbilitySandbox.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/ITownEquipmentMutationEndpoint.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/TownEquipmentMutationEndpoint.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/TownInventoryBinder.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownEquipmentMutationEndpointTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/TownInventoryPresenterPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scenes/Lobby-Town.unity",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownTrainerNpcInteractable.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownTrainerNpcInteractable.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DevelopmentProfileBootstrapTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionLoadoutMatcherTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownTrainerNpcPrefabTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownTrainerNpcPrefabTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/CharcoalUiMigrationManifest.json",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "UI",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Resources/LocalProfilePersistenceConfiguration.asset",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Sandbox/SandboxTestProfile.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfilePersistenceConfiguration.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/ProfileReconciliationService.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DevelopmentProfileBootstrapTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Sandbox/SandboxTestProfileTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/LocalProfilePersistenceEditModeTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Missions/MissionPersistenceTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/CharcoalUiMigrationManifest.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/Task220Composition.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DevelopmentProfileBootstrapTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionLoadoutMatcherTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownTrainerNpcPrefabTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownTrainerNpcPrefabTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownEquipmentMutationEndpointTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownTrainerPresenterTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownTrainerPresenterTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Sandbox/SandboxTestProfileTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponTownRequestTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponTownRequestTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/AbilitySandbox.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ItemInstanceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerCombatArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "message-term",
+          "value": "documentation",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Sandbox/SandboxTestProfile.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DevelopmentProfileBootstrapTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionLoadoutMatcherTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RecoveryWeaponLaunchConsentTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownTrainerNpcPrefabTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownTrainerNpcPrefabTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TrainingWeaponAdmissionTicketTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownEquipmentMutationEndpointTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownTrainerPresenterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownTrainerPresenterTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Sandbox/SandboxTestProfileTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponConsentTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponTownRequestTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponTownRequestTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/LocalProfilePersistenceEditModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Missions/MissionPersistenceTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/TownInventoryPresenterPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/TownTrainerRequestPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/TownTrainerRequestPlayModeTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/TrainingWeaponAdmissionPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/TrainingWeaponAdmissionPlayModeTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "20111527450cdd438ce61effa14142e202220efd",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/20111527450cdd438ce61effa14142e202220efd",
+      "subject": "feat(inventory): issue training weapons through guarded requests",
+      "body": "Issue training equipment only through the authoritative training request.\nRequire the current revision, reject pending reservations and legacy v1\ninventory, and replace previous training equipment atomically. Keep\nnormal displaced weapons and reject training sales or buybacks.\n\nRemove recovery-weapon grants from reservations and admission tickets.\nReject weaponless preparation with PREPARED_WEAPON_REQUIRED instead of\nsilently assigning arming_sword. Reject unknown instances in equipment\nupdates instead of minting equipment through PUT.\n\nDocument the request and errors. Cover replacement, no-write rejections,\nreservation identity and signed admission with unit and integration tests.\n\nValidation: backend 581/581; integration 200/200; new HTTP probes 7/7.\nIndependent source review passed with issues. The final isolated test\nexecution was unrun after setup timed out; this is not a passing test.\n\nRefs: TASK-278, TASK-277\nPlayer-Fixed: Enter the Dungeon with the training weapon you selected.\n",
+      "date": "2026-11-08T11:34:33-03:00",
+      "files": [
+        "backend/README.md",
+        "backend/src/config/shopCatalog.js",
+        "backend/src/routes/inventory.routes.js",
+        "backend/src/services/InventoryService.js",
+        "backend/src/services/SessionTicketService.js",
+        "backend/src/validators/inventory.validators.js",
+        "backend/tests/integration/admission.integration.test.js",
+        "backend/tests/integration/item.instances.test.js",
+        "backend/tests/inventory.instances.test.js",
+        "backend/tests/inventory.lifecycle.test.js",
+        "backend/tests/inventory.protocol.test.js",
+        "backend/tests/inventory.reservation.test.js",
+        "backend/tests/inventory.service.test.js",
+        "backend/tests/inventory.training.test.js",
+        "backend/tests/inventory.training.verifier.test.js",
+        "backend/tests/reservation.weapon-required.test.js"
+      ],
+      "originalType": "feat",
+      "originalScope": "inventory",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "World & Visibility",
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/reservation.weapon-required.test.js",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapons",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/inventory.routes.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/validators/inventory.validators.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.instances.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.lifecycle.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.protocol.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.reservation.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.service.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.training.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.training.verifier.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/SessionTicketService.js",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "Dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "backend/README.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/config/shopCatalog.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/inventory.routes.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/SessionTicketService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/validators/inventory.validators.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/admission.integration.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/item.instances.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.instances.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.lifecycle.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.protocol.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.reservation.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.service.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.training.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.training.verifier.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/reservation.weapon-required.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/admission.integration.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/item.instances.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.instances.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.lifecycle.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.protocol.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.reservation.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.service.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.training.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.training.verifier.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/reservation.weapon-required.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "43c23186e748216fb04bc40b661bb10c607bd9d1",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/43c23186e748216fb04bc40b661bb10c607bd9d1",
