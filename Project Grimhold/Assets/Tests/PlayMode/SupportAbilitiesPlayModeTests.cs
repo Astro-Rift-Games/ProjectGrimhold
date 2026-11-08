@@ -339,6 +339,192 @@ namespace Tests.PlayMode.Abilities
             Assert.That(Character.Health, Is.EqualTo(Character.MaxHealth));
         }
 
+        [UnityTest]
+        public IEnumerator Stun_BlocksVoluntaryMovementSprintAttackConsumptionAndAbility_ExpiryRestoresControl()
+        {
+            yield return Begin("empower");
+            var stun = Character.GetComponent<PlayerStunNetworkEffect>();
+            Assert.That(stun, Is.Not.Null);
+            var target = SpawnAvatar("empower", Vector3.right * 20f, false).GetComponent<PlayerCharacter>();
+            var probe = new DamageProbe { Target = target, Inner = Character.GetComponent<DamageResolver>() };
+            var melee = Character.GetComponent<MeleeAttack>();
+            var config = UnityEditor.AssetDatabase.LoadAssetAtPath<MeleeAttackConfig>("Assets/Scriptable Objects/PlayerMeleeAttackConfig.asset");
+            melee.Initialize(config, new AttackExecutionParameters(5f, DamageType.TrueDamage, 0.5f, 2f, 0f), probe, probe);
+            var combat = Character.GetComponent<PlayerCombatNetworkController>();
+            yield return InSimulation(() => Assert.That(combat.TrySetActiveAttack(melee), Is.True));
+            _input.MoveDirection = Vector2.right;
+            yield return WaitSimulationSeconds(0.15f);
+            Assert.That((bool)Character.GetComponent<PlayerMovementNetworkController>().IsMoving, Is.True);
+            yield return InSimulation(() => Assert.That(stun.TryApply(1.5f), Is.True));
+            yield return WaitSimulationSeconds(0.1f);
+            Vector3 position = Character.transform.position;
+            float mana = Mana();
+            InteractionPresentationEvent interactionResult = default;
+            bool interacted = false;
+            Character.GetComponent<PlayerInteractionNetworkController>().InteractionResolved += result =>
+            {
+                interacted = true;
+                interactionResult = result;
+            };
+            _input.Buttons.Set(PlayerInputButton.Interact, true);
+            _input.Buttons.Set(PlayerInputButton.PrimaryAttack, true);
+            _input.Buttons.Set(PlayerInputButton.Sprint, true);
+            var consumable = Character.GetComponent<PlayerConsumableNetworkController>();
+            var receiver = Character.GetComponent<PlayerLootReceiver>();
+            var loot = PlayerConsumableNetworkController.RuneCompassId;
+            int amount = receiver.GetLootAmount(loot);
+            int revision = receiver.Revision;
+            var drop = Character.GetComponent<PlayerLootDropNetworkController>();
+            var transfer = Character.GetComponent<PlayerLootTransferNetworkController>();
+            var split = Character.GetComponent<PlayerLootSplitNetworkController>();
+            Assert.That(drop.TryRequestDrop(loot, LootTransferQuantityMode.FullStack), Is.False);
+            Assert.That(transfer.TryRequestTransfer(new EntityId(9001), Character.Id, loot, LootTransferQuantityMode.FullStack), Is.False);
+            Assert.That(split.TryRequestSplit(0, 1, 1, revision), Is.False);
+            Assert.That(drop.HasRequestInFlight || transfer.HasRequestInFlight || split.HasRequestInFlight, Is.False);
+            ConsumableFailureReason rejected = ConsumableFailureReason.None;
+            consumable.ConsumeRejected += reason => rejected = reason;
+            Assert.That(consumable.TryRequestConsume(loot), Is.False);
+            yield return WaitSimulationSeconds(0.25f);
+            Assert.That(rejected, Is.EqualTo(ConsumableFailureReason.Stunned));
+            Assert.That(receiver.GetLootAmount(loot), Is.EqualTo(amount));
+            Assert.That(receiver.Revision, Is.EqualTo(revision));
+            Assert.That(interacted, Is.True);
+            Assert.That(interactionResult.Success, Is.False);
+            Assert.That(interactionResult.FailureReason, Is.EqualTo(InteractionFailureReason.InteractorUnavailable));
+            Assert.That(consumable.HasRequestInFlight || consumable.IsConsuming, Is.False);
+            Assert.That(Character.transform.position, Is.EqualTo(position));
+            Assert.That((bool)Character.GetComponent<PlayerMovementNetworkController>().IsSprinting, Is.False);
+            Assert.That(probe.Count, Is.Zero);
+            Assert.That(combat.HasPendingAttackRelease || combat.IsExecutingWeaponAttack, Is.False);
+            yield return Press();
+            Assert.That(_runtime.GetLastActivationFailure(UniversalAbilitySlot.Slot1), Is.EqualTo(AbilityActivationFailure.PlayerUnavailable));
+            Assert.That(Mana(), Is.EqualTo(mana));
+            Assert.That(_runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var snapshot), Is.True);
+            Assert.That(snapshot.Sequence, Is.Zero);
+            Assert.That(snapshot.Cooldown.IsRunning, Is.False);
+            yield return WaitUntil(() => !stun.IsActive);
+            _input.Buttons.Set(PlayerInputButton.PrimaryAttack, true);
+            yield return WaitUntil(() => probe.Count > 0);
+            _input.Buttons = default;
+            Assert.That(Character.transform.position.x, Is.GreaterThan(position.x));
+            _input.MoveDirection = Vector2.zero;
+            yield return WaitSimulationSeconds(0.6f);
+            yield return Press();
+            AssertPaid(mana);
+        }
+
+        [UnityTest]
+        public IEnumerator Stun_CancelsAcceptedWeaponReleaseButPreservesForcedDisplacementAndKnockback()
+        {
+            yield return Begin("empower");
+            var target = SpawnAvatar("empower", Vector3.right * 20f, false).GetComponent<PlayerCharacter>();
+            var probe = new DamageProbe { Target = target, Inner = Character.GetComponent<DamageResolver>() };
+            var melee = Character.GetComponent<MeleeAttack>();
+            var config = UnityEditor.AssetDatabase.LoadAssetAtPath<MeleeAttackConfig>("Assets/Scriptable Objects/PlayerMeleeAttackConfig.asset");
+            melee.Initialize(config, new AttackExecutionParameters(5f, DamageType.TrueDamage, 2f, 2f, 0f, 0.5f), probe, probe);
+            var combat = Character.GetComponent<PlayerCombatNetworkController>();
+            var movement = Character.GetComponent<PlayerMovementNetworkController>();
+            yield return InSimulation(() => Assert.That(combat.TrySetActiveAttack(melee), Is.True));
+            _input.Buttons.Set(PlayerInputButton.PrimaryAttack, true);
+            yield return WaitUntil(() => combat.HasPendingAttackRelease);
+            _input.Buttons = default;
+            yield return InSimulation(() =>
+            {
+                Assert.That(Character.GetComponent<PlayerStunNetworkEffect>().TryApply(2f), Is.True);
+                Assert.That(movement.TryBeginForcedDisplacement(Vector2.right, 2f), Is.True);
+            });
+            Vector3 start = Character.transform.position;
+            yield return WaitSimulationSeconds(0.2f);
+            Assert.That(combat.HasPendingAttackRelease || combat.IsExecutingWeaponAttack, Is.False);
+            Assert.That(Character.IsStunned, Is.True);
+            Assert.That(Character.transform.position.x, Is.GreaterThan(start.x));
+            yield return InSimulation(() => movement.EndForcedDisplacement());
+            start = Character.transform.position;
+            yield return InSimulation(() => Assert.That(movement.TryApplyKnockback(Vector2.right, 5f, true), Is.EqualTo(KnockbackDecision.Started)));
+            yield return WaitSimulationSeconds(0.6f);
+            Assert.That(Character.transform.position.x, Is.GreaterThan(start.x));
+            Assert.That(probe.Count, Is.Zero, "Cancelled weapon release never damages after its original deadline.");
+            Assert.That(combat.TryGetPrimaryAttackStatus(out var status), Is.True);
+            Assert.That(status.CooldownRemainingSeconds, Is.GreaterThan(0f), "Cancellation does not refund the attack interval.");
+        }
+
+        [UnityTest]
+        public IEnumerator Stun_DuringPreparation_InterruptsWithStunWithoutRefundOrCooldownReset()
+        {
+            yield return Begin("restoration");
+            yield return InSimulation(() => SetHealth(Character, Character.MaxHealth - 5f));
+            float health = Character.Health;
+            float mana = Mana();
+            yield return Press();
+            AssertPaid(mana);
+            float paidMana = Mana();
+            Assert.That(_runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var before), Is.True);
+            AbilityExecutionStopReason stopped = AbilityExecutionStopReason.Completed;
+            _runtime.ExecutionInterrupted += (_, reason) => stopped = reason;
+            yield return InSimulation(() =>
+            {
+                Assert.That(Character.GetComponent<PlayerStunNetworkEffect>().TryApply(0.25f), Is.True);
+                Assert.That(_runtime.HasActiveExecution, Is.False, "Interruption is synchronous with application.");
+            });
+            yield return WaitUntil(() => stopped == AbilityExecutionStopReason.Stun);
+            Assert.That(_runtime.TryGetExecutionSnapshot(UniversalAbilitySlot.Slot1, out var after), Is.True);
+            Assert.That(after.Cooldown, Is.EqualTo(before.Cooldown));
+            Assert.That(after.Sequence, Is.EqualTo(before.Sequence));
+            Assert.That(Mana(), Is.EqualTo(paidMana));
+            yield return WaitSimulationSeconds(Preparation);
+            Assert.That(Character.Health, Is.EqualTo(health), "Interrupted preparation never heals later.");
+        }
+
+        [UnityTest]
+        public IEnumerator Stun_PurificationProtectionRefusesApplication_DownedClearsAndRefusesIt()
+        {
+            yield return Begin("empower");
+            var stun = Character.GetComponent<PlayerStunNetworkEffect>();
+            var purification = Character.GetComponent<PurificationNetworkEffect>();
+            Assert.That(stun.TryApply(3f), Is.False, "Outside simulation cannot mutate.");
+            Assert.That(stun.IsActive, Is.False);
+            yield return InSimulation(() =>
+            {
+                Assert.That(purification.TryApply(0.25f), Is.True);
+                Assert.That(stun.TryApply(3f), Is.False);
+                Assert.That(stun.IsActive, Is.False);
+            });
+            yield return WaitUntil(() => !purification.IsProtectedFromPurifiableStates);
+            yield return InSimulation(() =>
+            {
+                Assert.That(stun.TryApply(3f), Is.True);
+                Assert.That(Character.IsStunned, Is.True);
+                Assert.That(Character.GetComponent<PlayerDownedStateNetworkController>().TryEnterDowned(), Is.True);
+                Assert.That(stun.IsActive, Is.False);
+                Assert.That(stun.TryApply(3f), Is.False);
+            });
+            yield return WaitSimulationSeconds(0.1f);
+            Assert.That(stun.RemainingSeconds, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator Stun_SelfPurificationIsRejected_AllyPurificationInAreaRemovesIt()
+        {
+            yield return Begin("purification", initialTeam: true);
+            var allyRuntime = SpawnAvatar("purification", Vector3.right, false);
+            var ally = allyRuntime.GetComponent<PlayerCharacter>();
+            SetField(ally.GetComponent<AbilityAreaTargetFinder>(), "_targetLayerMask", new LayerMask { value = LayerMask.GetMask("Character") });
+            yield return InSimulation(() =>
+            {
+                Physics2D.SyncTransforms();
+                Assert.That(Character.GetComponent<PlayerStunNetworkEffect>().TryApply(5f), Is.True);
+            });
+            float mana = Mana();
+            yield return Press();
+            Assert.That(_runtime.GetLastActivationFailure(UniversalAbilitySlot.Slot1), Is.EqualTo(AbilityActivationFailure.PlayerUnavailable));
+            Assert.That(Mana(), Is.EqualTo(mana));
+            Assert.That(_runtime.IsOnCooldown(UniversalAbilitySlot.Slot1), Is.False);
+            yield return InSimulation(() => Assert.That(allyRuntime.SandboxCast(UniversalAbilitySlot.Slot1), Is.EqualTo(AbilityActivationFailure.None)));
+            yield return WaitUntil(() => !allyRuntime.HasActiveExecution);
+            Assert.That(Character.IsStunned, Is.False);
+            Assert.That(Character.GetComponent<PurificationNetworkEffect>().IsProtectedFromPurifiableStates, Is.True);
+        }
+
         private sealed class DamageProbe : IAttackTargetQuery, IDamageResolver
         {
             public PlayerCharacter Target;
@@ -504,8 +690,9 @@ namespace Tests.PlayMode.Abilities
         private sealed class SupportInputDriver : NetworkRunnerCallbacksAdapter
         {
             public NetworkButtons Buttons;
+            public Vector2 MoveDirection;
             public override void OnInput(NetworkRunner runner, NetworkInput input) =>
-                input.Set(new PlayerNetworkInput { Buttons = Buttons, AimWorldPosition = Vector2.right * 10f });
+                input.Set(new PlayerNetworkInput { Buttons = Buttons, MoveDirection = MoveDirection, AimWorldPosition = Vector2.right * 10f });
         }
     }
 }

@@ -59,6 +59,7 @@ public sealed class PlayerLootSplitNetworkController : NetworkBehaviour
 
     private bool CanAct() => _dependenciesValid && _character.IsAlive &&
         !PlayerDownedGate.IsDowned(_character) && !PlayerConsumptionGate.IsConsuming(_character) &&
+        !PlayerStunGate.IsStunned(_character) &&
         _extraction.State != ExtractionState.Extracted &&
         (_match == null || _match.Phase == NetworkMatchController.MatchPhase.InProgress);
 

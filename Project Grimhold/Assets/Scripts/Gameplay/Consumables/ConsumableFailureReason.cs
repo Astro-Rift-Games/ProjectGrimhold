@@ -16,5 +16,6 @@ public enum ConsumableFailureReason : byte
     ConsumptionInProgress = 10,
     Interrupted = 11,
     ManaFull = 12,
-    CooldownActive = 13
+    CooldownActive = 13,
+    Stunned = 14
 }

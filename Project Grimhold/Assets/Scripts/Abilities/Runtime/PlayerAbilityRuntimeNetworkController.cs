@@ -361,7 +361,8 @@ public sealed class PlayerAbilityRuntimeNetworkController : NetworkBehaviour
     private AbilityActivationFailure TryStartExecutionCore(UniversalAbilitySlot slot)
     {
         if (!TryBuildContext(slot, out var context) || !_playerCharacter.IsAlive ||
-            (PlayerDownedGate.IsDowned(_playerCharacter) || PlayerConsumptionGate.IsConsuming(_playerCharacter))) return AbilityActivationFailure.PlayerUnavailable;
+            (PlayerDownedGate.IsDowned(_playerCharacter) || PlayerConsumptionGate.IsConsuming(_playerCharacter) ||
+             PlayerStunGate.IsStunned(_playerCharacter))) return AbilityActivationFailure.PlayerUnavailable;
         var match = _spawnManager != null ? _spawnManager.MatchController : null;
         if (match != null && match.Phase != NetworkMatchController.MatchPhase.InProgress)
             return AbilityActivationFailure.PlayerUnavailable;

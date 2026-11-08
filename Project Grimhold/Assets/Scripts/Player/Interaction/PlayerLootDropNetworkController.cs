@@ -135,7 +135,8 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
         int sourceInventorySlotIndex, int expectedInventoryRevision, int exactAmount)
     {
         if (!HasInputAuthority || !_dependenciesValid || !IsGameplayPhaseActive() ||
-            (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)) ||
+            (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character) ||
+                PlayerStunGate.IsStunned(_character)) ||
             (_extractionController != null && _extractionController.State == ExtractionState.Extracted) ||
             _lootCatalog == null || !_lootCatalog.TryGetIndex(lootId, out int catalogIndex))
         {
@@ -322,7 +323,8 @@ public sealed class PlayerLootDropNetworkController : NetworkBehaviour
             return Rejected(identity, tick, LootDropFailureReason.MissingAuthority);
         }
 
-        if (_character == null || !_character.IsAlive || (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)) ||
+        if (_character == null || !_character.IsAlive || (PlayerDownedGate.IsDowned(_character) ||
+            PlayerConsumptionGate.IsConsuming(_character) || PlayerStunGate.IsStunned(_character)) ||
             _lootReceiver == null ||
             _lootReceiver.Id.Value == 0 ||
             (_extractionController != null && _extractionController.State == ExtractionState.Extracted))

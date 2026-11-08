@@ -224,7 +224,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         if (HasStateAuthority && Runner.IsForward)
         {
             if (!gameplayPhaseActive || !IsAttackEnabled || !_character.IsAlive ||
-                PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character))
+                PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character) ||
+                PlayerStunGate.IsStunned(_character))
             {
                 CancelPendingRelease();
                 AdvanceHandReleases(true);
@@ -651,7 +652,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         {
             if (Runner == null || !Runner.IsRunning || Object == null || !Object.IsValid ||
                 _character == null || !_character.IsAlive || PlayerDownedGate.IsDowned(_character) ||
-                PlayerConsumptionGate.IsConsuming(_character)) return false;
+                PlayerConsumptionGate.IsConsuming(_character) || PlayerStunGate.IsStunned(_character)) return false;
             int index = HandIndex(attack.SourceSlot);
             WeaponHandAttackState state = HandAttacks[index];
             if (attack.Sequence != _observedHandSequences[index]) return false;
@@ -662,7 +663,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             return true;
         }
         if (Runner == null || !Runner.IsRunning || Object == null || !Object.IsValid ||
-            attack.Sequence != _lastObservedSequence || !_character.IsAlive || (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)))
+            attack.Sequence != _lastObservedSequence || !_character.IsAlive || (PlayerDownedGate.IsDowned(_character) ||
+                PlayerConsumptionGate.IsConsuming(_character) || PlayerStunGate.IsStunned(_character)))
             return false;
         float rawElapsed = GetAttackElapsedSeconds(attack);
         // Cancellation and acceptance always use raw render time, never the paused visual clock.
@@ -680,7 +682,8 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
             return AttackFailureReason.MissingConfiguration;
         }
 
-        if (!IsAttackEnabled || !_character.IsAlive || (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)))
+        if (!IsAttackEnabled || !_character.IsAlive || (PlayerDownedGate.IsDowned(_character) ||
+            PlayerConsumptionGate.IsConsuming(_character) || PlayerStunGate.IsStunned(_character)))
         {
             return AttackFailureReason.ControlDisabled;
         }
@@ -720,7 +723,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         WeaponDefinition weapon = loot.WeaponDefinition;
         WeaponHandAttackState state = HandAttacks[index];
         bool available = IsAttackEnabled && _character.IsAlive && !PlayerDownedGate.IsDowned(_character) &&
-            !PlayerConsumptionGate.IsConsuming(_character) &&
+            !PlayerConsumptionGate.IsConsuming(_character) && !PlayerStunGate.IsStunned(_character) &&
             (_abilityRuntime == null || !_abilityRuntime.HasActiveExecution) &&
             EquipmentSlotRules.GetWeaponSet(slot) == _equipmentController.ActiveWeaponSetSlot &&
             !IsExecutingWeaponAttack && state.Timing.IsReady(Runner.Tick) && !state.HasPendingRelease &&
@@ -775,7 +778,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
         if (!TryGetAttackStatus(slot, out PrimaryAttackStatus status) || !status.IsAvailable)
         {
             // Consumption disables control; it is not a weapon cooldown rejection.
-            if (pressed && !PlayerConsumptionGate.IsConsuming(_character))
+            if (pressed && !PlayerConsumptionGate.IsConsuming(_character) && !PlayerStunGate.IsStunned(_character))
                 RecordCombatFeedback(CombatFeedbackKind.AttackRejected, default, default, 0f,
                     Runner.Tick, _abilityRuntime != null && _abilityRuntime.HasActiveExecution
                         ? AttackFailureReason.AbilityInProgress : AttackFailureReason.CooldownActive);
@@ -963,6 +966,7 @@ public sealed class PlayerCombatNetworkController : NetworkBehaviour,
 
     private bool CanPresentHitstop => HasInputAuthority && _character != null && _character.IsAlive &&
         IsAttackEnabled && !PlayerDownedGate.IsDowned(_character) && !PlayerConsumptionGate.IsConsuming(_character) &&
+        !PlayerStunGate.IsStunned(_character) &&
         (_matchController == null || _matchController.Phase == NetworkMatchController.MatchPhase.InProgress);
 
     private bool TryGetHitstopAttack(int index, int sequence, out AttackPerformedEvent attack)

@@ -41,6 +41,143 @@ namespace Tests.PlayMode.Abilities
             }
         }
 
+        [UnityTest]
+        public IEnumerator StunIndicator_ObservesReplicatedStatus_AndHidesAfterExpiry()
+        {
+            yield return Begin();
+            var enemy = SpawnEnemy(Vector3.zero);
+            var stun = enemy.GetComponent<EnemyStunNetworkEffect>();
+            IStunStatus status = stun;
+            var presenter = enemy.GetComponent<StunStatusIndicatorPresenter>();
+            Assert.That(presenter, Is.Not.Null);
+            var indicator = (GameObject)typeof(StunStatusIndicatorPresenter)
+                .GetField("_indicator", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(presenter);
+            yield return null;
+            Assert.That(indicator.activeSelf, Is.False);
+            yield return InSimulation(() => Assert.That(stun.TryApply(0.5f), Is.True));
+            yield return null;
+            yield return null;
+            Assert.That(status.IsStunned, Is.True);
+            Assert.That(status.RemainingStunSeconds, Is.GreaterThan(0f));
+            Assert.That(indicator.activeSelf, Is.True);
+            var visibility = enemy.GetComponent<ProjectGrimhold.Gameplay.Visibility.EntityVisibilityPresenter>();
+            visibility.ApplyVisibility(0f);
+            Assert.That(indicator.GetComponent<SpriteRenderer>().forceRenderingOff, Is.True);
+            yield return WaitUntil(() => !status.IsStunned);
+            yield return null;
+            yield return null;
+            Assert.That(status.RemainingStunSeconds, Is.Zero);
+            Assert.That(indicator.activeSelf, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator Stun_BlocksMovement_LeavesImmobilizeIndependent_AndExpires()
+        {
+            yield return Begin();
+            var target = SpawnPatrollingEnemy(Vector3.zero);
+            var movement = target.GetComponent<EnemyMovementAIController>();
+            var stun = target.GetComponent("EnemyStunNetworkEffect");
+            Assert.That(stun, Is.Not.Null);
+            Vector3 start = target.transform.position;
+            yield return WaitUntil(() => Vector3.Distance(start, target.transform.position) > 0.3f);
+            yield return InSimulation(() => Assert.That((bool)stun.GetType().GetMethod("TryApply").Invoke(stun, new object[] { 1f }), Is.True));
+            // Let NetworkTransform presentation settle after the final pre-Stun motor step.
+            yield return WaitTicks(2);
+            Vector3 held = target.transform.position;
+            yield return WaitTicks(20);
+            Assert.That(Vector3.Distance(held, target.transform.position), Is.LessThan(0.001f));
+            Assert.That((bool)movement.IsImmobilized, Is.False);
+            Assert.That((bool)movement.IsAttacking, Is.False);
+            yield return InSimulation(() => movement.TryApplyKnockback(Vector2.right, 30f, true));
+            yield return WaitTicks(10);
+            Assert.That(Vector3.Distance(held, target.transform.position), Is.GreaterThan(0.5f));
+            yield return WaitUntil(() => !(bool)stun.GetType().GetProperty("IsActive").GetValue(stun));
+            Vector3 released = target.transform.position;
+            yield return WaitTicks(30);
+            Assert.That(Vector3.Distance(released, target.transform.position), Is.GreaterThan(0.3f));
+        }
+
+        [UnityTest]
+        public IEnumerator Specter_StunDuringChannel_CancelsDamageAndWaitsInPursuit()
+        {
+            yield return Begin();
+            var player = _runner.Spawn(LoadPrefab("fea3a7b256f965a4eb9b965832939741"), Vector3.zero, Quaternion.identity)
+                .GetComponent<PlayerCharacter>();
+            var enemy = _runner.Spawn(LoadPrefab("35da693761f9d7244bac33c1559a3918"), new Vector3(2f, 0f, 0f), Quaternion.identity);
+            var specter = enemy.GetComponent<ProjectGrimhold.Gameplay.Enemies.Specter.SpecterAIController>();
+            var stun = enemy.GetComponent<EnemyStunNetworkEffect>();
+            float health = player.Health;
+            Assert.That(health, Is.GreaterThan(0f));
+            yield return InSimulation(() =>
+            {
+                specter.CurrentState = ProjectGrimhold.Gameplay.Enemies.Specter.SpecterStateType.Desvanecido;
+                Assert.That(stun.TryApply(2f), Is.False, "An untargetable Specter rejects Stun.");
+                Assert.That(stun.RemainingSeconds, Is.Zero);
+                specter.AttackTargetPosition = player.transform.position;
+                specter.TransitionTo(ProjectGrimhold.Gameplay.Enemies.Specter.SpecterStateType.Canalizacion);
+                Assert.That(stun.TryApply(2f), Is.True);
+                Assert.That(specter.CurrentState, Is.EqualTo(ProjectGrimhold.Gameplay.Enemies.Specter.SpecterStateType.Persecucion));
+            });
+            Vector3 held = enemy.transform.position;
+            yield return WaitTicks(Mathf.CeilToInt(1.5f / _runner.DeltaTime));
+            Assert.That(stun.IsActive, Is.True);
+            Assert.That(specter.CurrentState, Is.EqualTo(ProjectGrimhold.Gameplay.Enemies.Specter.SpecterStateType.Persecucion));
+            Assert.That(enemy.transform.position, Is.EqualTo(held));
+            Assert.That(player.Health, Is.EqualTo(health), "The cancelled channel cannot detonate.");
+            Assert.That(enemy.GetComponentInChildren<LineRenderer>().enabled, Is.False, "The cancelled channel has no marker.");
+        }
+
+        [UnityTest]
+        public IEnumerator Stun_RejectsOutsideSimulationAndInvalidDurations_ReapplicationReplacesDeadline_DeathEndsIt()
+        {
+            yield return Begin();
+            var enemy = SpawnEnemy(Vector3.zero);
+            var stun = enemy.GetComponent<EnemyStunNetworkEffect>();
+            Assert.That(stun.TryApply(5f), Is.False);
+            yield return InSimulation(() =>
+            {
+                Assert.That(stun.TryApply(5f), Is.True);
+                float remaining = stun.RemainingSeconds;
+                foreach (float invalid in new[] { 0f, -1f, float.NaN, float.PositiveInfinity })
+                {
+                    Assert.That(stun.TryApply(invalid), Is.False);
+                    Assert.That(stun.RemainingSeconds, Is.EqualTo(remaining));
+                }
+                Assert.That(stun.TryApply(0.5f), Is.True);
+                Assert.That(stun.RemainingSeconds, Is.EqualTo(0.5f).Within(_runner.DeltaTime));
+            });
+            yield return WaitUntil(() => !stun.IsActive);
+            yield return InSimulation(() =>
+            {
+                Assert.That(stun.TryApply(5f), Is.True);
+                SetNetworked(enemy, "Health", 0f, typeof(CharacterBase));
+                Assert.That(stun.IsActive, Is.False);
+                Assert.That(stun.TryApply(5f), Is.False);
+            });
+        }
+
+        [UnityTest]
+        public IEnumerator Specter_ReactiveDisplacementWhileStunned_WaitsUntilExpiry()
+        {
+            yield return Begin();
+            var enemy = _runner.Spawn(LoadPrefab("35da693761f9d7244bac33c1559a3918"), Vector3.zero, Quaternion.identity);
+            var specter = enemy.GetComponent<ProjectGrimhold.Gameplay.Enemies.Specter.SpecterAIController>();
+            var stun = enemy.GetComponent<EnemyStunNetworkEffect>();
+            yield return InSimulation(() =>
+            {
+                specter.TransitionTo(ProjectGrimhold.Gameplay.Enemies.Specter.SpecterStateType.Persecucion);
+                Assert.That(stun.TryApply(0.5f), Is.True);
+                specter.OnDamageReceived(new EntityId(123), 1f, DamageType.Magical, false);
+                Assert.That(specter.CurrentState, Is.EqualTo(ProjectGrimhold.Gameplay.Enemies.Specter.SpecterStateType.Persecucion),
+                    "Reactive displacement cannot advance the FSM while stunned.");
+            });
+            yield return WaitTicks(Mathf.CeilToInt(0.25f / _runner.DeltaTime));
+            Assert.That(specter.CurrentState, Is.EqualTo(ProjectGrimhold.Gameplay.Enemies.Specter.SpecterStateType.Persecucion));
+            yield return WaitUntil(() => !stun.IsActive);
+            yield return WaitTicks(2);
+            Assert.That(specter.CurrentState, Is.EqualTo(ProjectGrimhold.Gameplay.Enemies.Specter.SpecterStateType.Desvanecimiento));
+        }
+
         // ---- Immobilize ------------------------------------------------------------------
 
         [UnityTest]

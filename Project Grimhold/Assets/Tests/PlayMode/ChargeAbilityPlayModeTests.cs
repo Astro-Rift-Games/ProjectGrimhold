@@ -130,6 +130,12 @@ namespace Tests.PlayMode.Abilities
             Assert.That(Knockback(first), Is.EqualTo(new Vector2(KnockbackForce, 0f)).Using(new Vector2EqualityComparer(0.01f)),
                 "Knockback is applied exactly once, along the charge direction.");
             Assert.That(Knockback(second), Is.EqualTo(Vector2.zero));
+            var stun = first.GetComponent("EnemyStunNetworkEffect");
+            Assert.That(stun, Is.Not.Null, "Enemy prefabs must compose Stun.");
+            Assert.That((bool)stun.GetType().GetProperty("IsActive").GetValue(stun), Is.True);
+            Assert.That((float)stun.GetType().GetProperty("RemainingSeconds").GetValue(stun), Is.InRange(0.8f, 1f));
+            var secondStun = second.GetComponent("EnemyStunNetworkEffect");
+            Assert.That((bool)secondStun.GetType().GetProperty("IsActive").GetValue(secondStun), Is.False);
             Assert.That(_endTick, Is.LessThan(_avatarDeadlineTick - 10), "The enemy ends the charge before the planned duration.");
         }
 
@@ -151,6 +157,41 @@ namespace Tests.PlayMode.Abilities
         }
 
         [UnityTest]
+        public IEnumerator Charge_CustomStunDuration_IsCopiedToTheFirstEnemyAndExpires()
+        {
+            yield return Begin(distance: 8f, speed: 8f);
+            SetField(_avatar.GetComponent<ChargeAbilityBehaviour>(), "_stunSeconds", 0.75f);
+            var enemy = SpawnEnemy(new Vector2(2f, 0f));
+            yield return SetAim(Vector2.right);
+            yield return Press();
+            yield return WaitForCompletion();
+            var stun = enemy.GetComponent<EnemyStunNetworkEffect>();
+            Assert.That(stun.IsActive, Is.True);
+            Assert.That(stun.RemainingSeconds, Is.InRange(0.6f, 0.75f));
+            yield return WaitUntil(() => !stun.IsActive);
+            Assert.That(stun.RemainingSeconds, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator Charge_ZeroStun_StillDamagesWithoutStunning()
+        {
+            yield return Begin(distance: 8f, speed: 8f);
+            var behaviour = _avatar.GetComponent<ChargeAbilityBehaviour>();
+            var duration = typeof(ChargeAbilityBehaviour).GetField("_stunSeconds", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(duration, Is.Not.Null);
+            duration.SetValue(behaviour, 0f);
+            var enemy = SpawnEnemy(new Vector2(2f, 0f));
+            float health = enemy.Health;
+            yield return SetAim(Vector2.right);
+            yield return Press();
+            yield return WaitForCompletion();
+            Assert.That(enemy.Health, Is.EqualTo(health - Damage).Within(0.001f));
+            var stun = enemy.GetComponent("EnemyStunNetworkEffect");
+            Assert.That(stun, Is.Not.Null);
+            Assert.That((bool)stun.GetType().GetProperty("IsActive").GetValue(stun), Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator Charge_NonEnemyCollider_DoesNotStopIt()
         {
             yield return Begin(distance: 4f, speed: 12f);
@@ -164,6 +205,8 @@ namespace Tests.PlayMode.Abilities
             yield return WaitForCompletion();
 
             Assert.That(Position.x, Is.GreaterThan(3f), "Only valid enemies stop the charge.");
+            Assert.That(spawnedAvatar.GetComponent<PlayerStunNetworkEffect>().IsActive, Is.False,
+                "Player/party targeting is not broadened by Charge Stun.");
         }
 
         [UnityTest]
@@ -211,6 +254,47 @@ namespace Tests.PlayMode.Abilities
             yield return WaitTicks();
             Assert.That(Position.x, Is.EqualTo(stopped).Within(0.05f), "The caster keeps no residual charge.");
             Assert.That(stopped, Is.LessThan(7f));
+        }
+
+        [UnityTest]
+        public IEnumerator Stun_CancelsQueuedEnemyHit_AndCombatRecoversAfterExpiry()
+        {
+            yield return Begin(distance: 8f, speed: 8f);
+            var enemy = SpawnEnemy(new Vector2(0.7f, 0f));
+            var movement = enemy.GetComponent<EnemyMovementAIController>();
+            var combat = enemy.GetComponent<EnemyCombatAIController>();
+            var stun = enemy.GetComponent<EnemyStunNetworkEffect>();
+            enemy.GetComponent<EnemyPathfindingNavigator>().enabled = false;
+            SetField(movement, "_pathfindingNavigator", null);
+            movement.enabled = true;
+            combat.enabled = true;
+            int attacks = 0;
+            combat.AttackPerformed += _ => attacks++;
+            yield return InSimulation(() =>
+            {
+                movement.ReceiveAggroAlert(_avatar.GetComponent<PlayerCharacter>().Id, _avatar.transform);
+                combat.TrySetAttackEnabled(true);
+            });
+            yield return WaitTicks();
+            float health = _avatar.GetComponent<PlayerCharacter>().Health;
+            yield return InSimulation(() =>
+            {
+                combat.ExecutePendingDamage();
+                Assert.That(stun.TryApply(1f), Is.True);
+            });
+            for (int i = 0; i < 4; i++)
+            {
+                yield return InSimulation(() => combat.ExecutePendingDamage());
+                yield return WaitTicks();
+            }
+            Assert.That(attacks, Is.Zero);
+            Assert.That(_avatar.GetComponent<PlayerCharacter>().Health, Is.EqualTo(health));
+            Assert.That((bool)movement.IsAttacking, Is.False);
+            yield return WaitUntil(() => !stun.IsActive);
+            yield return WaitTicks();
+            yield return InSimulation(() => combat.ExecutePendingDamage());
+            yield return WaitTicks();
+            Assert.That(attacks, Is.GreaterThan(0), "Expired Stun permits a fresh attack.");
         }
 
         // ---- Fixture ---------------------------------------------------------------------

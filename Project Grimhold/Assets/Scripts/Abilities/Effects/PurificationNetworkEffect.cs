@@ -19,6 +19,7 @@ public sealed class PurificationNetworkEffect : NetworkBehaviour
 {
     [SerializeField] private PlayerCharacter _character;
     [SerializeField] private PlayerImmobilizationNetworkEffect _immobilizationEffect;
+    [SerializeField] private PlayerStunNetworkEffect _stunEffect;
 
     [Networked] private TickTimer ProtectionTimer { get; set; }
 
@@ -34,10 +35,11 @@ public sealed class PurificationNetworkEffect : NetworkBehaviour
         IsOwnerConfigured && Object != null && Object.IsValid && Runner != null && !ProtectionTimer.ExpiredOrNotRunning(Runner);
 
     /// <summary>
-    /// Whether the owner has the active trap-only purifiable player immobilization.
+    /// Whether the owner has an active purifiable player state: the trap-only immobilization or the Stun.
     /// </summary>
-    public bool HasPurifiableState => _immobilizationEffect != null &&
-        _immobilizationEffect.gameObject == gameObject && _immobilizationEffect.IsActive;
+    public bool HasPurifiableState =>
+        (_immobilizationEffect != null && _immobilizationEffect.gameObject == gameObject && _immobilizationEffect.IsActive) ||
+        (_stunEffect != null && _stunEffect.gameObject == gameObject && _stunEffect.IsActive);
 
     /// <summary>Whether the owner can receive the temporary protection: it is alive and can receive status effects.</summary>
     public bool CanReceiveProtection => IsOwnerConfigured && _character.CanReceiveStatusEffects;
@@ -73,11 +75,13 @@ public sealed class PurificationNetworkEffect : NetworkBehaviour
     }
 
     /// <summary>
-    /// Ends the concrete purifiable player state without reverting any already-resolved effect.
+    /// Ends the concrete purifiable player states without reverting any already-resolved effect.
     /// </summary>
     private void PurgePurifiableStates()
     {
         if (_immobilizationEffect != null && _immobilizationEffect.gameObject == gameObject)
             _immobilizationEffect.TryPurify();
+        if (_stunEffect != null && _stunEffect.gameObject == gameObject)
+            _stunEffect.TryPurify();
     }
 }

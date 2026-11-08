@@ -40,8 +40,8 @@ public sealed class PurificationAbilityBehaviour : AbilityExecutionBehaviour
             return true;
         }
 
-        // A Stunned caster cannot execute Purification (another ally may purify it). No player Stun state exists
-        // yet, so there is nothing to check here; the common runtime's Stun gate owns that restriction once it does.
+        // A Stunned caster cannot execute Purification (another ally may purify it): the common runtime's Stun
+        // gate rejects every start before planning, so a Stunned caster never reaches this point.
         if (!HasValidAlly()) return false;
         plan = new AbilityExecutionPlan(AbilityExecutionPhase.Preparing, _castSeconds);
         return true;

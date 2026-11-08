@@ -6,7 +6,7 @@ using UnityEngine;
 /// accepted. It ends at the full distance, at the first Environment obstacle, or at the first valid enemy,
 /// which it damages and pushes through the existing damage pipeline. It never passes through an enemy.
 /// The movement controller owns the displacement; this behavior only starts it, watches it and ends it.
-/// Stun is deliberately not applied: no stun system exists yet.
+/// The surviving creature receives configurable Stun after impact (zero disables it).
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class ChargeAbilityBehaviour : AbilityExecutionBehaviour
@@ -19,6 +19,8 @@ public sealed class ChargeAbilityBehaviour : AbilityExecutionBehaviour
     [SerializeField, Min(0.01f)] private float _speed = 18f;
 
     [Header("Impact")]
+    [Tooltip("Stun duration on the first surviving enemy hit. Zero disables Stun.")]
+    [SerializeField, Min(0f)] private float _stunSeconds = 1f;
     [Tooltip("Zero is allowed: the enemy is still pushed, without damage.")]
     [SerializeField, Min(0f)] private float _damage = 5f;
     [SerializeField] private DamageType _damageType = DamageType.Physical;
@@ -92,8 +94,14 @@ public sealed class ChargeAbilityBehaviour : AbilityExecutionBehaviour
 
     private bool IsConfigurationValid()
     {
-        if (ChargeRules.TryValidateConfiguration(_distance, _speed, _damage, _knockbackForce, _targetLayerMask.value,
-                out string error)) return true;
+        bool valid = ChargeRules.TryValidateConfiguration(_distance, _speed, _damage, _knockbackForce, _targetLayerMask.value,
+            out string error);
+        if (valid && (!(_stunSeconds >= 0f) || float.IsInfinity(_stunSeconds)))
+        {
+            valid = false;
+            error = "Charge Stun duration must be finite and not negative.";
+        }
+        if (valid) return true;
         Debug.LogError($"{nameof(ChargeAbilityBehaviour)} configuration is invalid: {error}", this);
         return false;
     }
@@ -160,6 +168,9 @@ public sealed class ChargeAbilityBehaviour : AbilityExecutionBehaviour
 
         AbilityImpact.TryApply(_damageResolver, context.Character.Id, candidate.Id, target, _damage, _damageType,
             _knockbackForce, direction, hitPoint, context.Runner.Tick.Raw, this);
+        if (_stunSeconds > 0f && target is Component targetComponent &&
+            target is ICharacter character && character.IsAlive)
+            targetComponent.GetComponent<EnemyStunNetworkEffect>()?.TryApply(_stunSeconds);
     }
 
 #if UNITY_EDITOR
@@ -173,6 +184,7 @@ public sealed class ChargeAbilityBehaviour : AbilityExecutionBehaviour
         _distance = Mathf.Max(0.01f, _distance);
         _speed = Mathf.Max(0.01f, _speed);
         _damage = Mathf.Max(0f, _damage);
+        _stunSeconds = Mathf.Max(0f, _stunSeconds);
         _knockbackForce = Mathf.Max(0f, _knockbackForce);
     }
 #endif

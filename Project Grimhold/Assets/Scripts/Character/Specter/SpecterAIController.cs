@@ -42,6 +42,7 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
         [Networked] public SpecterStateType CurrentState { get; set; }
         [Networked] public TickTimer StateTimer { get; set; }
         [Networked] public TickTimer ReactiveDisplacementTimer { get; set; }
+        [Networked] private NetworkBool ReactiveDisplacementPending { get; set; }
         [Networked] public Vector2 AttackTargetPosition { get; set; }
         [Networked] public Vector2 FacingDirection { get; set; }
         [Networked] public Vector2 HomeAreaPosition { get; set; }
@@ -52,6 +53,7 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
         private readonly Collider2D[] _scanHits = new Collider2D[16];
         private TickTimer _scanTimer;
         private EntityRegistry _entityRegistry;
+        private EnemyStunNetworkEffect _stun;
 
         public SpecterHateList HateList => _hateList;
 
@@ -79,6 +81,16 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
         public override void FixedUpdateNetwork()
         {
             if (!HasStateAuthority) return;
+            if (_stun != null && _stun.IsActive)
+            {
+                InterruptChannelForStun();
+                return;
+            }
+            if (ReactiveDisplacementPending)
+            {
+                ReactiveDisplacementPending = false;
+                TransitionTo(SpecterStateType.Desvanecimiento);
+            }
 
             switch (CurrentState)
             {
@@ -109,6 +121,14 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
                 case SpecterStateType.Muerte:
                     break;
             }
+        }
+
+        /// <summary>Cancel the telegraphed AoE without entering Detonacion. Presentation observes the new state.</summary>
+        internal void InterruptChannelForStun()
+        {
+            if (!HasStateAuthority || Runner == null || !Runner.IsSimulationUpdating || !Runner.IsForward) return;
+            if (CurrentState == SpecterStateType.Canalizacion)
+                TransitionTo(SpecterStateType.Persecucion);
         }
 
         public void TransitionTo(SpecterStateType newState)
@@ -175,7 +195,11 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
             if (SpecterRules.CanTriggerReactiveDisplacement(CurrentState, isMagic, isFatal, isCooldownActive))
             {
                 ReactiveDisplacementTimer = TickTimer.CreateFromSeconds(Runner, SpecterRules.ReactiveDisplacementCooldown);
-                TransitionTo(SpecterStateType.Desvanecimiento);
+                // Damage can arrive outside our FSM tick. Preserve the reaction without advancing while Stunned.
+                if (_stun != null && _stun.IsActive)
+                    ReactiveDisplacementPending = true;
+                else
+                    TransitionTo(SpecterStateType.Desvanecimiento);
             }
         }
 
@@ -526,6 +550,7 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
 
         private void CacheDependencies()
         {
+            if (_stun == null) _stun = GetComponent<EnemyStunNetworkEffect>();
             if (_character == null) _character = GetComponent<EnemyCharacter>();
             if (_movementMotor == null) _movementMotor = GetComponent<Kinematic2DMovementMotor>();
             if (_rigidbody == null) _rigidbody = GetComponent<Rigidbody2D>();

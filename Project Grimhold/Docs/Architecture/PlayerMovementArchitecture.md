@@ -1060,6 +1060,8 @@ No se modifica `PlayerMovementConfig.BaseSpeed` en runtime.
 
 ### 20.3 Stun o root
 
+Estado actual (TASK-220, TASK-284): la inmovilización de Trampa (`PlayerImmobilizationNetworkEffect`) y el Stun (`PlayerStunNetworkEffect`) son efectos concretos con su propio `[Networked]` deadline; `PlayerMovementNetworkController` los lee al calcular `canMove`, de modo que cualquiera de ellos anula el movimiento voluntario sin pisar al otro. El Stun además suprime Sprint y aim stance. Knockback y desplazamiento forzado siguen aplicándose. La máscara `PlayerMovementBlockReason` (§15) no se introdujo: cada causa conserva su propio estado y la combinación es un AND de lecturas.
+
 Componente afectado:
 
 - Estado de bloqueos autoritativos.

@@ -51,6 +51,29 @@ public sealed class PlayerAbilityRuntimeCompositionTests
             "Basic weapon attacks read the avatar's own Empower multiplier.");
     }
 
+    [Test]
+    public void ConsumableFailureCodes_StunDoesNotRenumberExistingCooldownProtocol()
+    {
+        Assert.That((byte)ConsumableFailureReason.CooldownActive, Is.EqualTo(13));
+        Assert.That((byte)ConsumableFailureReason.Stunned, Is.EqualTo(14));
+    }
+
+    [Test]
+    public void RaidAvatar_ComposesStunWithSameRootDependenciesAndPurificationLink()
+    {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/NetworkPlayer.prefab");
+        var effects = prefab.GetComponents<PlayerStunNetworkEffect>();
+        Assert.That(effects, Has.Length.EqualTo(1));
+        var effect = effects[0];
+        Assert.That(effect.IsOwnerConfigured, Is.True);
+        var serialized = new SerializedObject(effect);
+        Assert.That(serialized.FindProperty("_character").objectReferenceValue, Is.SameAs(prefab.GetComponent<PlayerCharacter>()));
+        Assert.That(serialized.FindProperty("_purificationEffect").objectReferenceValue, Is.SameAs(prefab.GetComponent<PurificationNetworkEffect>()));
+        Assert.That(serialized.FindProperty("_abilityRuntime").objectReferenceValue, Is.SameAs(prefab.GetComponent<PlayerAbilityRuntimeNetworkController>()));
+        Assert.That(new SerializedObject(prefab.GetComponent<PurificationNetworkEffect>()).FindProperty("_stunEffect").objectReferenceValue, Is.SameAs(effect));
+        Assert.That(prefab.GetComponent<NetworkObject>().NetworkedBehaviours, Does.Contain(effect));
+    }
+
     [TestCase(false, false, true)]
     [TestCase(true, false, false)]
     [TestCase(false, true, false)]

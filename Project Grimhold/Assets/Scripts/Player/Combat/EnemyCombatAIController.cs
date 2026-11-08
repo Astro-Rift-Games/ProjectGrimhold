@@ -25,6 +25,7 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
     [SerializeField]
     private EnemyMovementAIController _movementController;
 
+    private EnemyStunNetworkEffect _stun;
     private ICharacter _character;
     private IAttack _activeAttack;
     private EntityRegistry _entityRegistry;
@@ -104,6 +105,12 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
     {
         if (!_dependenciesValid || !HasStateAuthority)
         {
+            return;
+        }
+
+        if (_stun != null && _stun.IsActive)
+        {
+            ClearPendingDamage();
             return;
         }
 
@@ -362,6 +369,7 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
 
     private void CacheDependencies()
     {
+        if (_stun == null) _stun = GetComponent<EnemyStunNetworkEffect>();
         if (_characterSource != null)
         {
             _character = _characterSource as ICharacter;
@@ -445,8 +453,16 @@ public sealed class EnemyCombatAIController : NetworkBehaviour, ICombatControlle
             damageable.CanReceiveDamage;
     }
 
+    /// <summary>Immediately discard wind-up and queued hit-frame damage on authoritative Stun application.</summary>
+    internal void CancelAttackForStun()
+    {
+        if (!HasStateAuthority || Runner == null || !Runner.IsSimulationUpdating || !Runner.IsForward) return;
+        ClearPendingDamage();
+    }
+
     private void ClearPendingDamage()
     {
+        _executeAttackNextTick = false;
         _hasPendingDamage = false;
         _pendingTargetId = default;
     }

@@ -122,6 +122,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
 
     private bool _dependenciesValid;
     private CharacterBase _characterBase;
+    private EnemyStunNetworkEffect _stun;
     private EntityRegistry _entityRegistry;
     private EnemyObstacleAvoidance _obstacleAvoidance;
 
@@ -326,6 +327,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
 
         // Update sensor flags exactly once per tick; FSM states read the results.
         EvaluateSensors();
+        bool stunned = _stun != null && _stun.IsActive;
 
         Vector2 moveDirection = ComputeMoveDirection();
 
@@ -334,7 +336,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
         // zeroes only the voluntary displacement below: the knockback block stays untouched, and attacking never
         // reads this value. Feeding it into canMove also makes an attacking, held enemy keep facing its target
         // (UpdateFacingDirection) and stops pursuit facing from following a path it cannot walk.
-        bool canMove = IsControlEnabled && isAlive && !IsImmobilized;
+        bool canMove = IsControlEnabled && isAlive && !IsImmobilized && !stunned;
 
         UpdateFacingDirection(moveDirection, canMove, isAlive);
 
@@ -599,7 +601,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
         if (distance <= _attackRange)
         {
             _pursuitLostTickCount = 0;
-            IsAttacking = true;
+            IsAttacking = _stun == null || !_stun.IsActive;
             IsOnPursuit = true;
             return;
         }
@@ -941,6 +943,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
 
     private void CacheDependencies()
     {
+        if (_stun == null) _stun = GetComponent<EnemyStunNetworkEffect>();
         if (_movementMotor == null)
         {
             _movementMotor = GetComponent<Kinematic2DMovementMotor>();

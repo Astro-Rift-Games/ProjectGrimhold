@@ -86,7 +86,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: NetworkedBehaviours.Array.size
-      value: 16
+      value: 17
       objectReference: {fileID: 0}
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[1]'
@@ -147,6 +147,10 @@ PrefabInstance:
     - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: 'NetworkedBehaviours.Array.data[15]'
       value: 
+      objectReference: {fileID: 797900884149563479}
+    - target: {fileID: 3593981370069743005, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: 'NetworkedBehaviours.Array.data[16]'
+      value:
       objectReference: {fileID: 142597065861624644}
     - target: {fileID: 3762208006993684416, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: m_Enabled
@@ -158,7 +162,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3762208006993684416, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: _renderers.Array.size
-      value: 1
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3988879926097982634, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
       propertyPath: _activeAttackSource
@@ -328,6 +332,10 @@ PrefabInstance:
       propertyPath: m_Offset.y
       value: 0.013802648
       objectReference: {fileID: 0}
+    - target: {fileID: 3762208006993684416, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+      propertyPath: _renderers.Array.data[1]
+      value:
+      objectReference: {fileID: 9184000000000000003}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -345,6 +353,17 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 8975162442718285891}
   m_SourcePrefab: {fileID: 100100000, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+--- !u!114 &797900884149563479 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8438860284276217493, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+  m_PrefabInstance: {fileID: 9083316348198315714}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4804307104267446646}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eafa8878b7e27eb4da9a8164e3cbed86, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyStunNetworkEffect
 --- !u!114 &891880241507861125 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: -977575455703964601, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
@@ -579,3 +598,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ba6e9ecc0c8b7a941af085f53dd307e5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DamageResolver
+--- !u!212 &9184000000000000003 stripped
+SpriteRenderer:
+  m_CorrespondingSourceObject: {fileID: 9184000000000000003, guid: be065b8028b5c3446a4e981ab29a28a1, type: 3}
+  m_PrefabInstance: {fileID: 9083316348198315714}
+  m_PrefabAsset: {fileID: 0}

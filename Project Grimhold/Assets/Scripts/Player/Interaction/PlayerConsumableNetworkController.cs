@@ -164,6 +164,11 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
             _confirmations.Enqueue(new Confirmation(-1, false, ConsumableFailureReason.Downed));
             return false;
         }
+        if (PlayerStunGate.IsStunned(_character))
+        {
+            _confirmations.Enqueue(new Confirmation(-1, false, ConsumableFailureReason.Stunned));
+            return false;
+        }
         if (HasRequestInFlight || IsConsuming)
         {
             _confirmations.Enqueue(new Confirmation(-1, false, ConsumableFailureReason.ConsumptionInProgress));
@@ -224,7 +229,7 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
         if (IsConsuming)
         {
             if (!IsGameplayPhaseActive() || _character == null || !_character.IsAlive ||
-                PlayerDownedGate.IsDowned(_character) ||
+                PlayerDownedGate.IsDowned(_character) || PlayerStunGate.IsStunned(_character) ||
                 _extraction != null && _extraction.State == ExtractionState.Extracted)
             {
                 CancelConsumption();
@@ -389,6 +394,7 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
         if (!_dependenciesValid || !IsGameplayPhaseActive()) return ConsumableFailureReason.TargetUnavailable;
         if (_character == null || !_character.IsAlive) return ConsumableFailureReason.TargetDead;
         if (PlayerDownedGate.IsDowned(_character)) return ConsumableFailureReason.Downed;
+        if (PlayerStunGate.IsStunned(_character)) return ConsumableFailureReason.Stunned;
         if (_abilityRuntime != null && _abilityRuntime.HasActiveExecution) return ConsumableFailureReason.AbilityInProgress;
         if (IsConsuming) return ConsumableFailureReason.ConsumptionInProgress;
         if (_extraction != null && _extraction.State == ExtractionState.Extracted) return ConsumableFailureReason.TargetUnavailable;

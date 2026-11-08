@@ -33,6 +33,7 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
     private PlayerStaminaNetworkController _staminaController;
     private PlayerConsumableNetworkController _consumableController;
     private PlayerInteractionNetworkController _interactionController;
+    private PlayerStunNetworkEffect _stunEffect;
 
     [SerializeField]
     private PlayerManaNetworkController _manaController;
@@ -56,6 +57,20 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
     public float VisionRadiusMultiplier => _passiveEffectsController != null ? _passiveEffectsController.VisionRadiusMultiplier : 1f;
 
     public bool IsConsuming => _consumableController != null && _consumableController.IsConsuming;
+
+    /// <summary>True while the authoritative, replicated Stun is active (false while Downed or defeated).</summary>
+    public bool IsStunned => _stunEffect != null && _stunEffect.IsActive;
+
+    /// <summary>
+    /// State Authority only. Ends the running consumable, lockpicking and assisted revive when an incapacitating
+    /// state starts; ability executions are interrupted separately by their runtime. Nothing resumes afterwards.
+    /// </summary>
+    public void InterruptActionsOnIncapacitation()
+    {
+        _consumableController?.CancelConsumption();
+        _interactionController?.CancelLockpicking();
+        PlayerReviveGate.InterruptIfReviving(this);
+    }
     public float ConsumableMovementSpeedMultiplier =>
         _consumableController != null && _consumableController.IsConsuming
             ? _consumableController.VoluntaryMovementSpeedMultiplier
@@ -592,6 +607,7 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
     {
         _consumableController = GetComponent<PlayerConsumableNetworkController>();
         _interactionController = GetComponent<PlayerInteractionNetworkController>();
+        _stunEffect = GetComponent<PlayerStunNetworkEffect>();
         if (_corpseGenerationController == null)
         {
             _corpseGenerationController = GetComponent<PlayerCorpseGenerationController>();

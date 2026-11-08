@@ -34,6 +34,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
 
     private bool _dependenciesValid;
     private PlayerImmobilizationNetworkEffect _immobilizationEffect;
+    private PlayerStunNetworkEffect _stunEffect;
 
     [Networked] public int SprintRejectedSequence { get; private set; }
     [Networked] private NetworkBool SprintRejectionReported { get; set; }
@@ -192,6 +193,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
         // A Self-revive channel locks voluntary movement; the session is networked, so this is resimulation-safe.
         bool canMove = gameplayPhaseActive && IsControlEnabled && isAlive &&
             (_immobilizationEffect == null || !_immobilizationEffect.IsActive) &&
+            (_stunEffect == null || !_stunEffect.IsActive) &&
             (_downedRecovery == null || !_downedRecovery.IsSelfReviveChanneling);
 
         // Downed is networked state, so reading it here stays resimulation-safe.
@@ -291,7 +293,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
             isAlive,
             isDowned,
             HasActiveShield());
-        aimStanceAccepted &= !PlayerConsumptionGate.IsConsuming(_characterBase);
+        aimStanceAccepted &= !isConsuming && (_stunEffect == null || !_stunEffect.IsActive);
         AimStanceStartTick = AimStanceDraw.NextStartTick(AimStanceStartTick, aimStanceAccepted, (int)Runner.Tick);
         IsAimStance = aimStanceAccepted;
 
@@ -555,6 +557,7 @@ public sealed class PlayerMovementNetworkController : NetworkBehaviour, IMovemen
     private void CacheDependencies()
     {
         _immobilizationEffect = GetComponent<PlayerImmobilizationNetworkEffect>();
+        _stunEffect = GetComponent<PlayerStunNetworkEffect>();
         if (_movementMotor == null)
         {
             _movementMotor =

@@ -174,7 +174,8 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour, IAfte
             return;
         }
 
-        if (_character == null || !_character.IsAlive || (PlayerDownedGate.IsDowned(_character) || PlayerConsumptionGate.IsConsuming(_character)) ||
+        if (_character == null || !_character.IsAlive || (PlayerDownedGate.IsDowned(_character) ||
+            PlayerConsumptionGate.IsConsuming(_character) || PlayerStunGate.IsStunned(_character)) ||
             (_abilityRuntime != null && _abilityRuntime.HasActiveExecution) ||
             (_extractionController != null && _extractionController.State == ExtractionState.Extracted))
         {
@@ -248,7 +249,7 @@ public sealed class PlayerInteractionNetworkController : NetworkBehaviour, IAfte
         LockpickChannelRules.IsValidDuration(_lockpickDurationSeconds) &&
         (_matchController == null || _matchController.Phase == NetworkMatchController.MatchPhase.InProgress) &&
         _character != null && _character.IsAlive && !PlayerDownedGate.IsDowned(_character) &&
-        !PlayerConsumptionGate.IsConsuming(_character) &&
+        !PlayerConsumptionGate.IsConsuming(_character) && !PlayerStunGate.IsStunned(_character) &&
         (_abilityRuntime == null || !_abilityRuntime.HasActiveExecution) &&
         (_combat == null || (!_combat.IsExecutingWeaponAttack && !_combat.HasPendingAttackRelease)) &&
         (_downedRecovery == null || (!_downedRecovery.HasValidSession && !_downedRecovery.IsRevivingAnotherAvatar)) &&
