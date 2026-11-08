@@ -4,32 +4,192 @@
 
 Release: Unreleased
 
-85 original commits; 85 canonical entries.
+86 original commits; 86 canonical entries.
 
 ## Canonical classification
 
-49 features; 21 bug fixes; 1 refactoring; 7 documentation; 2 tests; 3 maintenance; 2 other changes
+50 features; 21 bug fixes; 1 refactoring; 7 documentation; 2 tests; 3 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Abilities | 5 | 6 | 1 | 0 | 2 | 1 |
+| Abilities | 6 | 6 | 1 | 0 | 2 | 1 |
 | Art & Animation | 9 | 7 | 1 | 0 | 4 | 0 |
 | Audio | 5 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 29 | 13 | 1 | 0 | 4 | 2 |
-| Combat | 31 | 4 | 0 | 0 | 5 | 0 |
-| Documentation | 22 | 8 | 0 | 0 | 4 | 0 |
+| Build & Tooling | 30 | 13 | 1 | 0 | 4 | 2 |
+| Combat | 32 | 4 | 0 | 0 | 5 | 0 |
+| Documentation | 23 | 8 | 0 | 0 | 4 | 0 |
 | Extraction | 7 | 2 | 0 | 0 | 2 | 0 |
 | Input | 1 | 0 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 40 | 18 | 1 | 0 | 6 | 1 |
-| Movement | 3 | 0 | 0 | 0 | 0 | 0 |
+| Inventory & Loot | 41 | 18 | 1 | 0 | 6 | 1 |
+| Movement | 4 | 0 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 13 | 6 | 0 | 0 | 1 | 0 |
 | Persistence & Backend | 16 | 6 | 0 | 0 | 2 | 0 |
-| Tests | 48 | 18 | 1 | 0 | 5 | 0 |
-| UI | 22 | 5 | 1 | 0 | 4 | 0 |
+| Tests | 49 | 18 | 1 | 0 | 5 | 0 |
+| UI | 23 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
 | World & Visibility | 14 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 7c36b1a544a5d3f727e00b74b5738139ae3c1e4a
+
+[7c36b1a544a5d3f727e00b74b5738139ae3c1e4a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7c36b1a544a5d3f727e00b74b5738139ae3c1e4a)
+
+Date: 2026-11-07T22:30:20-03:00 · Classification: Features (explicit) · Systems: Combat, Abilities, Movement, Inventory & Loot, UI, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(abilities): add authoritative Stun for players and creatures
+```
+
+#### Original body
+
+```text
+Add a networked, State Authority-owned Stun for player avatars and
+hostile creatures, apply it from Charge (Embestida) impacts and make it
+a purifiable state (TASK-284).
+
+- PlayerStunNetworkEffect holds a copied ExpiryTimer; reapplication
+  replaces it. Applying it interrupts active abilities with
+  AbilityExecutionStopReason.Stun (no cost/cooldown refund) and ends
+  the running consumable, lockpicking and assisted revive. Purification
+  protection refuses it; Downed or defeat clears it.
+- PlayerStunGate joins the existing Downed/consumption choke points:
+  ability start, weapon attacks, shield, Weapon Set change, consumables
+  (new ConsumableFailureReason.Stunned = 14), interaction and loot
+  drop/split/transfer. Voluntary movement, Sprint and aim stance are
+  suppressed; knockback and forced displacement still apply.
+- Purification reports and purges Stun; a Stunned caster is rejected
+  by the common start gate while an ally's Purification removes it.
+- EnemyStunNetworkEffect on every enemy prefab blocks voluntary
+  movement and attacks and cancels the queued hit. The Specter cancels
+  an active channel without detonating, returns to Persecucion and
+  defers reactive displacement until the Stun ends.
+- Charge applies a configurable Stun (_stunSeconds, default 1 s, 0
+  disables) to the hit creature after damage when it survives.
+- IStunStatus exposes IsActive/RemainingSeconds for HUD and a
+  provisional StunStatusIndicatorPresenter shows a yellow marker.
+- Prefabs composed with minimal YAML edits.
+
+Tests: player Stun gates, interruption, expiry, protection and
+Purification (SupportAbilitiesPlayModeTests); enemy/Specter Stun and
+indicator (ImmobilizeEffectPlayModeTests); Charge Stun
+(ChargeAbilityPlayModeTests); prefab composition
+(PlayerAbilityRuntimeCompositionTests, AbilityEnemyTargetMarkerTests).
+
+Docs: AbilitySystemArchitecture (Stun section, Charge, Purification)
+and PlayerMovementArchitecture §20.3; execution tracked in
+odd/tasks/task-284-stun.md.
+
+Player-Added: Charge now stuns the enemy it hits for a moment, stopping it from moving or attacking and cancelling the Specter's area attack.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Prefabs/Enemies/NetworkEnemy.prefab
+Project Grimhold/Assets/Prefabs/Enemies/NetworkEnemyRanged.prefab
+Project Grimhold/Assets/Prefabs/Enemies/NetworkEnemySpecter.prefab
+Project Grimhold/Assets/Prefabs/Enemies/Slimes/BlueSlime.prefab
+Project Grimhold/Assets/Prefabs/Enemies/Slimes/GreenSlime.prefab
+Project Grimhold/Assets/Prefabs/Enemies/Slimes/RedSlime.prefab
+Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab
+Project Grimhold/Assets/Scripts/Abilities/Behaviours/ChargeAbilityBehaviour.cs
+Project Grimhold/Assets/Scripts/Abilities/Behaviours/PurificationAbilityBehaviour.cs
+Project Grimhold/Assets/Scripts/Abilities/Effects/EnemyStunNetworkEffect.cs
+Project Grimhold/Assets/Scripts/Abilities/Effects/EnemyStunNetworkEffect.cs.meta
+Project Grimhold/Assets/Scripts/Abilities/Effects/IStunStatus.cs
+Project Grimhold/Assets/Scripts/Abilities/Effects/IStunStatus.cs.meta
+Project Grimhold/Assets/Scripts/Abilities/Effects/PlayerStunNetworkEffect.cs
+Project Grimhold/Assets/Scripts/Abilities/Effects/PlayerStunNetworkEffect.cs.meta
+Project Grimhold/Assets/Scripts/Abilities/Effects/PurificationNetworkEffect.cs
+Project Grimhold/Assets/Scripts/Abilities/Runtime/PlayerAbilityRuntimeNetworkController.cs
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterAIController.cs
+Project Grimhold/Assets/Scripts/Gameplay/Consumables/ConsumableFailureReason.cs
+Project Grimhold/Assets/Scripts/Player/Combat/EnemyCombatAIController.cs
+Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Combat/PlayerShieldDefenseNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInteractionNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootDropNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootSplitNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootTransferNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Movement/EnemyMovementAIController.cs
+Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs
+Project Grimhold/Assets/Scripts/Player/PlayerStunGate.cs
+Project Grimhold/Assets/Scripts/Player/PlayerStunGate.cs.meta
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidHudPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/StunStatusIndicatorPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/StunStatusIndicatorPresenter.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/AbilityEnemyTargetMarkerTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/PlayerAbilityRuntimeCompositionTests.cs
+Project Grimhold/Assets/Tests/PlayMode/ChargeAbilityPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/ImmobilizeEffectPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/SupportAbilitiesPlayModeTests.cs
+Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md
+Project Grimhold/Docs/Architecture/PlayerMovementArchitecture.md
+odd/tasks/task-284-stun.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Combat/EnemyCombatAIController.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Combat/PlayerShieldDefenseNetworkController.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs
+- message-term → Combat: weapon
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Behaviours/ChargeAbilityBehaviour.cs
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Behaviours/PurificationAbilityBehaviour.cs
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Effects/EnemyStunNetworkEffect.cs
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Effects/EnemyStunNetworkEffect.cs.meta
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Effects/IStunStatus.cs
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Effects/IStunStatus.cs.meta
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Effects/PlayerStunNetworkEffect.cs
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Effects/PlayerStunNetworkEffect.cs.meta
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Effects/PurificationNetworkEffect.cs
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Runtime/PlayerAbilityRuntimeNetworkController.cs
+- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/AbilityEnemyTargetMarkerTests.cs
+- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/PlayerAbilityRuntimeCompositionTests.cs
+- path → Abilities: Project Grimhold/Assets/Tests/PlayMode/ChargeAbilityPlayModeTests.cs
+- path → Abilities: Project Grimhold/Assets/Tests/PlayMode/SupportAbilitiesPlayModeTests.cs
+- path → Abilities: Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md
+- scope → Abilities: abilities
+- message-term → Abilities: abilities
+- path → Movement: Project Grimhold/Assets/Scripts/Player/Movement/EnemyMovementAIController.cs
+- path → Movement: Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs
+- path → Movement: Project Grimhold/Docs/Architecture/PlayerMovementArchitecture.md
+- message-term → Movement: movement
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInteractionNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootDropNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootSplitNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootTransferNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
+- message-term → Inventory &amp; Loot: interaction
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidHudPresenter.cs
+- message-term → UI: HUD
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/AbilityEnemyTargetMarkerTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/PlayerAbilityRuntimeCompositionTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/PlayerMovementArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/AbilityEnemyTargetMarkerTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/PlayerAbilityRuntimeCompositionTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/ChargeAbilityPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/ImmobilizeEffectPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/SupportAbilitiesPlayModeTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 93e9bcb3b91e96a60a1df5f6e50c01ec9eeb732f
 

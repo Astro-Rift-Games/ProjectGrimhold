@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 957,
-  "canonicalEntries": 954,
+  "rawCommits": 958,
+  "canonicalEntries": 955,
   "before": {
-    "Features": 367,
+    "Features": 368,
     "Bug Fixes": 99,
     "Other Changes": 354,
     "Architecture & Infrastructure": 15,
@@ -12,7 +12,7 @@
     "Refactoring": 14
   },
   "after": {
-    "Features": 504,
+    "Features": 505,
     "Bug Fixes": 115,
     "Other Changes": 164,
     "Maintenance": 14,
@@ -23,26 +23,26 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Combat": 352,
-    "Inventory & Loot": 380,
+    "Combat": 353,
+    "Abilities": 120,
+    "Movement": 92,
+    "Inventory & Loot": 381,
+    "UI": 297,
+    "Build & Tooling": 486,
+    "Documentation": 373,
+    "Tests": 589,
     "Networking & Sessions": 274,
-    "UI": 296,
     "World & Visibility": 127,
     "Persistence & Backend": 209,
-    "Build & Tooling": 485,
-    "Documentation": 372,
-    "Tests": 588,
     "Extraction": 130,
     "Art & Animation": 228,
-    "Abilities": 119,
     "Input": 29,
     "Unassigned": 20,
-    "Audio": 33,
-    "Movement": 91
+    "Audio": 33
   },
   "canonical": {
     "sections": {
-      "Features": 503,
+      "Features": 504,
       "Bug Fixes": 114,
       "Other Changes": 163,
       "Maintenance": 14,
@@ -52,22 +52,22 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "Combat": 350,
-      "Inventory & Loot": 380,
+      "Combat": 351,
+      "Abilities": 118,
+      "Movement": 92,
+      "Inventory & Loot": 381,
+      "UI": 296,
+      "Build & Tooling": 484,
+      "Documentation": 371,
+      "Tests": 587,
       "Networking & Sessions": 274,
-      "UI": 295,
       "World & Visibility": 125,
       "Persistence & Backend": 209,
-      "Build & Tooling": 483,
-      "Documentation": 370,
-      "Tests": 586,
       "Extraction": 130,
       "Art & Animation": 225,
-      "Abilities": 117,
       "Input": 29,
       "Unassigned": 20,
-      "Audio": 33,
-      "Movement": 91
+      "Audio": 33
     }
   },
   "unknownEntries": [
@@ -34196,8 +34196,8 @@
       "title": "2026-11 — Unreleased history",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 85,
-      "canonicalEntries": 85
+      "originalCommits": 86,
+      "canonicalEntries": 86
     },
     {
       "key": "history-2026-10",
@@ -34233,6 +34233,317 @@
     }
   ],
   "commits": [
+    {
+      "sha": "7c36b1a544a5d3f727e00b74b5738139ae3c1e4a",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7c36b1a544a5d3f727e00b74b5738139ae3c1e4a",
+      "subject": "feat(abilities): add authoritative Stun for players and creatures",
+      "body": "Add a networked, State Authority-owned Stun for player avatars and\nhostile creatures, apply it from Charge (Embestida) impacts and make it\na purifiable state (TASK-284).\n\n- PlayerStunNetworkEffect holds a copied ExpiryTimer; reapplication\n  replaces it. Applying it interrupts active abilities with\n  AbilityExecutionStopReason.Stun (no cost/cooldown refund) and ends\n  the running consumable, lockpicking and assisted revive. Purification\n  protection refuses it; Downed or defeat clears it.\n- PlayerStunGate joins the existing Downed/consumption choke points:\n  ability start, weapon attacks, shield, Weapon Set change, consumables\n  (new ConsumableFailureReason.Stunned = 14), interaction and loot\n  drop/split/transfer. Voluntary movement, Sprint and aim stance are\n  suppressed; knockback and forced displacement still apply.\n- Purification reports and purges Stun; a Stunned caster is rejected\n  by the common start gate while an ally's Purification removes it.\n- EnemyStunNetworkEffect on every enemy prefab blocks voluntary\n  movement and attacks and cancels the queued hit. The Specter cancels\n  an active channel without detonating, returns to Persecucion and\n  defers reactive displacement until the Stun ends.\n- Charge applies a configurable Stun (_stunSeconds, default 1 s, 0\n  disables) to the hit creature after damage when it survives.\n- IStunStatus exposes IsActive/RemainingSeconds for HUD and a\n  provisional StunStatusIndicatorPresenter shows a yellow marker.\n- Prefabs composed with minimal YAML edits.\n\nTests: player Stun gates, interruption, expiry, protection and\nPurification (SupportAbilitiesPlayModeTests); enemy/Specter Stun and\nindicator (ImmobilizeEffectPlayModeTests); Charge Stun\n(ChargeAbilityPlayModeTests); prefab composition\n(PlayerAbilityRuntimeCompositionTests, AbilityEnemyTargetMarkerTests).\n\nDocs: AbilitySystemArchitecture (Stun section, Charge, Purification)\nand PlayerMovementArchitecture §20.3; execution tracked in\nodd/tasks/task-284-stun.md.\n\nPlayer-Added: Charge now stuns the enemy it hits for a moment, stopping it from moving or attacking and cancelling the Specter's area attack.\n",
+      "date": "2026-11-07T22:30:20-03:00",
+      "files": [
+        "Project Grimhold/Assets/Prefabs/Enemies/NetworkEnemy.prefab",
+        "Project Grimhold/Assets/Prefabs/Enemies/NetworkEnemyRanged.prefab",
+        "Project Grimhold/Assets/Prefabs/Enemies/NetworkEnemySpecter.prefab",
+        "Project Grimhold/Assets/Prefabs/Enemies/Slimes/BlueSlime.prefab",
+        "Project Grimhold/Assets/Prefabs/Enemies/Slimes/GreenSlime.prefab",
+        "Project Grimhold/Assets/Prefabs/Enemies/Slimes/RedSlime.prefab",
+        "Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab",
+        "Project Grimhold/Assets/Scripts/Abilities/Behaviours/ChargeAbilityBehaviour.cs",
+        "Project Grimhold/Assets/Scripts/Abilities/Behaviours/PurificationAbilityBehaviour.cs",
+        "Project Grimhold/Assets/Scripts/Abilities/Effects/EnemyStunNetworkEffect.cs",
+        "Project Grimhold/Assets/Scripts/Abilities/Effects/EnemyStunNetworkEffect.cs.meta",
+        "Project Grimhold/Assets/Scripts/Abilities/Effects/IStunStatus.cs",
+        "Project Grimhold/Assets/Scripts/Abilities/Effects/IStunStatus.cs.meta",
+        "Project Grimhold/Assets/Scripts/Abilities/Effects/PlayerStunNetworkEffect.cs",
+        "Project Grimhold/Assets/Scripts/Abilities/Effects/PlayerStunNetworkEffect.cs.meta",
+        "Project Grimhold/Assets/Scripts/Abilities/Effects/PurificationNetworkEffect.cs",
+        "Project Grimhold/Assets/Scripts/Abilities/Runtime/PlayerAbilityRuntimeNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterAIController.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/Consumables/ConsumableFailureReason.cs",
+        "Project Grimhold/Assets/Scripts/Player/Combat/EnemyCombatAIController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Combat/PlayerShieldDefenseNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInteractionNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootDropNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootSplitNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootTransferNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Movement/EnemyMovementAIController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerStunGate.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerStunGate.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidHudPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/StunStatusIndicatorPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/StunStatusIndicatorPresenter.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/AbilityEnemyTargetMarkerTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/PlayerAbilityRuntimeCompositionTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/ChargeAbilityPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/ImmobilizeEffectPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/SupportAbilitiesPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md",
+        "Project Grimhold/Docs/Architecture/PlayerMovementArchitecture.md",
+        "odd/tasks/task-284-stun.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "abilities",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Abilities",
+        "Movement",
+        "Inventory & Loot",
+        "UI",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Combat/EnemyCombatAIController.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerCombatNetworkController.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerShieldDefenseNetworkController.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Behaviours/ChargeAbilityBehaviour.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Behaviours/PurificationAbilityBehaviour.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Effects/EnemyStunNetworkEffect.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Effects/EnemyStunNetworkEffect.cs.meta",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Effects/IStunStatus.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Effects/IStunStatus.cs.meta",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Effects/PlayerStunNetworkEffect.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Effects/PlayerStunNetworkEffect.cs.meta",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Effects/PurificationNetworkEffect.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Runtime/PlayerAbilityRuntimeNetworkController.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/AbilityEnemyTargetMarkerTests.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/PlayerAbilityRuntimeCompositionTests.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/ChargeAbilityPlayModeTests.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/SupportAbilitiesPlayModeTests.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "scope",
+          "value": "abilities",
+          "supports": "Abilities"
+        },
+        {
+          "source": "message-term",
+          "value": "abilities",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Movement/EnemyMovementAIController.cs",
+          "supports": "Movement"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Movement/PlayerMovementNetworkController.cs",
+          "supports": "Movement"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerMovementArchitecture.md",
+          "supports": "Movement"
+        },
+        {
+          "source": "message-term",
+          "value": "movement",
+          "supports": "Movement"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInteractionNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootDropNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootSplitNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootTransferNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "interaction",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidHudPresenter.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "HUD",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/AbilityEnemyTargetMarkerTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/PlayerAbilityRuntimeCompositionTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/PlayerMovementArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/AbilityEnemyTargetMarkerTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/PlayerAbilityRuntimeCompositionTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/ChargeAbilityPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/ImmobilizeEffectPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/SupportAbilitiesPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "93e9bcb3b91e96a60a1df5f6e50c01ec9eeb732f",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/93e9bcb3b91e96a60a1df5f6e50c01ec9eeb732f",
