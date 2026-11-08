@@ -1231,7 +1231,7 @@ MonoBehaviour:
   m_Intensity: 1
   m_LightVolumeIntensity: 1
   m_LightVolumeEnabled: 0
-  m_ApplyToSortingLayers: 00000000692b1ddf19eeebdb49cf5e26
+  m_ApplyToSortingLayers: 00000000692b1ddf19eeebdb49cf5e26i
   m_LightCookieSprite: {fileID: 0}
   m_DeprecatedPointLightCookieSprite: {fileID: 0}
   m_LightOrder: 0
@@ -1246,6 +1246,9 @@ MonoBehaviour:
   m_ShadowSoftnessFalloffIntensity: 0.5
   m_ShadowVolumeIntensityEnabled: 0
   m_ShadowVolumeIntensity: 0.75
+  m_RenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
   m_LocalBounds:
     m_Center: {x: 0, y: -0.00000011920929, z: 0}
     m_Extent: {x: 0.9985302, y: 0.99853027, z: 0}
@@ -1706,11 +1709,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1616410886425643938, guid: 681869ae7696cbc46904e4fc80906b92, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -3
+      value: 0.59
       objectReference: {fileID: 0}
     - target: {fileID: 1616410886425643938, guid: 681869ae7696cbc46904e4fc80906b92, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.76
+      value: -3.64
       objectReference: {fileID: 0}
     - target: {fileID: 1616410886425643938, guid: 681869ae7696cbc46904e4fc80906b92, type: 3}
       propertyPath: m_LocalPosition.z
@@ -1822,11 +1825,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1616410886425643938, guid: ff9ee426f3c453a4b9cdb2dc46288fd4, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -6
+      value: -11.89
       objectReference: {fileID: 0}
     - target: {fileID: 1616410886425643938, guid: ff9ee426f3c453a4b9cdb2dc46288fd4, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.76
+      value: 2.74
       objectReference: {fileID: 0}
     - target: {fileID: 1616410886425643938, guid: ff9ee426f3c453a4b9cdb2dc46288fd4, type: 3}
       propertyPath: m_LocalPosition.z
