@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 960,
-  "canonicalEntries": 957,
+  "rawCommits": 961,
+  "canonicalEntries": 958,
   "before": {
-    "Features": 369,
+    "Features": 370,
     "Architecture & Infrastructure": 16,
     "Bug Fixes": 99,
     "Other Changes": 354,
@@ -12,7 +12,7 @@
     "Refactoring": 14
   },
   "after": {
-    "Features": 506,
+    "Features": 507,
     "Maintenance": 15,
     "Bug Fixes": 115,
     "Other Changes": 164,
@@ -23,17 +23,17 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Build & Tooling": 488,
-    "Documentation": 374,
+    "Inventory & Loot": 382,
+    "Networking & Sessions": 275,
+    "UI": 298,
+    "Persistence & Backend": 210,
+    "Build & Tooling": 489,
+    "Documentation": 375,
+    "Tests": 590,
     "Abilities": 121,
     "Combat": 353,
     "Movement": 92,
-    "Inventory & Loot": 381,
-    "UI": 297,
-    "Tests": 589,
-    "Networking & Sessions": 274,
     "World & Visibility": 127,
-    "Persistence & Backend": 209,
     "Extraction": 130,
     "Art & Animation": 228,
     "Input": 29,
@@ -42,7 +42,7 @@
   },
   "canonical": {
     "sections": {
-      "Features": 505,
+      "Features": 506,
       "Maintenance": 15,
       "Bug Fixes": 114,
       "Other Changes": 163,
@@ -52,17 +52,17 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
-      "Build & Tooling": 486,
-      "Documentation": 372,
+      "Inventory & Loot": 382,
+      "Networking & Sessions": 275,
+      "UI": 297,
+      "Persistence & Backend": 210,
+      "Build & Tooling": 487,
+      "Documentation": 373,
+      "Tests": 588,
       "Abilities": 119,
       "Combat": 351,
       "Movement": 92,
-      "Inventory & Loot": 381,
-      "UI": 296,
-      "Tests": 587,
-      "Networking & Sessions": 274,
       "World & Visibility": 125,
-      "Persistence & Backend": 209,
       "Extraction": 130,
       "Art & Animation": 225,
       "Input": 29,
@@ -34196,8 +34196,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 83,
-      "canonicalEntries": 83
+      "originalCommits": 84,
+      "canonicalEntries": 84
     },
     {
       "key": "v0.5.0",
@@ -34241,6 +34241,138 @@
     }
   ],
   "commits": [
+    {
+      "sha": "bde28bdcc1ef55562950e5f7c7562740f17b7d5e",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/bde28bdcc1ef55562950e5f7c7562740f17b7d5e",
+      "subject": "feat(town): lock build, equipment and stash while Ready",
+      "body": "Ready now locks the exact prepared Town build (Game Design 02 §7.2)\nuntil the player returns to NotReady. Quick Slot bindings and Stash\nSort stay available.\n\n- TownRaidPreparationRules.CanMutateTownBuild is the single rule: only\n  a Waiting member who is not Ready may change the build; a frozen\n  launch, a non-member or an invalid snapshot stays locked.\n  TownEquipmentMutationGate delegates to it for every Town screen.\n- LobbyStashPresenter refuses transfers, drags, splits, gem installs\n  and Equipment changes while locked, closes Take All/Leave All, shows\n  a persistent locked line and reopens as soon as Ready is cleared.\n- The attribute panel marks \"Locked while Ready\" and follows the gate\n  while open (e.g. a Host cancel resetting Ready).\n\nTown inventory is written through LocalProfileStore and the backend\nHTTP clients, not Fusion RPCs, so the lock lives at the client\nmutation endpoints; backend enforcement is a follow-up.\n\nTests:\n- TownRaidPreparationRulesTests: Ready lock/unlock, per-member scope,\n  non-member, invalid and frozen snapshots.\n- TownAttributeAssignmentPresentationTests: IsBuildLocked.\n- LobbyStashPresenterPlayModeTests: Ready blocks every transfer, shows\n  the locked line, keeps Sort, NotReady restores transfers.\n\nDocs: TownRaidQueueArchitecture.md documents the Ready build lock.\n\nRefs: TASK-266\nPlayer-Improved: While you are Ready in Town your build, equipment and Stash are locked with a clear notice, and your Quick Slots can still be rearranged.\n",
+      "date": "2026-11-07T23:08:42-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationRules.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownAttributeAssignmentPresentation.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownAttributeAssignmentPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownAttributeAssignmentView.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownEquipmentMutationGate.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidPreparationRulesTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/TownAttributeAssignmentPresentationTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md",
+        "odd/tasks/task-284-stun.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "town",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/TownEquipmentMutationGate.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationRules.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidPreparationRulesTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidPreparationRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/TownAttributeAssignmentPresentationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidPreparationRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/TownAttributeAssignmentPresentationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "d074a912f9b0012a63ae2f255f4da93177155bff",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d074a912f9b0012a63ae2f255f4da93177155bff",

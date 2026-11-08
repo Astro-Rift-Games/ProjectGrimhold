@@ -26,6 +26,7 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - Activating a Rune Compass now projects a dynamic celestial needle sprite that stays pointed toward the nearest Extraction Sanctuary in real time as you move.
 - Consumables and utilities have distinct world sprites and inventory icons.
 - Inventory item icons and labels are easier to read.
+- While you are Ready in Town your build, equipment and Stash are locked with a clear notice, and your Quick Slots can still be rearranged.
 
 ### Fixed
 
