@@ -2,13 +2,14 @@
 /// <summary>
 /// Pure construction of the synthetic player the ability sandbox runs on. The profile is fixed and
 /// deterministic: a dedicated identity, every attribute at <see cref="AttributeValue"/>, every catalog
-/// ability unlocked, empty stash and loadout, and the configured recovery weapon prepared so the raid
+/// ability unlocked, empty stash and loadout, and an explicit training weapon prepared so the raid
 /// admission accepts it. It is only ever held by an <see cref="InMemoryLocalProfileRepository"/>, so
 /// nothing is read from or written to a real profile, to disk, or to the backend.
 /// </summary>
 public static class SandboxTestProfile
 {
     public const string ProfileIdValue = "sandbox-test-player";
+    public static LootId WeaponId => new LootId("training_short_sword");
 
     /// <summary>High enough that no ability or weapon attribute requirement can fail.</summary>
     public const int AttributeValue = 30;
@@ -19,7 +20,7 @@ public static class SandboxTestProfile
 
     public static bool TryCreateSnapshot(
         AbilityDefinitionCatalog abilityCatalog,
-        LootId recoveryWeaponLootId,
+        LootId weaponLootId,
         out LocalProfileSnapshot snapshot,
         out string error)
     {
@@ -32,9 +33,9 @@ public static class SandboxTestProfile
             return false;
         }
 
-        if (!recoveryWeaponLootId.IsValid)
+        if (!weaponLootId.IsValid)
         {
-            error = "No recovery weapon is configured, so the test player cannot be admitted to a raid.";
+            error = "No sandbox weapon was selected, so the test player cannot be admitted to a raid.";
             return false;
         }
 
@@ -50,7 +51,7 @@ public static class SandboxTestProfile
         {
             ProfileId = Id,
             CharacterAttributes = attributes,
-            PreparedEquipment = new PreparedEquipmentLoadout(recoveryWeaponLootId, default)
+            PreparedEquipment = new PreparedEquipmentLoadout(weaponLootId, default)
         };
 
         foreach (AbilityDefinition definition in abilityCatalog.Definitions)
@@ -79,7 +80,7 @@ public static class SandboxTestProfile
             return false;
         }
 
-        if (!TryCreateSnapshot(abilityCatalog, configuration.RecoveryWeaponLootId, out LocalProfileSnapshot snapshot, out error))
+        if (!TryCreateSnapshot(abilityCatalog, WeaponId, out LocalProfileSnapshot snapshot, out error))
         {
             return false;
         }
@@ -95,7 +96,6 @@ public static class SandboxTestProfile
             repository,
             Id,
             configuration.LootCatalog,
-            configuration.RecoveryWeaponLootId,
             configuration.MissionCatalog,
             abilityCatalog);
         return true;

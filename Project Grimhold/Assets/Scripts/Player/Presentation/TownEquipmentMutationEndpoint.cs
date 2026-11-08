@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using Grimhold.Backend;
 
 /// <summary>
 /// Adapts Town Equipment intentions to the application Loadout service. It keeps preparation
@@ -32,7 +34,20 @@ public sealed class TownEquipmentMutationEndpoint : ITownEquipmentMutationEndpoi
         _profileId = profileId;
     }
 
-    public bool CanMutate => _canMutate();
+    public delegate Task<(bool success, TrainingWeaponResult data, BackendError error)> TrainingWeaponBackend(TrainingWeaponRequest request);
+    private TrainingWeaponBackend _trainingBackend;
+    private LocalProfileStore _trainingStore;
+    private Func<Task<bool>> _reconcile;
+    public bool IsTrainingWeaponRequestInFlight { get; private set; }
+
+    public void BindTrainingBackend(LocalProfileStore store, TrainingWeaponBackend backend, Func<Task<bool>> reconcile = null)
+    {
+        _trainingStore = store;
+        _trainingBackend = backend;
+        _reconcile = reconcile;
+    }
+
+    public bool CanMutate => !IsTrainingWeaponRequestInFlight && _canMutate();
 
     public bool CanEquip(LootId lootId, EquipmentSlot slot)
     {
@@ -82,6 +97,71 @@ public sealed class TownEquipmentMutationEndpoint : ITownEquipmentMutationEndpoi
             _onMutated?.Invoke();
         }
         return result;
+    }
+
+    public async Task<StashOperationResult> RequestTrainingWeaponAsync(LootId trainingWeaponId, EquipmentSlot targetSlot = EquipmentSlot.None)
+    {
+        if (!CanMutate || !TryResolveDefinition(trainingWeaponId, out var definition) || !definition.IsTrainingWeapon ||
+            (targetSlot != EquipmentSlot.None && targetSlot != EquipmentSlot.WeaponSetAMainHand && targetSlot != EquipmentSlot.WeaponSetBMainHand))
+            return StashOperationResult.InvalidInventory;
+        if (_trainingStore == null || _trainingBackend == null || !_trainingStore.IsAvailable)
+            return StashOperationResult.PersistenceFailed;
+        if (_trainingStore.ProfileId != _profileId || _trainingStore.RequiresEquipmentHydration)
+            return StashOperationResult.InvalidInventory;
+        if (_trainingStore.PendingReservation != null) return StashOperationResult.ReservationPending;
+
+        IsTrainingWeaponRequestInFlight = true;
+        try
+        {
+            int revision = _trainingStore.RemoteRevision;
+            var response = await _trainingBackend(new TrainingWeaponRequest
+            {
+                weaponId = trainingWeaponId.Value, expectedRevision = revision,
+                destinationSlot = targetSlot == EquipmentSlot.WeaponSetAMainHand ? "weaponSlot1" :
+                    targetSlot == EquipmentSlot.WeaponSetBMainHand ? "weaponSlot2" : ""
+            });
+            if (!response.success)
+            {
+                // A stale revision or unknown outcome needs authoritative reconciliation, not a POST replay.
+                // Keep the busy gate held until the refresh finishes.
+                if (response.error.error == "REVISION_CONFLICT" || BackendErrorUtility.IsTransportFailure(response.error.error) ||
+                    string.IsNullOrEmpty(response.error.error) || response.error.error == "INVALID_INVENTORY")
+                    await ReconcileSafelyAsync();
+                if (response.error.error == BackendErrorUtility.Unauthorized)
+                    ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+                return response.error.error switch
+                {
+                    "RESERVATION_PENDING" => StashOperationResult.ReservationPending,
+                    "INVENTORY_FULL" => StashOperationResult.InventoryFull,
+                    "REVISION_CONFLICT" or "VALIDATION_FAILED" or "INVENTORY_MIGRATION_REQUIRED" => StashOperationResult.InvalidInventory,
+                    _ => StashOperationResult.PersistenceFailed
+                };
+            }
+            var result = _trainingStore.ApplyConfirmedTrainingWeapon(response.data, revision);
+            if (result == StashOperationResult.Success) _onMutated?.Invoke();
+            else await ReconcileSafelyAsync();
+            return result;
+        }
+        catch (Exception exception)
+        {
+            UnityEngine.Debug.LogWarning($"[TownEquipmentMutationEndpoint] No se pudo confirmar el arma: {exception.Message}");
+            await ReconcileSafelyAsync();
+            return StashOperationResult.PersistenceFailed;
+        }
+        finally { IsTrainingWeaponRequestInFlight = false; }
+    }
+
+    private async Task ReconcileSafelyAsync()
+    {
+        try
+        {
+            if (_reconcile == null || !await _reconcile())
+                UnityEngine.Debug.LogWarning("[TownEquipmentMutationEndpoint] No se pudo actualizar el inventario autoritativo.");
+        }
+        catch (Exception exception)
+        {
+            UnityEngine.Debug.LogWarning($"[TownEquipmentMutationEndpoint] Falló la actualización autoritativa: {exception.Message}");
+        }
     }
 
     private bool TryResolveDefinition(LootId lootId, out LootDefinition definition)

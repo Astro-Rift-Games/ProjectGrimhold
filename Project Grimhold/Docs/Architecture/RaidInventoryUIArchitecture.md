@@ -252,9 +252,8 @@ moves or changes.
 
 `Assets/Prefabs/UI/GemInstallConfirmation.prefab` is authored once and nested independently in
 `RaidInventoryUI.prefab` and `StashInventory.prefab`. Its gem-specific view references `Modal`,
-`Modal/Message`, `Modal/Confirm` and `Modal/Cancel`. Opening selects Cancel. It borrows the recovery
-consent visual structure, not its coordinator or behavior; `Systems.prefab` and
-`RecoveryWeaponConsentView` are unchanged. The existing screen feedback channels show selection,
+`Modal/Message`, `Modal/Confirm` and `Modal/Cancel`. Opening selects Cancel. It borrowed the visual structure of the former recovery
+consent modal (removed by TASK-278), not its coordinator or behavior. The existing screen feedback channels show selection,
 pending, success and refusal messages; no cells or modal hierarchy are generated at runtime.
 
 Confirmation captures both list/slot addresses, backend weapon instance ID, gem LootId, expected

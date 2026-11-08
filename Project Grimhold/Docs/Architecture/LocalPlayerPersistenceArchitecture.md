@@ -434,37 +434,31 @@ default, clamp or normalize the state supplied by the current profile source.
 
 ### Expedition preparation boundary
 
-`TryPrepareExpeditionEquipment` runs immediately before the reservation boundary and is the only
-place that may normalize the local Loadout and prepared Equipment. Only the weapon guarantee is
-normalized: prepared armor is optional, is never granted and is never rewritten. It is atomic,
-deterministic and idempotent, so retrying a launch never grants or duplicates anything:
+`TryPrepareExpeditionEquipment` is a read-only gate used by Town Ready and immediately before
+reservation. It never grants, moves or equips an item. Prepared armor remains optional and untouched.
+This rule supersedes the recovery-weapon contract under TASK-278 L20/L22 (GD Doc 04 §13 / Doc 09 §15):
 
 * A valid weapon in Set A Main Hand is left untouched and commits nothing.
 * When only Set B Main Hand is occupied, preparation leaves both Sets unchanged and admission marks
   Set B active.
-* When no weapon is prepared, Town grants exactly one configured recovery weapon
-  (`LocalProfilePersistenceConfiguration.RecoveryWeaponLootId`), reusing a unit the profile
-  already owns before requesting a backend-issued plain fallback instance
-  ([Item Instances §§1, 4.4](ItemInstanceArchitecture.md#44-plain-instances)). Unity never issues an
-  instance ID; the later training-weapon task is not redesigned here. Without that configuration
-  preparation is rejected as `RecoveryWeaponUnavailable`; it never falls back to another weapon.
+* With no usable equipped weapon, preparation returns `PreparedWeaponRequired` before any
+  reservation. Town directs the player to equip a weapon or ask the Trainer for a training weapon.
+  Training weapons count as valid weapons. Owned `arming_sword` units in Stash or Loadout are not
+  automatically equipped; `arming_sword` remains a normal lootable weapon.
 * A persisted assignment that no longer resolves to a usable weapon fails explicitly as
   `InvalidPreparedWeapon` without mutating the aggregate. Corruption is never overwritten and
   never hidden behind a recovery grant.
 * A prepared weapon whose requirements exceed the confirmed attributes fails explicitly as
   `AttributeRequirementsNotMet`; no assignment, ownership or reservation state is changed.
 
-Owned recovery units are selected from Loadout before Stash, at the lowest physical slot within
-that source; assignment preserves the exact instance ID, modifiers and gem sockets. When strict-v3
-ownership contains no reusable unit, the consented Town stage issues one reservation POST with a
-stable reservation ID, then fetches full revision-consistent inventory and progression. It validates
-the frozen launch, consent, profile and Store binding around awaits and persists through the real
-repository before publishing a ticket or ACK. A partial POST response is never a profile snapshot,
-and Unity never fabricates an instance ID or admits an ID-less fallback. The Town controller resumes
-pending local materialization on its main-thread Render path even when SnapshotRevision is unchanged;
-that continuation does not advance the frozen launch revision and ACKs once per launch.
-
-Raid never grants a recovery weapon. Preparation is inert while a reservation is pending.
+The Trainer issues the selected training weapon through the authoritative backend endpoint;
+Unity hydrates the backend-issued instance rather than minting identity. The normal reservation
+path carries exactly the equipped selection and its modifiers into admission, without substitution.
+There is no recovery configuration, consent modal or networked consent phase. A backend reservation
+rejection `409 PREPARED_WEAPON_REQUIRED` maps to the same Trainer-directed notice without retry.
+The Town controller resumes pending local materialization on Render and does not ACK until the
+normal reservation save succeeds. Preparation validates reserved equipment when a reservation is
+already pending, without changing ownership. Raid never grants an automatic weapon.
 
 ### Loadout reservation boundary
 
@@ -518,8 +512,7 @@ a pending extraction commit keeps its retry path. Previously admission deleted t
 reservation, which made every player-hosted extraction publish fail with `NO_ACTIVE_RESERVATION`
 and left the backend Loadout empty for the next Raid.
 
-Recovery-grant cancellation and failed Raid startup use guarded rollback before exposing recovered
-Town ownership or replacing the Town runner. `DELETE /character/me/inventory/reservation?rollback=true`
+The backend retains guarded reservation rollback support for callers that supply a reservation ID. `DELETE /character/me/inventory/reservation?rollback=true`
 accepts optional `expectedReservationId` (query, or request body when omitted from the query). It must
 be a 1–128 character identifier containing only letters, digits, `_` or `-`; invalid values return
 `400 VALIDATION_FAILED`. A different active ID returns `409 RESERVATION_MISMATCH` without writes.
@@ -528,13 +521,11 @@ cannot be deleted; a failed atomic match returns `409 REVISION_CONFLICT`. Guarde
 reservations are read-only, making repeated cleanup harmless. Omitted-ID callers retain the legacy
 rollback/clear behavior, including its revision semantics; admitted-reservation protections remain.
 
-Unity waits for the original POST before guarded cleanup and reuses one cleanup task per launch.
-After a successful or ambiguous DELETE it reads the full inventory/progression authority, verifies
-matching revisions, no pending reservation and the unchanged profile/Store binding, then hydrates
-and persists that aggregate before allowing a subsequent launch. Explicit ownership/auth rejection,
-partial reads, binding drift and repository refusal fail closed without publishing recovered state.
-The restored aggregate, not the local rollback planner or the DELETE response, owns exact instances,
-slots, modifiers and progression. Unrelated local-only fields retain normal hydration preservation.
+TASK-278 removes the recovery-grant-specific Unity cleanup stage. Ordinary pre-admission
+cancellation and failed-start rollback retain the normal reservation path described above;
+automatic recovery grants and their consent bindings no longer exist. Full inventory/progression
+reconciliation remains the authoritative hydration boundary for ordinary inventory reconciliation
+and extraction completion.
 
 ### Extraction boundary
 

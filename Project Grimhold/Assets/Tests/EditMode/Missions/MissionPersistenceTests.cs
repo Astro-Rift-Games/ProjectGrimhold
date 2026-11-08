@@ -244,7 +244,7 @@ public class MissionPersistenceTests
         snapshot.ActiveMissions.Add(new MissionInstanceState(new MissionId("mission_03"), MissionState.Abandonada));
         repository.TrySave(snapshot, out _);
 
-        var store = new LocalProfileStore(repository, profileId, null, default, catalog);
+        var store = new LocalProfileStore(repository, profileId, missionCatalog: catalog);
 
         // Act: accept a 4th mission — should succeed because the previous 3 are terminal
         var result = store.TryAcceptMission(missions[3]);

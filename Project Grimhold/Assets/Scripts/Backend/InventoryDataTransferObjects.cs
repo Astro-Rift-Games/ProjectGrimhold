@@ -133,6 +133,24 @@ namespace Grimhold.Backend
     // Outbound DTOs (requests to the backend)
     // ---------------------------------------------------------------------------
 
+    [Serializable]
+    public struct TrainingWeaponResult
+    {
+        public PreparedEquipmentData preparedEquipment;
+        public InventoryItemData[] stash;
+        public InventoryItemData[] loadout;
+        public int revision;
+    }
+
+    /// <summary>Training grants contain intentions only; instance IDs are issued by the backend.</summary>
+    [Serializable]
+    public struct TrainingWeaponRequest
+    {
+        public string weaponId;
+        public string destinationSlot;
+        public int expectedRevision;
+    }
+
     /// <summary>Body for move-to-loadout and move-to-stash operations.</summary>
     [Serializable]
     public struct MoveItemRequest

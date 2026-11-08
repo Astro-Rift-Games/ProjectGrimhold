@@ -21,8 +21,11 @@ containers or corpses. This document is the technical contract for that split.
 | Raid transport of modifiers, extraction re-issue | Server-side Raid registry, signed host results |
 | Buy-back disabled for equipment | Buy-back redesign (Game Design follow-up) |
 
-Training weapons for players entering a Raid without a weapon belong to a separate task; until it
-lands, the existing `arming_sword` fallback is issued as a plain instance (§4.4).
+TASK-278 L20/L22 supersedes the `arming_sword` recovery fallback: there is no automatic weapon
+grant or auto-equip at Ready/launch (GD Doc 04 §13 / Doc 09 §15). The Trainer provides the chosen
+training weapon as a backend-issued instance. Ready requires a valid equipped weapon; training
+weapons count, and reservation/admission retain that exact selection and its modifiers. Owned
+`arming_sword` remains normal equipment and is never substituted for the selected training weapon.
 
 ## 2. Model
 

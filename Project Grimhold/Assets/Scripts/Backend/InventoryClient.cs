@@ -22,6 +22,12 @@ namespace Grimhold.Backend
 
     public static class InventoryClient
     {
+        /// <summary>Requests a backend-issued training weapon and the resulting authoritative inventory.</summary>
+        public static Task<(bool success, TrainingWeaponResult data, BackendError error)> RequestTrainingWeaponAsync(
+            BackendConfiguration config, string token, TrainingWeaponRequest body) =>
+            PostJson<TrainingWeaponRequest, TrainingWeaponResult>(config, token,
+                $"{config.BaseUrl}/character/me/inventory/training-weapon", body);
+
         /// <summary>Installs one gem remotely; callers must confirm before invoking and apply only the returned snapshot.</summary>
         public static Task<(bool success, MoveItemResult data, BackendError error)> InstallGemAsync(
             BackendConfiguration config, string token, InstallGemRequest body)

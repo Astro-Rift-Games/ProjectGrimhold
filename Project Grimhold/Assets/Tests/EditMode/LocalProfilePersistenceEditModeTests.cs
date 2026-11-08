@@ -380,13 +380,9 @@ public sealed class LocalProfilePersistenceEditModeTests
         Assert.That(store.GetPreparedEquipment().WeaponSetBMainHand, Is.EqualTo(sword));
     }
 
-    // Mirrors LocalProfilePersistenceConfiguration.RecoveryWeaponLootId.
-    private const string ConfiguredRecoveryWeapon = "arming_sword";
-
     private LocalProfileStore CreatePreparedStore(
         string profileValue,
-        out InMemoryLocalProfileRepository repository,
-        bool withRecoveryPolicy)
+        out InMemoryLocalProfileRepository repository)
     {
         var profile = new ProfileId(profileValue);
         repository = new InMemoryLocalProfileRepository();
@@ -394,30 +390,24 @@ public sealed class LocalProfilePersistenceEditModeTests
         return new LocalProfileStore(
             repository,
             profile,
-            _catalog,
-            withRecoveryPolicy ? new LootId(ConfiguredRecoveryWeapon) : default);
+            _catalog);
     }
 
     [Test]
-    public void Configuration_ShippedRecoveryWeaponResolvesToAUsableWeapon()
+    public void Configuration_DoesNotConfigureAnAutomaticWeapon()
     {
         var configuration = AssetDatabase.LoadAssetAtPath<LocalProfilePersistenceConfiguration>(
             "Assets/Resources/LocalProfilePersistenceConfiguration.asset");
         Assert.That(configuration, Is.Not.Null);
-        Assert.That(configuration.RecoveryWeaponLootId.Value, Is.EqualTo(ConfiguredRecoveryWeapon));
-        Assert.That(
-            PreparedEquipmentLoadout.IsUsableWeaponDefinition(
-                configuration.RecoveryWeaponLootId,
-                configuration.LootCatalog),
-            Is.True,
-            "Town cannot guarantee a recovery weapon that the catalog does not resolve.");
+        using var serialized = new SerializedObject(configuration);
+        Assert.That(serialized.FindProperty("_recoveryWeaponLootId"), Is.Null);
     }
 
     [Test]
     public void Store_PreparationKeepsAValidEffectiveWeaponUntouched()
     {
-        LocalProfileStore store = CreatePreparedStore("41414141414141414141414141414141", out _, true);
-        LootId sword = new(ConfiguredRecoveryWeapon);
+        LocalProfileStore store = CreatePreparedStore("41414141414141414141414141414141", out _);
+        LootId sword = new("arming_sword");
         Assert.That(store.TryImportItems(new[] { new StashItem(sword, 1) }), Is.EqualTo(StashOperationResult.Success));
         Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, sword), Is.EqualTo(StashOperationResult.Success));
         int commits = 0;
@@ -433,8 +423,8 @@ public sealed class LocalProfilePersistenceEditModeTests
     [Test]
     public void Store_PreparationPreservesTheOnlyOccupiedWeaponSet()
     {
-        LocalProfileStore store = CreatePreparedStore("42424242424242424242424242424242", out _, true);
-        LootId sword = new(ConfiguredRecoveryWeapon);
+        LocalProfileStore store = CreatePreparedStore("42424242424242424242424242424242", out _);
+        LootId sword = new("arming_sword");
         Assert.That(store.TryImportItems(new[] { new StashItem(sword, 1) }), Is.EqualTo(StashOperationResult.Success));
         Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetBMainHand, sword), Is.EqualTo(StashOperationResult.Success));
 
@@ -446,22 +436,22 @@ public sealed class LocalProfilePersistenceEditModeTests
     }
 
     [Test]
-    public void Store_PreparationWithoutRecoveryConfigurationIsRejectedWithoutMutation()
+    public void Store_PreparationWithoutEquippedWeaponIsRejectedWithoutMutation()
     {
-        LocalProfileStore store = CreatePreparedStore("43434343434343434343434343434343", out _, false);
+        LocalProfileStore store = CreatePreparedStore("43434343434343434343434343434343", out _);
         int commits = 0;
         store.ProfileCommitted += _ => commits++;
 
         Assert.That(
             store.TryPrepareExpeditionEquipment(),
-            Is.EqualTo(ExpeditionPreparationResult.RecoveryWeaponUnavailable));
+            Is.EqualTo(ExpeditionPreparationResult.PreparedWeaponRequired));
 
         Assert.That(commits, Is.Zero);
         Assert.That(store.GetLoadout(), Is.Empty);
         Assert.That(store.GetPreparedEquipment().HasAnyWeapon, Is.False);
         // The domain invariant still rejects the reservation.
         LogAssert.Expect(UnityEngine.LogType.Error,
-            "[LocalProfileStore] TryCreateLoadoutReservation failed. Validation failed: At least one prepared Main Hand weapon is required.");
+            "[LocalProfileStore] TryCreateLoadoutReservation failed. Validation failed: At least one prepared weapon is required.");
         Assert.That(
             store.TryCreateLoadoutReservation("no-weapon", out PendingLoadoutReservation reservation),
             Is.EqualTo(StashOperationResult.InvalidInventory));
@@ -469,37 +459,38 @@ public sealed class LocalProfilePersistenceEditModeTests
     }
 
     [Test]
-    public void Store_PreparationGrantsTheConfiguredRecoveryWeaponExactlyOnce()
+    public void Store_WeaponlessPreparationNeverGrantsAWeaponEvenOnRetry()
     {
-        LocalProfileStore store = CreatePreparedStore("44444444444444444444444444444444", out _, true);
-        LootId recovery = new(ConfiguredRecoveryWeapon);
-
-        Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.Success));
-        Assert.That(store.GetLoadout(), Is.Empty);
-        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(recovery));
-
+        LocalProfileStore store = CreatePreparedStore("44444444444444444444444444444444", out _);
         int commits = 0;
         store.ProfileCommitted += _ => commits++;
-        Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.Success));
-        Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.Success));
-
-        Assert.That(commits, Is.Zero, "Retrying a launch must not re-grant the recovery weapon.");
+        for (int i = 0; i < 3; i++)
+            Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.PreparedWeaponRequired));
+        Assert.That(commits, Is.Zero);
+        Assert.That(store.PendingReservation, Is.Null);
+        Assert.That(store.GetPreparedEquipment().HasAnyEquipment, Is.False);
+        Assert.That(store.GetStash(), Is.Empty);
         Assert.That(store.GetLoadout(), Is.Empty);
     }
 
-    [Test]
-    public void Store_PreparationReusesAnOwnedRecoveryUnitBeforeGrantingAnother()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Store_PreparationNeverAutoEquipsOwnedArmingSword(bool inStash)
     {
-        LocalProfileStore store = CreatePreparedStore("45454545454545454545454545454545", out _, true);
-        LootId recovery = new(ConfiguredRecoveryWeapon);
-        Assert.That(store.TryImportItems(new[] { new StashItem(recovery, 1) }), Is.EqualTo(StashOperationResult.Success));
-        Assert.That(store.TryTransferToStash(recovery, 1), Is.EqualTo(StashOperationResult.Success));
-        Assert.That(store.GetStash(), Is.EquivalentTo(new[] { new StashItem(recovery, 1, 0) }));
-
-        Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.Success));
-
-        Assert.That(store.GetLoadout(), Is.Empty);
-        Assert.That(store.GetStash(), Is.Empty, "The owned unit moved instead of a new one being granted.");
+        LocalProfileStore store = CreatePreparedStore("45454545454545454545454545454545", out _);
+        LootId sword = new("arming_sword");
+        Assert.That(store.TryImportItems(new[] { new StashItem(sword, 1) }), Is.EqualTo(StashOperationResult.Success));
+        if (inStash)
+            Assert.That(store.TryTransferToStash(sword, 1), Is.EqualTo(StashOperationResult.Success));
+        int commits = 0;
+        store.ProfileCommitted += _ => commits++;
+        Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.PreparedWeaponRequired));
+        Assert.That(store.GetPreparedEquipment().HasAnyEquipment, Is.False);
+        Assert.That(store.PendingReservation, Is.Null);
+        Assert.That(commits, Is.Zero);
+        Assert.That(inStash ? store.GetStash() : store.GetLoadout(),
+            Is.EquivalentTo(new[] { new StashItem(sword, 1, 0) }));
+        Assert.That(inStash ? store.GetLoadout() : store.GetStash(), Is.Empty);
     }
 
     [Test]
@@ -507,8 +498,7 @@ public sealed class LocalProfilePersistenceEditModeTests
     {
         LocalProfileStore store = CreatePreparedStore(
             "46464646464646464646464646464646",
-            out InMemoryLocalProfileRepository repository,
-            true);
+            out InMemoryLocalProfileRepository repository);
         LocalProfileSnapshot corrupted = repository.Snapshot.Clone();
         corrupted.Loadout.Add(new StashItem(new LootId("bone"), 1));
         // "bone" is owned but is not a Weapon: a reference no preparation may silently overwrite.
@@ -529,8 +519,8 @@ public sealed class LocalProfilePersistenceEditModeTests
     [Test]
     public void Store_PreparationKeepsBothSlotsAndQuantitiesForTheSameWeapon()
     {
-        LocalProfileStore store = CreatePreparedStore("47474747474747474747474747474747", out _, true);
-        LootId sword = new(ConfiguredRecoveryWeapon);
+        LocalProfileStore store = CreatePreparedStore("47474747474747474747474747474747", out _);
+        LootId sword = new("arming_sword");
         Assert.That(store.TryImportItems(new[] { new StashItem(sword, 2) }), Is.EqualTo(StashOperationResult.Success));
         Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, sword), Is.EqualTo(StashOperationResult.Success));
         Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetBMainHand, sword), Is.EqualTo(StashOperationResult.Success));
@@ -543,11 +533,12 @@ public sealed class LocalProfilePersistenceEditModeTests
     }
 
     [Test]
-    public void Store_PreparedRecoveryProfileProducesAReservationCarryingInventoryAndEquipment()
+    public void Store_PreparedProfileProducesAReservationCarryingInventoryAndEquipment()
     {
-        LocalProfileStore store = CreatePreparedStore("48484848484848484848484848484848", out _, true);
-        LootId recovery = new(ConfiguredRecoveryWeapon);
-        Assert.That(store.TryImportItems(new[] { new StashItem(new LootId("bone"), 3) }), Is.EqualTo(StashOperationResult.Success));
+        LocalProfileStore store = CreatePreparedStore("48484848484848484848484848484848", out _);
+        LootId recovery = new("arming_sword");
+        Assert.That(store.TryImportItems(new[] { new StashItem(new LootId("bone"), 3), new StashItem(recovery, 1) }), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, recovery), Is.EqualTo(StashOperationResult.Success));
         Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.Success));
 
         Assert.That(

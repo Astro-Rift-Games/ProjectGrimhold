@@ -220,14 +220,14 @@ public sealed class DevelopmentProfileBootstrapTests
     [Test]
     public void Prepare_FailingLoadoutPreparationReturnsLoadoutNotLaunchable()
     {
-        var loadout = new FakeLoadoutService(ExpeditionPreparationResult.RecoveryWeaponUnavailable);
+        var loadout = new FakeLoadoutService(ExpeditionPreparationResult.PreparedWeaponRequired);
         var environment = new FakeDevelopmentProfileEnvironment { LoadoutService = loadout };
 
         DirectRaidDevelopmentPreparationResult result = DirectRaidDevelopmentPreparation.Prepare(
             true, true, "host", environment, out _, out ExpeditionPreparationResult loadoutPreparation);
 
         Assert.That(result, Is.EqualTo(DirectRaidDevelopmentPreparationResult.LoadoutNotLaunchable));
-        Assert.That(loadoutPreparation, Is.EqualTo(ExpeditionPreparationResult.RecoveryWeaponUnavailable));
+        Assert.That(loadoutPreparation, Is.EqualTo(ExpeditionPreparationResult.PreparedWeaponRequired));
     }
 
     // --- DirectRaidDevelopmentPreparation.Prepare: happy path + determinism ---
@@ -316,7 +316,7 @@ public sealed class DevelopmentProfileBootstrapTests
     }
 
     [Test]
-    public void Prepare_ThroughRealBoundary_ReservationCarriesConfiguredRecoveryWeapon()
+    public void Prepare_ThroughRealBoundary_ReservationCarriesExplicitTrainingWeapon()
     {
         (FakeDevelopmentProfileEnvironment environment, IPlayerLoadoutService loadoutService) = CreateRealEnvironment();
 
@@ -328,11 +328,11 @@ public sealed class DevelopmentProfileBootstrapTests
             loadoutService.TryCreateLoadoutReservation(profileId, "reservation-1", out PendingLoadoutReservation reservation),
             Is.EqualTo(StashOperationResult.Success));
         Assert.That(reservation, Is.Not.Null);
-        Assert.That(reservation.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(_configuration.RecoveryWeaponLootId));
+        Assert.That(reservation.PreparedEquipment.WeaponSetAMainHand.Value, Is.EqualTo("training_short_sword"));
     }
 
     [Test]
-    public void Prepare_SecondDirectRaidAfterConfirmGrantsRecoveryWeaponAgain()
+    public void Prepare_SecondDirectRaidAfterConfirmRequiresAnotherExplicitWeapon()
     {
         (FakeDevelopmentProfileEnvironment environment, IPlayerLoadoutService loadoutService) = CreateRealEnvironment();
 
@@ -343,7 +343,7 @@ public sealed class DevelopmentProfileBootstrapTests
         Assert.That(
             loadoutService.TryCreateLoadoutReservation(profileId, "reservation-1", out PendingLoadoutReservation firstReservation),
             Is.EqualTo(StashOperationResult.Success));
-        Assert.That(firstReservation.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(_configuration.RecoveryWeaponLootId));
+        Assert.That(firstReservation.PreparedEquipment.WeaponSetAMainHand.Value, Is.EqualTo("training_short_sword"));
         Assert.That(
             loadoutService.TryConfirmLoadoutReservation(profileId, "reservation-1"),
             Is.EqualTo(StashOperationResult.Success));
@@ -352,14 +352,12 @@ public sealed class DevelopmentProfileBootstrapTests
         // confirmed (the prepared weapon was consumed, not restored).
         DirectRaidDevelopmentPreparationResult secondResult = DirectRaidDevelopmentPreparation.Prepare(
             true, true, "host", environment, out ProfileId secondProfile, out _);
-        Assert.That(secondResult, Is.EqualTo(DirectRaidDevelopmentPreparationResult.Prepared));
+        Assert.That(secondResult, Is.EqualTo(DirectRaidDevelopmentPreparationResult.LoadoutNotLaunchable));
         Assert.That(secondProfile, Is.EqualTo(profileId));
         Assert.That(environment.AssignProfileCallCount, Is.EqualTo(1), "The same dev profile is reused, never reassigned.");
 
-        Assert.That(
-            loadoutService.TryCreateLoadoutReservation(profileId, "reservation-2", out PendingLoadoutReservation secondReservation),
-            Is.EqualTo(StashOperationResult.Success));
-        Assert.That(secondReservation.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(_configuration.RecoveryWeaponLootId));
+        Assert.That(loadoutService.TryPrepareExpeditionLoadout(profileId),
+            Is.EqualTo(ExpeditionPreparationResult.PreparedWeaponRequired));
     }
 
     [Test]
@@ -412,9 +410,14 @@ public sealed class DevelopmentProfileBootstrapTests
             repository,
             devProfileId,
             _configuration.LootCatalog,
-            _configuration.RecoveryWeaponLootId,
             _configuration.MissionCatalog,
             _configuration.AbilityCatalog);
+
+        // This fixture explicitly equips a weapon; development launch no longer grants one.
+        Assert.That(store.TryImportItems(new[] { new StashItem(new LootId("training_short_sword"), 1) }),
+            Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, new LootId("training_short_sword")),
+            Is.EqualTo(StashOperationResult.Success));
 
         _serviceHost = new GameObject(nameof(DevelopmentProfileBootstrapTests));
         var loadoutService = _serviceHost.AddComponent<InMemoryPlayerLoadoutService>();

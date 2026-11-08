@@ -257,6 +257,9 @@ namespace Tests.PlayMode.Presentation
                 return StashOperationResult.Success;
             }
 
+            public System.Threading.Tasks.Task<StashOperationResult> RequestTrainingWeaponAsync(LootId trainingWeaponId, EquipmentSlot targetSlot = EquipmentSlot.None) =>
+                System.Threading.Tasks.Task.FromResult(CanMutate ? StashOperationResult.Success : StashOperationResult.InvalidInventory);
+
             public void PublishChange()
             {
                 Revision++;

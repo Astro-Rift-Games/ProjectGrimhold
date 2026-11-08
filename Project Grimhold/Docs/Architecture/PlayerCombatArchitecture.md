@@ -1209,9 +1209,13 @@ When player health drops to or below zero, a strict death/defeat pipeline is exe
 
 `Assets/Scriptable Objects/Loot/Definitions` contains one `LootDefinition` and one
 `WeaponDefinition` for each weapon currently represented in `Assets/Art/Weapons`. The Shield
-uses its own `ShieldDefinition`. Every identity is registered in `LootDefinitionCatalog` and is
-reachable through `DefaultLootContainerContentTable`; `arming_sword` is additionally the Town
-recovery weapon configured by `LocalProfilePersistenceConfiguration.RecoveryWeaponLootId`.
+uses its own `ShieldDefinition`. Normal weapon identities are registered in `LootDefinitionCatalog`
+and reachable through `DefaultLootContainerContentTable`; `arming_sword` remains normal loot.
+Training weapons are catalogued but not dungeon loot. The Trainer supplies the chosen training
+weapon, and Ready requires a valid equipped weapon (training or normal). No automatic weapon is
+granted or equipped at launch. This supersedes the recovery-weapon contract under TASK-278 L20/L22,
+following GD Doc 04 §13 / Doc 09 §15. Training short sword, dagger and wand are one-handed and share
+their family's Main/Off Hand animation sets; catalog validation includes all nine one-handed weapons.
 
 The base templates have no offensive scaling coefficient. Their configured requirements, damage,
 interval, range and Stamina cost are static playtest baselines. Weapon instances own scaling

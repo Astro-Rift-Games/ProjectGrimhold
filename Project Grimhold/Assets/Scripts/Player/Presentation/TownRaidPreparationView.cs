@@ -141,7 +141,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         WireButton(_createButton, () => CreateRequested?.Invoke(null));
         WireButton(_joinButton, () => Submit(JoinRequested));
         WireButton(_copyButton, CopyCode);
-        WireButton(_readyButton, () => ReadyRequested?.Invoke(!_localReady));
+        WireButton(_readyButton, RequestReady);
         WireButton(_startButton, () => StartRequested?.Invoke());
         WireButton(_leaveButton, RequestLeave);
         WireButton(_closeButton, RequestClose);
@@ -237,6 +237,23 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     }
 
     private bool CanToggleReady() => !_awaitingPartyCompletion || _localReady;
+
+    private void RequestReady()
+    {
+        if (!_localReady)
+        {
+            var coordinator = SessionConnectionCoordinator.Instance;
+            ExpeditionPreparationResult result = coordinator != null
+                ? coordinator.ValidateLocalExpeditionEquipment()
+                : ExpeditionPreparationResult.ProfileUnavailable;
+            if (result != ExpeditionPreparationResult.Success)
+            {
+                ShowPreparationRejected(result);
+                return;
+            }
+        }
+        ReadyRequested?.Invoke(!_localReady);
+    }
 
     public void Close()
     {
@@ -480,8 +497,8 @@ public sealed class TownRaidPreparationView : MonoBehaviour
             "La preparación de arma no es válida. Revisá tus Weapon Sets en el Stash.",
         ExpeditionPreparationResult.AttributeRequirementsNotMet =>
             "Tus atributos actuales no cumplen los requisitos del arma preparada.",
-        ExpeditionPreparationResult.RecoveryWeaponUnavailable =>
-            "No tenés ningún arma preparada y el arma base de recuperación no está configurada.",
+        ExpeditionPreparationResult.PreparedWeaponRequired =>
+            "Necesitás un arma equipada para salir de expedición. Pedile una al Entrenador.",
         ExpeditionPreparationResult.LoadoutFull =>
             "No hay espacio en el Loadout para preparar un arma.",
         ExpeditionPreparationResult.ReservationFailed =>
@@ -524,7 +541,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
             () => Submit(JoinRequested),
             out _);
         _copyButton = CreateButton("Copiar código", _panelRoot.transform, CopyCode, out _);
-        _readyButton = CreateButton("Ready", _panelRoot.transform, () => ReadyRequested?.Invoke(!_localReady), out _);
+        _readyButton = CreateButton("Ready", _panelRoot.transform, RequestReady, out _);
         _startButton = CreateButton("Iniciar raid", _panelRoot.transform, () => StartRequested?.Invoke(), out _);
         _leaveButton = CreateButton("Abandonar preparacion", _panelRoot.transform, RequestLeave, out _);
         _reconnectButton = CreateButton("Volver a la raid", _panelRoot.transform, () => ReconnectRequested?.Invoke(), out _);

@@ -368,12 +368,13 @@ namespace Tests.EditMode.Loot
         }
 
         [Test]
-        public void RecoveryConfiguration_UsesLootableArmingSword()
+        public void ArmingSword_RemainsLootableWithoutAutomaticRecoveryConfiguration()
         {
             LocalProfilePersistenceConfiguration configuration =
                 AssetDatabase.LoadAssetAtPath<LocalProfilePersistenceConfiguration>(RecoveryConfigurationPath);
             Assert.That(configuration, Is.Not.Null);
-            Assert.That(configuration.RecoveryWeaponLootId.Value, Is.EqualTo("arming_sword"));
+            using var serialized = new SerializedObject(configuration);
+            Assert.That(serialized.FindProperty("_recoveryWeaponLootId"), Is.Null);
             Assert.That(_catalog.TryGet("arming_sword", out _), Is.True);
 
             LootContainerContentTable table =
@@ -391,13 +392,14 @@ namespace Tests.EditMode.Loot
                 controller.layers.Single(layer => layer.name == "RightHand");
 
             Assert.That(controller.parameters.Any(parameter => parameter.name == "WeaponAnimationCategory"), Is.False);
-            AnimatorStateTransition route = attackLayer.stateMachine.anyStateTransitions.Single();
+            AnimatorStateTransition route = attackLayer.stateMachine.anyStateTransitions
+                .Single(transition => transition.destinationState != null && transition.destinationState.name == "Attack");
             Assert.That(route.destinationState.name, Is.EqualTo("Attack"));
             Assert.That(route.conditions.Any(condition => condition.parameter == "HasGenericAttack" &&
                 condition.mode == AnimatorConditionMode.If), Is.True);
             Assert.That(typeof(WeaponDefinition).Assembly.GetType("WeaponAnimationCategory"), Is.Null);
 
-            foreach (string id in WeaponIds)
+            foreach (string id in WeaponIds.Concat(TrainingWeaponIds))
             {
                 Assert.That(_catalog.TryGet(id, out LootDefinition definition), Is.True, id);
                 Assert.That(definition.WeaponDefinition.Presentation.HasGenericAttack, Is.True, id);
