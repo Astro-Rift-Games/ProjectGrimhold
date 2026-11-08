@@ -4,32 +4,296 @@
 
 Release: Unreleased
 
-81 original commits; 81 canonical entries.
+84 original commits; 84 canonical entries.
 
 ## Canonical classification
 
-48 features; 18 bug fixes; 1 refactoring; 7 documentation; 2 tests; 3 maintenance; 2 other changes
+48 features; 21 bug fixes; 1 refactoring; 7 documentation; 2 tests; 3 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 5 | 6 | 1 | 0 | 2 | 1 |
 | Art & Animation | 9 | 7 | 1 | 0 | 4 | 0 |
 | Audio | 5 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 28 | 10 | 1 | 0 | 4 | 2 |
-| Combat | 30 | 1 | 0 | 0 | 5 | 0 |
-| Documentation | 21 | 7 | 0 | 0 | 4 | 0 |
-| Extraction | 7 | 0 | 0 | 0 | 2 | 0 |
+| Build & Tooling | 28 | 13 | 1 | 0 | 4 | 2 |
+| Combat | 30 | 4 | 0 | 0 | 5 | 0 |
+| Documentation | 21 | 8 | 0 | 0 | 4 | 0 |
+| Extraction | 7 | 2 | 0 | 0 | 2 | 0 |
 | Input | 1 | 0 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 39 | 15 | 1 | 0 | 6 | 1 |
+| Inventory & Loot | 39 | 18 | 1 | 0 | 6 | 1 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 12 | 3 | 0 | 0 | 1 | 0 |
-| Persistence & Backend | 15 | 4 | 0 | 0 | 2 | 0 |
-| Tests | 47 | 15 | 1 | 0 | 5 | 0 |
+| Networking & Sessions | 12 | 6 | 0 | 0 | 1 | 0 |
+| Persistence & Backend | 15 | 6 | 0 | 0 | 2 | 0 |
+| Tests | 47 | 18 | 1 | 0 | 5 | 0 |
 | UI | 21 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
 | World & Visibility | 13 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 5ea17995d1b8a1f8c73b33240927566a884bd0ad
+
+[5ea17995d1b8a1f8c73b33240927566a884bd0ad](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5ea17995d1b8a1f8c73b33240927566a884bd0ad)
+
+Date: 2026-11-07T21:01:23-03:00 · Classification: Bug Fixes (explicit) · Systems: Combat, Extraction, Inventory & Loot, Networking & Sessions, Persistence & Backend, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(persistence): reserve recovery weapons and rehydrate extracted gear
+```
+
+#### Original body
+
+```text
+Two failures blocked the Town -> raid -> Town -> raid cycle.
+
+Recovery weapon: the weapon granted when none is equipped is now
+prepared with a backend-issued instance, waits for the backend
+reservation and a revision-consistent hydration, and is retired once
+the matching reservation is confirmed. Town preparation resumes a
+pending launch before its unchanged-revision early return, and rollback
+is guarded by the expected reservation ID in Unity and the backend.
+
+Extraction: Unity discarded the instance IDs the backend issues on the
+extraction commit, and the failed clear-pending write was ignored, so
+the next reservation rejected ID-free equipment. After a successful
+commit, the live path and the login retry fetch authoritative inventory
+and progression, and LocalProfileStore.TryCompleteExtractionCommit
+applies it and clears the pending extraction in one validated write.
+Failures keep the pending payload for retry; no IDs are fabricated.
+
+Tests:
+- RecoveryWeaponStrictRepositoryTests
+- PostExtractionRehydrationTests: success, write failure, missing
+  instance, revision mismatch, receipt, reservation and ack guards
+- backend inventory.reservation.test.js: guarded rollback
+
+Docs: LocalPlayerPersistenceArchitecture.md covers recovery
+reservation, guarded rollback, extraction acknowledgement and two known
+limitations left as follow-up.
+
+Player-Fixed: After extracting, you can start another raid without the loadout failing to reserve.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs
+Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs.meta
+Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs
+Project Grimhold/Assets/Scripts/Stash/ApplicationStashServiceBootstrapper.cs
+Project Grimhold/Assets/Scripts/Stash/IRecoveryWeaponReservationService.cs
+Project Grimhold/Assets/Scripts/Stash/IRecoveryWeaponReservationService.cs.meta
+Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+Project Grimhold/Assets/Scripts/Stash/ProfileReconciliationService.cs
+Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponAuthorityState.cs
+Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponAuthorityState.cs.meta
+Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PostExtractionRehydrationTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PostExtractionRehydrationTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs.meta
+Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+backend/src/routes/inventory.routes.js
+backend/src/services/InventoryService.js
+backend/tests/inventory.reservation.test.js
+odd/tasks/raid-admission-loadout-fix.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Combat: Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Stash/IRecoveryWeaponReservationService.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Stash/IRecoveryWeaponReservationService.cs.meta
+- path → Combat: Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponAuthorityState.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Stash/RecoveryWeaponAuthorityState.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs.meta
+- message-term → Combat: weapons
+- path → Extraction: Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs
+- path → Extraction: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PostExtractionRehydrationTests.cs
+- path → Extraction: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PostExtractionRehydrationTests.cs.meta
+- message-term → Extraction: Extraction
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+- path → Inventory &amp; Loot: backend/src/routes/inventory.routes.js
+- path → Inventory &amp; Loot: backend/src/services/InventoryService.js
+- path → Inventory &amp; Loot: backend/tests/inventory.reservation.test.js
+- message-term → Inventory &amp; Loot: equipment
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RecoveryWeaponReservationPreparation.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/ProfileReconciliationService.cs
+- path → Persistence &amp; Backend: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+- path → Persistence &amp; Backend: backend/src/routes/inventory.routes.js
+- path → Persistence &amp; Backend: backend/src/services/InventoryService.js
+- path → Persistence &amp; Backend: backend/tests/inventory.reservation.test.js
+- scope → Persistence &amp; Backend: persistence
+- message-term → Persistence &amp; Backend: persistence
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PostExtractionRehydrationTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PostExtractionRehydrationTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs.meta
+- path → Documentation: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PostExtractionRehydrationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PostExtractionRehydrationTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RecoveryWeaponStrictRepositoryTests.cs.meta
+- path → Tests: backend/tests/inventory.reservation.test.js
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### e439345666bc80eabcdd1191fa6e47895cc94700
+
+[e439345666bc80eabcdd1191fa6e47895cc94700](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e439345666bc80eabcdd1191fa6e47895cc94700)
+
+Date: 2026-11-07T21:01:22-03:00 · Classification: Bug Fixes (explicit) · Systems: Combat, Extraction, Inventory & Loot, Networking & Sessions, Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(inventory): keep equipped gear out of the 30-slot raid backpack
+```
+
+#### Original body
+
+```text
+Equipped weapons and armor were counted against the 30-slot backpack
+when reserving a loadout and when admitting the avatar, so a full
+backpack plus equipment was rejected after an extraction (31 > 30).
+The inventory design keeps Equipment separate from the backpack.
+
+- LocalProfileStore counts only backpack physical slots: equipment
+  units individually, other items by StackMax.
+- RaidAdmissionData.TryProjectLoadout splits the reserved payload into
+  equipment units and residual backpack, validating references,
+  transport limits and backpack capacity before any write.
+- NetworkSpawnManager uses that projection at all five admission gates
+  and, on a fresh avatar, equips through the existing Equipment
+  initializer before filling the backpack.
+
+A true backpack overflow is still rejected without side effects.
+
+Tests:
+- PhysicalProfileSlotTests: full backpack plus equipment, true overflow
+- PlayerEquipmentPlayModeTests: RaidAdmissionCapacity_ cases
+
+Player-Fixed: You can start a raid with a full backpack while wearing equipment.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+Project Grimhold/Assets/Scripts/Networking/RaidAdmissionData.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs
+Project Grimhold/Assets/Tests/PlayMode/PlayerEquipmentPlayModeTests.cs
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- message-term → Combat: weapons
+- message-term → Extraction: extraction
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/PlayerEquipmentPlayModeTests.cs
+- scope → Inventory &amp; Loot: inventory
+- message-term → Inventory &amp; Loot: inventory
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidAdmissionData.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/PhysicalProfileSlotTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayerEquipmentPlayModeTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 46be0d2c21bc74fa1b33cc4bde892bb32c40b33d
+
+[46be0d2c21bc74fa1b33cc4bde892bb32c40b33d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/46be0d2c21bc74fa1b33cc4bde892bb32c40b33d)
+
+Date: 2026-11-07T21:01:22-03:00 · Classification: Bug Fixes (explicit) · Systems: Combat, Inventory & Loot, Networking & Sessions, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(raid): match reserved loadouts exactly on raid admission
+```
+
+#### Original body
+
+```text
+Raid admission compared the reserved loadout against the profile with a
+lossy check, so loadouts with split stacks, shared item references or
+modified equipment could be rejected. Admission now delegates to
+RaidAdmissionLoadoutMatcher, which compares combined quantities per
+item, the modifier multiset, exact Equipment slots and modifiers, and
+the active weapon set, while keeping the existing profile and
+reservation guards.
+
+Tests:
+- RaidAdmissionLoadoutMatcherTests
+- RaidAdmissionSlotAggregationTests reuses the shared matcher helper
+
+Player-Fixed: Joining a raid no longer fails when your loadout has split stacks or modified gear.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs
+Project Grimhold/Assets/Scripts/Networking/RaidAdmissionLoadoutMatcher.cs
+Project Grimhold/Assets/Scripts/Networking/RaidAdmissionLoadoutMatcher.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionLoadoutMatcherTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionLoadoutMatcherTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- message-term → Combat: weapon
+- message-term → Inventory &amp; Loot: equipment
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidAdmissionLoadoutMatcher.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidAdmissionLoadoutMatcher.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionLoadoutMatcherTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionLoadoutMatcherTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionLoadoutMatcherTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionLoadoutMatcherTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionLoadoutMatcherTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionLoadoutMatcherTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionSlotAggregationTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 970dba9ad8b937d7993400dc9d77404756168d56
 
