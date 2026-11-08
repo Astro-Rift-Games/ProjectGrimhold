@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 963,
-  "canonicalEntries": 960,
+  "rawCommits": 964,
+  "canonicalEntries": 961,
   "before": {
-    "Features": 372,
+    "Features": 373,
     "Architecture & Infrastructure": 16,
     "Bug Fixes": 99,
     "Other Changes": 354,
@@ -12,7 +12,7 @@
     "Refactoring": 14
   },
   "after": {
-    "Features": 509,
+    "Features": 510,
     "Maintenance": 15,
     "Bug Fixes": 115,
     "Other Changes": 164,
@@ -23,14 +23,14 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Inventory & Loot": 384,
+    "World & Visibility": 129,
+    "Build & Tooling": 492,
+    "Documentation": 377,
+    "Tests": 593,
     "Networking & Sessions": 276,
     "UI": 299,
-    "World & Visibility": 128,
-    "Build & Tooling": 491,
-    "Documentation": 376,
-    "Tests": 592,
     "Combat": 354,
-    "Inventory & Loot": 383,
     "Art & Animation": 229,
     "Persistence & Backend": 210,
     "Abilities": 121,
@@ -42,7 +42,7 @@
   },
   "canonical": {
     "sections": {
-      "Features": 508,
+      "Features": 509,
       "Maintenance": 15,
       "Bug Fixes": 114,
       "Other Changes": 163,
@@ -52,14 +52,14 @@
       "Architecture & Infrastructure": 5
     },
     "systems": {
+      "Inventory & Loot": 384,
+      "World & Visibility": 127,
+      "Build & Tooling": 490,
+      "Documentation": 375,
+      "Tests": 591,
       "Networking & Sessions": 276,
       "UI": 298,
-      "World & Visibility": 126,
-      "Build & Tooling": 489,
-      "Documentation": 374,
-      "Tests": 590,
       "Combat": 352,
-      "Inventory & Loot": 383,
       "Art & Animation": 226,
       "Persistence & Backend": 210,
       "Abilities": 119,
@@ -34196,8 +34196,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 86,
-      "canonicalEntries": 86
+      "originalCommits": 87,
+      "canonicalEntries": 87
     },
     {
       "key": "v0.5.0",
@@ -34241,6 +34241,143 @@
     }
   ],
   "commits": [
+    {
+      "sha": "c6c8df367e772cf5a01d909963fc753ebc003e19",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c6c8df367e772cf5a01d909963fc753ebc003e19",
+      "subject": "feat(loot): reject drops of non-discardable items on the host",
+      "body": "Enforce LootDefinition.CanBeDiscarded for voluntary Inventory-to-world\ndrops (Doc 07 section 15, TASK-268). State Authority rejects a\nnon-discardable definition right after catalog resolution, before any\nquantity, origin, placement or spawn work, so no pickup is created and\nthe Inventory slot and revision stay unchanged in every drop mode.\n\n- Add LootInventoryRules.CanDiscardItem (false for a missing definition).\n- Add LootDropFailureReason.NotDiscardable = 9; existing values keep\n  their wire numbers and confirmation reconstruction accepts it via\n  Enum.IsDefined.\n- LootDropContextActionProvider keeps the three drop actions listed but\n  disabled for non-discardable items and refuses to execute them.\n- RaidInventoryPresenter shows \"Este objeto no se puede soltar\" when the\n  host rejects a drop for this reason.\n\nTests:\n- LootInventoryRulesTests: CanDiscardItem true/false/missing definition.\n- LootContextActionProviderTests: non-discardable item disables every\n  drop action and never opens the quantity selector.\n- PlayerLootReceiverSlotsPlayModeTests: authority rejects SingleUnit,\n  FullStack, ExactAmount and legacy unaddressed drops with NotDiscardable\n  without spawning a pickup or mutating the Inventory.\n\nDocs: InventoryWorldDropArchitecture.md documents the discardability\ncheck and the disabled drop actions.\n\nPlayer-Improved: Items that cannot be dropped, such as training weapons, now show their drop options disabled and can no longer be thrown on the ground.\n",
+      "date": "2026-11-08T03:51:39-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Core/LootDropFailureReason.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootDropNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/LootDropContextActionProvider.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContextActionProviderTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/PlayerLootReceiverSlotsPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/InventoryWorldDropArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "World & Visibility",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Core/LootDropFailureReason.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootDropNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/LootDropContextActionProvider.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContextActionProviderTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerLootReceiverSlotsPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/InventoryWorldDropArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/InventoryWorldDropArchitecture.md",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContextActionProviderTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/InventoryWorldDropArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContextActionProviderTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerLootReceiverSlotsPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "89699bb0ba7727f71dc35ca84f5f92b145baeca7",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/89699bb0ba7727f71dc35ca84f5f92b145baeca7",

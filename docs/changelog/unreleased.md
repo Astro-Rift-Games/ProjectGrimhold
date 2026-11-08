@@ -4,32 +4,119 @@
 
 Release: Unreleased
 
-86 original commits; 86 canonical entries.
+87 original commits; 87 canonical entries.
 
 ## Canonical classification
 
-49 features; 21 bug fixes; 1 refactoring; 7 documentation; 2 tests; 4 maintenance; 2 other changes
+50 features; 21 bug fixes; 1 refactoring; 7 documentation; 2 tests; 4 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 6 | 6 | 1 | 0 | 3 | 1 |
 | Art & Animation | 7 | 7 | 1 | 0 | 4 | 0 |
 | Audio | 3 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 29 | 13 | 1 | 0 | 5 | 2 |
+| Build & Tooling | 30 | 13 | 1 | 0 | 5 | 2 |
 | Combat | 29 | 4 | 0 | 0 | 5 | 0 |
-| Documentation | 21 | 8 | 0 | 0 | 4 | 0 |
+| Documentation | 22 | 8 | 0 | 0 | 4 | 0 |
 | Extraction | 7 | 2 | 0 | 0 | 2 | 0 |
 | Input | 0 | 0 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 41 | 18 | 1 | 0 | 6 | 1 |
+| Inventory & Loot | 42 | 18 | 1 | 0 | 6 | 1 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 13 | 6 | 0 | 0 | 1 | 0 |
 | Persistence & Backend | 17 | 6 | 0 | 0 | 2 | 0 |
-| Tests | 47 | 18 | 1 | 0 | 5 | 0 |
+| Tests | 48 | 18 | 1 | 0 | 5 | 0 |
 | UI | 20 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
-| World & Visibility | 14 | 4 | 0 | 0 | 0 | 0 |
+| World & Visibility | 15 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### c6c8df367e772cf5a01d909963fc753ebc003e19
+
+[c6c8df367e772cf5a01d909963fc753ebc003e19](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c6c8df367e772cf5a01d909963fc753ebc003e19)
+
+Date: 2026-11-08T03:51:39-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, World & Visibility, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(loot): reject drops of non-discardable items on the host
+```
+
+#### Original body
+
+```text
+Enforce LootDefinition.CanBeDiscarded for voluntary Inventory-to-world
+drops (Doc 07 section 15, TASK-268). State Authority rejects a
+non-discardable definition right after catalog resolution, before any
+quantity, origin, placement or spawn work, so no pickup is created and
+the Inventory slot and revision stay unchanged in every drop mode.
+
+- Add LootInventoryRules.CanDiscardItem (false for a missing definition).
+- Add LootDropFailureReason.NotDiscardable = 9; existing values keep
+  their wire numbers and confirmation reconstruction accepts it via
+  Enum.IsDefined.
+- LootDropContextActionProvider keeps the three drop actions listed but
+  disabled for non-discardable items and refuses to execute them.
+- RaidInventoryPresenter shows "Este objeto no se puede soltar" when the
+  host rejects a drop for this reason.
+
+Tests:
+- LootInventoryRulesTests: CanDiscardItem true/false/missing definition.
+- LootContextActionProviderTests: non-discardable item disables every
+  drop action and never opens the quantity selector.
+- PlayerLootReceiverSlotsPlayModeTests: authority rejects SingleUnit,
+  FullStack, ExactAmount and legacy unaddressed drops with NotDiscardable
+  without spawning a pickup or mutating the Inventory.
+
+Docs: InventoryWorldDropArchitecture.md documents the discardability
+check and the disabled drop actions.
+
+Player-Improved: Items that cannot be dropped, such as training weapons, now show their drop options disabled and can no longer be thrown on the ground.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Core/LootDropFailureReason.cs
+Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootDropNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/LootDropContextActionProvider.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContextActionProviderTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs
+Project Grimhold/Assets/Tests/PlayMode/PlayerLootReceiverSlotsPlayModeTests.cs
+Project Grimhold/Docs/Architecture/InventoryWorldDropArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Core/LootDropFailureReason.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootDropNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/LootDropContextActionProvider.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContextActionProviderTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/PlayerLootReceiverSlotsPlayModeTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Docs/Architecture/InventoryWorldDropArchitecture.md
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- path → World &amp; Visibility: Project Grimhold/Docs/Architecture/InventoryWorldDropArchitecture.md
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContextActionProviderTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/InventoryWorldDropArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContextActionProviderTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayerLootReceiverSlotsPlayModeTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 89699bb0ba7727f71dc35ca84f5f92b145baeca7
 
