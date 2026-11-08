@@ -31,9 +31,9 @@ Release: Unreleased
 
 ## Original commit records
 
-### 35c6f17e4835ace15e5ef7de72f58ccf38f3c8ad
+### d074a912f9b0012a63ae2f255f4da93177155bff
 
-[35c6f17e4835ace15e5ef7de72f58ccf38f3c8ad](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/35c6f17e4835ace15e5ef7de72f58ccf38f3c8ad)
+[d074a912f9b0012a63ae2f255f4da93177155bff](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d074a912f9b0012a63ae2f255f4da93177155bff)
 
 Date: 2026-11-07T22:34:24-03:00 · Classification: Features (explicit) · Systems: Build & Tooling, Documentation
 

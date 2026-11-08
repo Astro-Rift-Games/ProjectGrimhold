@@ -34242,8 +34242,8 @@
   ],
   "commits": [
     {
-      "sha": "35c6f17e4835ace15e5ef7de72f58ccf38f3c8ad",
-      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/35c6f17e4835ace15e5ef7de72f58ccf38f3c8ad",
+      "sha": "d074a912f9b0012a63ae2f255f4da93177155bff",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d074a912f9b0012a63ae2f255f4da93177155bff",
       "subject": "feat(changelog): support live development changelog and segment historical sprint tags",
       "body": "Update changelog renderer and CLI to display unreleased development notes under a live section directly in CHANGELOG.md without waiting for production release tags. Update changelog workflow to publish all changelogs on push, synchronize Unity bundleVersion to 0.6.0-dev, and regenerate archives based on annotated sprint tags.\n",
       "date": "2026-11-07T22:34:24-03:00",
