@@ -24,6 +24,7 @@ Do not load it for backlog creation, Game Design authoring or unrelated reposito
 - Never let Engram, uploads or prior chats override current repository/Architecture/live Game Design.
 - Do not expand the task into adjacent systems.
 - Execute through the ODD workflow and its native Task Size classification (repository `AGENTS.md`, ODD execution). Subagent delegation is the orchestrator's decision.
+- Follow strict TDD (Red -> Green -> Refactor) as the implementation engine for every Acceptance Criterion / Spec. Tests must not pass "just to pass"—never use superficial mocks or architectural shortcuts to force a green test. When friction arises, solve the root cause cleanly within the architecture.
 - Never duplicate, split or recreate the HacknPlan item, in HacknPlan or in local proposal/specification records.
 - Minimize validation context: prefer targeted tests, filtered Console output, and concise success summaries; expand details only for failures.
 
@@ -53,7 +54,7 @@ Follow the ODD sequence and the validation rules in the AGENTS files:
 2. **Explore:** relevant code, callers and tests; owning Architecture; live Game Design when behavior is gameplay-dependent; affected dependencies and versions. Establish ownership, authority and affected contracts.
 3. **Resolve:** report missing design, architecture or approvals as blockers; ask instead of inventing.
 4. **Classify:** apply ODD's native Task Size. Small: implement directly. Substantial: create the ODD tracker before the first write.
-5. **Implement and validate:** smallest coherent change, test-first where applicable, proportionate checks.
+5. **Implement via TDD (Red -> Green -> Refactor):** write the failing test asserting the Acceptance Criteria first (RED); write clean, modular implementation code to pass (GREEN); refactor for architecture and clean code (REFACTOR). Never compromise code quality or architecture just to see a green test runner.
 6. **Close:** check the full diff and every acceptance criterion; commits and pushes only with explicit authorization.
 
 When design, architecture or an Inspector assignment is missing, report it as a blocker rather than inventing it.
