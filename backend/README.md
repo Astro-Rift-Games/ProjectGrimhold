@@ -75,7 +75,7 @@ Rutas protegidas (prefijo `/character`):
 | --- | --- |
 | GET | `/me/inventory` |
 | PUT | `/me/inventory/order`, `/me/inventory/prepared-equipment` |
-| POST | `/me/inventory/stash/move-to-loadout`, `/me/inventory/loadout/move-to-stash`, `/me/inventory/slots/move`, `/me/inventory/slots/split` (si está habilitado) |
+| POST | `/me/inventory/stash/move-to-loadout`, `/me/inventory/loadout/move-to-stash`, `/me/inventory/slots/move`, `/me/inventory/slots/split` (si está habilitado), `/me/inventory/transfer-all` |
 | POST | `/me/inventory/shop/sell`, `/me/inventory/shop/buy`, `/me/inventory/shop/buyback`, `/me/inventory/shop/trade` |
 | POST | `/me/inventory/training-weapon` |
 | POST / DELETE | `/me/inventory/reservation` |
@@ -195,6 +195,7 @@ El nuevo `POST /me/inventory/slots/move` usa el mismo gate. Split se añade por 
 | POST `/me/inventory/loadout/move-to-stash` | `{"lootId":"bone","amount":2,"sourceSlot":3,"expectedRevision":5}` |
 | PUT `/me/inventory/order` | `{"list":"stash","slotOrder":[9,3],"expectedRevision":6}` |
 | POST `/me/inventory/slots/move` | `{"fromList":"stash","fromSlot":9,"toList":"loadout","toSlot":2,"lootId":"bone","expectedRevision":7}` |
+| POST `/me/inventory/transfer-all` | `{"direction":"toLoadout","expectedRevision":7}` |
 | POST `/me/inventory/shop/sell` | `{"transactionId":"sale-1","lootId":"placeholder_helmet","amount":1,"sourceSlot":8,"expectedRevision":8}` |
 | POST `/me/inventory/shop/buy` | `{"transactionId":"buy-1","lootId":"healthpotion","amount":1,"expectedRevision":9}` |
 | POST `/me/inventory/shop/buyback` | `{"transactionId":"rebuy-1","entryId":"sale-line-uuid","amount":1,"expectedRevision":10}` |
@@ -375,6 +376,46 @@ HTTP 200, misma forma que slot move, listas ordenadas por slot. Ejemplo con 13 u
 | 409 | `INVENTORY_FULL` | Destino fuera de capacidad o occupied count >= capacidad |
 | 409 | `RESERVATION_PENDING` | Hay una reserva pendiente al validar |
 | 409 | `REVISION_CONFLICT` | Revisión stale o carrera del write atómico (incluida una reserva concurrente) |
+
+## Inventario: transferencia masiva (Take All / Leave All)
+
+`POST /character/me/inventory/transfer-all` mueve todos los stacks de la lista origen en **una
+solicitud y como máximo una escritura** guardada por `expectedRevision`. Usa el middleware de
+protocolo de las demás rutas de slots (gate activo sin header → 426) y requiere inventario v2/v3
+(v1 → 409 `INVENTORY_MIGRATION_REQUIRED`). No depende de `INVENTORY_SPLIT_ENABLED`.
+
+```json
+{"direction":"toLoadout","expectedRevision":7}
+```
+
+- `direction`: `toLoadout` (Stash → Loadout, Take All) o `toStash` (Loadout → Stash, Leave All);
+  `expectedRevision`: entero seguro no negativo.
+- Cada stack se mueve completo con las reglas exactas de `stash/move-to-loadout` /
+  `loadout/move-to-stash` (v2 y v3, instancias incluidas), en orden ascendente de slot origen. Un
+  stack rechazado se omite y los siguientes se siguen evaluando; la operación no es todo-o-nada.
+- Si nada se mueve no hay escritura ni cambia `revision`. Revisión obsoleta (`REVISION_CONFLICT`),
+  reserva pendiente (`RESERVATION_PENDING`) o personaje inexistente (404 `CHARACTER_NOT_FOUND`)
+  rechazan todo sin escribir.
+
+Respuesta 200:
+
+```json
+{"stash":[...],"loadout":[...],"revision":8,
+ "results":[{"slot":3,"lootId":"bone","amount":2,"moved":true},
+            {"slot":9,"lootId":"axe","amount":1,"moved":false,"errorCode":"INVENTORY_FULL"}]}
+```
+
+`results` sigue el orden de slot origen; `errorCode` sólo aparece en stacks rechazados
+(`INVENTORY_FULL`, `INTEGER_OVERFLOW`, …, el código que daría la transferencia individual).
+
+| HTTP | `error` | Causa |
+| --- | --- | --- |
+| 400 | `VALIDATION_FAILED` | `direction` o `expectedRevision` inválidos |
+| 404 | `CHARACTER_NOT_FOUND` | Sin personaje |
+| 409 | `REVISION_CONFLICT` | `expectedRevision` obsoleto o escritura perdida |
+| 409 | `RESERVATION_PENDING` | Hay una reserva de Raid pendiente |
+| 409 | `INVENTORY_MIGRATION_REQUIRED` | Inventario v1 |
+| 426 | `CLIENT_UPGRADE_REQUIRED` | Gate activo sin header de protocolo válido |
 
 ## Inventario: instancias de equipamiento v3
 

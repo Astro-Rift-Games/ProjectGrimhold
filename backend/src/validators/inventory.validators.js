@@ -67,6 +67,14 @@ const moveItemValidator = [
   handleValidationErrors
 ];
 
+// Validates the body for the bulk transfer-all operation.
+const transferAllValidator = [
+  body('direction').isIn(['toLoadout', 'toStash']).withMessage('must be toLoadout or toStash'),
+  body('expectedRevision')
+    .isInt({ min: 0 }).withMessage('must be a non-negative integer'),
+  handleValidationErrors
+];
+
 // Validates the body for the update-prepared-equipment operation.
 // All slots are optional. Legacy strings and v3 {lootId, instanceId} intentions
 // coexist; the service validates the format against the character's schema version.
@@ -218,4 +226,4 @@ const trainingWeaponValidator = [
   handleValidationErrors
 ];
 
-module.exports = { trainingWeaponValidator, shopTradeValidator, slotSplitValidator, slotMoveValidator, shopBuybackValidator, inventoryOrderValidator, moveItemValidator, preparedEquipmentValidator, pendingReservationValidator, admitReservationValidator, commitExtractionValidator, shopSellValidator, shopBuyValidator };
+module.exports = { trainingWeaponValidator, shopTradeValidator, slotSplitValidator, slotMoveValidator, shopBuybackValidator, inventoryOrderValidator, moveItemValidator, transferAllValidator, preparedEquipmentValidator, pendingReservationValidator, admitReservationValidator, commitExtractionValidator, shopSellValidator, shopBuyValidator };

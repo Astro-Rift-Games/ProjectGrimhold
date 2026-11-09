@@ -48,21 +48,61 @@ async function writeSlotLists(character, expectedRevision, lists, blockReservati
   return listsSnapshot(updated);
 }
 
-async function transferSlotItems(character, fromList, toList, lootId, amount, expectedRevision, sourceSlot) {
-  if (character.revision !== expectedRevision) throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
-  if (!Number.isSafeInteger(amount) || amount < 1) throw { statusCode: 400, errorCode: 'VALIDATION_FAILED', message: 'Amount must be a positive integer.' };
-  const from = inventoryItems(character, fromList);
-  const to = inventoryItems(character, toList);
+// Pure per-stack rule shared by single and bulk transfers; mutates only the lists it is given.
+function moveStack(from, to, fromList, toList, version, lootId, amount, sourceSlot) {
   const index = from.findIndex(item => item.slot === sourceSlot && matchesLootId(item, lootId));
   if (index === -1 || from[index].amount < amount) {
     throw { statusCode: 409, errorCode: fromList === 'stash' ? 'INSUFFICIENT_STASH_ITEMS' : 'INSUFFICIENT_LOADOUT_ITEMS',
       message: `${fromList === 'stash' ? 'Stash' : 'Loadout'} does not hold ${amount} unit(s) of '${normalizeLootId(lootId)}'.` };
   }
-  receiveItem(to, toList, { ...copyEntry(from[index]), amount }, inventoryVersion(character));
+  receiveItem(to, toList, { ...copyEntry(from[index]), amount }, version);
   if (from[index].amount === amount) from.splice(index, 1);
   else from[index].amount -= amount;
+}
+
+async function transferSlotItems(character, fromList, toList, lootId, amount, expectedRevision, sourceSlot) {
+  if (character.revision !== expectedRevision) throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
+  if (!Number.isSafeInteger(amount) || amount < 1) throw { statusCode: 400, errorCode: 'VALIDATION_FAILED', message: 'Amount must be a positive integer.' };
+  const from = inventoryItems(character, fromList);
+  const to = inventoryItems(character, toList);
+  moveStack(from, to, fromList, toList, inventoryVersion(character), lootId, amount, sourceSlot);
   // Legacy transfers remain usable during reservations; rollback restores collisions.
   return writeSlotLists(character, expectedRevision, { [fromList]: from, [toList]: to });
+}
+
+const TRANSFER_DIRECTIONS = { toLoadout: ['stash', 'loadout'], toStash: ['loadout', 'stash'] };
+
+// Moves every source stack in slot order under the single-transfer rules; refused stacks are skipped.
+async function transferAllSlotItems(character, direction, expectedRevision) {
+  const lists = TRANSFER_DIRECTIONS[Object.hasOwn(TRANSFER_DIRECTIONS, direction) ? direction : undefined];
+  if (!lists) throw { statusCode: 400, errorCode: 'VALIDATION_FAILED', message: 'Direction must be toLoadout or toStash.' };
+  requireSlotInventory(character);
+  if (character.revision !== expectedRevision) throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
+  if (character.inventory.pendingReservation) {
+    throw { statusCode: 409, errorCode: 'RESERVATION_PENDING', message: 'Cannot transfer all while a reservation is pending.' };
+  }
+  const [fromList, toList] = lists;
+  const version = inventoryVersion(character);
+  let from = inventoryItems(character, fromList);
+  let to = inventoryItems(character, toList);
+  const results = [];
+  for (const { slot, lootId, amount } of structuredClone(from)) {
+    // Attempt on copies so a refused stack leaves no partial mutation behind.
+    const nextFrom = structuredClone(from);
+    const nextTo = structuredClone(to);
+    try {
+      moveStack(nextFrom, nextTo, fromList, toList, version, lootId, amount, slot);
+      from = nextFrom; to = nextTo;
+      results.push({ slot, lootId, amount, moved: true });
+    } catch (err) {
+      if (!err?.errorCode) throw err;
+      results.push({ slot, lootId, amount, moved: false, errorCode: err.errorCode });
+    }
+  }
+  const snapshot = results.some(result => result.moved)
+    ? await writeSlotLists(character, expectedRevision, { [fromList]: from, [toList]: to }, true)
+    : listsSnapshot(character);
+  return { ...snapshot, results };
 }
 
 function restoreReservation(character) {
@@ -402,6 +442,18 @@ class InventoryService {
       lastAppliedExtractionReceipt: lastExtraction,
       revision: character.revision || 0
     };
+  }
+
+  /**
+   * Moves every stack of the source list (stash for 'toLoadout', loadout for 'toStash') in one revision-guarded write.
+   * @throws 404 if no character found; 409 on revision conflict or pending reservation.
+   */
+  static async transferAll(accountId, direction, expectedRevision) {
+    const character = await Character.findOne({ accountId });
+    if (!character) {
+      throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'No character found for this account.' };
+    }
+    return transferAllSlotItems(character, direction, expectedRevision);
   }
 
   /**

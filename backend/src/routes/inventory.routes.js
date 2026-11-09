@@ -13,6 +13,7 @@ const {
   slotMoveValidator,
   slotSplitValidator,
   moveItemValidator,
+  transferAllValidator,
   preparedEquipmentValidator,
   trainingWeaponValidator,
   pendingReservationValidator,
@@ -106,6 +107,18 @@ router.post('/me/inventory/loadout/move-to-stash', inventoryProtocol, moveItemVa
     const { lootId, amount, expectedRevision, sourceSlot } = req.body;
     const result = await InventoryService.moveToStash(req.accountId, lootId, amount, expectedRevision, sourceSlot);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /character/me/inventory/transfer-all
+// Moves every stack of the source list in one revision-guarded write (Take All / Leave All).
+// Body: { direction: 'toLoadout' | 'toStash', expectedRevision }
+router.post('/me/inventory/transfer-all', inventoryProtocol, transferAllValidator, async (req, res, next) => {
+  try {
+    const { direction, expectedRevision } = req.body;
+    res.json(await InventoryService.transferAll(req.accountId, direction, expectedRevision));
   } catch (err) {
     next(err);
   }

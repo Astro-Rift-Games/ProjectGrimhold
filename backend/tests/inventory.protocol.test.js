@@ -18,7 +18,7 @@ const accountId = new mongoose.Types.ObjectId().toString();
 const token = jwt.sign({ sub: accountId }, env.jwtSecret);
 const gatedRoutes = [
   ['get', '/me/inventory'], ['put', '/me/inventory/order'], ['post', '/me/inventory/slots/move'],
-  ['post', '/me/inventory/slots/split'],
+  ['post', '/me/inventory/slots/split'], ['post', '/me/inventory/transfer-all'],
   ['post', '/me/inventory/stash/move-to-loadout'], ['post', '/me/inventory/loadout/move-to-stash'],
   ['post', '/me/inventory/shop/sell'], ['post', '/me/inventory/shop/buy'], ['post', '/me/inventory/shop/buyback'],
   ['put', '/me/inventory/prepared-equipment'], ['post', '/me/inventory/reservation'],
