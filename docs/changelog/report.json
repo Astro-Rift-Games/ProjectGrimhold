@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 971,
-  "canonicalEntries": 968,
+  "rawCommits": 974,
+  "canonicalEntries": 971,
   "before": {
+    "Features": 378,
+    "Bug Fixes": 101,
     "Architecture & Infrastructure": 17,
     "Other Changes": 355,
     "Documentation": 83,
-    "Bug Fixes": 100,
-    "Features": 376,
     "Tests": 26,
     "Refactoring": 14
   },
   "after": {
+    "Features": 515,
+    "Bug Fixes": 117,
     "Architecture & Infrastructure": 6,
     "Documentation": 99,
-    "Bug Fixes": 116,
-    "Features": 513,
     "Maintenance": 15,
     "Other Changes": 164,
     "Tests": 31,
@@ -23,48 +23,48 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Inventory & Loot": 389,
-    "Persistence & Backend": 214,
-    "Build & Tooling": 497,
-    "Tests": 600,
+    "Combat": 361,
+    "Extraction": 132,
+    "Inventory & Loot": 392,
+    "Persistence & Backend": 216,
+    "Build & Tooling": 498,
+    "Tests": 602,
     "Abilities": 123,
-    "Combat": 359,
     "Networking & Sessions": 279,
     "UI": 300,
     "Documentation": 379,
     "World & Visibility": 130,
     "Art & Animation": 229,
     "Movement": 92,
-    "Extraction": 130,
     "Input": 29,
     "Unassigned": 20,
     "Audio": 33
   },
   "canonical": {
     "sections": {
+      "Features": 514,
+      "Bug Fixes": 116,
       "Architecture & Infrastructure": 6,
       "Documentation": 99,
-      "Bug Fixes": 115,
-      "Features": 512,
       "Maintenance": 15,
       "Other Changes": 163,
       "Tests": 31,
       "Refactoring": 27
     },
     "systems": {
-      "Inventory & Loot": 389,
-      "Persistence & Backend": 214,
-      "Build & Tooling": 495,
-      "Tests": 598,
+      "Combat": 359,
+      "Extraction": 132,
+      "Inventory & Loot": 392,
+      "Persistence & Backend": 216,
+      "Build & Tooling": 496,
+      "Tests": 600,
       "Abilities": 121,
-      "Combat": 357,
       "Networking & Sessions": 279,
       "UI": 299,
       "Documentation": 377,
       "World & Visibility": 128,
       "Art & Animation": 226,
       "Movement": 92,
-      "Extraction": 130,
       "Input": 29,
       "Unassigned": 20,
       "Audio": 33
@@ -34083,8 +34083,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 94,
-      "canonicalEntries": 94
+      "originalCommits": 97,
+      "canonicalEntries": 97
     },
     {
       "key": "v0.5.0",
@@ -34128,6 +34128,339 @@
     }
   ],
   "commits": [
+    {
+      "sha": "74e257bdcaa399bb6bdc9ed82e833f60d1db2170",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/74e257bdcaa399bb6bdc9ed82e833f60d1db2170",
+      "subject": "feat(loot): mirror training weapon return locally and exclude it from corpses",
+      "body": "TASK-279: LocalProfileStore applies the Doc 09 §15.2 return rule on extraction commit while keeping the raw retry payload; corpse generation loads a projection without training weapons but still clears them from the player on definitive defeat or abandon.\n",
+      "date": "2026-11-08T22:46:35-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Player/CorpseLootProjection.cs",
+        "Project Grimhold/Assets/Scripts/Player/CorpseLootProjection.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCorpseGenerationController.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+        "Project Grimhold/Assets/Scripts/Stash/TrainingWeaponReturnRule.cs",
+        "Project Grimhold/Assets/Scripts/Stash/TrainingWeaponReturnRule.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/CorpseLootProjectionTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/CorpseLootProjectionTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs.meta",
+        "Project Grimhold/Assets/Tests/PlayMode/PlayerCorpseGenerationPlayModeTests.cs",
+        "odd/tasks/task-279-training-weapon-return.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Extraction",
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/TrainingWeaponReturnRule.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/TrainingWeaponReturnRule.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs.meta",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/task-279-training-weapon-return.md",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapon",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/TrainingWeaponReturnRule.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/TrainingWeaponReturnRule.cs.meta",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs.meta",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/task-279-training-weapon-return.md",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/CorpseLootProjection.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/CorpseLootProjection.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/CorpseLootProjectionTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/CorpseLootProjectionTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/CorpseLootProjectionTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/CorpseLootProjectionTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/CorpseLootProjectionTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/CorpseLootProjectionTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerCorpseGenerationPlayModeTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "5a43fde5fbecde02d1a35cd656fe3c94d172237a",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5a43fde5fbecde02d1a35cd656fe3c94d172237a",
+      "subject": "feat(backend): return training weapons to the Trainer on extraction commit",
+      "body": "TASK-279 (Doc 09 §15.2): when the character owns a normal weapon in loadout, stash or prepared equipment after settlement, training weapons are removed from all three in the same revision-guarded write; otherwise they are kept.\n",
+      "date": "2026-11-08T22:46:35-03:00",
+      "files": [
+        "backend/src/services/ExtractionCommitService.js",
+        "backend/src/services/InventoryService.js",
+        "backend/src/services/TrainingWeapons.js",
+        "backend/tests/extraction.training-return.test.js"
+      ],
+      "originalType": "feat",
+      "originalScope": "backend",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Extraction",
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/TrainingWeapons.js",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "weapons",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/ExtractionCommitService.js",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/extraction.training-return.test.js",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/ExtractionCommitService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/TrainingWeapons.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/extraction.training-return.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "scope",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/extraction.training-return.test.js",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "13406d0a245b3ae7934637333c5763eda282f976",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/13406d0a245b3ae7934637333c5763eda282f976",
+      "subject": "fix(inventory): restore serialized loot catalog on RaidInventoryPresenter",
+      "body": "Commit 43c23186 placed NotTransferableMessage between [SerializeField] and _lootCatalog, so the catalog stopped deserializing and Town/Raid inventory binding failed.\n",
+      "date": "2026-11-08T22:42:10-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs"
+      ],
+      "originalType": "fix",
+      "originalScope": "inventory",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "9f58c40e244dddc6fa6fe6ac9a1f5502ae3d2da2",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9f58c40e244dddc6fa6fe6ac9a1f5502ae3d2da2",

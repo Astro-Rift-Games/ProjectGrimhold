@@ -4,32 +4,192 @@
 
 Release: Unreleased
 
-94 original commits; 94 canonical entries.
+97 original commits; 97 canonical entries.
 
 ## Canonical classification
 
-53 features; 22 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 2 tests; 4 maintenance; 2 other changes
+55 features; 23 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 2 tests; 4 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 7 | 6 | 1 | 0 | 4 | 1 |
 | Art & Animation | 7 | 7 | 1 | 0 | 4 | 0 |
 | Audio | 3 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 32 | 14 | 1 | 1 | 6 | 2 |
-| Combat | 32 | 5 | 0 | 0 | 6 | 0 |
+| Build & Tooling | 33 | 14 | 1 | 1 | 6 | 2 |
+| Combat | 34 | 5 | 0 | 0 | 6 | 0 |
 | Documentation | 24 | 8 | 0 | 0 | 4 | 0 |
-| Extraction | 7 | 2 | 0 | 0 | 2 | 0 |
+| Extraction | 9 | 2 | 0 | 0 | 2 | 0 |
 | Input | 0 | 0 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 45 | 19 | 1 | 1 | 6 | 1 |
+| Inventory & Loot | 47 | 20 | 1 | 1 | 6 | 1 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 15 | 6 | 0 | 0 | 2 | 0 |
-| Persistence & Backend | 19 | 6 | 0 | 1 | 3 | 0 |
-| Tests | 51 | 19 | 1 | 1 | 7 | 0 |
+| Persistence & Backend | 21 | 6 | 0 | 1 | 3 | 0 |
+| Tests | 53 | 19 | 1 | 1 | 7 | 0 |
 | UI | 21 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
 | World & Visibility | 16 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 74e257bdcaa399bb6bdc9ed82e833f60d1db2170
+
+[74e257bdcaa399bb6bdc9ed82e833f60d1db2170](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/74e257bdcaa399bb6bdc9ed82e833f60d1db2170)
+
+Date: 2026-11-08T22:46:35-03:00 · Classification: Features (explicit) · Systems: Combat, Extraction, Inventory & Loot, Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(loot): mirror training weapon return locally and exclude it from corpses
+```
+
+#### Original body
+
+```text
+TASK-279: LocalProfileStore applies the Doc 09 §15.2 return rule on extraction commit while keeping the raw retry payload; corpse generation loads a projection without training weapons but still clears them from the player on definitive defeat or abandon.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Player/CorpseLootProjection.cs
+Project Grimhold/Assets/Scripts/Player/CorpseLootProjection.cs.meta
+Project Grimhold/Assets/Scripts/Player/PlayerCorpseGenerationController.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+Project Grimhold/Assets/Scripts/Stash/TrainingWeaponReturnRule.cs
+Project Grimhold/Assets/Scripts/Stash/TrainingWeaponReturnRule.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/CorpseLootProjectionTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/CorpseLootProjectionTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs.meta
+Project Grimhold/Assets/Tests/PlayMode/PlayerCorpseGenerationPlayModeTests.cs
+odd/tasks/task-279-training-weapon-return.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: Project Grimhold/Assets/Scripts/Stash/TrainingWeaponReturnRule.cs
+- path → Combat: Project Grimhold/Assets/Scripts/Stash/TrainingWeaponReturnRule.cs.meta
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs.meta
+- path → Combat: odd/tasks/task-279-training-weapon-return.md
+- message-term → Combat: weapon
+- path → Extraction: Project Grimhold/Assets/Scripts/Stash/TrainingWeaponReturnRule.cs
+- path → Extraction: Project Grimhold/Assets/Scripts/Stash/TrainingWeaponReturnRule.cs.meta
+- path → Extraction: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs
+- path → Extraction: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs.meta
+- path → Extraction: odd/tasks/task-279-training-weapon-return.md
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/CorpseLootProjection.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/CorpseLootProjection.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/CorpseLootProjectionTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/CorpseLootProjectionTests.cs.meta
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/CorpseLootProjectionTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/CorpseLootProjectionTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/CorpseLootProjectionTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/CorpseLootProjectionTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/TrainingWeaponExtractionReturnTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayerCorpseGenerationPlayModeTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 5a43fde5fbecde02d1a35cd656fe3c94d172237a
+
+[5a43fde5fbecde02d1a35cd656fe3c94d172237a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5a43fde5fbecde02d1a35cd656fe3c94d172237a)
+
+Date: 2026-11-08T22:46:35-03:00 · Classification: Features (explicit) · Systems: Combat, Extraction, Inventory & Loot, Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(backend): return training weapons to the Trainer on extraction commit
+```
+
+#### Original body
+
+```text
+TASK-279 (Doc 09 §15.2): when the character owns a normal weapon in loadout, stash or prepared equipment after settlement, training weapons are removed from all three in the same revision-guarded write; otherwise they are kept.
+```
+
+#### Changed paths
+
+```text
+backend/src/services/ExtractionCommitService.js
+backend/src/services/InventoryService.js
+backend/src/services/TrainingWeapons.js
+backend/tests/extraction.training-return.test.js
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Combat: backend/src/services/TrainingWeapons.js
+- message-term → Combat: weapons
+- path → Extraction: backend/src/services/ExtractionCommitService.js
+- path → Extraction: backend/tests/extraction.training-return.test.js
+- message-term → Extraction: extraction
+- path → Inventory &amp; Loot: backend/src/services/InventoryService.js
+- message-term → Inventory &amp; Loot: equipment
+- path → Persistence &amp; Backend: backend/src/services/ExtractionCommitService.js
+- path → Persistence &amp; Backend: backend/src/services/InventoryService.js
+- path → Persistence &amp; Backend: backend/src/services/TrainingWeapons.js
+- path → Persistence &amp; Backend: backend/tests/extraction.training-return.test.js
+- scope → Persistence &amp; Backend: backend
+- message-term → Persistence &amp; Backend: backend
+- path → Tests: backend/tests/extraction.training-return.test.js
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 13406d0a245b3ae7934637333c5763eda282f976
+
+[13406d0a245b3ae7934637333c5763eda282f976](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/13406d0a245b3ae7934637333c5763eda282f976)
+
+Date: 2026-11-08T22:42:10-03:00 · Classification: Bug Fixes (explicit) · Systems: Inventory & Loot
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(inventory): restore serialized loot catalog on RaidInventoryPresenter
+```
+
+#### Original body
+
+```text
+Commit 43c23186 placed NotTransferableMessage between [SerializeField] and _lootCatalog, so the catalog stopped deserializing and Town/Raid inventory binding failed.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
+- scope → Inventory &amp; Loot: inventory
+- message-term → Inventory &amp; Loot: inventory
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 9f58c40e244dddc6fa6fe6ac9a1f5502ae3d2da2
 
