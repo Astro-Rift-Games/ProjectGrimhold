@@ -23,14 +23,7 @@ const { inventoryVersion, copyEntry, serializeItems, requireMigratedInventory,
   requireSlotInventory, requireSplitEnabled, requireSourceSlot, assertUnambiguousItems, matchesLootId,
   CAPACITIES, inventoryFull, assertSlot, lowestItemIndex, receiveItem, restoreEntries, addAmount } = require('./InventoryEntries');
 
-const TRAINING_WEAPONS = Object.freeze([
-  'training_short_sword',
-  'training_dagger',
-  'training_wand'
-]);
-function isTrainingWeapon(lootId) {
-  return typeof lootId === 'string' && TRAINING_WEAPONS.includes(normalizeLootId(lootId));
-}
+const { TRAINING_WEAPONS, isTrainingWeapon } = require('./TrainingWeapons');
 
 const { INSTANCE_ID, invalidInventory, createEquipment, validateResultItems, resultEquipmentToInstances,
   equipmentToResult } = require('./ItemInstances');
