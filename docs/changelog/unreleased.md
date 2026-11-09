@@ -4,11 +4,11 @@
 
 Release: Unreleased
 
-101 original commits; 101 canonical entries.
+103 original commits; 103 canonical entries.
 
 ## Canonical classification
 
-59 features; 23 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 2 tests; 4 maintenance; 2 other changes
+59 features; 24 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 3 tests; 4 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -23,13 +23,90 @@ Release: Unreleased
 | Inventory & Loot | 51 | 20 | 1 | 1 | 6 | 1 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 16 | 6 | 0 | 0 | 2 | 0 |
-| Persistence & Backend | 24 | 6 | 0 | 1 | 3 | 0 |
-| Tests | 57 | 19 | 1 | 1 | 7 | 0 |
+| Persistence & Backend | 24 | 7 | 0 | 1 | 4 | 0 |
+| Tests | 57 | 20 | 1 | 1 | 8 | 0 |
 | UI | 22 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
 | World & Visibility | 16 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 50cd6fadac47c4031ebb5e0be27a7d86ba93fb40
+
+[50cd6fadac47c4031ebb5e0be27a7d86ba93fb40](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/50cd6fadac47c4031ebb5e0be27a7d86ba93fb40)
+
+Date: 2026-11-09T19:12:04-03:00 · Classification: Tests (explicit) · Systems: Persistence & Backend, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+test(backend): accept receipt replay in concurrent shop idempotency test
+```
+
+#### Original body
+
+```text
+A duplicate buy that reads after the first commit legitimately replays the receipt (200 alreadySecured), so the [200,409] assertion was timing-dependent. Assert the invariant instead: exactly one application, one charge, one receipt, and a later replay that does not charge again.
+```
+
+#### Changed paths
+
+```text
+backend/tests/integration/concurrency.test.js
+```
+
+#### Classification evidence
+
+- type → Tests: test
+- path → Persistence &amp; Backend: backend/tests/integration/concurrency.test.js
+- scope → Persistence &amp; Backend: backend
+- message-term → Persistence &amp; Backend: backend
+- path → Tests: backend/tests/integration/concurrency.test.js
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 58efac2bd7881e4f5e6d05a438457f1b770de25a
+
+[58efac2bd7881e4f5e6d05a438457f1b770de25a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/58efac2bd7881e4f5e6d05a438457f1b770de25a)
+
+Date: 2026-11-09T19:12:04-03:00 · Classification: Bug Fixes (explicit) · Systems: Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(hooks): harden pre-push gate deletion skip, node check and popup
+```
+
+#### Original body
+
+```text
+Skip the gate only when every pushed ref is a deletion (the previous check never fired because read blanks its variables at EOF), block with an accurate message when Node.js is missing, pass popup text through the environment with real newlines, skip the popup under CI, and mark the hook executable for POSIX Git. Add black-box tests driven by a stub node.
+```
+
+#### Changed paths
+
+```text
+.githooks/pre-push
+backend/tests/prepush.hook.test.js
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Persistence &amp; Backend: backend/tests/prepush.hook.test.js
+- path → Tests: backend/tests/prepush.hook.test.js
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 36136d48deddea095a0712bf6ab71af77103368d
 

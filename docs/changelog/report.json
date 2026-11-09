@@ -1,35 +1,35 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 978,
-  "canonicalEntries": 975,
+  "rawCommits": 980,
+  "canonicalEntries": 977,
   "before": {
+    "Tests": 27,
+    "Bug Fixes": 102,
     "Features": 382,
-    "Bug Fixes": 101,
     "Architecture & Infrastructure": 17,
     "Other Changes": 355,
     "Documentation": 83,
-    "Tests": 26,
     "Refactoring": 14
   },
   "after": {
+    "Tests": 32,
+    "Bug Fixes": 118,
     "Features": 519,
-    "Bug Fixes": 117,
     "Architecture & Infrastructure": 6,
     "Documentation": 99,
     "Maintenance": 15,
     "Other Changes": 164,
-    "Tests": 31,
     "Refactoring": 27
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Persistence & Backend": 221,
+    "Tests": 608,
     "Inventory & Loot": 396,
     "Networking & Sessions": 280,
     "UI": 301,
-    "Persistence & Backend": 219,
     "Build & Tooling": 499,
     "Documentation": 381,
-    "Tests": 606,
     "Combat": 361,
     "Extraction": 132,
     "Abilities": 123,
@@ -42,23 +42,23 @@
   },
   "canonical": {
     "sections": {
+      "Tests": 32,
+      "Bug Fixes": 117,
       "Features": 518,
-      "Bug Fixes": 116,
       "Architecture & Infrastructure": 6,
       "Documentation": 99,
       "Maintenance": 15,
       "Other Changes": 163,
-      "Tests": 31,
       "Refactoring": 27
     },
     "systems": {
+      "Persistence & Backend": 221,
+      "Tests": 606,
       "Inventory & Loot": 396,
       "Networking & Sessions": 280,
       "UI": 300,
-      "Persistence & Backend": 219,
       "Build & Tooling": 497,
       "Documentation": 379,
-      "Tests": 604,
       "Combat": 359,
       "Extraction": 132,
       "Abilities": 121,
@@ -34083,8 +34083,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 101,
-      "canonicalEntries": 101
+      "originalCommits": 103,
+      "canonicalEntries": 103
     },
     {
       "key": "v0.5.0",
@@ -34128,6 +34128,109 @@
     }
   ],
   "commits": [
+    {
+      "sha": "50cd6fadac47c4031ebb5e0be27a7d86ba93fb40",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/50cd6fadac47c4031ebb5e0be27a7d86ba93fb40",
+      "subject": "test(backend): accept receipt replay in concurrent shop idempotency test",
+      "body": "A duplicate buy that reads after the first commit legitimately replays the receipt (200 alreadySecured), so the [200,409] assertion was timing-dependent. Assert the invariant instead: exactly one application, one charge, one receipt, and a later replay that does not charge again.\n",
+      "date": "2026-11-09T19:12:04-03:00",
+      "files": [
+        "backend/tests/integration/concurrency.test.js"
+      ],
+      "originalType": "test",
+      "originalScope": "backend",
+      "originalSection": "Tests",
+      "breaking": false,
+      "reverts": null,
+      "section": "Tests",
+      "confidence": "explicit",
+      "systems": [
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "test",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/concurrency.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "scope",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/concurrency.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "58efac2bd7881e4f5e6d05a438457f1b770de25a",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/58efac2bd7881e4f5e6d05a438457f1b770de25a",
+      "subject": "fix(hooks): harden pre-push gate deletion skip, node check and popup",
+      "body": "Skip the gate only when every pushed ref is a deletion (the previous check never fired because read blanks its variables at EOF), block with an accurate message when Node.js is missing, pass popup text through the environment with real newlines, skip the popup under CI, and mark the hook executable for POSIX Git. Add black-box tests driven by a stub node.\n",
+      "date": "2026-11-09T19:12:04-03:00",
+      "files": [
+        ".githooks/pre-push",
+        "backend/tests/prepush.hook.test.js"
+      ],
+      "originalType": "fix",
+      "originalScope": "hooks",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/prepush.hook.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/prepush.hook.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "36136d48deddea095a0712bf6ab71af77103368d",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/36136d48deddea095a0712bf6ab71af77103368d",
