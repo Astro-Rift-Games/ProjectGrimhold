@@ -176,8 +176,11 @@ Extraction and unequip still target Loadout, not Stash.
 
 Physical Town positions persist through the Store, codec v11 and backend v3. Responses and local
 lists are ordered by slot, but array index is not a slot address. The Stash screen projects holes
-and pages by slot ranges. Take All / Leave All snapshot `(slot, lootId)` entries in ascending slot
-order, including duplicates and entries outside the visible pool; each transfer is independent.
+and pages by slot ranges. Take All / Leave All are a single `POST /character/me/inventory/transfer-all`
+and at most one revision-guarded write: the backend evaluates every source `(slot, lootId)` entry in
+ascending slot order under the single-transfer rules, including duplicates and entries outside the
+visible pool, skips refused stacks and returns the resulting lists, revision and a per-stack result.
+The local profile applies that result in one commit; failure leaves it unchanged and reconciles once.
 
 Explicit Sort is the only compaction: `StashDisplayOrder` compares category, display name,
 `lootId`, then original slot, and the selected entries are assigned slots `0..n-1`. It changes no

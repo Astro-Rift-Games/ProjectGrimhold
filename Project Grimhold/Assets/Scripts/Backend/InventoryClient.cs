@@ -110,6 +110,12 @@ namespace Grimhold.Backend
             return await PostJson<MoveItemRequest, MoveItemResult>(config, token, url, body);
         }
 
+        /// <summary>Moves every stack of the source list in one request; refused stacks are reported per stack.</summary>
+        public static Task<(bool success, TransferAllResult data, BackendError error)> TransferAllAsync(
+            BackendConfiguration config, string token, TransferAllRequest body) =>
+            PostJson<TransferAllRequest, TransferAllResult>(config, token,
+                $"{config.BaseUrl}/character/me/inventory/transfer-all", body);
+
         // ------------------------------------------------------------------
         // Shop operations
         // ------------------------------------------------------------------

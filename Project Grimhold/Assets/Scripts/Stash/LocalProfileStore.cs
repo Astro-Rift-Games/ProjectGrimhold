@@ -975,6 +975,32 @@ public sealed class LocalProfileStore : IMissionClaimService
         }
     }
 
+    /// <summary>
+    /// Applies the bulk transfer endpoint's authoritative lists through the hydration transaction: one
+    /// commit, local state equal to the backend result. The revision must advance because a bulk that
+    /// moved nothing writes nothing and is never applied.
+    /// </summary>
+    public StashOperationResult ApplyConfirmedTransferAll(Grimhold.Backend.TransferAllResult result)
+    {
+        lock (_sync)
+        {
+            var current = _repository.Snapshot;
+            if (!IsAvailable || current == null || !InventorySchemaSupportsSlots(current.InventorySchemaVersion) ||
+                current.RequiresEquipmentHydration || current.PendingReservation != null ||
+                current.PendingExtractionCommit != null ||
+                result.stash == null || result.loadout == null || result.revision <= current.RemoteRevision)
+                return StashOperationResult.InvalidInventory;
+            return ReconcileRemoteState(new Grimhold.Backend.InventoryData
+            {
+                inventorySchemaVersion = current.InventorySchemaVersion, stash = result.stash, loadout = result.loadout,
+                revision = result.revision, currency = current.Currency,
+                preparedEquipment = Grimhold.Backend.PreparedEquipmentData.FromLoadout(current.PreparedEquipment)
+            }, null, _lootCatalog, _abilityCatalog);
+        }
+    }
+
+    private static bool InventorySchemaSupportsSlots(int schema) => schema == 2 || schema == 3;
+
     /// <summary>Commits the complete training grant acknowledgement without re-planning ownership locally.</summary>
     public StashOperationResult ApplyConfirmedTrainingWeapon(Grimhold.Backend.TrainingWeaponResult result, int expectedRevision)
     {

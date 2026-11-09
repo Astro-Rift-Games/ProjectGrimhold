@@ -286,8 +286,12 @@ public sealed class LobbyStashUI : MonoBehaviour
         }
     }
 
+    /// <summary>How many times the Stash projection has been rebuilt; lets callers observe refreshes.</summary>
+    public int StashDisplayCount { get; private set; }
+
     public void DisplayStash(IReadOnlyList<RaidInventorySlotData> items, int capacity = LocalProfileStore.DefaultStashCapacity)
     {
+        StashDisplayCount++;
         if (capacity <= 0) throw new ArgumentOutOfRangeException(nameof(capacity));
         _stashCapacity = capacity;
         _stashItems.Clear();

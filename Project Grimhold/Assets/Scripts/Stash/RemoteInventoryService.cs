@@ -6,7 +6,7 @@ using Grimhold.Backend;
 /// Handles backend synchronization for the stash/loadout inventory system.
 /// Intended to be called by Presenters before applying local state changes.
 /// </summary>
-public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, ISlotRemoteInventoryService, IRemoteGemInstallService
+public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, ISlotRemoteInventoryService, IRemoteGemInstallService, IRemoteBulkTransferService
 {
     public async Task<(bool success, MoveItemResult data, BackendError error)> InstallGemAsync(InstallGemRequest request)
     {
@@ -21,6 +21,28 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, IS
             if (!result.success && result.error.error == BackendErrorUtility.Unauthorized)
                 ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
             // No revision-only commit: the coordinator applies both authoritative lists atomically.
+            return result;
+        }
+        finally { _mutationLock.Release(); }
+    }
+
+    /// <summary>One revision-guarded request for Take All / Leave All; the coordinator applies both lists atomically.</summary>
+    public async Task<(bool success, TransferAllResult data, BackendError error)> TransferAllAsync(bool fromStash)
+    {
+        if (string.IsNullOrEmpty(AuthToken))
+            return (false, default, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" });
+        await _mutationLock.WaitAsync();
+        try
+        {
+            if (_store == null || _store.InventorySchemaVersion < 2 || _store.InventorySchemaVersion > 3)
+                return (false, default, new BackendError { error = "INVENTORY_MIGRATION_REQUIRED", message = "Inventory migration required" });
+            var result = await InventoryClient.TransferAllAsync(_backendConfig, AuthToken, new TransferAllRequest
+            {
+                direction = fromStash ? "toLoadout" : "toStash", expectedRevision = _store.RemoteRevision
+            });
+            if (!result.success && result.error.error == BackendErrorUtility.Unauthorized)
+                ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+            // No revision-only commit: the coordinator applies the lists and revision in one local commit.
             return result;
         }
         finally { _mutationLock.Release(); }

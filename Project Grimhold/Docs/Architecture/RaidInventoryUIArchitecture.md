@@ -343,19 +343,20 @@ evaluators (`IPlayerLoadoutService.EvaluateTransfer*`), so one the Store would r
 into a full Inventory (`StashOperationResult.InventoryFull`), never reaches the backend; it then keeps
 the remote-first order and reconciles the profile with the backend when a remote call fails or the
 local profile cannot apply a transfer the backend accepted. Take All / Leave All are not one indivisible
-batch (GD 07, section 16): the coordinator snapshots all source `(slot, lootId)` entries in ascending
-physical-slot order, including duplicate IDs and stacks outside the visible pool, and runs each as
-an independent addressed full-stack transfer with the same pre-check, remote call and local apply
-before the next stack. The screen refreshes per commit through
-`ProfileCommitted`. Ordinary refusals and remote failures with successful reconciliation are skipped;
-there are no mutation retries or inferences of destination ownership. Failed reconciliation after a
-remote error or local divergence stops further calls and returns `RecoveryFailed`, preserving the
-original remote code/message or local rule separately from `RECONCILIATION_FAILED`. Bulk summaries
-count confirmed successful attempts (`Completed`) versus unconfirmed/not-attempted source entries
-(`Failed`), never actual moved/not-moved stacks. Addresses whose guarded source ownership disappears
-after reconciliation and entries remaining when recovery stops are explicitly counted in `Failed`. Unless
-recovery failed, a sequence with both confirmed and unconfirmed outcomes returns `Partial`; when no
-attempt succeeded, it retains the first failure's status and details with the full sequence counts. Equipment changes use the same Ready gate
+batch (GD 07, section 16) but are one request and at most one write: the coordinator issues a single
+`POST /character/me/inventory/transfer-all` (`IRemoteBulkTransferService`) and the backend applies the
+single-transfer rules to every source stack in ascending physical-slot order, including duplicate IDs
+and stacks outside the visible pool. A refused stack is skipped and later stacks are still evaluated;
+the accepted ones persist in one revision-guarded write that a stale revision, a pending reservation
+or a missing character rejects entirely. On success the local profile takes the returned `stash`,
+`loadout` and `revision` in one commit (`LocalProfileStore.ApplyConfirmedTransferAll`), so the screen
+refreshes once; when nothing moved nothing is written or committed. Bulk summaries count the per-stack
+results: `Completed` are moved stacks and `Failed` are refused ones, returning `Success`, `Partial`
+(some moved, some refused) or `Rejected` (none moved, with the first refusal's rule). A remote error or
+undetermined result leaves the local profile unchanged and reconciles once without retry, returning
+`RemoteFailed`; failed reconciliation or an unappliable backend result returns `RecoveryFailed` /
+`Diverged`, preserving the original remote code/message or local rule separately from
+`RECONCILIATION_FAILED`, with every source stack counted in `Failed`. Equipment changes use the same Ready gate
 as the Town Inventory screen (`TownEquipmentMutationGate`, supplied by `TownStashPresenter` through
 `LobbyStashPresenter.SetEquipmentGate`). Stash alone paginates over its 16 authored slots;
 no slots are instantiated. Serialized previous/next buttons and a TMP page label belong to the
