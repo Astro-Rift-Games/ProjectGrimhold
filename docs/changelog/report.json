@@ -1,35 +1,35 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 970,
-  "canonicalEntries": 967,
+  "rawCommits": 971,
+  "canonicalEntries": 968,
   "before": {
+    "Architecture & Infrastructure": 17,
     "Other Changes": 355,
     "Documentation": 83,
     "Bug Fixes": 100,
     "Features": 376,
-    "Architecture & Infrastructure": 16,
     "Tests": 26,
     "Refactoring": 14
   },
   "after": {
+    "Architecture & Infrastructure": 6,
     "Documentation": 99,
     "Bug Fixes": 116,
     "Features": 513,
     "Maintenance": 15,
     "Other Changes": 164,
     "Tests": 31,
-    "Refactoring": 27,
-    "Architecture & Infrastructure": 5
+    "Refactoring": 27
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Inventory & Loot": 389,
+    "Persistence & Backend": 214,
+    "Build & Tooling": 497,
+    "Tests": 600,
     "Abilities": 123,
-    "Build & Tooling": 496,
-    "Tests": 599,
     "Combat": 359,
     "Networking & Sessions": 279,
-    "Persistence & Backend": 213,
-    "Inventory & Loot": 388,
     "UI": 300,
     "Documentation": 379,
     "World & Visibility": 130,
@@ -42,23 +42,23 @@
   },
   "canonical": {
     "sections": {
+      "Architecture & Infrastructure": 6,
       "Documentation": 99,
       "Bug Fixes": 115,
       "Features": 512,
       "Maintenance": 15,
       "Other Changes": 163,
       "Tests": 31,
-      "Refactoring": 27,
-      "Architecture & Infrastructure": 5
+      "Refactoring": 27
     },
     "systems": {
+      "Inventory & Loot": 389,
+      "Persistence & Backend": 214,
+      "Build & Tooling": 495,
+      "Tests": 598,
       "Abilities": 121,
-      "Build & Tooling": 494,
-      "Tests": 597,
       "Combat": 357,
       "Networking & Sessions": 279,
-      "Persistence & Backend": 213,
-      "Inventory & Loot": 388,
       "UI": 299,
       "Documentation": 377,
       "World & Visibility": 128,
@@ -34083,8 +34083,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 93,
-      "canonicalEntries": 93
+      "originalCommits": 94,
+      "canonicalEntries": 94
     },
     {
       "key": "v0.5.0",
@@ -34128,6 +34128,113 @@
     }
   ],
   "commits": [
+    {
+      "sha": "9f58c40e244dddc6fa6fe6ac9a1f5502ae3d2da2",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9f58c40e244dddc6fa6fe6ac9a1f5502ae3d2da2",
+      "subject": "ci: implement automated quality gate with pre-push hooks and GitHub Actions",
+      "body": "Add CI workflow for New-Testing and main covering secrets scan, backend suites, parity contracts, and test coverage. Add automated Git pre-push hook with native Windows desktop alerts and silent initialization in Unity Editor and npm prepare.\n",
+      "date": "2026-11-08T21:06:39-03:00",
+      "files": [
+        ".githooks/pre-push",
+        ".github/workflows/ci.yml",
+        "AGENTS.md",
+        "Project Grimhold/Assets/Editor/GitHooks.meta",
+        "Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs",
+        "Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs.meta",
+        "backend/package.json",
+        "backend/tests/concurrency/inventory.real.test.js",
+        "tools/hooks/setup-hooks.js",
+        "tools/security/scan-secrets.js"
+      ],
+      "originalType": "ci",
+      "originalScope": null,
+      "originalSection": "Architecture & Infrastructure",
+      "breaking": false,
+      "reverts": null,
+      "section": "Architecture & Infrastructure",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "ci",
+          "supports": "Architecture & Infrastructure"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.real.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/package.json",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.real.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": ".github/workflows/ci.yml",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "AGENTS.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/GitHooks.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/hooks/setup-hooks.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/security/scan-secrets.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.real.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "9509f3b4842b9f6d1b936665435ae49f75904a3b",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9509f3b4842b9f6d1b936665435ae49f75904a3b",

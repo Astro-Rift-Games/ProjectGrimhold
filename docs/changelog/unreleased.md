@@ -4,32 +4,88 @@
 
 Release: Unreleased
 
-93 original commits; 93 canonical entries.
+94 original commits; 94 canonical entries.
 
 ## Canonical classification
 
-53 features; 22 bug fixes; 1 refactoring; 9 documentation; 2 tests; 4 maintenance; 2 other changes
+53 features; 22 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 2 tests; 4 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 7 | 6 | 1 | 0 | 4 | 1 |
 | Art & Animation | 7 | 7 | 1 | 0 | 4 | 0 |
 | Audio | 3 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 32 | 14 | 1 | 0 | 6 | 2 |
+| Build & Tooling | 32 | 14 | 1 | 1 | 6 | 2 |
 | Combat | 32 | 5 | 0 | 0 | 6 | 0 |
 | Documentation | 24 | 8 | 0 | 0 | 4 | 0 |
 | Extraction | 7 | 2 | 0 | 0 | 2 | 0 |
 | Input | 0 | 0 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 45 | 19 | 1 | 0 | 6 | 1 |
+| Inventory & Loot | 45 | 19 | 1 | 1 | 6 | 1 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 15 | 6 | 0 | 0 | 2 | 0 |
-| Persistence & Backend | 19 | 6 | 0 | 0 | 3 | 0 |
-| Tests | 51 | 19 | 1 | 0 | 7 | 0 |
+| Persistence & Backend | 19 | 6 | 0 | 1 | 3 | 0 |
+| Tests | 51 | 19 | 1 | 1 | 7 | 0 |
 | UI | 21 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
 | World & Visibility | 16 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 9f58c40e244dddc6fa6fe6ac9a1f5502ae3d2da2
+
+[9f58c40e244dddc6fa6fe6ac9a1f5502ae3d2da2](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9f58c40e244dddc6fa6fe6ac9a1f5502ae3d2da2)
+
+Date: 2026-11-08T21:06:39-03:00 · Classification: Architecture & Infrastructure (explicit) · Systems: Inventory & Loot, Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+ci: implement automated quality gate with pre-push hooks and GitHub Actions
+```
+
+#### Original body
+
+```text
+Add CI workflow for New-Testing and main covering secrets scan, backend suites, parity contracts, and test coverage. Add automated Git pre-push hook with native Windows desktop alerts and silent initialization in Unity Editor and npm prepare.
+```
+
+#### Changed paths
+
+```text
+.githooks/pre-push
+.github/workflows/ci.yml
+AGENTS.md
+Project Grimhold/Assets/Editor/GitHooks.meta
+Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs
+Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs.meta
+backend/package.json
+backend/tests/concurrency/inventory.real.test.js
+tools/hooks/setup-hooks.js
+tools/security/scan-secrets.js
+```
+
+#### Classification evidence
+
+- type → Architecture &amp; Infrastructure: ci
+- path → Inventory &amp; Loot: backend/tests/concurrency/inventory.real.test.js
+- path → Persistence &amp; Backend: backend/package.json
+- path → Persistence &amp; Backend: backend/tests/concurrency/inventory.real.test.js
+- message-term → Persistence &amp; Backend: backend
+- path → Build &amp; Tooling: .github/workflows/ci.yml
+- path → Build &amp; Tooling: AGENTS.md
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/GitHooks.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs.meta
+- path → Build &amp; Tooling: tools/hooks/setup-hooks.js
+- path → Build &amp; Tooling: tools/security/scan-secrets.js
+- path → Tests: backend/tests/concurrency/inventory.real.test.js
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 9509f3b4842b9f6d1b936665435ae49f75904a3b
 
