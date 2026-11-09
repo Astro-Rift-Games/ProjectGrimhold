@@ -21,8 +21,9 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     [SerializeField]
     private RaidInventoryView _view;
 
-    [SerializeField]
     private const string NotTransferableMessage = "Este objeto no se puede transferir a contenedores";
+
+    [SerializeField]
     private LootDefinitionCatalog _lootCatalog;
 
     [SerializeField]
