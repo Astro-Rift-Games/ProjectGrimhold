@@ -2043,7 +2043,10 @@ public sealed class LocalProfileStore : IMissionClaimService
         while (next.AppliedProgressionReceipts.Count > LocalProfileSnapshot.MaxAppliedProgressionReceipts)
             next.AppliedProgressionReceipts.RemoveAt(0);
 
-        next.PreparedEquipment = preparedEquipment;
+        // The retry payload below keeps the exact raid result; the backend settles the same rule.
+        PreparedEquipmentLoadout settledEquipment = preparedEquipment;
+        TrainingWeaponReturnRule.TryApply(next.Loadout, next.Stash, ref settledEquipment, _lootCatalog);
+        next.PreparedEquipment = settledEquipment;
 
         next.PendingExtractionCommit = new PendingExtractionCommit(
             receipt,
