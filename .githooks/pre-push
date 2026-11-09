@@ -3,30 +3,45 @@
 # Prevents pushing broken tests, contracts or exposed secrets to remote branches.
 
 notify_popup() {
-  TITLE="Project Grimhold — Push Bloqueado"
-  MSG="$1"
+  # Desktop alert for Git GUIs on Windows; skipped in CI and headless runs.
+  if [ -n "$CI" ]; then return; fi
   if [ -n "$WINDIR" ] || [ -n "$SYSTEMROOT" ]; then
-    powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('$MSG', '$TITLE', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)" >/dev/null 2>&1 &
+    # Pass text through the environment so quotes cannot break the PowerShell command.
+    GRIMHOLD_POPUP_TITLE="Project Grimhold — Push Bloqueado" \
+    GRIMHOLD_POPUP_MSG="$(printf '%b' "$1")" \
+    powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show(\$env:GRIMHOLD_POPUP_MSG, \$env:GRIMHOLD_POPUP_TITLE, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)" >/dev/null 2>&1 &
   fi
 }
 
-# Read standard input for ref updates if piped by git push
+# Skip the gate only when every pushed ref is a deletion.
 ZERO_SHA="0000000000000000000000000000000000000000"
-IS_DELETE=false
 
 if [ ! -t 0 ]; then
+  HAS_REFS=false
+  ONLY_DELETES=true
   while read -r local_ref local_sha remote_ref remote_sha; do
-    if [ "$local_sha" = "$ZERO_SHA" ] || [ -z "$local_sha" ]; then
-      IS_DELETE=true
-    else
-      IS_DELETE=false
-      break
+    [ -z "$local_ref" ] && continue
+    HAS_REFS=true
+    if [ "$local_sha" != "$ZERO_SHA" ]; then
+      ONLY_DELETES=false
     fi
   done
-  if [ "$IS_DELETE" = true ] && [ -n "$remote_ref" ]; then
+  if [ "$HAS_REFS" = true ] && [ "$ONLY_DELETES" = true ]; then
     echo "[Pre-Push] Branch deletion detected. Skipping test execution."
     exit 0
   fi
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "========================================================================" >&2
+  echo "❌ PUSH BLOQUEADO — NODE.JS NO ENCONTRADO" >&2
+  echo "========================================================================" >&2
+  echo "Motivo: El Quality Gate necesita Node.js para correr los tests." >&2
+  echo "Solución: Instalá Node.js 22 y verificá que 'node' esté en el PATH" >&2
+  echo "          (reiniciá GitHub Desktop o la terminal después de instalarlo)." >&2
+  echo "========================================================================" >&2
+  notify_popup "❌ PUSH CANCELADO\n\nNo se encontró Node.js en el PATH.\n\nInstalá Node.js 22 y reiniciá GitHub Desktop o la terminal."
+  exit 1
 fi
 
 echo "========================================================================"
