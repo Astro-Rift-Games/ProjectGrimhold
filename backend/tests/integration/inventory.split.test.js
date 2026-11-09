@@ -75,8 +75,8 @@ test('split HTTP and atomic Mongo persistence', async t => {
     assert.equal(res.status, 401); assert.equal(res.body.error, 'UNAUTHORIZED');
     assert.deepEqual(await stored(), before);
   });
-  await t.test('flag default off rejects before inventory reads even with protocol gate on', async () => {
-    delete process.env.INVENTORY_SPLIT_ENABLED;
+  await t.test('flag false rejects before inventory reads even with protocol gate on', async () => {
+    process.env.INVENTORY_SPLIT_ENABLED = 'false';
     process.env.INVENTORY_PROTOCOL_GATE = 'true';
     const before = await stored();
     const original = Character.findOne;

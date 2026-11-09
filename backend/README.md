@@ -25,7 +25,7 @@ Node.js + Express + Mongoose backend para Project Grimhold.
 | `WEBHOOK_SECRET` | Sí en `production`         | Secreto compartido para endpoints internos/webhooks (mín. 32 caracteres en prod) |
 | `INVENTORY_PROTOCOL_GATE` | No (default `false`) | Sólo `true` exige protocolo 2 y documentos v2/v3, salvo que el gate de instancias esté activo |
 | `INVENTORY_INSTANCE_PROTOCOL_GATE` | No (default `false`) | Sólo `true` exige protocolo 3 y documentos v3; tiene precedencia sobre el gate v2. No migra datos |
-| `INVENTORY_SPLIT_ENABLED` | No (default `false`) | Sólo `true` habilita split por slot v2/v3 (sólo stacks, nunca instancias); independiente de ambos gates |
+| `INVENTORY_SPLIT_ENABLED` | No (default `true`) | Habilita split por slot v2/v3 (sólo stacks, nunca instancias); sólo `false` lo deshabilita; independiente de ambos gates |
 | `ENABLE_DEV_DEBUG_ROUTES` | No (default `false`) | Sólo `true` habilita `/character/debug/mock-fusion-result` fuera de producción |
 | `ENABLE_LEGACY_EXTRACTION` | No (default `false`) | Sólo `true` habilita `/character/me/inventory/extraction` fuera de producción |
 
@@ -328,8 +328,8 @@ characterAttributes,revision}`; el payload autoritativo sigue agregado, y `loado
 ## Inventario: T6 — split autoritativo (TASK-281, C8)
 
 `POST /character/me/inventory/slots/split` divide un stack en la misma lista; no mueve entre
-listas, no fusiona ni intercambia entradas. Requiere JWT y `INVENTORY_SPLIT_ENABLED=true`.
-Por defecto devuelve **403 `FEATURE_DISABLED` antes de leer el inventario**, incluso con el gate
+listas, no fusiona ni intercambia entradas. Requiere JWT; está habilitado por defecto.
+Con `INVENTORY_SPLIT_ENABLED=false` devuelve **403 `FEATURE_DISABLED` antes de leer el inventario**, incluso con el gate
 activo. Si está habilitado, usa el middleware de protocolo de B1: gate activo sin header
 `X-Grimhold-Inventory-Protocol: 2` → 426; documento v1 (con o sin gate) → 409, sin migración.
 La flag no activa el gate ni migra documentos. TASK-282 (UI) no forma parte de este endpoint.

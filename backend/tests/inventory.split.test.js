@@ -50,14 +50,17 @@ test('split public service contract', async t => {
     assert.equal(writes, count);
   }
 
-  await t.test('flag defaults off and only true enables; disabled service performs no read or write', async () => {
-    for (const value of [undefined, 'false', '1', 'TRUE']) {
+  await t.test('flag defaults on and only false disables; disabled service performs no read or write', async () => {
+    for (const value of [undefined, 'true', '1', 'TRUE']) {
       if (value === undefined) delete process.env.INVENTORY_SPLIT_ENABLED;
       else process.env.INVENTORY_SPLIT_ENABLED = value;
-      assert.equal(env.inventorySplitEnabled, false);
-      await assert.rejects(() => split(), { statusCode: 403, errorCode: 'FEATURE_DISABLED' });
-      assert.equal(reads, 0); assert.equal(writes, 0);
+      assert.equal(env.inventorySplitEnabled, true);
     }
+    process.env.INVENTORY_SPLIT_ENABLED = 'false';
+    assert.equal(env.inventorySplitEnabled, false);
+    await assert.rejects(() => split(), { statusCode: 403, errorCode: 'FEATURE_DISABLED' });
+    assert.equal(reads, 0); assert.equal(writes, 0);
+    process.env.INVENTORY_SPLIT_ENABLED = 'true';
   });
   for (const list of ['stash', 'loadout']) {
     await t.test(`${list} INV-AC-03: 13 becomes 5 and 8, total 13, one revision, whole entry copied`, async () => {
