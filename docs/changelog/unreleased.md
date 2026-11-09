@@ -4,32 +4,259 @@
 
 Release: Unreleased
 
-97 original commits; 97 canonical entries.
+101 original commits; 101 canonical entries.
 
 ## Canonical classification
 
-55 features; 23 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 2 tests; 4 maintenance; 2 other changes
+59 features; 23 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 2 tests; 4 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 7 | 6 | 1 | 0 | 4 | 1 |
 | Art & Animation | 7 | 7 | 1 | 0 | 4 | 0 |
 | Audio | 3 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 33 | 14 | 1 | 1 | 6 | 2 |
+| Build & Tooling | 34 | 14 | 1 | 1 | 6 | 2 |
 | Combat | 34 | 5 | 0 | 0 | 6 | 0 |
-| Documentation | 24 | 8 | 0 | 0 | 4 | 0 |
+| Documentation | 26 | 8 | 0 | 0 | 4 | 0 |
 | Extraction | 9 | 2 | 0 | 0 | 2 | 0 |
 | Input | 0 | 0 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 47 | 20 | 1 | 1 | 6 | 1 |
+| Inventory & Loot | 51 | 20 | 1 | 1 | 6 | 1 |
 | Movement | 3 | 0 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 15 | 6 | 0 | 0 | 2 | 0 |
-| Persistence & Backend | 21 | 6 | 0 | 1 | 3 | 0 |
-| Tests | 53 | 19 | 1 | 1 | 7 | 0 |
-| UI | 21 | 5 | 1 | 0 | 4 | 0 |
+| Networking & Sessions | 16 | 6 | 0 | 0 | 2 | 0 |
+| Persistence & Backend | 24 | 6 | 0 | 1 | 3 | 0 |
+| Tests | 57 | 19 | 1 | 1 | 7 | 0 |
+| UI | 22 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
 | World & Visibility | 16 | 4 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 36136d48deddea095a0712bf6ab71af77103368d
+
+[36136d48deddea095a0712bf6ab71af77103368d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/36136d48deddea095a0712bf6ab71af77103368d)
+
+Date: 2026-11-09T01:36:05-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, Networking & Sessions, UI, Persistence & Backend, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(stash): take and leave all through one bulk request
+```
+
+#### Original body
+
+```text
+Take All / Leave All call POST transfer-all once and apply the backend lists in one local commit; counts come from per-stack results, and a failed request leaves the profile unchanged and reconciles once. The Stash screen defers commit-driven refreshes during the bulk and refreshes once at the end. Architecture docs and ODD tracker updated.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+Project Grimhold/Assets/Scripts/Backend/TransferAllRequest.cs
+Project Grimhold/Assets/Scripts/Backend/TransferAllRequest.cs.meta
+Project Grimhold/Assets/Scripts/Stash/IRemoteBulkTransferService.cs
+Project Grimhold/Assets/Scripts/Stash/IRemoteBulkTransferService.cs.meta
+Project Grimhold/Assets/Scripts/Stash/ISlotPlayerLoadoutService.cs
+Project Grimhold/Assets/Scripts/Stash/InMemoryPlayerLoadoutService.cs
+Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs
+Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+Project Grimhold/Assets/Scripts/Stash/StashTransferCoordinator.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferCoordinatorTests.cs
+Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs
+Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+odd/tasks/stash-bulk-transfer.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+- path → Inventory &amp; Loot: Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs
+- path → UI: Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/TransferAllRequest.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/TransferAllRequest.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+- path → Persistence &amp; Backend: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferCoordinatorTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+- message-term → Documentation: Architecture docs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferCoordinatorTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 2d6f56fe4eca9332a874a201bc4366bc2691fad0
+
+[2d6f56fe4eca9332a874a201bc4366bc2691fad0](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2d6f56fe4eca9332a874a201bc4366bc2691fad0)
+
+Date: 2026-11-09T01:35:54-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(backend): add atomic transfer-all for Take All / Leave All
+```
+
+#### Original body
+
+```text
+POST /character/me/inventory/transfer-all applies the single full-stack transfer rule (shared moveStack) to every source stack in slot order, skips refused stacks, and persists in one write guarded by revision and no pending reservation. Nothing moved means no write. Returns stash, loadout, revision and per-stack results. Unit, integration, protocol and concurrency tests; README documents the route.
+```
+
+#### Changed paths
+
+```text
+backend/README.md
+backend/src/routes/inventory.routes.js
+backend/src/services/InventoryService.js
+backend/src/validators/inventory.validators.js
+backend/tests/concurrency/inventory.transferAll.real.test.js
+backend/tests/integration/inventory.transferAll.test.js
+backend/tests/inventory.protocol.test.js
+backend/tests/inventory.transferAll.test.js
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Inventory &amp; Loot: backend/src/routes/inventory.routes.js
+- path → Inventory &amp; Loot: backend/src/services/InventoryService.js
+- path → Inventory &amp; Loot: backend/src/validators/inventory.validators.js
+- path → Inventory &amp; Loot: backend/tests/concurrency/inventory.transferAll.real.test.js
+- path → Inventory &amp; Loot: backend/tests/integration/inventory.transferAll.test.js
+- path → Inventory &amp; Loot: backend/tests/inventory.protocol.test.js
+- path → Inventory &amp; Loot: backend/tests/inventory.transferAll.test.js
+- path → Persistence &amp; Backend: backend/README.md
+- path → Persistence &amp; Backend: backend/src/routes/inventory.routes.js
+- path → Persistence &amp; Backend: backend/src/services/InventoryService.js
+- path → Persistence &amp; Backend: backend/src/validators/inventory.validators.js
+- path → Persistence &amp; Backend: backend/tests/concurrency/inventory.transferAll.real.test.js
+- path → Persistence &amp; Backend: backend/tests/integration/inventory.transferAll.test.js
+- path → Persistence &amp; Backend: backend/tests/inventory.protocol.test.js
+- path → Persistence &amp; Backend: backend/tests/inventory.transferAll.test.js
+- scope → Persistence &amp; Backend: backend
+- message-term → Persistence &amp; Backend: backend
+- path → Tests: backend/tests/concurrency/inventory.transferAll.real.test.js
+- path → Tests: backend/tests/integration/inventory.transferAll.test.js
+- path → Tests: backend/tests/inventory.protocol.test.js
+- path → Tests: backend/tests/inventory.transferAll.test.js
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 3493694260ebad229a2486040a3c56824a0844c8
+
+[3493694260ebad229a2486040a3c56824a0844c8](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3493694260ebad229a2486040a3c56824a0844c8)
+
+Date: 2026-11-09T01:35:40-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(inventory): hide the Sort button in every Raid mode
+```
+
+#### Original body
+
+```text
+Raid Sort was already disabled by TASK-227/#613; the Raid inventory now hides it (personal, container and after Downed recovery). Town keeps a visible, working Sort.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryView.cs
+Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs
+Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryViewPlayModeTests.cs
+Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryView.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryViewPlayModeTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+- scope → Inventory &amp; Loot: inventory
+- message-term → Inventory &amp; Loot: inventory
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryViewPlayModeTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 46f177d3d3f5aee04bfa9355221c7d683e9c5273
+
+[46f177d3d3f5aee04bfa9355221c7d683e9c5273](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/46f177d3d3f5aee04bfa9355221c7d683e9c5273)
+
+Date: 2026-11-09T01:35:26-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(backend): enable stash stack split by default
+```
+
+#### Original body
+
+```text
+INVENTORY_SPLIT_ENABLED now defaults to on; only an explicit 'false' disables POST /slots/split (403 FEATURE_DISABLED before any read). Tests and README updated.
+```
+
+#### Changed paths
+
+```text
+backend/README.md
+backend/src/config/env.js
+backend/tests/integration/inventory.split.test.js
+backend/tests/inventory.split.test.js
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Inventory &amp; Loot: backend/tests/integration/inventory.split.test.js
+- path → Inventory &amp; Loot: backend/tests/inventory.split.test.js
+- path → Persistence &amp; Backend: backend/README.md
+- path → Persistence &amp; Backend: backend/src/config/env.js
+- path → Persistence &amp; Backend: backend/tests/integration/inventory.split.test.js
+- path → Persistence &amp; Backend: backend/tests/inventory.split.test.js
+- scope → Persistence &amp; Backend: backend
+- message-term → Persistence &amp; Backend: backend
+- path → Tests: backend/tests/integration/inventory.split.test.js
+- path → Tests: backend/tests/inventory.split.test.js
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 74e257bdcaa399bb6bdc9ed82e833f60d1db2170
 

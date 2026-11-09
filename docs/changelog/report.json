@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 974,
-  "canonicalEntries": 971,
+  "rawCommits": 978,
+  "canonicalEntries": 975,
   "before": {
-    "Features": 378,
+    "Features": 382,
     "Bug Fixes": 101,
     "Architecture & Infrastructure": 17,
     "Other Changes": 355,
@@ -12,7 +12,7 @@
     "Refactoring": 14
   },
   "after": {
-    "Features": 515,
+    "Features": 519,
     "Bug Fixes": 117,
     "Architecture & Infrastructure": 6,
     "Documentation": 99,
@@ -23,16 +23,16 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Inventory & Loot": 396,
+    "Networking & Sessions": 280,
+    "UI": 301,
+    "Persistence & Backend": 219,
+    "Build & Tooling": 499,
+    "Documentation": 381,
+    "Tests": 606,
     "Combat": 361,
     "Extraction": 132,
-    "Inventory & Loot": 392,
-    "Persistence & Backend": 216,
-    "Build & Tooling": 498,
-    "Tests": 602,
     "Abilities": 123,
-    "Networking & Sessions": 279,
-    "UI": 300,
-    "Documentation": 379,
     "World & Visibility": 130,
     "Art & Animation": 229,
     "Movement": 92,
@@ -42,7 +42,7 @@
   },
   "canonical": {
     "sections": {
-      "Features": 514,
+      "Features": 518,
       "Bug Fixes": 116,
       "Architecture & Infrastructure": 6,
       "Documentation": 99,
@@ -52,16 +52,16 @@
       "Refactoring": 27
     },
     "systems": {
+      "Inventory & Loot": 396,
+      "Networking & Sessions": 280,
+      "UI": 300,
+      "Persistence & Backend": 219,
+      "Build & Tooling": 497,
+      "Documentation": 379,
+      "Tests": 604,
       "Combat": 359,
       "Extraction": 132,
-      "Inventory & Loot": 392,
-      "Persistence & Backend": 216,
-      "Build & Tooling": 496,
-      "Tests": 600,
       "Abilities": 121,
-      "Networking & Sessions": 279,
-      "UI": 299,
-      "Documentation": 377,
       "World & Visibility": 128,
       "Art & Animation": 226,
       "Movement": 92,
@@ -34083,8 +34083,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 97,
-      "canonicalEntries": 97
+      "originalCommits": 101,
+      "canonicalEntries": 101
     },
     {
       "key": "v0.5.0",
@@ -34128,6 +34128,473 @@
     }
   ],
   "commits": [
+    {
+      "sha": "36136d48deddea095a0712bf6ab71af77103368d",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/36136d48deddea095a0712bf6ab71af77103368d",
+      "subject": "feat(stash): take and leave all through one bulk request",
+      "body": "Take All / Leave All call POST transfer-all once and apply the backend lists in one local commit; counts come from per-stack results, and a failed request leaves the profile unchanged and reconciles once. The Stash screen defers commit-driven refreshes during the bulk and refreshes once at the end. Architecture docs and ODD tracker updated.\n",
+      "date": "2026-11-09T01:36:05-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+        "Project Grimhold/Assets/Scripts/Backend/TransferAllRequest.cs",
+        "Project Grimhold/Assets/Scripts/Backend/TransferAllRequest.cs.meta",
+        "Project Grimhold/Assets/Scripts/Stash/IRemoteBulkTransferService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/IRemoteBulkTransferService.cs.meta",
+        "Project Grimhold/Assets/Scripts/Stash/ISlotPlayerLoadoutService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/InMemoryPlayerLoadoutService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+        "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/StashTransferCoordinator.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferCoordinatorTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+        "odd/tasks/stash-bulk-transfer.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "stash",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LobbyStashPresenter.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LobbyStashUI.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/TransferAllRequest.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/TransferAllRequest.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferCoordinatorTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "message-term",
+          "value": "Architecture docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/StashTransferCoordinatorTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/LobbyStashPresenterPlayModeTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "2d6f56fe4eca9332a874a201bc4366bc2691fad0",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2d6f56fe4eca9332a874a201bc4366bc2691fad0",
+      "subject": "feat(backend): add atomic transfer-all for Take All / Leave All",
+      "body": "POST /character/me/inventory/transfer-all applies the single full-stack transfer rule (shared moveStack) to every source stack in slot order, skips refused stacks, and persists in one write guarded by revision and no pending reservation. Nothing moved means no write. Returns stash, loadout, revision and per-stack results. Unit, integration, protocol and concurrency tests; README documents the route.\n",
+      "date": "2026-11-09T01:35:54-03:00",
+      "files": [
+        "backend/README.md",
+        "backend/src/routes/inventory.routes.js",
+        "backend/src/services/InventoryService.js",
+        "backend/src/validators/inventory.validators.js",
+        "backend/tests/concurrency/inventory.transferAll.real.test.js",
+        "backend/tests/integration/inventory.transferAll.test.js",
+        "backend/tests/inventory.protocol.test.js",
+        "backend/tests/inventory.transferAll.test.js"
+      ],
+      "originalType": "feat",
+      "originalScope": "backend",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/inventory.routes.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/validators/inventory.validators.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.transferAll.real.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.transferAll.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.protocol.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.transferAll.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/README.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/inventory.routes.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/validators/inventory.validators.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.transferAll.real.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.transferAll.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.protocol.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.transferAll.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "scope",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.transferAll.real.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.transferAll.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.protocol.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.transferAll.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "3493694260ebad229a2486040a3c56824a0844c8",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3493694260ebad229a2486040a3c56824a0844c8",
+      "subject": "feat(inventory): hide the Sort button in every Raid mode",
+      "body": "Raid Sort was already disabled by TASK-227/#613; the Raid inventory now hides it (personal, container and after Downed recovery). Town keeps a visible, working Sort.\n",
+      "date": "2026-11-09T01:35:40-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryView.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryViewPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "inventory",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryPresenter.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidInventoryView.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryViewPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryPresenterInteractionTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidInventoryViewPlayModeTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "46f177d3d3f5aee04bfa9355221c7d683e9c5273",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/46f177d3d3f5aee04bfa9355221c7d683e9c5273",
+      "subject": "feat(backend): enable stash stack split by default",
+      "body": "INVENTORY_SPLIT_ENABLED now defaults to on; only an explicit 'false' disables POST /slots/split (403 FEATURE_DISABLED before any read). Tests and README updated.\n",
+      "date": "2026-11-09T01:35:26-03:00",
+      "files": [
+        "backend/README.md",
+        "backend/src/config/env.js",
+        "backend/tests/integration/inventory.split.test.js",
+        "backend/tests/inventory.split.test.js"
+      ],
+      "originalType": "feat",
+      "originalScope": "backend",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.split.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.split.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/README.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/config/env.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.split.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.split.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "scope",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/inventory.split.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/inventory.split.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "74e257bdcaa399bb6bdc9ed82e833f60d1db2170",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/74e257bdcaa399bb6bdc9ed82e833f60d1db2170",
