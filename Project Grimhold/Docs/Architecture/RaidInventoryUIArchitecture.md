@@ -427,7 +427,7 @@ policy. Stash and Town Loadout persist physical slots with holes and duplicate I
 a hole; reception fills the lowest matching in-capacity stack or lowest free in-capacity slot under
 the [persistence rules](LocalPlayerPersistenceArchitecture.md#stash-capacity-admission). Addressed
 cell moves/merges/swaps may change positions without compacting other entries. Only Sort compacts.
-TASK-227/#613 disables Raid Sort entirely; Raid addresses and holes remain in physical order.
+TASK-227/#613 hides and disables Raid Sort entirely; Raid addresses and holes remain in physical order.
 `StashDisplayOrder` is the shared Sort comparer, not a display projection: category rank Valuable, Material, Quest, Miscellaneous, Weapon,
 Helmet, Armor, Gloves, Boots, Shield, then None/unresolved/unrecognized at one last rank; display
 name ordinal-ignore-case next, then raw `LootId` ordinal and original slot as the final tie-breaker.
@@ -449,7 +449,7 @@ Stash and Loadout buttons affect only their own lists.
 
 Raid no longer seeds, reconciles or sorts a personal `LootId` display permutation. Its player panel
 reads the receiver's thirty physical slots directly, preserving duplicate IDs, origins and holes.
-The shared Sort control is disabled for every Raid mode, including after Downed recovery. There is
+The shared Sort control is hidden (inactive) and disabled for every Raid mode, including after Downed recovery. There is
 no new sorting RPC or authoritative rearrangement. Town's comparer, persistent Sort queue and Ready/
 reservation gates remain unchanged. Container panels have no Sort button. Admission/extraction
 stay aggregate at the Raid boundary; extraction placement uses fresh physical Town Loadout slots,
@@ -492,7 +492,7 @@ Physical-slot UI (TASK-227/#613) has parent-observed Unity compilation and focus
 The Console had 0 errors and 0 warnings after the full UI run. Coverage includes thirty addresses,
 holes and exact origins; duplicate-stack selection; immutable/default metadata; selected-slot
 deposit/drop/equip metadata; stale context/drag dispatch before refresh and cancellation after
-refresh; hidden pooled-button rejection; tooltip revision changes; Raid Sort disabled with Town
+refresh; hidden pooled-button rejection; tooltip revision changes; Raid Sort hidden with Town
 persistent Sort retained; ID-only physical-cell pulse suppression with legacy container feedback;
 and definition-only PlayerFirst consumption. Repeated bind/disable/enable is exercised with a real
 button confirmation; one confirmation does not establish an exact delegate invocation count.

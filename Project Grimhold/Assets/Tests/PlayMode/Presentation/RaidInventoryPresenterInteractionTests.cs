@@ -190,6 +190,9 @@ namespace Tests.PlayMode.Presentation
                 Assert.That(typeof(RaidInventoryPresenter).GetProperty("CanSortInventory",
                     BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_presenter), Is.True,
                     "Ready blocks Equipment, not Sort.");
+                InvokeMethod(_presenter, "UpdateSortInteractable");
+                Assert.That(_view.SortButton.gameObject.activeSelf, Is.True, "Town keeps Sort visible.");
+                Assert.That(_view.SortButton.interactable, Is.True);
                 var gate = new System.Threading.Tasks.TaskCompletionSource<bool>();
                 remote.Gates.Enqueue(gate.Task);
                 var task = (System.Threading.Tasks.Task)InvokeMethod(_presenter, "SortTownAsync");
@@ -243,6 +246,7 @@ namespace Tests.PlayMode.Presentation
                 Is.EqualTo("Estás abatido: el inventario es de solo lectura."));
             Assert.That(_view.TakeAllButton.interactable, Is.False);
             Assert.That(_view.SortButton.interactable, Is.False);
+            Assert.That(_view.SortButton.gameObject.activeSelf, Is.False, "Raid hides Sort.");
             _view.ShowTransferFeedback("Late confirmation");
             Assert.That(_view.TransferFeedbackText.text,
                 Is.EqualTo("Estás abatido: el inventario es de solo lectura."));
@@ -250,6 +254,7 @@ namespace Tests.PlayMode.Presentation
             InvokeMethod(_presenter, "ObserveDowned");
             Assert.That(GetPresenterMode(_presenter), Is.EqualTo(mode));
             Assert.That(_view.TransferFeedbackText.text, Is.Empty);
+            Assert.That(_view.SortButton.gameObject.activeSelf, Is.False, "Recovery keeps Raid Sort hidden.");
             if (mode == 1) Assert.That(_view.SortButton.interactable, Is.False, "Recovery does not enable Raid sorting.");
             downed = true;
             InvokeMethod(_presenter, "ObserveDowned");
@@ -326,7 +331,7 @@ namespace Tests.PlayMode.Presentation
         }
 
         [Test]
-        public void RaidSort_DisabledInPersonalAndContainerModes_DoesNotChangeDisplayOrSource()
+        public void RaidSort_HiddenInPersonalAndContainerModes_DoesNotChangeDisplayOrSource()
         {
             var catalog = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(
                 "Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset");
@@ -349,6 +354,7 @@ namespace Tests.PlayMode.Presentation
                 Assert.That(typeof(RaidInventoryPresenter).GetProperty("CanSortInventory",
                     BindingFlags.Instance | BindingFlags.NonPublic).GetValue(_presenter), Is.False);
                 Assert.That(_view.SortButton.interactable, Is.False);
+                Assert.That(_view.SortButton.gameObject.activeSelf, Is.False, "Raid hides Sort in every mode.");
                 InvokeMethod(_presenter, "OnSortRequested");
                 Assert.That(order.Entries, Is.Empty, "Raid sorting may not create a local visual order.");
                 Assert.That(source.Items, Is.EqualTo(before));
