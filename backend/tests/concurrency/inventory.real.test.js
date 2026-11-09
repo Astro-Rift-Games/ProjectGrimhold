@@ -121,7 +121,7 @@ test('InventoryService - Concurrency and Revision', async (t) => {
       accountId: accountId,
       name: 'ResChar',
       revision: 0,
-      inventory: { stash: [{ lootId: 'potion', amount: 10 }], loadout: [{ lootId: 'sword', amount: 1 }], preparedEquipment: {} }
+      inventory: { stash: [{ lootId: 'potion', amount: 10 }], loadout: [{ lootId: 'sword', amount: 1 }], preparedEquipment: { weaponSlot1: { lootId: 'arming_sword', slot: 'weaponSlot1' } } }
     });
     await char.save();
 

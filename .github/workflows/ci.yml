@@ -1,0 +1,80 @@
+name: CI Quality Gate
+
+on:
+  push:
+    branches: [New-Testing, main]
+  pull_request:
+    branches: [New-Testing, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  security-scan:
+    name: Secret & Credential Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run Secret Scanner
+        run: node tools/security/scan-secrets.js
+
+  backend-and-parity:
+    name: Backend Suites & Parity Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Unit & Parity Contract Tests
+        working-directory: backend
+        run: npm test
+
+      - name: Concurrency Tests
+        working-directory: backend
+        run: npm run test:concurrency
+
+      - name: Integration Tests
+        working-directory: backend
+        run: npm run test:integration
+
+      - name: Test Coverage Report
+        working-directory: backend
+        run: npm run test:coverage
+
+  quality-gate:
+    name: Quality Gate Summary
+    needs: [security-scan, backend-and-parity]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report Quality Gate Status
+        run: |
+          echo "### 🛡️ Project Grimhold Quality Gate Passed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Secret & Credential Scanner:** No exposed keys or sensitive URIs." >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Backend Unit Suites:** All unit tests verified." >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Parity & Architecture Contracts:** Unity definitions and backend catalogs are 100% in sync." >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Concurrency & Integration:** Atomic MongoDB locks and transactional routes passed." >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ **Coverage Report:** Full execution profile generated." >> $GITHUB_STEP_SUMMARY

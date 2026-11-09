@@ -111,6 +111,7 @@ Upon completion, the main agent summarizes the changes made, verification result
 - CoplayDev Unity MCP (`com.coplaydev.unity-mcp`) was removed; do not invoke or reinstall it. This applies only to Unity MCP; the other MCP servers in this file remain in use.
 - Ask before changing approved architecture, Game Design or dependencies. Dependency proposals must establish the existing project's gap and impact before adoption.
 - When replacing a contract, check consumers, migrate them minimally and remove the obsolete path only when safe. Update the owning architecture for an authorized contract change; do not rewrite Game Design just to match implementation.
+- Quality Gates and Git hooks: run `npm run setup:hooks` (from `backend/`) to activate local Git pre-push hooks (`.githooks/pre-push`). PRs and pushes targeting `New-Testing` and `main` are automatically verified by GitHub Actions CI (`.github/workflows/ci.yml`), covering secret scans, backend suites, parity contracts, and test coverage.
 
 ### Tool availability and fallbacks
 

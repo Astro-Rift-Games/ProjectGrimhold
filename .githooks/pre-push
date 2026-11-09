@@ -1,0 +1,89 @@
+#!/bin/sh
+# Project Grimhold — Pre-Push Quality Gate
+# Prevents pushing broken tests, contracts or exposed secrets to remote branches.
+
+notify_popup() {
+  TITLE="Project Grimhold — Push Bloqueado"
+  MSG="$1"
+  if [ -n "$WINDIR" ] || [ -n "$SYSTEMROOT" ]; then
+    powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('$MSG', '$TITLE', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)" >/dev/null 2>&1 &
+  fi
+}
+
+# Read standard input for ref updates if piped by git push
+ZERO_SHA="0000000000000000000000000000000000000000"
+IS_DELETE=false
+
+if [ ! -t 0 ]; then
+  while read -r local_ref local_sha remote_ref remote_sha; do
+    if [ "$local_sha" = "$ZERO_SHA" ] || [ -z "$local_sha" ]; then
+      IS_DELETE=true
+    else
+      IS_DELETE=false
+      break
+    fi
+  done
+  if [ "$IS_DELETE" = true ] && [ -n "$remote_ref" ]; then
+    echo "[Pre-Push] Branch deletion detected. Skipping test execution."
+    exit 0
+  fi
+fi
+
+echo "========================================================================"
+echo " 🛡️  [Project Grimhold] Ejecutando Quality Gate de Pre-Push..."
+echo "========================================================================"
+
+# 1. Scan for exposed credentials and secrets
+echo "[1/3] Verificando que no haya secretos o credenciales expuestas..."
+node tools/security/scan-secrets.js
+if [ $? -ne 0 ]; then
+  echo "" >&2
+  echo "========================================================================" >&2
+  echo "❌ PUSH BLOQUEADO — CREDENCIALES O SECRETOS DETECTADOS" >&2
+  echo "========================================================================" >&2
+  echo "Motivo: Se encontraron API keys, tokens o contraseñas en los archivos." >&2
+  echo "Solución: Eliminá las claves privadas o credenciales antes de pushear." >&2
+  echo "========================================================================" >&2
+  notify_popup "❌ PUSH CANCELADO\n\nSe detectaron credenciales o secretos expuestos en el código.\n\nEliminá las claves privadas antes de subir cambios."
+  exit 1
+fi
+
+# 2. Run Backend Unit & Parity Contract Tests (Direct node execution bypasses npm/bash shell wrappers in Git GUIs)
+echo "[2/3] Verificando tests unitarios y contratos de paridad Unity <-> Backend..."
+(cd backend && node --require ./tests/setup.js --test tests/*.test.js)
+if [ $? -ne 0 ]; then
+  echo "" >&2
+  echo "========================================================================" >&2
+  echo "❌ PUSH BLOQUEADO — TESTS O CONTRATOS DE PARIDAD FALLIDOS" >&2
+  echo "========================================================================" >&2
+  echo "Motivo: Fallaron tests unitarios o contratos de sincronización entre Unity y Backend." >&2
+  echo "Causa probable: Se agregó un arma, ítem o habilidad sin registrar en ambos lados." >&2
+  echo "" >&2
+  echo "¿Cómo ver qué falló en tu máquina?" >&2
+  echo "  1. Abrí la terminal en la carpeta 'backend'" >&2
+  echo "  2. Ejecutá: npm test" >&2
+  echo "  3. Revisá qué test dio FAIL en rojo y corregilo." >&2
+  echo "========================================================================" >&2
+  notify_popup "❌ PUSH CANCELADO\n\nFallaron los tests de paridad de contratos entre Unity y Backend.\n\nPara ver qué falló:\n1. Abrí la carpeta 'backend'\n2. Ejecutá: npm test"
+  exit 1
+fi
+
+# 3. Run Backend Concurrency & Integration Tests
+echo "[3/3] Verificando concurrencia e integración con MongoDB..."
+(cd backend && node --require ./tests/setup.js --test tests/concurrency/*.test.js tests/integration/*.test.js)
+if [ $? -ne 0 ]; then
+  echo "" >&2
+  echo "========================================================================" >&2
+  echo "❌ PUSH BLOQUEADO — TESTS DE INTEGRACIÓN O CONCURRENCIA FALLIDOS" >&2
+  echo "========================================================================" >&2
+  echo "Motivo: Fallaron transacciones concurrentes o rutas de integración del backend." >&2
+  echo "Ejecutá 'npm run test:concurrency' en 'backend' para ver los detalles." >&2
+  echo "========================================================================" >&2
+  notify_popup "❌ PUSH CANCELADO\n\nFallaron tests de concurrencia o integración del backend.\n\nRevisá la consola para más detalles."
+  exit 1
+fi
+
+echo "========================================================================"
+echo "✅ [Quality Gate APROBADO] Todos los tests y contratos pasaron exitosamente."
+echo "========================================================================"
+exit 0
