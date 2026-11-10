@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { startMemoryMongo } = require('../support/memoryMongo');
 
 let mongoServer;
 
@@ -9,7 +9,7 @@ let mongoServer;
 async function connect() {
   process.env.ENABLE_DEV_DEBUG_ROUTES = 'true';
   process.env.ENABLE_LEGACY_EXTRACTION = 'true';
-  mongoServer = await MongoMemoryServer.create();
+  mongoServer = await startMemoryMongo();
   const uri = mongoServer.getUri();
   await mongoose.connect(uri);
 }

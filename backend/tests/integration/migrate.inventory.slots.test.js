@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { startMemoryMongo } = require('../support/memoryMongo');
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 const { migrateInventorySlots } = require('../../scripts/migrate_inventory_slots');
@@ -54,7 +54,7 @@ function expectedMigration(before) {
 }
 
 test('inventory slot migration against MongoDB', async t => {
-  const server = await MongoMemoryServer.create();
+  const server = await startMemoryMongo();
   t.after(async () => { await server.stop(); });
   const connection = await mongoose.createConnection(server.getUri()).asPromise();
   t.after(async () => { await connection.close(); });

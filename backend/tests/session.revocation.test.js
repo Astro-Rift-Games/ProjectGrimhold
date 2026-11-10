@@ -2,7 +2,7 @@
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { startMemoryMongo } = require('./support/memoryMongo');
 const jwt = require('jsonwebtoken');
 const Account = require('../src/models/Account');
 const RevokedToken = require('../src/models/RevokedToken');
@@ -15,7 +15,7 @@ describe('Session Revocation (US-60 / SEC-60.1)', () => {
   let account;
 
   before(async () => {
-    mongoServer = await MongoMemoryServer.create();
+    mongoServer = await startMemoryMongo();
     await mongoose.connect(mongoServer.getUri());
 
     account = await Account.create({

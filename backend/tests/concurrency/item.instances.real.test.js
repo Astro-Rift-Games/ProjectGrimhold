@@ -2,13 +2,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { startMemoryMongo } = require('../support/memoryMongo');
 const Character = require('../../src/models/Character');
 const Inventory = require('../../src/services/InventoryService');
 const { createInstance } = require('../../src/services/ItemInstances');
 
 test('real v3 gem installation races commit once with ownership and receipts intact', async t => {
-  const mongo = await MongoMemoryServer.create(); await mongoose.connect(mongo.getUri());
+  const mongo = await startMemoryMongo(); await mongoose.connect(mongo.getUri());
   t.after(async () => { await mongoose.disconnect(); await mongo.stop(); });
   for (const contender of ['install-same-id', 'install-other-id', 'move', 'sell']) await t.test(contender, async () => {
     const accountId = new mongoose.Types.ObjectId();

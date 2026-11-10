@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { startMemoryMongo } = require('../support/memoryMongo');
 
 const Character = require('../../src/models/Character');
 const AuthoritativeExtractionResult = require('../../src/models/AuthoritativeExtractionResult');
@@ -12,7 +12,7 @@ let mongoServer;
 
 test('ProgressionService - Concurrency with Real MongoDB', async (t) => {
   t.before(async () => {
-    mongoServer = await MongoMemoryServer.create();
+    mongoServer = await startMemoryMongo();
     const uri = mongoServer.getUri();
     await mongoose.connect(uri);
   });

@@ -2,7 +2,7 @@
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { startMemoryMongo } = require('./support/memoryMongo');
 const Character = require('../src/models/Character');
 const Account = require('../src/models/Account');
 const SessionTicketService = require('../src/services/SessionTicketService');
@@ -13,7 +13,7 @@ describe('SessionTicketService (US-59 / SEC-59.1)', () => {
   let characterId;
 
   before(async () => {
-    mongoServer = await MongoMemoryServer.create();
+    mongoServer = await startMemoryMongo();
     await mongoose.connect(mongoServer.getUri());
 
     const account = await Account.create({

@@ -2,14 +2,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { startMemoryMongo } = require('../support/memoryMongo');
 const Character = require('../../src/models/Character');
 const Inventory = require('../../src/services/InventoryService');
 
 const entry = (slot, lootId, amount) => ({ slot, lootId, amount });
 
 test('real concurrent transfer-all: revision-guarded single winner', async t => {
-  const mongo = await MongoMemoryServer.create();
+  const mongo = await startMemoryMongo();
   await mongoose.connect(mongo.getUri());
   t.after(async () => { await mongoose.disconnect(); await mongo.stop(); });
   for (const competitor of ['transferAll', 'moveToLoadout']) await t.test(`transferAll vs ${competitor} wins once and loses nothing`, async () => {
