@@ -46,14 +46,14 @@ describe('Pre-push quality gate hook', { skip: shell ? false : 'sh is not availa
     fs.chmodSync(stub, 0o755);
   }
 
-  // `git` answers the hook's changed-file queries with a fixed list.
-  function writeGitStub(files) {
+  // `git` answers the hook's changed-file queries with a fixed list, or fails like an unknown commit.
+  function writeGitStub(files, { fails = false } = {}) {
     fs.writeFileSync(changedFiles, files.length ? files.join('\n') + '\n' : '');
-    writeStub('git', [`cat "${posix(changedFiles)}"`]);
+    writeStub('git', fails ? ['echo "fatal: bad object" >&2', 'exit 128'] : [`cat "${posix(changedFiles)}"`]);
   }
 
   // `unity` simulates the open Editor: editorState is ready | playing | closed; run is the result JSON.
-  function writeUnityStub({ editorState = 'ready', run = { status: 'completed', total: 3, passed: 3, failed: 0, failures: [] } } = {}) {
+  function writeUnityStub({ editorState = 'ready', run = { status: 'completed', total: 3, passed: 3, failed: 0, failures: [] }, writesResult = true } = {}) {
     const resultFile = posix(path.join(unityProject, 'Temp', 'PrePushUnityTests.json'));
     const status = editorState === 'playing'
       ? '{"status": "playing", "compiling": false, "playMode": "playing"}'
@@ -63,7 +63,9 @@ describe('Pre-push quality gate hook', { skip: shell ? false : 'sh is not availa
       editorState === 'closed' ? 'exit 12' : '',
       'case "$*" in',
       `  *"editor status"*) echo '${status}' ;;`,
-      `  *"script eval"*) mkdir -p "$(dirname "${resultFile}")"; echo '${JSON.stringify(run)}' > "${resultFile}"; echo '{"result": "started"}' ;;`,
+      writesResult
+        ? `  *"script eval"*) mkdir -p "$(dirname "${resultFile}")"; echo '${JSON.stringify(run)}' > "${resultFile}"; echo '{"result": "started"}' ;;`
+        : '  *"script eval"*) echo \'{"result": "started"}\' ;;',
       'esac',
       'exit 0'
     ]);
@@ -86,11 +88,11 @@ describe('Pre-push quality gate hook', { skip: shell ? false : 'sh is not availa
     fs.chmodSync(stub, 0o755);
   }
 
-  function runHook(stdin, { withNode = true, changed = [], unity = {}, withUnity = true } = {}) {
+  function runHook(stdin, { withNode = true, changed = [], gitFails = false, unity = {}, withUnity = true, env = {} } = {}) {
     for (const file of [callLog, unityLog]) fs.rmSync(file, { force: true });
     fs.rmSync(unityProject, { recursive: true, force: true });
     if (!withNode) fs.rmSync(path.join(stubDir, 'node'), { force: true });
-    writeGitStub(changed);
+    writeGitStub(changed, { fails: gitFails });
     if (withUnity) writeUnityStub(unity);
     else fs.rmSync(path.join(stubDir, 'unity'), { force: true });
     const result = spawnSync(shell, [hookPath], {
@@ -102,7 +104,8 @@ describe('Pre-push quality gate hook', { skip: shell ? false : 'sh is not availa
         CI: '1',
         PATH: [stubDir, path.dirname(shell)].join(path.delimiter),
         GRIMHOLD_UNITY_PROJECT: unityProject,
-        GRIMHOLD_UNITY_POLL_SECONDS: '0'
+        GRIMHOLD_UNITY_POLL_SECONDS: '0',
+        ...env
       }
     });
     const read = (file) => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim().split('\n') : []);
@@ -164,6 +167,37 @@ describe('Pre-push quality gate hook', { skip: shell ? false : 'sh is not availa
     assert.equal(result.status, 1);
     assert.match(result.stderr, /PUSH BLOQUEADO — UNITY NO ESTÁ LISTO/);
     assert.match(result.stderr, /Unity CLI/);
+  });
+
+  test('a new branch with Unity changes runs the Unity gate', () => {
+    writeNodeStub();
+    const result = runHook(`refs/heads/new ${SHA} refs/heads/new ${ZERO}\n`, { changed: [UNITY_FILE] });
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(result.unityCalls.some((c) => /script eval .*PrePushUnityTestRun\.Start/.test(c)));
+  });
+
+  test('an unknown remote commit still runs the Unity gate instead of skipping it', () => {
+    writeNodeStub();
+    const result = runHook(UPDATE, { gitFails: true });
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(result.unityCalls.some((c) => /script eval .*PrePushUnityTestRun\.Start/.test(c)));
+  });
+
+  test('a Unity run that cannot select tests blocks with its reason', () => {
+    writeNodeStub();
+    const run = { status: 'error', total: 0, passed: 0, failed: 0, failures: [{ name: 'selection', message: 'No EditMode tests selected.' }] };
+    const result = runHook(UPDATE, { changed: [UNITY_FILE], unity: { run } });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /PUSH BLOQUEADO — TESTS DE UNITY NO EJECUTADOS/);
+    assert.match(result.stderr, /No EditMode tests selected\./);
+    assert.doesNotMatch(result.stderr, /Fallaron 0 de 0/);
+  });
+
+  test('a Unity run that never reports blocks after the timeout', () => {
+    writeNodeStub();
+    const result = runHook(UPDATE, { changed: [UNITY_FILE], unity: { writesResult: false }, env: { GRIMHOLD_UNITY_TIMEOUT_SECONDS: '3' } });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /no terminaron en 3 s/);
   });
 
   test('backend failures block before the Unity gate runs', () => {

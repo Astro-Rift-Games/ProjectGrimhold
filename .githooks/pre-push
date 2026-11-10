@@ -125,10 +125,11 @@ TOUCHES_UNITY=false
 if [ -n "$PUSHED_RANGES" ]; then
   CHANGED=$(printf '%s' "$PUSHED_RANGES" | while read -r local_sha remote_sha; do
     [ -z "$local_sha" ] && continue
+    # If git cannot compare (e.g. an unfetched remote commit), assume Unity changed rather than skip the gate.
     if [ "$remote_sha" = "$ZERO_SHA" ]; then
-      git log --name-only --format= "$local_sha" --not --remotes
+      git log --name-only --format= "$local_sha" --not --remotes 2>/dev/null || echo "Project Grimhold/"
     else
-      git diff --name-only "$remote_sha" "$local_sha"
+      git diff --name-only "$remote_sha" "$local_sha" 2>/dev/null || echo "Project Grimhold/"
     fi
   done)
   if printf '%s\n' "$CHANGED" | grep -q '^Project Grimhold/'; then
@@ -157,7 +158,7 @@ if [ "$TOUCHES_UNITY" = true ]; then
   fi
 
   WAITED=0
-  while ! grep -q '"status":"\(completed\|error\)"' "$UNITY_RESULT" 2>/dev/null; do
+  while ! grep -Eq '"status":"(completed|error)"' "$UNITY_RESULT" 2>/dev/null; do
     if [ "$WAITED" -ge "$UNITY_TIMEOUT_SECONDS" ]; then
       unity_not_ready "Los tests de Unity no terminaron en ${UNITY_TIMEOUT_SECONDS} s."
     fi
@@ -165,6 +166,19 @@ if [ "$TOUCHES_UNITY" = true ]; then
     WAITED=$((WAITED + UNITY_POLL_SECONDS))
     [ "$UNITY_POLL_SECONDS" -eq 0 ] && WAITED=$((WAITED + 1))
   done
+
+  if grep -q '"status":"error"' "$UNITY_RESULT"; then
+    echo "" >&2
+    echo "========================================================================" >&2
+    echo "❌ PUSH BLOQUEADO — TESTS DE UNITY NO EJECUTADOS" >&2
+    echo "========================================================================" >&2
+    echo "Motivo:" >&2
+    grep -o '"message":"[^"]*"' "$UNITY_RESULT" | sed 's/"message":"\(.*\)"/  \1/' >&2
+    echo "Revisá la consola de Unity y volvé a pushear." >&2
+    echo "========================================================================" >&2
+    notify_popup "❌ PUSH CANCELADO\n\nNo se pudieron ejecutar los tests de Unity.\n\nRevisá la consola de Unity."
+    exit 1
+  fi
 
   UNITY_FAILED=$(sed -n 's/.*"failed":\([0-9]*\).*/\1/p' "$UNITY_RESULT")
   UNITY_TOTAL=$(sed -n 's/.*"total":\([0-9]*\).*/\1/p' "$UNITY_RESULT")
