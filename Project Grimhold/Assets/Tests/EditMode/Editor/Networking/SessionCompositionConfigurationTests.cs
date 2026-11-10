@@ -14,7 +14,7 @@ using Assert = NUnit.Framework.Assert;
 
 public sealed class SessionCompositionConfigurationTests
 {
-    private const int ContainerInventoryAuthoredSlotCount = 6;
+    private const int ContainerInventoryAuthoredSlotCount = 30;
     private const int PlayerInventoryAuthoredSlotCount = 30;
     // 8 equipment slots plus the 4 Quick Slots wired into the Inventory screen.
     private const int EquipmentAndQuickSlotCount = 12;
