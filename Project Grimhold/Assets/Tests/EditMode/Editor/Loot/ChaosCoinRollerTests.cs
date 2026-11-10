@@ -196,7 +196,7 @@ namespace Tests.EditMode.Loot
                 ?.SetValue(table, allowEmpty);
             typeof(LootContainerContentTable)
                 .GetField("_entries", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-                ?.SetValue(table, new List<LootContainerContentTableEntry>(entries));
+                ?.SetValue(table, entries);
             return table;
         }
 

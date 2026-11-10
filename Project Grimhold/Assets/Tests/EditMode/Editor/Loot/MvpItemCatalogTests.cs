@@ -91,13 +91,13 @@ namespace Tests.EditMode.Loot
             new ExpectedItemData("CON_MANA_FRAGMENT", LootCategory.Consumable, 8, 10, 0, "Potions", true, true, ItemUseMode.Instant),
             new ExpectedItemData("CON_EXPLOSIVE_BOMB", LootCategory.Consumable, 30, 5, 0, "Offensive", true, true, ItemUseMode.AimedQuickSlot),
             new ExpectedItemData("CON_THROWING_DAGGER", LootCategory.Consumable, 12, 10, 0, "Offensive", true, true, ItemUseMode.AimedQuickSlot),
-            new ExpectedItemData("CON_SMOKE_BOMB", LootCategory.Consumable, 45, 3, 0, "Offensive", true, true, ItemUseMode.Instant),
+            new ExpectedItemData("CON_SMOKE_BOMB", LootCategory.Consumable, 45, 3, 0, "Offensive", true, true, ItemUseMode.AimedQuickSlot),
             new ExpectedItemData("CON_LOCKPICK", LootCategory.Consumable, 25, 5, 0, "UtilityConsumable", true, true, ItemUseMode.Instant),
             new ExpectedItemData("CON_SELF_REVIVE", LootCategory.Consumable, 300, 1, 1, "Revive", true, false, ItemUseMode.Instant),
 
             // 2 Utilidades
-            new ExpectedItemData("UTL_RUNE_COMPASS", LootCategory.Utility, 140, 1, 1, "Utility"),
-            new ExpectedItemData("UTL_ARCANE_DETECTOR", LootCategory.Utility, 180, 1, 1, "Utility")
+            new ExpectedItemData("UTL_RUNE_COMPASS", LootCategory.Utility, 140, 1, 1, "Utility", true, true, ItemUseMode.Instant),
+            new ExpectedItemData("UTL_ARCANE_DETECTOR", LootCategory.Utility, 180, 1, 1, "Utility", true, true, ItemUseMode.Channeled)
         };
 
         [SetUp]
