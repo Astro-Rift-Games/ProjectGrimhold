@@ -4,32 +4,1263 @@
 
 Release: Unreleased
 
-106 original commits; 106 canonical entries.
+129 original commits; 129 canonical entries.
 
 ## Canonical classification
 
-59 features; 27 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 3 tests; 4 maintenance; 2 other changes
+61 features; 35 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 12 tests; 8 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Abilities | 7 | 6 | 1 | 0 | 4 | 1 |
-| Art & Animation | 7 | 8 | 1 | 0 | 4 | 0 |
-| Audio | 3 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 34 | 17 | 1 | 1 | 6 | 2 |
-| Combat | 34 | 6 | 0 | 0 | 6 | 0 |
-| Documentation | 26 | 8 | 0 | 0 | 4 | 0 |
-| Extraction | 9 | 2 | 0 | 0 | 2 | 0 |
+| Abilities | 7 | 6 | 1 | 0 | 8 | 1 |
+| Art & Animation | 7 | 9 | 1 | 0 | 6 | 0 |
+| Audio | 3 | 1 | 0 | 0 | 0 | 0 |
+| Build & Tooling | 36 | 21 | 1 | 1 | 13 | 2 |
+| Combat | 34 | 6 | 0 | 0 | 10 | 0 |
+| Documentation | 26 | 9 | 0 | 0 | 4 | 0 |
+| Extraction | 9 | 2 | 0 | 0 | 5 | 0 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 51 | 21 | 1 | 1 | 6 | 1 |
+| Inventory & Loot | 51 | 23 | 1 | 1 | 15 | 1 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 16 | 8 | 0 | 0 | 2 | 0 |
-| Persistence & Backend | 24 | 7 | 0 | 1 | 4 | 0 |
-| Tests | 57 | 23 | 1 | 1 | 8 | 0 |
-| UI | 22 | 5 | 1 | 0 | 4 | 0 |
-| Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
-| World & Visibility | 16 | 6 | 0 | 0 | 0 | 0 |
+| Networking & Sessions | 16 | 8 | 0 | 0 | 6 | 0 |
+| Persistence & Backend | 25 | 10 | 0 | 1 | 6 | 0 |
+| Tests | 59 | 29 | 1 | 1 | 20 | 0 |
+| UI | 22 | 8 | 1 | 0 | 8 | 0 |
+| Unassigned | 0 | 1 | 0 | 0 | 2 | 0 |
+| World & Visibility | 16 | 6 | 0 | 0 | 2 | 0 |
 
 ## Original commit records
+
+### 5e56089463cb66f8cfb10f4e7537204434f822e6
+
+[5e56089463cb66f8cfb10f4e7537204434f822e6](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5e56089463cb66f8cfb10f4e7537204434f822e6)
+
+Date: 2026-11-10T19:56:13-03:00 · Classification: Bug Fixes (explicit) · Systems: Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(hooks): reset the Unity runner when starting a run throws
+```
+
+#### Original body
+
+```text
+Writing the running marker, creating TestRunnerApi or requesting the test list could throw before any handler and leave the running flag set, so every later push waited on a run that never existed. Start now reports the error and returns failed. The hook also initialises the grace-period marker so an inherited value cannot shorten it.
+```
+
+#### Changed paths
+
+```text
+.githooks/pre-push
+Project Grimhold/Assets/Editor/Testing/PrePushUnityTestRun.cs
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/Testing/PrePushUnityTestRun.cs
+- path → Tests: Project Grimhold/Assets/Editor/Testing/PrePushUnityTestRun.cs
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### d1677957029a61d3d1174d36a3c7092529345cea
+
+[d1677957029a61d3d1174d36a3c7092529345cea](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d1677957029a61d3d1174d36a3c7092529345cea)
+
+Date: 2026-11-10T19:46:25-03:00 · Classification: Bug Fixes (explicit) · Systems: Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(hooks): retry a busy Editor and never leave the Unity runner stuck
+```
+
+#### Original body
+
+```text
+A status call missed while the Editor runs tests or reloads is retried for a 30 s grace period before the Editor is reported closed. PrePushUnityTestRun clears its running flag and writes an error report when selection, execution or reporting throws, so later pushes do not wait on a run that never ends.
+```
+
+#### Changed paths
+
+```text
+.githooks/pre-push
+Project Grimhold/Assets/Editor/Testing/PrePushUnityTestRun.cs
+backend/tests/prepush.hook.test.js
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Persistence &amp; Backend: backend/tests/prepush.hook.test.js
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/Testing/PrePushUnityTestRun.cs
+- path → Tests: Project Grimhold/Assets/Editor/Testing/PrePushUnityTestRun.cs
+- path → Tests: backend/tests/prepush.hook.test.js
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 4fba586b7d1f274b7f584ba5190aeec1ec4cc6d1
+
+[4fba586b7d1f274b7f584ba5190aeec1ec4cc6d1](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4fba586b7d1f274b7f584ba5190aeec1ec4cc6d1)
+
+Date: 2026-11-10T19:36:14-03:00 · Classification: Bug Fixes (explicit) · Systems: Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(hooks): wait for Unity by wall clock and reuse an in-progress run
+```
+
+#### Original body
+
+```text
+GitHub Desktop shells can return from sleep immediately, so counting sleeps timed out while the tests were still running. Measure the wait with the wall clock, wait while the Editor compiles or imports instead of blocking, and make PrePushUnityTestRun.Start return already-running so a second push awaits the current run instead of starting another. The hook also warns that Unity stays busy during the run.
+```
+
+#### Changed paths
+
+```text
+.githooks/pre-push
+Project Grimhold/Assets/Editor/Testing/PrePushUnityTestRun.cs
+backend/tests/prepush.hook.test.js
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Persistence &amp; Backend: backend/tests/prepush.hook.test.js
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/Testing/PrePushUnityTestRun.cs
+- path → Tests: Project Grimhold/Assets/Editor/Testing/PrePushUnityTestRun.cs
+- path → Tests: backend/tests/prepush.hook.test.js
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 9c52a677b621fab262dbe95e983738997438622b
+
+[9c52a677b621fab262dbe95e983738997438622b](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9c52a677b621fab262dbe95e983738997438622b)
+
+Date: 2026-11-10T19:04:41-03:00 · Classification: Bug Fixes (explicit) · Systems: Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(hooks): fail safe on unknown remote commits and report Unity run errors
+```
+
+#### Original body
+
+```text
+When git cannot diff the pushed range (e.g. an unfetched remote commit) the Unity gate now runs instead of being skipped; a runner error status reports its reason instead of 'Fallaron 0 de 0'; use grep -E for the completion check. Adds hook tests for new branches, unknown remote commits, runner errors and the poll timeout.
+```
+
+#### Changed paths
+
+```text
+.githooks/pre-push
+backend/tests/prepush.hook.test.js
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Persistence &amp; Backend: backend/tests/prepush.hook.test.js
+- path → Tests: backend/tests/prepush.hook.test.js
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### f013d2630d3129f6bc55b67058205ff860939eaf
+
+[f013d2630d3129f6bc55b67058205ff860939eaf](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f013d2630d3129f6bc55b67058205ff860939eaf)
+
+Date: 2026-11-10T19:01:50-03:00 · Classification: Features (explicit) · Systems: Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(hooks): gate pushes that touch the Unity project on the EditMode subset
+```
+
+#### Original body
+
+```text
+Step 4/4 runs PrePushUnityTestRun in the open Editor when the pushed commits change Project Grimhold/, blocks with banner and popup when the Unity CLI is missing, the Editor is closed or in Play Mode, and lists failing tests. Backend-only pushes skip Unity. Covered by stubbed git/unity hook tests.
+```
+
+#### Changed paths
+
+```text
+.githooks/pre-push
+AGENTS.md
+backend/tests/prepush.hook.test.js
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Persistence &amp; Backend: backend/tests/prepush.hook.test.js
+- message-term → Persistence &amp; Backend: Backend
+- path → Build &amp; Tooling: AGENTS.md
+- path → Tests: backend/tests/prepush.hook.test.js
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 06cce38dee92db094830429e2a5cc256162f2a9d
+
+[06cce38dee92db094830429e2a5cc256162f2a9d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/06cce38dee92db094830429e2a5cc256162f2a9d)
+
+Date: 2026-11-10T19:01:50-03:00 · Classification: Features (explicit) · Systems: Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(editor): add pre-push EditMode test runner for the open Editor
+```
+
+#### Original body
+
+```text
+PrePushTestSelection excludes the slow editor-tooling suites (AttackAnimationValidator, SessionConnectionStateMachineTests, DirectionalAnimationGeneratorTests); PrePushUnityTestRun runs the remaining EditMode tests through TestRunnerApi and writes the outcome to Temp/PrePushUnityTests.json for the Git hook. 5970 tests in ~4 min.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Editor/Testing.meta
+Project Grimhold/Assets/Editor/Testing/PrePushTestSelection.cs
+Project Grimhold/Assets/Editor/Testing/PrePushTestSelection.cs.meta
+Project Grimhold/Assets/Editor/Testing/PrePushUnityTestRun.cs
+Project Grimhold/Assets/Editor/Testing/PrePushUnityTestRun.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Testing.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Testing/PrePushTestSelectionTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Testing/PrePushTestSelectionTests.cs.meta
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/Testing.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/Testing/PrePushTestSelection.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/Testing/PrePushTestSelection.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/Testing/PrePushUnityTestRun.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/Testing/PrePushUnityTestRun.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Testing.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Testing/PrePushTestSelectionTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Testing/PrePushTestSelectionTests.cs.meta
+- scope → Build &amp; Tooling: editor
+- path → Tests: Project Grimhold/Assets/Editor/Testing.meta
+- path → Tests: Project Grimhold/Assets/Editor/Testing/PrePushTestSelection.cs
+- path → Tests: Project Grimhold/Assets/Editor/Testing/PrePushTestSelection.cs.meta
+- path → Tests: Project Grimhold/Assets/Editor/Testing/PrePushUnityTestRun.cs
+- path → Tests: Project Grimhold/Assets/Editor/Testing/PrePushUnityTestRun.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Testing.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Testing/PrePushTestSelectionTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Testing/PrePushTestSelectionTests.cs.meta
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### c537eac59ce650af3cd2ba3be9e38b95a9a3395b
+
+[c537eac59ce650af3cd2ba3be9e38b95a9a3395b](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c537eac59ce650af3cd2ba3be9e38b95a9a3395b)
+
+Date: 2026-11-10T18:45:45-03:00 · Classification: Maintenance (explicit) · Systems: Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+chore(git): ignore local Unity test evidence under Artifacts
+```
+
+#### Original body
+
+```text
+GrimholdV16RenderTests writes screenshots to Project Grimhold/Artifacts/ on every PlayMode run, leaving untracked files after each test run.
+```
+
+#### Changed paths
+
+```text
+.gitignore
+```
+
+#### Classification evidence
+
+- type → Maintenance: chore
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### e9662563b03b133021f292c66f0858be429c3bca
+
+[e9662563b03b133021f292c66f0858be429c3bca](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e9662563b03b133021f292c66f0858be429c3bca)
+
+Date: 2026-11-10T18:44:55-03:00 · Classification: Maintenance (explicit) · Systems: Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+chore(unity): commit TimeManager serialization upgraded by Unity 6000.6
+```
+
+#### Original body
+
+```text
+Unity 6000.6 stores Fixed Timestep as a rational (2822399/141120000, the exact representation of 0.02) and rewrote the old format on every Play Mode test run. The timestep value is unchanged.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/ProjectSettings/TimeManager.asset
+```
+
+#### Classification evidence
+
+- type → Maintenance: chore
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### b83c82335954021bb94a23eb5552e9103e442faf
+
+[b83c82335954021bb94a23eb5552e9103e442faf](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b83c82335954021bb94a23eb5552e9103e442faf)
+
+Date: 2026-11-10T18:28:17-03:00 · Classification: Maintenance (explicit) · Systems: Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+chore(unity): commit QualitySettings serialization upgraded by Unity 6000.6
+```
+
+#### Original body
+
+```text
+The 6000.6.8f1 upgrade (5b4ad2940) left QualitySettings in the old format; Unity rewrote it on every Play Mode test run (serializedVersion 4 -> 5, meshLodThreshold, Nintendo Switch 2 platform entry). No setting values changed.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/ProjectSettings/QualitySettings.asset
+```
+
+#### Classification evidence
+
+- type → Maintenance: chore
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 4ecaee4374cf1e6550a122038f6ac9e524cc9b20
+
+[4ecaee4374cf1e6550a122038f6ac9e524cc9b20](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4ecaee4374cf1e6550a122038f6ac9e524cc9b20)
+
+Date: 2026-11-10T18:24:25-03:00 · Classification: Maintenance (explicit) · Systems: UI, World & Visibility
+
+Flags: secondary
+
+#### Original subject
+
+```text
+chore(minimap): regenerate Gameplay minimap layout for the current scene
+```
+
+#### Original body
+
+```text
+The committed layout's source hash (3ECB267F6B4BF966) no longer matched the Gameplay scene, so every minimap test regenerated and saved it, dirtying the working tree. Regenerated through MinimapLayoutGenerator (hash A512E27E9473706B).
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset
+```
+
+#### Classification evidence
+
+- type → Maintenance: chore
+- path → UI: Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset
+- scope → UI: minimap
+- message-term → UI: minimap
+- path → World &amp; Visibility: Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 77989765fdbc99c50d972a2bf2a6f8d38c651178
+
+[77989765fdbc99c50d972a2bf2a6f8d38c651178](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/77989765fdbc99c50d972a2bf2a6f8d38c651178)
+
+Date: 2026-11-10T18:18:55-03:00 · Classification: Tests (explicit) · Systems: Inventory & Loot, Networking & Sessions, UI, Build & Tooling, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+test(ui): expect 30 authored container slots in the shared inventory contract
+```
+
+#### Original body
+
+```text
+ContainerLootPanel now authors 30 slots (7de3c6cf) to match corpse capacity.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs
+```
+
+#### Classification evidence
+
+- type → Tests: test
+- message-term → Inventory &amp; Loot: inventory
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs
+- scope → UI: ui
+- message-term → UI: ui
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 0048b1892b8b580228ad515180a8d668198e2e5a
+
+[0048b1892b8b580228ad515180a8d668198e2e5a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0048b1892b8b580228ad515180a8d668198e2e5a)
+
+Date: 2026-11-10T17:44:08-03:00 · Classification: Tests (explicit) · Systems: Combat, Abilities, Extraction, Inventory & Loot, Persistence & Backend, Build & Tooling, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+test: move Assembly-CSharp EditMode fixtures under Editor so they run as EditMode
+```
+
+#### Original body
+
+```text
+28 test files under Assets/Tests/EditMode outside an Editor folder compiled into Assembly-CSharp (no asmdefs) and were only discovered by the PlayMode runner. Move them with their .meta (GUIDs preserved) to the mirrored path under Assets/Tests/EditMode/Editor (FIX-45).
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Tests/EditMode/Backend.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Backend/AuthenticationSecurityTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Backend/AuthenticationSecurityTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Backend/BackendErrorUtilityTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Backend/BackendErrorUtilityTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginHydrationFailureClassifierTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginHydrationFailureClassifierTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/CurrencyPersistenceEditModeTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/CurrencyPersistenceEditModeTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Enemies.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Enemies/SpecterRulesAndCombatTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Enemies/SpecterRulesAndCombatTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDefinitionCatalogTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDefinitionCatalogTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionLifecycleRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionLifecycleRulesTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionPersistenceTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionPersistenceTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionProgressEngineTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionProgressEngineTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionTrackerPresenterTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionTrackerPresenterTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEResourceRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEResourceRulesTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/TownMissionGuildPresenterTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/TownMissionGuildPresenterTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/PlayerExtractionLootSaverTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/PlayerExtractionLootSaverTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Progression/CharacterAttributeAssignmentRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Progression/CharacterAttributeAssignmentRulesTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Progression/CharacterAttributePointGrantRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Progression/CharacterAttributePointGrantRulesTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotAssignmentRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotAssignmentRulesTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotControllerTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotControllerTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotPersistenceEditModeTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotPersistenceEditModeTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotPrefabCompositionTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotPrefabCompositionTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotReleaseGateTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotReleaseGateTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/RaidLootOriginSelectionOrderTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/RaidLootOriginSelectionOrderTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/ShopTransactionPersistenceEditModeTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/ShopTransactionPersistenceEditModeTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/HydrateSnapshotTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/HydrateSnapshotTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteIdempotentRetryPolicyTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteIdempotentRetryPolicyTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteOperationPolicyTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteOperationPolicyTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Player.meta
+Project Grimhold/Assets/Tests/EditMode/Player/Presentation.meta
+Project Grimhold/Assets/Tests/EditMode/Progression.meta
+Project Grimhold/Assets/Tests/EditMode/Stash.meta
+```
+
+#### Classification evidence
+
+- type → Tests: test
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Enemies/SpecterRulesAndCombatTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Enemies/SpecterRulesAndCombatTests.cs.meta
+- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/BackendErrorUtilityTests.cs
+- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/BackendErrorUtilityTests.cs.meta
+- path → Extraction: Project Grimhold/Assets/Tests/EditMode/Editor/PlayerExtractionLootSaverTests.cs
+- path → Extraction: Project Grimhold/Assets/Tests/EditMode/Editor/PlayerExtractionLootSaverTests.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/PlayerExtractionLootSaverTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/PlayerExtractionLootSaverTests.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/RaidLootOriginSelectionOrderTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/RaidLootOriginSelectionOrderTests.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Backend.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/AuthenticationSecurityTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/AuthenticationSecurityTests.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/BackendErrorUtilityTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/BackendErrorUtilityTests.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginHydrationFailureClassifierTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginHydrationFailureClassifierTests.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/CurrencyPersistenceEditModeTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/CurrencyPersistenceEditModeTests.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionPersistenceTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionPersistenceTests.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotPersistenceEditModeTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotPersistenceEditModeTests.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/ShopTransactionPersistenceEditModeTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/ShopTransactionPersistenceEditModeTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/AuthenticationSecurityTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/AuthenticationSecurityTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/BackendErrorUtilityTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/BackendErrorUtilityTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginHydrationFailureClassifierTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginHydrationFailureClassifierTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/CurrencyPersistenceEditModeTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/CurrencyPersistenceEditModeTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Enemies.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Enemies/SpecterRulesAndCombatTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Enemies/SpecterRulesAndCombatTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDefinitionCatalogTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDefinitionCatalogTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionLifecycleRulesTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionLifecycleRulesTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionPersistenceTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionPersistenceTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionProgressEngineTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionProgressEngineTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionTrackerPresenterTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionTrackerPresenterTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEResourceRulesTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEResourceRulesTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/TownMissionGuildPresenterTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/TownMissionGuildPresenterTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/PlayerExtractionLootSaverTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/PlayerExtractionLootSaverTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/CharacterAttributeAssignmentRulesTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/CharacterAttributeAssignmentRulesTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/CharacterAttributePointGrantRulesTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/CharacterAttributePointGrantRulesTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotAssignmentRulesTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotAssignmentRulesTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotControllerTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotControllerTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotPersistenceEditModeTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotPersistenceEditModeTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotPrefabCompositionTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotPrefabCompositionTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotReleaseGateTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotReleaseGateTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/RaidLootOriginSelectionOrderTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/RaidLootOriginSelectionOrderTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/ShopTransactionPersistenceEditModeTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/ShopTransactionPersistenceEditModeTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/HydrateSnapshotTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/HydrateSnapshotTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteIdempotentRetryPolicyTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteIdempotentRetryPolicyTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteOperationPolicyTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteOperationPolicyTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Backend.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/AuthenticationSecurityTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/AuthenticationSecurityTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/BackendErrorUtilityTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/BackendErrorUtilityTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginHydrationFailureClassifierTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginHydrationFailureClassifierTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/CurrencyPersistenceEditModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/CurrencyPersistenceEditModeTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Enemies.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Enemies/SpecterRulesAndCombatTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Enemies/SpecterRulesAndCombatTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDefinitionCatalogTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDefinitionCatalogTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionLifecycleRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionLifecycleRulesTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionPersistenceTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionPersistenceTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionProgressEngineTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionProgressEngineTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionTrackerPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionTrackerPresenterTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEResourceRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEResourceRulesTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/TownMissionGuildPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/TownMissionGuildPresenterTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/PlayerExtractionLootSaverTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/PlayerExtractionLootSaverTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/CharacterAttributeAssignmentRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/CharacterAttributeAssignmentRulesTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/CharacterAttributePointGrantRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/CharacterAttributePointGrantRulesTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotAssignmentRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotAssignmentRulesTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotControllerTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotControllerTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotPersistenceEditModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotPersistenceEditModeTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotPrefabCompositionTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotPrefabCompositionTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotReleaseGateTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/QuickSlotReleaseGateTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/RaidLootOriginSelectionOrderTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/QuickSlots/RaidLootOriginSelectionOrderTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/ShopTransactionPersistenceEditModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/ShopTransactionPersistenceEditModeTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/HydrateSnapshotTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/HydrateSnapshotTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteIdempotentRetryPolicyTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteIdempotentRetryPolicyTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteOperationPolicyTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteOperationPolicyTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Player.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Player/Presentation.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Progression.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Stash.meta
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 161c51e1aa74fb58e1c450b9f92a72a9f135c76a
+
+[161c51e1aa74fb58e1c450b9f92a72a9f135c76a](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/161c51e1aa74fb58e1c450b9f92a72a9f135c76a)
+
+Date: 2026-11-10T17:38:48-03:00 · Classification: Bug Fixes (explicit) · Systems: Unassigned
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(progression): retry rejected assists after the retry timer expires
+```
+
+#### Original body
+
+```text
+Fusion TickTimer.IsRunning stays true after expiry (_target > 0), so the IsRunning guard blocked every assist retry after the first one. Use ExpiredOrNotRunning like the other timed network effects. Fixes KillExperienceSourcePlayModeTests.LedgerRejectionFreezesAssistUntilRetried in the full PlayMode run.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Progression/KillExperienceSource.cs
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+
+#### Diagnostics
+
+- **unassigned-system:** No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system.
+
+### 7de3c6cf4d1a00e8d617281670402b9879c664d0
+
+[7de3c6cf4d1a00e8d617281670402b9879c664d0](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7de3c6cf4d1a00e8d617281670402b9879c664d0)
+
+Date: 2026-11-10T17:38:48-03:00 · Classification: Bug Fixes (explicit) · Systems: Inventory & Loot, UI, Documentation
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(ui): author 30 container loot slots to match corpse capacity
+```
+
+#### Original body
+
+```text
+Corpse containers hold 30 entries (5744eb6d8) but ContainerLootPanel authored only 6 slots, so the view logged an error and could not project them. Author Slot06..Slot29 from the existing slot (original fileIDs preserved; Unity reordered the YAML on save) and update RaidInventoryUIArchitecture.md. DefeatedPlayerLootIntegrationPlayModeTests 18/18.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Prefabs/UI/PlayerUI/ContainerLootPanel.prefab
+Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/UI/PlayerUI/ContainerLootPanel.prefab
+- path → Inventory &amp; Loot: Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+- message-term → Inventory &amp; Loot: loot
+- path → UI: Project Grimhold/Assets/Prefabs/UI/PlayerUI/ContainerLootPanel.prefab
+- scope → UI: ui
+- message-term → UI: ui
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidInventoryUIArchitecture.md
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 008300818328097bbb8208df8a1df73890b7509b
+
+[008300818328097bbb8208df8a1df73890b7509b](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/008300818328097bbb8208df8a1df73890b7509b)
+
+Date: 2026-11-10T17:29:43-03:00 · Classification: Tests (explicit) · Systems: Inventory & Loot, Build & Tooling, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+test(loot): align word budget and spawner strip test with TASK-287
+```
+
+#### Original body
+
+```text
+TASK-287 shrank NetworkEnemy back to 1291 words, so the temporary 1292 ceiling is no longer needed. StripTestSpawners test creates a single empty scene, since additive creation fails while the runner's untitled scene is unsaved (same pattern as BowShot/SwordSlash tests).
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs
+```
+
+#### Classification evidence
+
+- type → Tests: test
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 6f7b61ddd5735e7e8664923822f929e4b016eecd
+
+[6f7b61ddd5735e7e8664923822f929e4b016eecd](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6f7b61ddd5735e7e8664923822f929e4b016eecd)
+
+Date: 2026-11-10T17:20:32-03:00 · Classification: Tests (explicit) · Systems: Combat, Abilities, Extraction, Inventory & Loot, Networking & Sessions, UI, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+test(playmode): realign PlayMode fixtures and expectations with current raid and town flows
+```
+
+#### Original body
+
+```text
+Compose a RaidSceneMinimap, participant and local profile where the HUD now requires them; spawn the unified NetworkPlayer.prefab (Melee/Ranged variants removed in 30ec4fb36) and expect its SettingsPanel canvas; follow abandon/spectator, UiPanelTransition, verified Town ticket, production weapon catalog, origin-aware pickup and VisualRoot changes. PlayMode runner: 38 -> 6 failures (remaining 6 are product issues).
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Tests/PlayMode/BreakableObjectPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/DefeatedPlayerLootIntegrationPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/ExtractionProgressPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/PlayModeRunnerComposition.cs
+Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/PlayerCorpseGenerationPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/PlayerCorpseGenerationSimulationDriver.cs
+Project Grimhold/Assets/Tests/PlayMode/PlayerDownedReviveInteractionPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/PlayerEquipmentPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/Presentation/LootPickupRejectionPresenterTests.cs
+Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidMainHudPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidMenuPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/Presentation/TownInventoryPresenterPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/TownPartyLocalAuthorityPlayModeTests.cs
+```
+
+#### Classification evidence
+
+- type → Tests: test
+- message-term → Combat: weapon
+- path → Abilities: Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs
+- path → Extraction: Project Grimhold/Assets/Tests/PlayMode/ExtractionProgressPlayModeTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/DefeatedPlayerLootIntegrationPlayModeTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/PlayerDownedReviveInteractionPlayModeTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/PlayerEquipmentPlayModeTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/Presentation/LootPickupRejectionPresenterTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/Presentation/TownInventoryPresenterPlayModeTests.cs
+- message-term → Inventory &amp; Loot: pickup
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/PlayMode/PlayModeRunnerComposition.cs
+- path → UI: Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidMainHudPlayModeTests.cs
+- path → UI: Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidMenuPlayModeTests.cs
+- message-term → UI: HUD
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/BreakableObjectPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/DefeatedPlayerLootIntegrationPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/ExtractionProgressPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayModeRunnerComposition.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayerCorpseGenerationPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayerCorpseGenerationSimulationDriver.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayerDownedReviveInteractionPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayerEquipmentPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/Presentation/LootPickupRejectionPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidMainHudPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidMenuPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/Presentation/TownInventoryPresenterPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/TownPartyLocalAuthorityPlayModeTests.cs
+- scope → Tests: playmode
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### dd59b97e00dbc1d16a6464ed32b50c71d0c5ffa8
+
+[dd59b97e00dbc1d16a6464ed32b50c71d0c5ffa8](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/dd59b97e00dbc1d16a6464ed32b50c71d0c5ffa8)
+
+Date: 2026-11-10T01:40:00-03:00 · Classification: Bug Fixes (explicit) · Systems: UI, Audio, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(settings): ignore a destroyed audio singleton in the settings panel
+```
+
+#### Original body
+
+```text
+With domain reload disabled, AudioManager.Instance kept pointing at a destroyed manager, which passed the ?? check in SettingsPanelView: no warning was logged and slider changes reached a dead control. AudioManager now unpublishes itself on destroy and SettingsPanelView treats destroyed Unity controls as missing.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Audio/AudioManager.cs
+Project Grimhold/Assets/Scripts/UI/Settings/SettingsPanelView.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/SettingsPanelViewTests.cs
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → UI: Project Grimhold/Assets/Scripts/UI/Settings/SettingsPanelView.cs
+- path → Audio: Project Grimhold/Assets/Scripts/Audio/AudioManager.cs
+- message-term → Audio: audio
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/SettingsPanelViewTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/SettingsPanelViewTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 896cf5646ed7ee096351d8f59d3b214f420c5eeb
+
+[896cf5646ed7ee096351d8f59d3b214f420c5eeb](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/896cf5646ed7ee096351d8f59d3b214f420c5eeb)
+
+Date: 2026-11-10T01:36:41-03:00 · Classification: Tests (explicit) · Systems: Combat, Inventory & Loot, Networking & Sessions, World & Visibility, Build & Tooling, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+test: realign stale EditMode tests and stop OffHand regeneration from rewriting tracked clips
+```
+
+#### Original body
+
+```text
+SessionComposition: NetworkPlayer/SocialPlayer canvases (fce29a1d0, 90b01f5f9), authored-active inventory screen and 48 slots (5bd9be7b). DungeonPressureAmbient: MainCamera tag, explicit empty tilemaps, Physics2D.SyncTransforms, ParticleSystem.Play before Emit. RaidDefeatLifecycleSource targets TryFinalizeExtractionProgression (d6396e1e3). PlayerWeaponPresentationMath expects RightHand-Knockback (a51a721ce). OffHandRetargeting regenerates temporary copies instead of the tracked *_OffHand.anim files.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Tests/EditMode/Editor/Combat/OffHandRetargetingTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDefeatLifecycleSourceTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/PlayerWeaponPresentationMathTests.cs
+```
+
+#### Classification evidence
+
+- type → Tests: test
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/OffHandRetargetingTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/PlayerWeaponPresentationMathTests.cs
+- message-term → Inventory &amp; Loot: inventory
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDefeatLifecycleSourceTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- message-term → World &amp; Visibility: tilemaps
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/OffHandRetargetingTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDefeatLifecycleSourceTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/PlayerWeaponPresentationMathTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Combat/OffHandRetargetingTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDefeatLifecycleSourceTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/PlayerWeaponPresentationMathTests.cs
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 09c85bd33efdc4ae5ecaf209ca4b7daa010d46e5
+
+[09c85bd33efdc4ae5ecaf209ca4b7daa010d46e5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/09c85bd33efdc4ae5ecaf209ca4b7daa010d46e5)
+
+Date: 2026-11-10T00:52:56-03:00 · Classification: Tests (explicit) · Systems: Combat, Abilities, Inventory & Loot, Art & Animation, Build & Tooling, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+test: compare Unity sprites by native identity instead of managed reference
+```
+
+#### Original body
+
+```text
+In Unity 6000.6 the same native Sprite can surface through different managed wrappers (serialized reference vs AssetDatabase.LoadAssetAtPath), so Is.SameAs (ReferenceEquals) failed with identical names on both sides. Is.EqualTo uses UnityEngine.Object.Equals, which still compares instance ids, so a different Sprite with the same name still fails.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/PlayerPresentationStateSeamTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ShieldDefendPresentationTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs
+```
+
+#### Classification evidence
+
+- type → Tests: test
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs
+- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+- path → Art &amp; Animation: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Art &amp; Animation: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs
+- message-term → Art &amp; Animation: sprites
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/PlayerPresentationStateSeamTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ShieldDefendPresentationTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/WeaponCatalogTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/PlayerPresentationStateSeamTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/ShieldDefendPresentationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 79232130dd2dbc1ba90e31cdaa2b9a570585f41d
+
+[79232130dd2dbc1ba90e31cdaa2b9a570585f41d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/79232130dd2dbc1ba90e31cdaa2b9a570585f41d)
+
+Date: 2026-11-10T00:32:42-03:00 · Classification: Tests (explicit) · Systems: Abilities, Inventory & Loot, UI, Art & Animation, Build & Tooling, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+test(ui): retarget Charcoal migration manifest to the consolidated HUD
+```
+
+#### Original body
+
+```text
+Commit 50a6daa3 moved the ability, quick-slot and downed HUD Images into LocalGameplayHud.prefab, leaving 12 NetworkPlayer.prefab entries pointing at removed fileIDs. Retarget them, and refresh 13 entries whose provisional prefab values changed since the review (minimap rect, panel_secondary sprites, 32x32 equipment icons consistent with EquipmentLayoutParityTests, 75x75 slot icon, SettingsPanel height).
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Editor/CharcoalUiMigrationManifest.json
+```
+
+#### Classification evidence
+
+- type → Tests: test
+- message-term → Abilities: ability
+- message-term → Inventory &amp; Loot: equipment
+- path → UI: Project Grimhold/Assets/Editor/CharcoalUiMigrationManifest.json
+- scope → UI: ui
+- message-term → UI: ui
+- message-term → Art &amp; Animation: sprites
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/CharcoalUiMigrationManifest.json
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### f9f0bbbb7d021006296734186d8c2afb512ea38e
+
+[f9f0bbbb7d021006296734186d8c2afb512ea38e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f9f0bbbb7d021006296734186d8c2afb512ea38e)
+
+Date: 2026-11-10T00:27:49-03:00 · Classification: Bug Fixes (explicit) · Systems: Inventory & Loot, UI, Art & Animation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(ui): restore Charcoal atlas PPU, equipment icon size and attack text position
+```
+
+#### Original body
+
+```text
+Owner decision: UI layout tests are authoritative over the provisional assets. Charcoal atlas spritePixelsToUnits 32 -> 100, equipment slot icons 60x60 -> 32x32 (offset +-16, parity with Attributes), bottom bar AttackText y 72 -> 88.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Art/UI/Charcoal/grimhold-ui-charcoal.png.meta
+Project Grimhold/Assets/Prefabs/UI/PlayerUI/EquipmentPanel.prefab
+Project Grimhold/Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/UI/PlayerUI/EquipmentPanel.prefab
+- message-term → Inventory &amp; Loot: equipment
+- path → UI: Project Grimhold/Assets/Art/UI/Charcoal/grimhold-ui-charcoal.png.meta
+- path → UI: Project Grimhold/Assets/Prefabs/UI/PlayerUI/EquipmentPanel.prefab
+- path → UI: Project Grimhold/Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab
+- scope → UI: ui
+- message-term → UI: ui
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/UI/Charcoal/grimhold-ui-charcoal.png.meta
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 964648c2a7072791490e222464b00be1c0324f35
+
+[964648c2a7072791490e222464b00be1c0324f35](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/964648c2a7072791490e222464b00be1c0324f35)
+
+Date: 2026-11-10T00:04:53-03:00 · Classification: Tests (explicit) · Systems: Inventory & Loot, Networking & Sessions, Persistence & Backend, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+test: fix lifecycle and fixture defects in mission, shop and hub tests
+```
+
+#### Original body
+
+```text
+TownMissionGuildPresenterTests destroyed the view before the presenter, whose close path then touched the destroyed view. RankEResourceRulesTests seeded slot -1 stash items, rejected since physical slots. ShopTransactionPersistenceEditModeTests filled the loadout with non-stacking equipment, exceeding 30 physical slots. HubSessionLauncherTests now boots Town with an in-memory profile (PlayModeMerchantComposition survives the Single scene load) instead of expecting a missing-profile error.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Tests/EditMode/Missions/RankEResourceRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/Missions/TownMissionGuildPresenterTests.cs
+Project Grimhold/Assets/Tests/EditMode/ShopTransactionPersistenceEditModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/HubSessionLauncherTests.cs
+Project Grimhold/Assets/Tests/PlayMode/PlayModeMerchantComposition.cs
+```
+
+#### Classification evidence
+
+- type → Tests: test
+- message-term → Inventory &amp; Loot: equipment
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/PlayMode/HubSessionLauncherTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/ShopTransactionPersistenceEditModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Missions/RankEResourceRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Missions/TownMissionGuildPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/ShopTransactionPersistenceEditModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/HubSessionLauncherTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayModeMerchantComposition.cs
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### ded8706d91039c1e1df862e66c56a5f346fa7b66
+
+[ded8706d91039c1e1df862e66c56a5f346fa7b66](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ded8706d91039c1e1df862e66c56a5f346fa7b66)
+
+Date: 2026-11-09T23:18:26-03:00 · Classification: Tests (explicit) · Systems: Extraction, Inventory & Loot, Build & Tooling, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+test(loot): align stale catalog and loot tests with Doc 14 data
+```
+
+#### Original body
+
+```text
+ChaosCoinRollerTests passed a List into the array-typed _entries field. HealthPotion sells for 20 (Doc 14 Value 20, commit 4bf2cb8be). Smoke Bomb is AimedQuickSlot and Rune Compass/Arcane Detector are usable Quick Slot utilities (Instant/Channeled) per Doc 14. NetworkEnemy loot-origin word ceiling raised to 1292 (owner approved).
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/ExtractionProgressPrefabTests.cs
+```
+
+#### Classification evidence
+
+- type → Tests: test
+- path → Extraction: Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/ExtractionProgressPrefabTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/ExtractionProgressPrefabTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/MvpItemCatalogTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Scenario/ExtractionProgressPrefabTests.cs
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 0cabe0c69a74975306b54d72bacf1f0be3b6ead3
 
