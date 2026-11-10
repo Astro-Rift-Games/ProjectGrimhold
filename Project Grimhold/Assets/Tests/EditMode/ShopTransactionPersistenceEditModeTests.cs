@@ -471,6 +471,8 @@ public sealed class ShopTransactionPersistenceEditModeTests
         for (int i = 0; i < _catalog.DefinitionCount; i++)
         {
             Assert.That(_catalog.TryGetByIndex(i, out LootDefinition definition), Is.True);
+            // Equipment never stacks (one physical slot per unit), so it cannot fill the Loadout one slot per id.
+            if (EquipmentInstance.IsEquipment(definition) || definition.StackMax < 2) continue;
             ids.Add(new LootId(definition.Id));
         }
 

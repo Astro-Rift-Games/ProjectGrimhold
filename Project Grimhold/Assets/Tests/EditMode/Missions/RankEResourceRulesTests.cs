@@ -23,7 +23,7 @@ namespace Tests.EditMode.Missions
 
             var initialSnapshot = new LocalProfileSnapshot { ProfileId = profileId };
             // Start with 2 iron in Stash, 0 in Loadout
-            initialSnapshot.Stash.Add(new StashItem(new LootId(IronLootId), 2));
+            initialSnapshot.Stash.Add(new StashItem(new LootId(IronLootId), 2, 0));
             repository.TrySave(initialSnapshot, out _);
 
             var store = new LocalProfileStore(repository, profileId, missionCatalog: catalog);
@@ -78,8 +78,8 @@ namespace Tests.EditMode.Missions
 
             var initialSnapshot = new LocalProfileSnapshot { ProfileId = profileId };
             // Add unrelated items into Loadout
-            initialSnapshot.Loadout.Add(new StashItem(new LootId("healthpotion"), 5));
-            initialSnapshot.Loadout.Add(new StashItem(new LootId("wood_plank"), 10));
+            initialSnapshot.Loadout.Add(new StashItem(new LootId("healthpotion"), 5, 0));
+            initialSnapshot.Loadout.Add(new StashItem(new LootId("wood_plank"), 10, 1));
             repository.TrySave(initialSnapshot, out _);
 
             var store = new LocalProfileStore(repository, profileId, missionCatalog: catalog);
@@ -102,7 +102,7 @@ namespace Tests.EditMode.Missions
 
             var initialSnapshot = new LocalProfileSnapshot { ProfileId = profileId };
             // 5 iron in Stash, but 0 in Loadout
-            initialSnapshot.Stash.Add(new StashItem(new LootId(IronLootId), 5));
+            initialSnapshot.Stash.Add(new StashItem(new LootId(IronLootId), 5, 0));
             repository.TrySave(initialSnapshot, out _);
 
             var store = new LocalProfileStore(repository, profileId, missionCatalog: catalog);
@@ -254,7 +254,7 @@ namespace Tests.EditMode.Missions
 
             var initialSnapshot = new LocalProfileSnapshot { ProfileId = profileId };
             // Exactly 2 iron in Loadout
-            initialSnapshot.Loadout.Add(new StashItem(new LootId(IronLootId), 2));
+            initialSnapshot.Loadout.Add(new StashItem(new LootId(IronLootId), 2, 0));
             repository.TrySave(initialSnapshot, out _);
 
             var store = new LocalProfileStore(repository, profileId, missionCatalog: testCatalog);
@@ -301,7 +301,7 @@ namespace Tests.EditMode.Missions
                 Level = 1,
                 CurrentExperience = 0
             };
-            initialSnapshot.Loadout.Add(new StashItem(new LootId(IronLootId), 2));
+            initialSnapshot.Loadout.Add(new StashItem(new LootId(IronLootId), 2, 0));
             repository.TrySave(initialSnapshot, out _);
 
             var store = new LocalProfileStore(repository, profileId, missionCatalog: catalog);
@@ -354,10 +354,10 @@ namespace Tests.EditMode.Missions
             // Fill Stash with 60 distinct items to reach DefaultStashCapacity
             for (int i = 0; i < 60; i++)
             {
-                fullSnapshot.Stash.Add(new StashItem(new LootId($"dummy_item_{i}"), 1));
+                fullSnapshot.Stash.Add(new StashItem(new LootId($"dummy_item_{i}"), 1, i));
             }
             // 1 iron in Loadout
-            fullSnapshot.Loadout.Add(new StashItem(new LootId(IronLootId), 1));
+            fullSnapshot.Loadout.Add(new StashItem(new LootId(IronLootId), 1, 0));
             repoFull.TrySave(fullSnapshot, out _);
 
             var storeFull = new LocalProfileStore(repoFull, profileFullId, missionCatalog: testCatalog);

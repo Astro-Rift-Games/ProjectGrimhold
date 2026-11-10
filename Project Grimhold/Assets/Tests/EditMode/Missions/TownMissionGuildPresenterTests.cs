@@ -55,8 +55,9 @@ namespace Tests.EditMode.Missions
         [TearDown]
         public void TearDown()
         {
-            if (_viewGo != null) Object.DestroyImmediate(_viewGo);
+            // The presenter closes its view while being destroyed, so it must go first.
             if (_presenterGo != null) Object.DestroyImmediate(_presenterGo);
+            if (_viewGo != null) Object.DestroyImmediate(_viewGo);
         }
 
         [Test]
