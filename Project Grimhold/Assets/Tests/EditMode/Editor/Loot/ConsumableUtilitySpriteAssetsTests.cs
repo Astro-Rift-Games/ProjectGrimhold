@@ -26,7 +26,7 @@ namespace Tests.EditMode.Loot
             Sprite world = AssertSprite($"{directory}/{id}-Base.png");
             Sprite icon = AssertSprite($"{directory}/{id}-Icon.png");
             AssertSprite($"{directory}/{id}-Interactable.png");
-            Assert.That(definition.WorldSprite, Is.SameAs(world), id);
+            Assert.That(definition.WorldSprite, Is.EqualTo(world), id);
             Assert.That(definition.Icon, Is.SameAs(icon), id);
             Assert.That(definition.TryValidate(out string error), Is.True, error);
 

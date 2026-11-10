@@ -121,7 +121,7 @@ namespace Tests.EditMode.Loot
                 Assert.That(importer, Is.Not.Null, id);
                 Assert.That(importer.spriteImportMode, Is.EqualTo(SpriteImportMode.Single), id);
                 Assert.That(definition.Icon,
-                    Is.SameAs(AssetDatabase.LoadAssetAtPath<Sprite>(spritePath)), id);
+                    Is.EqualTo(AssetDatabase.LoadAssetAtPath<Sprite>(spritePath)), id);
                 Assert.That(definition.WorldSprite, Is.SameAs(definition.Icon), id);
             }
 

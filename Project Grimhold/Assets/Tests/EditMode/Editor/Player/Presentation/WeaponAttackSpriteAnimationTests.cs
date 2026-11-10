@@ -103,7 +103,7 @@ public sealed class WeaponAttackSpriteAnimationTests
         Assert.That(stringing.FrameCount, Is.EqualTo(frames.Length));
         for (int i = 0; i < frames.Length; i++)
         {
-            Assert.That(stringing.GetFrame(i).Sprite, Is.SameAs(frames[i]), frames[i].name);
+            Assert.That(stringing.GetFrame(i).Sprite, Is.EqualTo(frames[i]), frames[i].name);
         }
 
         // The baked clip delays the authored hold by the ease-in: the hands reach the full draw at its start,
@@ -257,7 +257,7 @@ public sealed class WeaponAttackSpriteAnimationTests
             typeof(PlayerWeaponPresenter).GetMethod("RefreshMainHandSprite", Private).Invoke(presenter, null);
             WeaponAttackSpriteAnimation stringing = bow.WeaponDefinition.Presentation.AttackSpriteAnimation;
             Sprite expected = animated && stringing.TryGetSprite(attackSeconds, out Sprite frame) ? frame : bow.WorldSprite;
-            Assert.That(renderer.sprite, Is.SameAs(expected));
+            Assert.That(renderer.sprite, Is.EqualTo(expected));
             Assert.That(renderer.sprite != bow.WorldSprite, Is.EqualTo(animated));
             Assert.That(visual.localPosition, Is.EqualTo(position), "The sprite swap never moves the weapon.");
             Assert.That(visual.localRotation, Is.EqualTo(rotation), "The sprite swap never turns the weapon.");

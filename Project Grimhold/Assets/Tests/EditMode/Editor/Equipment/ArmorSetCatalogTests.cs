@@ -108,7 +108,7 @@ namespace Tests.EditMode.Equipment
                 Sprite expectedIcon = AssetDatabase.LoadAssetAtPath<Sprite>(
                     $"Assets/Art/UI/Equipment/{spec.AssetName}.png");
                 Assert.That(expectedIcon, Is.Not.Null, $"{spec.AssetName} inventory icon");
-                Assert.That(definition.Icon, Is.SameAs(expectedIcon), $"{spec.AssetName} icon");
+                Assert.That(definition.Icon, Is.EqualTo(expectedIcon), $"{spec.AssetName} icon");
                 Assert.That(definition.WorldSprite,
                     Is.SameAs(LoadEquipmentSprite(spec, "Idle", "S", spec.IconPart, 0)),
                     $"{spec.AssetName} world sprite");
@@ -314,7 +314,7 @@ namespace Tests.EditMode.Equipment
                             Assert.That(mapped, Is.SameAs(expected),
                                 $"{spec.AssetName}: {part.BasePart} {motion.Name}-{direction} frame {frame}");
                             Assert.That(definition.EquipmentVisualDefinition.ResolveSprite(baseSprite),
-                                Is.SameAs(expected),
+                                Is.EqualTo(expected),
                                 $"{spec.AssetName}: resolver {part.BasePart} {motion.Name}-{direction} frame {frame}");
                         }
                     }

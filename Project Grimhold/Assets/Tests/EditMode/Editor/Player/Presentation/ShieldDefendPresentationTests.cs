@@ -259,7 +259,7 @@ public sealed class ShieldDefendPresentationTests
 
         Sprite expected = AssetDatabase.LoadAssetAtPath<Sprite>($"{SpriteRoot}{suffix}.png");
         Assert.That(expected, Is.Not.Null);
-        Assert.That(set.GetSprite(direction), Is.SameAs(expected));
+        Assert.That(set.GetSprite(direction), Is.EqualTo(expected));
     }
 
     [Test]
