@@ -775,8 +775,8 @@
       "reason": "Icon or intentional state overlay without a replacement role"
     },
     {
-      "asset": "Assets/Prefabs/NetworkPlayer.prefab",
-      "fileId": "1333943952242020656",
+      "asset": "Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab",
+      "fileId": "3570992237764083707",
       "hierarchy": "NetworkPlayer[0]/LocalGameplayHud[6]/RaidQuickSlotHud[16]/QuickSlot2[1]",
       "sprite": "",
       "spriteAsset": "",
@@ -810,8 +810,8 @@
       "reason": "Equipment/ability/item placeholder backing; icon child preserved"
     },
     {
-      "asset": "Assets/Prefabs/NetworkPlayer.prefab",
-      "fileId": "300712913436991270",
+      "asset": "Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab",
+      "fileId": "5698109757326306179",
       "hierarchy": "NetworkPlayer[0]/LocalGameplayHud[6]/RaidQuickSlotHud[16]/QuickSlot2[1]/Empty[0]",
       "sprite": "",
       "spriteAsset": "",
@@ -845,8 +845,8 @@
       "reason": "Icon or intentional state overlay without a replacement role"
     },
     {
-      "asset": "Assets/Prefabs/NetworkPlayer.prefab",
-      "fileId": "5338835045407966237",
+      "asset": "Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab",
+      "fileId": "7543296096531721257",
       "hierarchy": "NetworkPlayer[0]/LocalGameplayHud[6]/RaidQuickSlotHud[16]/QuickSlot2[1]/Icon[1]",
       "sprite": "",
       "spriteAsset": "",
@@ -880,8 +880,8 @@
       "reason": "Runtime-owned icon, portrait, marker, state overlay or toggle checkmark"
     },
     {
-      "asset": "Assets/Prefabs/NetworkPlayer.prefab",
-      "fileId": "833412083959773021",
+      "asset": "Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab",
+      "fileId": "1860379316767481817",
       "hierarchy": "NetworkPlayer[0]/LocalGameplayHud[6]/RaidQuickSlotHud[16]/QuickSlot2[1]/Unavailable[4]",
       "sprite": "",
       "spriteAsset": "",
@@ -915,8 +915,8 @@
       "reason": "Icon or intentional state overlay without a replacement role"
     },
     {
-      "asset": "Assets/Prefabs/NetworkPlayer.prefab",
-      "fileId": "5430434628965087257",
+      "asset": "Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab",
+      "fileId": "6232274904021073524",
       "hierarchy": "NetworkPlayer[0]/LocalGameplayHud[6]/RaidQuickSlotHud[16]/QuickSlot3[2]",
       "sprite": "",
       "spriteAsset": "",
@@ -950,8 +950,8 @@
       "reason": "Equipment/ability/item placeholder backing; icon child preserved"
     },
     {
-      "asset": "Assets/Prefabs/NetworkPlayer.prefab",
-      "fileId": "3622177389197992224",
+      "asset": "Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab",
+      "fileId": "8919352039613363029",
       "hierarchy": "NetworkPlayer[0]/LocalGameplayHud[6]/RaidQuickSlotHud[16]/QuickSlot3[2]/Empty[0]",
       "sprite": "",
       "spriteAsset": "",
@@ -985,8 +985,8 @@
       "reason": "Icon or intentional state overlay without a replacement role"
     },
     {
-      "asset": "Assets/Prefabs/NetworkPlayer.prefab",
-      "fileId": "6452421807940582852",
+      "asset": "Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab",
+      "fileId": "7661252811578495696",
       "hierarchy": "NetworkPlayer[0]/LocalGameplayHud[6]/RaidQuickSlotHud[16]/QuickSlot3[2]/Icon[1]",
       "sprite": "",
       "spriteAsset": "",
@@ -1020,8 +1020,8 @@
       "reason": "Runtime-owned icon, portrait, marker, state overlay or toggle checkmark"
     },
     {
-      "asset": "Assets/Prefabs/NetworkPlayer.prefab",
-      "fileId": "3382361428147812401",
+      "asset": "Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab",
+      "fileId": "2946886530692874293",
       "hierarchy": "NetworkPlayer[0]/LocalGameplayHud[6]/RaidQuickSlotHud[16]/QuickSlot3[2]/Unavailable[4]",
       "sprite": "",
       "spriteAsset": "",
@@ -1055,8 +1055,8 @@
       "reason": "Icon or intentional state overlay without a replacement role"
     },
     {
-      "asset": "Assets/Prefabs/NetworkPlayer.prefab",
-      "fileId": "885259245969410209",
+      "asset": "Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab",
+      "fileId": "6889899978826165080",
       "hierarchy": "NetworkPlayer[0]/LocalGameplayHud[6]/RaidQuickSlotHud[16]/QuickSlot4[3]",
       "sprite": "",
       "spriteAsset": "",
@@ -1090,8 +1090,8 @@
       "reason": "Equipment/ability/item placeholder backing; icon child preserved"
     },
     {
-      "asset": "Assets/Prefabs/NetworkPlayer.prefab",
-      "fileId": "7919340218470611706",
+      "asset": "Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab",
+      "fileId": "3463570416625947950",
       "hierarchy": "NetworkPlayer[0]/LocalGameplayHud[6]/RaidQuickSlotHud[16]/QuickSlot4[3]/Empty[0]",
       "sprite": "",
       "spriteAsset": "",
@@ -1125,8 +1125,8 @@
       "reason": "Icon or intentional state overlay without a replacement role"
     },
     {
-      "asset": "Assets/Prefabs/NetworkPlayer.prefab",
-      "fileId": "3452531617277080325",
+      "asset": "Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab",
+      "fileId": "5771679181281742313",
       "hierarchy": "NetworkPlayer[0]/LocalGameplayHud[6]/RaidQuickSlotHud[16]/QuickSlot4[3]/Icon[1]",
       "sprite": "",
       "spriteAsset": "",
@@ -1160,8 +1160,8 @@
       "reason": "Runtime-owned icon, portrait, marker, state overlay or toggle checkmark"
     },
     {
-      "asset": "Assets/Prefabs/NetworkPlayer.prefab",
-      "fileId": "272890644763185677",
+      "asset": "Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab",
+      "fileId": "6759821392910762661",
       "hierarchy": "NetworkPlayer[0]/LocalGameplayHud[6]/RaidQuickSlotHud[16]/QuickSlot4[3]/Unavailable[4]",
       "sprite": "",
       "spriteAsset": "",
@@ -5582,7 +5582,7 @@
         1
       ],
       "sizeDelta": [
-        -0.000061035,
+        -6.1035e-05,
         -360
       ],
       "anchorMin": [
@@ -6247,7 +6247,7 @@
         1
       ],
       "sizeDelta": [
-        0.000061035,
+        6.1035e-05,
         -360
       ],
       "anchorMin": [
@@ -6756,7 +6756,7 @@
       "raycast": false,
       "preserveAspect": false,
       "migrate": true,
-      "target": "panel_main",
+      "target": "panel_secondary",
       "reason": "Main rectangular window/HUD frame"
     },
     {
@@ -7246,7 +7246,7 @@
       "raycast": true,
       "preserveAspect": false,
       "migrate": true,
-      "target": "panel_main",
+      "target": "panel_secondary",
       "reason": "Main rectangular window/HUD frame"
     },
     {
@@ -7297,8 +7297,8 @@
         0.3882353
       ],
       "sizeDelta": [
-        60,
-        60
+        32,
+        32
       ],
       "anchorMin": [
         0.5,
@@ -7367,8 +7367,8 @@
         0.3882353
       ],
       "sizeDelta": [
-        60,
-        60
+        32,
+        32
       ],
       "anchorMin": [
         0.5,
@@ -7437,8 +7437,8 @@
         0.3882353
       ],
       "sizeDelta": [
-        60,
-        60
+        32,
+        32
       ],
       "anchorMin": [
         0.5,
@@ -7507,8 +7507,8 @@
         0.3882353
       ],
       "sizeDelta": [
-        60,
-        60
+        32,
+        32
       ],
       "anchorMin": [
         0.5,
@@ -7577,8 +7577,8 @@
         0.3882353
       ],
       "sizeDelta": [
-        60,
-        60
+        32,
+        32
       ],
       "anchorMin": [
         0.5,
@@ -7647,8 +7647,8 @@
         0.3882353
       ],
       "sizeDelta": [
-        60,
-        60
+        32,
+        32
       ],
       "anchorMin": [
         0.5,
@@ -7717,8 +7717,8 @@
         0.3882353
       ],
       "sizeDelta": [
-        60,
-        60
+        32,
+        32
       ],
       "anchorMin": [
         0.5,
@@ -7787,8 +7787,8 @@
         0.3882353
       ],
       "sizeDelta": [
-        60,
-        60
+        32,
+        32
       ],
       "anchorMin": [
         0.5,
@@ -8172,16 +8172,16 @@
         0.94
       ],
       "sizeDelta": [
-        240,
-        260
+        0,
+        0
       ],
       "anchorMin": [
-        1,
-        1
+        0,
+        0
       ],
       "anchorMax": [
-        1,
-        1
+        0,
+        0
       ],
       "pivot": [
         1,
@@ -8716,7 +8716,7 @@
       "raycast": false,
       "preserveAspect": false,
       "migrate": true,
-      "target": "panel_main",
+      "target": "panel_secondary",
       "reason": "Main rectangular window/HUD frame"
     },
     {
@@ -13597,8 +13597,8 @@
         1
       ],
       "sizeDelta": [
-        60,
-        60
+        75,
+        75
       ],
       "anchorMin": [
         0.5,
@@ -13703,7 +13703,7 @@
       ],
       "sizeDelta": [
         675,
-        600
+        710
       ],
       "anchorMin": [
         0.5,
