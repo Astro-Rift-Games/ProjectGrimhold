@@ -4,32 +4,105 @@
 
 Release: Unreleased
 
-105 original commits; 105 canonical entries.
+106 original commits; 106 canonical entries.
 
 ## Canonical classification
 
-59 features; 26 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 3 tests; 4 maintenance; 2 other changes
+59 features; 27 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 3 tests; 4 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 7 | 6 | 1 | 0 | 4 | 1 |
 | Art & Animation | 7 | 8 | 1 | 0 | 4 | 0 |
 | Audio | 3 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 34 | 16 | 1 | 1 | 6 | 2 |
+| Build & Tooling | 34 | 17 | 1 | 1 | 6 | 2 |
 | Combat | 34 | 6 | 0 | 0 | 6 | 0 |
 | Documentation | 26 | 8 | 0 | 0 | 4 | 0 |
 | Extraction | 9 | 2 | 0 | 0 | 2 | 0 |
-| Input | 0 | 0 | 0 | 0 | 1 | 0 |
+| Input | 0 | 1 | 0 | 0 | 1 | 0 |
 | Inventory & Loot | 51 | 21 | 1 | 1 | 6 | 1 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 16 | 7 | 0 | 0 | 2 | 0 |
+| Networking & Sessions | 16 | 8 | 0 | 0 | 2 | 0 |
 | Persistence & Backend | 24 | 7 | 0 | 1 | 4 | 0 |
-| Tests | 57 | 22 | 1 | 1 | 8 | 0 |
+| Tests | 57 | 23 | 1 | 1 | 8 | 0 |
 | UI | 22 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
-| World & Visibility | 16 | 5 | 0 | 0 | 0 | 0 |
+| World & Visibility | 16 | 6 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### 0cabe0c69a74975306b54d72bacf1f0be3b6ead3
+
+[0cabe0c69a74975306b54d72bacf1f0be3b6ead3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0cabe0c69a74975306b54d72bacf1f0be3b6ead3)
+
+Date: 2026-11-10T15:55:02-03:00 · Classification: Bug Fixes (explicit) · Systems: Networking & Sessions, World & Visibility, Input, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(camera): decouple aim from camera shake and fix trauma decay cycle
+```
+
+#### Original body
+
+```text
+Compensate camera shake offset in screen-to-world aim calculations,
+prevent sustained continuous shake from stalling trauma decay rates,
+isolate post-processing volume profile from editor asset mutation,
+and persist camera shake accessibility scale.
+
+PlayerInputReader now subtracts CameraShakeController.ShakeOffset from
+projected world coordinates, ensuring mouse/touch aiming remains stable
+and accurate during high-intensity dungeon collapse tremors.
+CameraShakeController resets its decay speed upon reaching zero trauma,
+adds ResetTransientTrauma for clean late-join states, and persists its
+AccessibilityScale setting to PlayerPrefs. DungeonPressureAmbientPresenter
+uses runtime volume cloning to protect project assets and fixes occlusion
+physics transform synchronization.
+
+Tests:
+- DungeonPressureAmbientPresenterTests: 8/8 tests passing.
+- CameraShakeControllerContinuousTests: 6/6 tests passing.
+- PlayerInputReaderTests: 10/10 tests passing.
+
+Player-Fixed: Aiming no longer jitters or drifts when the camera shakes during dungeon pressure and collapse phases.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs
+Project Grimhold/Assets/Scripts/Player/PlayerInputReader.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/CameraShakeController.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/CameraShakeControllerContinuousTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerInputReaderTests.cs
+odd/tasks/task-286-camera-shake-aim-decoupling.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/CameraShakeControllerContinuousTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- message-term → World &amp; Visibility: dungeon
+- path → Input: Project Grimhold/Assets/Scripts/Player/PlayerInputReader.cs
+- path → Input: Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerInputReaderTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/CameraShakeControllerContinuousTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerInputReaderTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/CameraShakeControllerContinuousTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerInputReaderTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### e4a9c92eb8a99849a10a2f04d5d850e0d78c5b35
 

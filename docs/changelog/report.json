@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 982,
-  "canonicalEntries": 979,
+  "rawCommits": 983,
+  "canonicalEntries": 980,
   "before": {
-    "Bug Fixes": 104,
+    "Bug Fixes": 105,
     "Tests": 27,
     "Features": 382,
     "Architecture & Infrastructure": 17,
@@ -12,7 +12,7 @@
     "Refactoring": 14
   },
   "after": {
-    "Bug Fixes": 120,
+    "Bug Fixes": 121,
     "Tests": 32,
     "Features": 519,
     "Architecture & Infrastructure": 6,
@@ -23,26 +23,26 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Networking & Sessions": 282,
+    "World & Visibility": 132,
+    "Input": 30,
+    "Build & Tooling": 502,
+    "Tests": 611,
     "Movement": 94,
     "Inventory & Loot": 397,
-    "Networking & Sessions": 281,
-    "Build & Tooling": 501,
-    "Tests": 610,
     "Combat": 362,
-    "World & Visibility": 131,
     "Art & Animation": 230,
     "Persistence & Backend": 221,
     "UI": 301,
     "Documentation": 381,
     "Extraction": 132,
     "Abilities": 123,
-    "Input": 29,
     "Unassigned": 20,
     "Audio": 33
   },
   "canonical": {
     "sections": {
-      "Bug Fixes": 119,
+      "Bug Fixes": 120,
       "Tests": 32,
       "Features": 518,
       "Architecture & Infrastructure": 6,
@@ -52,20 +52,20 @@
       "Refactoring": 27
     },
     "systems": {
+      "Networking & Sessions": 282,
+      "World & Visibility": 130,
+      "Input": 30,
+      "Build & Tooling": 500,
+      "Tests": 609,
       "Movement": 94,
       "Inventory & Loot": 397,
-      "Networking & Sessions": 281,
-      "Build & Tooling": 499,
-      "Tests": 608,
       "Combat": 360,
-      "World & Visibility": 129,
       "Art & Animation": 227,
       "Persistence & Backend": 221,
       "UI": 300,
       "Documentation": 379,
       "Extraction": 132,
       "Abilities": 121,
-      "Input": 29,
       "Unassigned": 20,
       "Audio": 33
     }
@@ -34083,8 +34083,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 105,
-      "canonicalEntries": 105
+      "originalCommits": 106,
+      "canonicalEntries": 106
     },
     {
       "key": "v0.5.0",
@@ -34128,6 +34128,116 @@
     }
   ],
   "commits": [
+    {
+      "sha": "0cabe0c69a74975306b54d72bacf1f0be3b6ead3",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/0cabe0c69a74975306b54d72bacf1f0be3b6ead3",
+      "subject": "fix(camera): decouple aim from camera shake and fix trauma decay cycle",
+      "body": "Compensate camera shake offset in screen-to-world aim calculations,\nprevent sustained continuous shake from stalling trauma decay rates,\nisolate post-processing volume profile from editor asset mutation,\nand persist camera shake accessibility scale.\n\nPlayerInputReader now subtracts CameraShakeController.ShakeOffset from\nprojected world coordinates, ensuring mouse/touch aiming remains stable\nand accurate during high-intensity dungeon collapse tremors.\nCameraShakeController resets its decay speed upon reaching zero trauma,\nadds ResetTransientTrauma for clean late-join states, and persists its\nAccessibilityScale setting to PlayerPrefs. DungeonPressureAmbientPresenter\nuses runtime volume cloning to protect project assets and fixes occlusion\nphysics transform synchronization.\n\nTests:\n- DungeonPressureAmbientPresenterTests: 8/8 tests passing.\n- CameraShakeControllerContinuousTests: 6/6 tests passing.\n- PlayerInputReaderTests: 10/10 tests passing.\n\nPlayer-Fixed: Aiming no longer jitters or drifts when the camera shakes during dungeon pressure and collapse phases.\n",
+      "date": "2026-11-10T15:55:02-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerInputReader.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/CameraShakeController.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/CameraShakeControllerContinuousTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerInputReaderTests.cs",
+        "odd/tasks/task-286-camera-shake-aim-decoupling.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "camera",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "World & Visibility",
+        "Input",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/CameraShakeControllerContinuousTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/PlayerInputReader.cs",
+          "supports": "Input"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerInputReaderTests.cs",
+          "supports": "Input"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/CameraShakeControllerContinuousTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerInputReaderTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/CameraShakeControllerContinuousTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerInputReaderTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "e4a9c92eb8a99849a10a2f04d5d850e0d78c5b35",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e4a9c92eb8a99849a10a2f04d5d850e0d78c5b35",
