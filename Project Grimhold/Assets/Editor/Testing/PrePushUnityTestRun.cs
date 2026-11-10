@@ -45,22 +45,41 @@ public static class PrePushUnityTestRun
         if (_api == null) _api = ScriptableObject.CreateInstance<TestRunnerApi>();
         _api.RetrieveTestList(TestMode.EditMode, root =>
         {
-            var names = new List<string>();
-            Collect(root, names);
-            if (names.Count == 0)
+            try
             {
-                _running = false;
-                Write(new Report { status = "error", failures = { new Failure { name = "selection", message = "No EditMode tests selected." } } });
-                return;
+                StartSelected(root);
             }
-
-            if (_callbacks != null) _api.UnregisterCallbacks(_callbacks);
-            _callbacks = new Callbacks();
-            _api.RegisterCallbacks(_callbacks);
-            _api.Execute(new ExecutionSettings(new Filter { testMode = TestMode.EditMode, testNames = names.ToArray() }));
+            catch (Exception exception)
+            {
+                Fail(exception);
+            }
         });
 
         return "started";
+    }
+
+    // Any failure must clear _running and report, or every later push would wait on a run that never ends.
+    private static void Fail(Exception exception)
+    {
+        _running = false;
+        Write(new Report { status = "error", failures = { new Failure { name = "runner", message = exception.Message } } });
+    }
+
+    private static void StartSelected(ITestAdaptor root)
+    {
+        var names = new List<string>();
+        Collect(root, names);
+        if (names.Count == 0)
+        {
+            _running = false;
+            Write(new Report { status = "error", failures = { new Failure { name = "selection", message = "No EditMode tests selected." } } });
+            return;
+        }
+
+        if (_callbacks != null) _api.UnregisterCallbacks(_callbacks);
+        _callbacks = new Callbacks();
+        _api.RegisterCallbacks(_callbacks);
+        _api.Execute(new ExecutionSettings(new Filter { testMode = TestMode.EditMode, testNames = names.ToArray() }));
     }
 
     private static void Collect(ITestAdaptor test, List<string> names)
@@ -106,10 +125,17 @@ public static class PrePushUnityTestRun
 
         public void RunFinished(ITestResultAdaptor result)
         {
-            var report = new Report { status = "completed" };
-            Summarize(result, report);
-            Write(report);
-            _running = false;
+            try
+            {
+                var report = new Report { status = "completed" };
+                Summarize(result, report);
+                Write(report);
+                _running = false;
+            }
+            catch (Exception exception)
+            {
+                Fail(exception);
+            }
         }
     }
 }

@@ -61,6 +61,7 @@ describe('Pre-push quality gate hook', { skip: shell ? false : 'sh is not availa
     run = { status: 'completed', total: 3, passed: 3, failed: 0, failures: [] },
     writesResult = true,
     compilingPolls = 0,
+    busyPolls = 0,
     resultDelaySeconds = 0,
     startReply = 'started'
   } = {}) {
@@ -80,7 +81,8 @@ describe('Pre-push quality gate hook', { skip: shell ? false : 'sh is not availa
       editorState === 'closed' ? 'exit 12' : '',
       'case "$*" in',
       `  *"editor status"*) n=$(cat "${counter}" 2>/dev/null || echo 0); echo $((n + 1)) > "${counter}";`,
-      `    if [ "$n" -lt ${compilingPolls} ]; then echo '${compiling}'; else echo '${ready}'; fi ;;`,
+      `    if [ "$n" -lt ${busyPolls} ]; then exit 1; fi;`,
+      `    if [ "$n" -lt $((${busyPolls} + ${compilingPolls})) ]; then echo '${compiling}'; else echo '${ready}'; fi ;;`,
       writesResult
         ? `  *"script eval"*) ${writeLater} echo '{"result": "${startReply}"}' ;;`
         : `  *"script eval"*) echo '{"result": "${startReply}"}' ;;`,
@@ -237,6 +239,20 @@ describe('Pre-push quality gate hook', { skip: shell ? false : 'sh is not availa
     assert.equal(result.status, 0, result.stderr);
     assert.equal(result.unityCalls.filter((c) => /editor status/.test(c)).length, 3);
     assert.match(result.stdout, /Esperando a que Unity termine de compilar/);
+  });
+
+  test('a busy Editor that briefly does not answer is retried instead of reported closed', () => {
+    writeNodeStub();
+    const result = runHook(UPDATE, { changed: [UNITY_FILE], unity: { busyPolls: 2 } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.unityCalls.filter((c) => /editor status/.test(c)).length, 3);
+  });
+
+  test('an Editor that never answers is still reported closed after the grace period', () => {
+    writeNodeStub();
+    const result = runHook(UPDATE, { changed: [UNITY_FILE], unity: { busyPolls: 1000 }, env: { GRIMHOLD_UNITY_GRACE_SECONDS: '2' } });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /no está abierto o no responde/);
   });
 
   test('a Unity run already in progress is awaited instead of started again', () => {

@@ -159,8 +159,15 @@ if [ "$TOUCHES_UNITY" = true ]; then
       break
     fi
     if [ $STATUS_EXIT -ne 0 ] || [ -z "$EDITOR_STATUS" ]; then
-      unity_not_ready "El Editor de Unity no está abierto o no responde."
+      # A busy Editor (running tests, reloading) can miss a status call; retry for a grace period.
+      [ -z "$UNITY_SILENT_SINCE" ] && UNITY_SILENT_SINCE=$(date +%s)
+      if [ $(( $(date +%s) - UNITY_SILENT_SINCE )) -ge "${GRIMHOLD_UNITY_GRACE_SECONDS:-30}" ]; then
+        unity_not_ready "El Editor de Unity no está abierto o no responde."
+      fi
+      sleep "$UNITY_POLL_SECONDS"
+      continue
     fi
+    UNITY_SILENT_SINCE=""
     if [ "$ANNOUNCED_COMPILING" = false ]; then
       echo "      Esperando a que Unity termine de compilar o importar..."
       ANNOUNCED_COMPILING=true
