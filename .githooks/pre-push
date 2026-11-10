@@ -149,6 +149,7 @@ if [ "$TOUCHES_UNITY" = true ]; then
 
   # A compiling or importing Editor is awaited; only a closed Editor or Play Mode blocks.
   ANNOUNCED_COMPILING=false
+  UNITY_SILENT_SINCE=""
   while :; do
     EDITOR_STATUS=$(unity command editor status --project-path "$UNITY_PROJECT" --caller plugin --skill unity-cli --result-only 2>/dev/null)
     STATUS_EXIT=$?

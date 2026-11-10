@@ -40,20 +40,28 @@ public static class PrePushUnityTestRun
         if (_running) return "already-running";
 
         _running = true;
-        Write(new Report { status = "running" });
-
-        if (_api == null) _api = ScriptableObject.CreateInstance<TestRunnerApi>();
-        _api.RetrieveTestList(TestMode.EditMode, root =>
+        try
         {
-            try
+            Write(new Report { status = "running" });
+
+            if (_api == null) _api = ScriptableObject.CreateInstance<TestRunnerApi>();
+            _api.RetrieveTestList(TestMode.EditMode, root =>
             {
-                StartSelected(root);
-            }
-            catch (Exception exception)
-            {
-                Fail(exception);
-            }
-        });
+                try
+                {
+                    StartSelected(root);
+                }
+                catch (Exception exception)
+                {
+                    Fail(exception);
+                }
+            });
+        }
+        catch (Exception exception)
+        {
+            Fail(exception);
+            return "failed";
+        }
 
         return "started";
     }
