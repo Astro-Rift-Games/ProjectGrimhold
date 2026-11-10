@@ -32,9 +32,14 @@ public static class PrePushUnityTestRun
 
     private static TestRunnerApi _api;
     private static Callbacks _callbacks;
+    private static bool _running;
 
     public static string Start()
     {
+        // A second push while a run is executing waits for it instead of queueing another run.
+        if (_running) return "already-running";
+
+        _running = true;
         Write(new Report { status = "running" });
 
         if (_api == null) _api = ScriptableObject.CreateInstance<TestRunnerApi>();
@@ -44,6 +49,7 @@ public static class PrePushUnityTestRun
             Collect(root, names);
             if (names.Count == 0)
             {
+                _running = false;
                 Write(new Report { status = "error", failures = { new Failure { name = "selection", message = "No EditMode tests selected." } } });
                 return;
             }
@@ -103,6 +109,7 @@ public static class PrePushUnityTestRun
             var report = new Report { status = "completed" };
             Summarize(result, report);
             Write(report);
+            _running = false;
         }
     }
 }

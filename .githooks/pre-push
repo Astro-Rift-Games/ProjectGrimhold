@@ -143,28 +143,49 @@ if [ "$TOUCHES_UNITY" = true ]; then
     unity_not_ready "No se encontró el Unity CLI ('unity') en el PATH."
   fi
 
-  EDITOR_STATUS=$(unity command editor status --project-path "$UNITY_PROJECT" --caller plugin --skill unity-cli --result-only 2>/dev/null)
-  if [ $? -ne 0 ] || ! printf '%s' "$EDITOR_STATUS" | grep -q '"status": *"ready"'; then
+  # Measure waits with the wall clock: some Git GUI shells return from sleep immediately.
+  UNITY_STARTED_AT=$(date +%s)
+  unity_elapsed() { echo $(( $(date +%s) - UNITY_STARTED_AT )); }
+
+  # A compiling or importing Editor is awaited; only a closed Editor or Play Mode blocks.
+  ANNOUNCED_COMPILING=false
+  while :; do
+    EDITOR_STATUS=$(unity command editor status --project-path "$UNITY_PROJECT" --caller plugin --skill unity-cli --result-only 2>/dev/null)
+    STATUS_EXIT=$?
     if printf '%s' "$EDITOR_STATUS" | grep -q '"playMode": *"playing"'; then
       unity_not_ready "El Editor de Unity está en Play Mode."
     fi
-    unity_not_ready "El Editor de Unity no está abierto o no responde."
-  fi
+    if [ $STATUS_EXIT -eq 0 ] && printf '%s' "$EDITOR_STATUS" | grep -q '"status": *"ready"'; then
+      break
+    fi
+    if [ $STATUS_EXIT -ne 0 ] || [ -z "$EDITOR_STATUS" ]; then
+      unity_not_ready "El Editor de Unity no está abierto o no responde."
+    fi
+    if [ "$ANNOUNCED_COMPILING" = false ]; then
+      echo "      Esperando a que Unity termine de compilar o importar..."
+      ANNOUNCED_COMPILING=true
+    fi
+    if [ "$(unity_elapsed)" -ge "$UNITY_TIMEOUT_SECONDS" ]; then
+      unity_not_ready "El Editor de Unity no quedó listo en ${UNITY_TIMEOUT_SECONDS} s."
+    fi
+    sleep "$UNITY_POLL_SECONDS"
+  done
 
   rm -f "$UNITY_RESULT"
-  unity command script eval 'return PrePushUnityTestRun.Start();' --project-path "$UNITY_PROJECT" --caller plugin --skill unity-cli --result-only >/dev/null 2>&1
+  START_REPLY=$(unity command script eval 'return PrePushUnityTestRun.Start();' --project-path "$UNITY_PROJECT" --caller plugin --skill unity-cli --result-only 2>/dev/null)
   if [ $? -ne 0 ]; then
     unity_not_ready "No se pudieron iniciar los tests en el Editor de Unity."
   fi
+  if printf '%s' "$START_REPLY" | grep -q 'already-running'; then
+    echo "      Unity: ya hay una corrida de tests en curso; esperando su resultado..."
+  fi
+  echo "      Unity queda ocupado mientras corren los tests (unos 4 minutos); no lo uses hasta que termine."
 
-  WAITED=0
   while ! grep -Eq '"status":"(completed|error)"' "$UNITY_RESULT" 2>/dev/null; do
-    if [ "$WAITED" -ge "$UNITY_TIMEOUT_SECONDS" ]; then
+    if [ "$(unity_elapsed)" -ge "$UNITY_TIMEOUT_SECONDS" ]; then
       unity_not_ready "Los tests de Unity no terminaron en ${UNITY_TIMEOUT_SECONDS} s."
     fi
     sleep "$UNITY_POLL_SECONDS"
-    WAITED=$((WAITED + UNITY_POLL_SECONDS))
-    [ "$UNITY_POLL_SECONDS" -eq 0 ] && WAITED=$((WAITED + 1))
   done
 
   if grep -q '"status":"error"' "$UNITY_RESULT"; then

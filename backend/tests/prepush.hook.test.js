@@ -53,19 +53,37 @@ describe('Pre-push quality gate hook', { skip: shell ? false : 'sh is not availa
   }
 
   // `unity` simulates the open Editor: editorState is ready | playing | closed; run is the result JSON.
-  function writeUnityStub({ editorState = 'ready', run = { status: 'completed', total: 3, passed: 3, failed: 0, failures: [] }, writesResult = true } = {}) {
+  // compilingPolls: number of `editor status` answers reporting compiling before ready.
+  // resultDelaySeconds: the result appears that long after the run starts (real time).
+  // startReply: what PrePushUnityTestRun.Start() returns (e.g. already-running).
+  function writeUnityStub({
+    editorState = 'ready',
+    run = { status: 'completed', total: 3, passed: 3, failed: 0, failures: [] },
+    writesResult = true,
+    compilingPolls = 0,
+    resultDelaySeconds = 0,
+    startReply = 'started'
+  } = {}) {
     const resultFile = posix(path.join(unityProject, 'Temp', 'PrePushUnityTests.json'));
-    const status = editorState === 'playing'
+    const counter = posix(path.join(stubDir, 'status-count'));
+    fs.rmSync(path.join(stubDir, 'status-count'), { force: true });
+    const ready = editorState === 'playing'
       ? '{"status": "playing", "compiling": false, "playMode": "playing"}'
       : '{"status": "ready", "compiling": false, "playMode": "stopped"}';
+    const compiling = '{"status": "compiling", "compiling": true, "playMode": "stopped"}';
+    const realSleep = posix(path.join(path.dirname(shell), 'sleep'));
+    const write = `mkdir -p "$(dirname "${resultFile}")"; echo '${JSON.stringify(run)}' > "${resultFile}"`;
+    // Ends with its own separator: `cmd &;` would be a shell syntax error.
+    const writeLater = resultDelaySeconds > 0 ? `( "${realSleep}" ${resultDelaySeconds}; ${write} ) >/dev/null 2>&1 &` : `${write};`;
     writeStub('unity', [
       `echo "$*" >> "${posix(unityLog)}"`,
       editorState === 'closed' ? 'exit 12' : '',
       'case "$*" in',
-      `  *"editor status"*) echo '${status}' ;;`,
+      `  *"editor status"*) n=$(cat "${counter}" 2>/dev/null || echo 0); echo $((n + 1)) > "${counter}";`,
+      `    if [ "$n" -lt ${compilingPolls} ]; then echo '${compiling}'; else echo '${ready}'; fi ;;`,
       writesResult
-        ? `  *"script eval"*) mkdir -p "$(dirname "${resultFile}")"; echo '${JSON.stringify(run)}' > "${resultFile}"; echo '{"result": "started"}' ;;`
-        : '  *"script eval"*) echo \'{"result": "started"}\' ;;',
+        ? `  *"script eval"*) ${writeLater} echo '{"result": "${startReply}"}' ;;`
+        : `  *"script eval"*) echo '{"result": "${startReply}"}' ;;`,
       'esac',
       'exit 0'
     ]);
@@ -198,6 +216,35 @@ describe('Pre-push quality gate hook', { skip: shell ? false : 'sh is not availa
     const result = runHook(UPDATE, { changed: [UNITY_FILE], unity: { writesResult: false }, env: { GRIMHOLD_UNITY_TIMEOUT_SECONDS: '3' } });
     assert.equal(result.status, 1);
     assert.match(result.stderr, /no terminaron en 3 s/);
+  });
+
+  test('the Unity wait uses real time even when sleep returns immediately', () => {
+    writeNodeStub();
+    writeStub('sleep', ['exit 0']); // GitHub Desktop shells can return from sleep without waiting.
+    const result = runHook(UPDATE, {
+      changed: [UNITY_FILE],
+      unity: { resultDelaySeconds: 2 },
+      env: { GRIMHOLD_UNITY_POLL_SECONDS: '5', GRIMHOLD_UNITY_TIMEOUT_SECONDS: '20' }
+    });
+    fs.rmSync(path.join(stubDir, 'sleep'), { force: true });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /3 tests de Unity pasaron/);
+  });
+
+  test('a compiling Editor is awaited instead of blocking the push', () => {
+    writeNodeStub();
+    const result = runHook(UPDATE, { changed: [UNITY_FILE], unity: { compilingPolls: 2 } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.unityCalls.filter((c) => /editor status/.test(c)).length, 3);
+    assert.match(result.stdout, /Esperando a que Unity termine de compilar/);
+  });
+
+  test('a Unity run already in progress is awaited instead of started again', () => {
+    writeNodeStub();
+    const result = runHook(UPDATE, { changed: [UNITY_FILE], unity: { startReply: 'already-running', resultDelaySeconds: 1 } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /ya hay una corrida de tests en curso/);
+    assert.match(result.stdout, /3 tests de Unity pasaron/);
   });
 
   test('backend failures block before the Unity gate runs', () => {
