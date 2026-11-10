@@ -14,7 +14,7 @@ namespace Tests.EditMode.Loot
         // modifiers (receiver array, hand words, 34 container weapon units, pickup word).
         [TestCase("Assets/Prefabs/NetworkPlayer.prefab", 1289, null, 1884)]
         [TestCase("Assets/Prefabs/LootContainer.prefab", 820, 1230, 1230)]
-        [TestCase("Assets/Prefabs/Enemies/NetworkEnemy.prefab", 844, 1292, 1292)]
+        [TestCase("Assets/Prefabs/Enemies/NetworkEnemy.prefab", 844, 1291, 1291)]
         [TestCase("Assets/Prefabs/LootPickup.prefab", 6, 24, 192)]
         public void ProductivePrefab_UsesMeasuredCompactBudget(
             string prefabPath,

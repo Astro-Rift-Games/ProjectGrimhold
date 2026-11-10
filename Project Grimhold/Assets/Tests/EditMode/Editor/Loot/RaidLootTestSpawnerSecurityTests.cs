@@ -36,10 +36,10 @@ namespace Tests.EditMode.Loot
         [Test]
         public void StripTestSpawners_RemovesDebugSpawnerGameObjects()
         {
+            // Additive creation fails while the runner's untitled scene is unsaved; use a single empty scene.
             var scene = UnityEditor.SceneManagement.EditorSceneManager.NewScene(
                 UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
-                UnityEditor.SceneManagement.NewSceneMode.Additive);
-            try
+                UnityEditor.SceneManagement.NewSceneMode.Single);
             {
                 var testGo = new GameObject("[LootTestSpawner]");
                 SceneManager.MoveGameObjectToScene(testGo, scene);
@@ -53,10 +53,6 @@ namespace Tests.EditMode.Loot
                 Assert.That(normalGo != null, Is.True, "Normal objects must remain untouched");
 
                 Object.DestroyImmediate(normalGo);
-            }
-            finally
-            {
-                UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene, true);
             }
         }
 
