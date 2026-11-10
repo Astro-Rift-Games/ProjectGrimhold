@@ -59,6 +59,12 @@ public sealed class AudioManager : MonoBehaviour, IAudioVolumeControl
         SetVolumeParam("SFXVolume", SfxVolume);
     }
 
+    private void OnDestroy()
+    {
+        // Domain reload may be disabled, so a destroyed manager must not stay published.
+        if (Instance == this) Instance = null;
+    }
+
     private void InitializeSfxPool()
     {
         _sfxSources = new AudioSource[_sfxPoolSize];
