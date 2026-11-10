@@ -768,7 +768,7 @@ namespace Tests.PlayMode.Extraction
         }
 
         [UnityTest]
-        public IEnumerator Ritual_ExecutionWithoutStateAuthorityReturnsTypedRejection()
+        public IEnumerator Ritual_ExecutionOutsideARunnerReturnsTypedRejection()
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(SanctuaryPrefabPath);
             GameObject instance = UnityEngine.Object.Instantiate(prefab);
@@ -781,7 +781,8 @@ namespace Tests.PlayMode.Extraction
                     1));
 
                 Assert.That(result.Success, Is.False);
-                Assert.That(result.FailureReason, Is.EqualTo(InteractionFailureReason.MissingStateAuthority));
+                // Without a runner the sanctuary treats the caller as authoritative (ce0aae543) and the unassigned team is rejected.
+                Assert.That(result.FailureReason, Is.EqualTo(InteractionFailureReason.TargetUnavailable));
             }
             finally
             {

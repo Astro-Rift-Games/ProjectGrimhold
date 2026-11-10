@@ -738,9 +738,10 @@ namespace Tests.PlayMode.Equipment
                 _equipment.CanEquip(_greatsword.LootId, EquipmentSlot.WeaponSetAMainHand),
                 Is.True);
             yield return Equip(_greatsword, EquipmentOperationResult.Succeeded);
+            // The production Longsword (1eb624c75) deals its base 45 and carries no offensive scaling coefficient.
             AssertRuntimeParameters(
                 _equipment.GetComponent<MeleeAttack>(),
-                48f,
+                45f,
                 DamageType.Physical,
                 1.4f,
                 2f,
@@ -748,9 +749,12 @@ namespace Tests.PlayMode.Equipment
 
             Assert.That(_attributeOverride.RequestAdjustment(CharacterAttribute.Strength, 5), Is.True);
             yield return WaitUntil(
+                () => TryGetEffectiveStrength(out int value) && value == 20,
+                "Effective Strength 20 was not applied.");
+            yield return WaitUntil(
                 () => TryGetRuntimeDamage(_equipment.GetComponent<MeleeAttack>(), out float damage) &&
-                    Mathf.Approximately(damage, 49f),
-                "The active weapon did not rebuild scaling from effective Strength 20.");
+                    Mathf.Approximately(damage, 45f),
+                "The active weapon did not stay valid with its unscaled damage after Strength 20.");
 
             Assert.That(_attributeOverride.RequestReset(CharacterAttribute.Strength), Is.True);
             yield return WaitUntil(
@@ -1089,7 +1093,7 @@ namespace Tests.PlayMode.Equipment
             yield return Equip(_meleeWeapon, EquipmentOperationResult.Succeeded);
             AssertRuntimeParameters(
                 _equipment.GetComponent<MeleeAttack>(),
-                22f,
+                30f,
                 DamageType.Physical,
                 1f,
                 1.5f,

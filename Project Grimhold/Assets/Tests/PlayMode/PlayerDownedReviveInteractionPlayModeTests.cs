@@ -190,14 +190,25 @@ namespace Tests.PlayMode.Downed
         {
             yield return StartRunnerAndLoadPlayer();
             Avatar target = SpawnAvatar(Vector3.zero);
-            Avatar reviver = SpawnAvatar(new Vector3(1f, 0f, 0f));
-            yield return OpenSession(target, reviver);
+            Avatar reviver = SpawnAvatar(new Vector3(1f, 0f, 0f), localInput: true);
+            yield return DownTarget(target);
+            // A utility passes start validation regardless of Health or Mana, so the reviver is not forced into a hurt state.
+            LootId potion = PlayerConsumableNetworkController.ArcaneDetectorId;
+            var request = new LootTransferRequest(new EntityId(123), reviver.Receiver.Id, potion, 1, _runner.Tick);
+            RaidLootOriginTransfer origin = RaidLootOriginTransfer.Dungeon(1);
+            Assert.That(reviver.Receiver.ValidateRaidLootOriginReceive(request, origin), Is.EqualTo(LootTransferFailureReason.None));
+            reviver.Receiver.CommitRaidLootReceive(request, origin);
+            _input.InteractHeld = true;
+            yield return WaitUntil(() => target.Recovery.Kind == RecoveryKind.Assisted);
+            Assert.That(target.Recovery.Kind, Is.EqualTo(RecoveryKind.Assisted));
+
+            // Starting a consumption is what interrupts the session; completion no longer does (90b01f5f9).
             PlayerConsumableNetworkController consumable =
                 reviver.Object.GetComponent<PlayerConsumableNetworkController>();
+            Assert.That(consumable.TryRequestConsume(potion), Is.True);
+            yield return WaitUntil(() => target.Recovery.LastOutcomeReason == DownedRecoveryInterruptReason.IncompatibleReviverAction);
 
-            Invoke(consumable, "ProcessAuthoritativeConsume", 0);
-
-            Assert.That(target.Recovery.Kind, Is.EqualTo(RecoveryKind.None));
+            Assert.That(target.Recovery.LastOutcomeReason, Is.EqualTo(DownedRecoveryInterruptReason.IncompatibleReviverAction));
         }
 
         [UnityTest]

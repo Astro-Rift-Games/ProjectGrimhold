@@ -21,10 +21,13 @@ namespace Tests.PlayMode.Presentation
             Quaternion rootRotation = Quaternion.Euler(0f, 0f, 23f);
             root.transform.SetPositionAndRotation(rootPosition, rootRotation);
 
+            // The base pose is captured in Awake, so the serialized visual must be assigned before it runs.
+            root.SetActive(false);
             LootPickupRejectionPresenter presenter =
                 root.AddComponent<LootPickupRejectionPresenter>();
             SetField(presenter, "_visualTransform", visual);
             SetField(presenter, "_duration", 0.03f);
+            root.SetActive(true);
 
             Vector3 localPosition = visual.localPosition;
             Quaternion localRotation = visual.localRotation;
@@ -33,10 +36,9 @@ namespace Tests.PlayMode.Presentation
             Assert.That(root.transform.position, Is.EqualTo(rootPosition));
             Assert.That(root.transform.rotation, Is.EqualTo(rootRotation));
 
-            for (int frame = 0; frame < 10; frame++)
-            {
-                yield return null;
-            }
+            // The motion is time-driven (0.03 s); frame counts finish early on fast runs.
+            yield return new WaitForSeconds(0.2f);
+            yield return null;
 
             Assert.That(root.transform.position, Is.EqualTo(rootPosition));
             Assert.That(root.transform.rotation, Is.EqualTo(rootRotation));
