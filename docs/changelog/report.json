@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1006,
-  "canonicalEntries": 1003,
+  "rawCommits": 1007,
+  "canonicalEntries": 1004,
   "before": {
+    "Tests": 37,
     "Bug Fixes": 113,
     "Features": 384,
     "Architecture & Infrastructure": 21,
-    "Tests": 36,
     "Other Changes": 355,
     "Documentation": 83,
     "Refactoring": 14
   },
   "after": {
+    "Tests": 42,
     "Bug Fixes": 129,
     "Features": 521,
     "Maintenance": 19,
-    "Tests": 41,
     "Architecture & Infrastructure": 6,
     "Documentation": 99,
     "Other Changes": 164,
@@ -23,13 +23,13 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Inventory & Loot": 409,
+    "Networking & Sessions": 287,
+    "Persistence & Backend": 228,
+    "Tests": 632,
     "Build & Tooling": 515,
-    "Tests": 631,
-    "Persistence & Backend": 227,
     "UI": 308,
     "World & Visibility": 134,
-    "Inventory & Loot": 408,
-    "Networking & Sessions": 286,
     "Combat": 366,
     "Abilities": 127,
     "Extraction": 135,
@@ -42,23 +42,23 @@
   },
   "canonical": {
     "sections": {
+      "Tests": 42,
       "Bug Fixes": 128,
       "Features": 520,
       "Maintenance": 19,
-      "Tests": 41,
       "Architecture & Infrastructure": 6,
       "Documentation": 99,
       "Other Changes": 163,
       "Refactoring": 27
     },
     "systems": {
+      "Inventory & Loot": 409,
+      "Networking & Sessions": 287,
+      "Persistence & Backend": 228,
+      "Tests": 630,
       "Build & Tooling": 513,
-      "Tests": 629,
-      "Persistence & Backend": 227,
       "UI": 307,
       "World & Visibility": 132,
-      "Inventory & Loot": 408,
-      "Networking & Sessions": 286,
       "Combat": 364,
       "Abilities": 125,
       "Extraction": 135,
@@ -34083,8 +34083,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 129,
-      "canonicalEntries": 129
+      "originalCommits": 130,
+      "canonicalEntries": 130
     },
     {
       "key": "v0.5.0",
@@ -34128,6 +34128,204 @@
     }
   ],
   "commits": [
+    {
+      "sha": "a26f1a6795df1a81cb95439e3adff723e4ad3f32",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a26f1a6795df1a81cb95439e3adff723e4ad3f32",
+      "subject": "test(backend): retry in-memory MongoDB startup when parallel test files race for a port",
+      "body": "node --test runs files in parallel processes; two can pick the same free port before either binds it, failing CI with 'Port ... already in use' (run 42880487264). A shared startMemoryMongo helper retries only that error and is used by every suite that starts MongoMemoryServer.\n",
+      "date": "2026-11-10T20:49:50-03:00",
+      "files": [
+        "backend/tests/concurrency/inventory.real.test.js",
+        "backend/tests/concurrency/inventory.split.real.test.js",
+        "backend/tests/concurrency/inventory.transferAll.real.test.js",
+        "backend/tests/concurrency/item.instances.real.test.js",
+        "backend/tests/concurrency/progression.real.test.js",
+        "backend/tests/integration/migrate.inventory.slots.test.js",
+        "backend/tests/integration/testDb.js",
+        "backend/tests/session.revocation.test.js",
+        "backend/tests/session.ticket.test.js",
+        "backend/tests/support.memoryMongo.test.js",
+        "backend/tests/support/memoryMongo.js"
+      ],
+      "originalType": "test",
+      "originalScope": "backend",
+      "originalSection": "Tests",
+      "breaking": false,
+      "reverts": null,
+      "section": "Tests",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "test",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.real.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.split.real.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.transferAll.real.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/migrate.inventory.slots.test.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/session.revocation.test.js",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/session.ticket.test.js",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.real.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.split.real.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.transferAll.real.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/item.instances.real.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/progression.real.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/migrate.inventory.slots.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/testDb.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/session.revocation.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/session.ticket.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/support.memoryMongo.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/support/memoryMongo.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "scope",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.real.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.split.real.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/inventory.transferAll.real.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/item.instances.real.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/progression.real.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/migrate.inventory.slots.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/testDb.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/session.revocation.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/session.ticket.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/support.memoryMongo.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/support/memoryMongo.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
     {
       "sha": "5e56089463cb66f8cfb10f4e7537204434f822e6",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/5e56089463cb66f8cfb10f4e7537204434f822e6",

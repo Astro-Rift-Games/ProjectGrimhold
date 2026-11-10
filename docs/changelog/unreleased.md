@@ -4,11 +4,11 @@
 
 Release: Unreleased
 
-129 original commits; 129 canonical entries.
+130 original commits; 130 canonical entries.
 
 ## Canonical classification
 
-61 features; 35 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 12 tests; 8 maintenance; 2 other changes
+61 features; 35 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 13 tests; 8 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -20,16 +20,91 @@ Release: Unreleased
 | Documentation | 26 | 9 | 0 | 0 | 4 | 0 |
 | Extraction | 9 | 2 | 0 | 0 | 5 | 0 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 51 | 23 | 1 | 1 | 15 | 1 |
+| Inventory & Loot | 51 | 23 | 1 | 1 | 16 | 1 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 16 | 8 | 0 | 0 | 6 | 0 |
-| Persistence & Backend | 25 | 10 | 0 | 1 | 6 | 0 |
-| Tests | 59 | 29 | 1 | 1 | 20 | 0 |
+| Networking & Sessions | 16 | 8 | 0 | 0 | 7 | 0 |
+| Persistence & Backend | 25 | 10 | 0 | 1 | 7 | 0 |
+| Tests | 59 | 29 | 1 | 1 | 21 | 0 |
 | UI | 22 | 8 | 1 | 0 | 8 | 0 |
 | Unassigned | 0 | 1 | 0 | 0 | 2 | 0 |
 | World & Visibility | 16 | 6 | 0 | 0 | 2 | 0 |
 
 ## Original commit records
+
+### a26f1a6795df1a81cb95439e3adff723e4ad3f32
+
+[a26f1a6795df1a81cb95439e3adff723e4ad3f32](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a26f1a6795df1a81cb95439e3adff723e4ad3f32)
+
+Date: 2026-11-10T20:49:50-03:00 · Classification: Tests (explicit) · Systems: Inventory & Loot, Networking & Sessions, Persistence & Backend, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+test(backend): retry in-memory MongoDB startup when parallel test files race for a port
+```
+
+#### Original body
+
+```text
+node --test runs files in parallel processes; two can pick the same free port before either binds it, failing CI with 'Port ... already in use' (run 42880487264). A shared startMemoryMongo helper retries only that error and is used by every suite that starts MongoMemoryServer.
+```
+
+#### Changed paths
+
+```text
+backend/tests/concurrency/inventory.real.test.js
+backend/tests/concurrency/inventory.split.real.test.js
+backend/tests/concurrency/inventory.transferAll.real.test.js
+backend/tests/concurrency/item.instances.real.test.js
+backend/tests/concurrency/progression.real.test.js
+backend/tests/integration/migrate.inventory.slots.test.js
+backend/tests/integration/testDb.js
+backend/tests/session.revocation.test.js
+backend/tests/session.ticket.test.js
+backend/tests/support.memoryMongo.test.js
+backend/tests/support/memoryMongo.js
+```
+
+#### Classification evidence
+
+- type → Tests: test
+- path → Inventory &amp; Loot: backend/tests/concurrency/inventory.real.test.js
+- path → Inventory &amp; Loot: backend/tests/concurrency/inventory.split.real.test.js
+- path → Inventory &amp; Loot: backend/tests/concurrency/inventory.transferAll.real.test.js
+- path → Inventory &amp; Loot: backend/tests/integration/migrate.inventory.slots.test.js
+- path → Networking &amp; Sessions: backend/tests/session.revocation.test.js
+- path → Networking &amp; Sessions: backend/tests/session.ticket.test.js
+- path → Persistence &amp; Backend: backend/tests/concurrency/inventory.real.test.js
+- path → Persistence &amp; Backend: backend/tests/concurrency/inventory.split.real.test.js
+- path → Persistence &amp; Backend: backend/tests/concurrency/inventory.transferAll.real.test.js
+- path → Persistence &amp; Backend: backend/tests/concurrency/item.instances.real.test.js
+- path → Persistence &amp; Backend: backend/tests/concurrency/progression.real.test.js
+- path → Persistence &amp; Backend: backend/tests/integration/migrate.inventory.slots.test.js
+- path → Persistence &amp; Backend: backend/tests/integration/testDb.js
+- path → Persistence &amp; Backend: backend/tests/session.revocation.test.js
+- path → Persistence &amp; Backend: backend/tests/session.ticket.test.js
+- path → Persistence &amp; Backend: backend/tests/support.memoryMongo.test.js
+- path → Persistence &amp; Backend: backend/tests/support/memoryMongo.js
+- scope → Persistence &amp; Backend: backend
+- message-term → Persistence &amp; Backend: backend
+- path → Tests: backend/tests/concurrency/inventory.real.test.js
+- path → Tests: backend/tests/concurrency/inventory.split.real.test.js
+- path → Tests: backend/tests/concurrency/inventory.transferAll.real.test.js
+- path → Tests: backend/tests/concurrency/item.instances.real.test.js
+- path → Tests: backend/tests/concurrency/progression.real.test.js
+- path → Tests: backend/tests/integration/migrate.inventory.slots.test.js
+- path → Tests: backend/tests/integration/testDb.js
+- path → Tests: backend/tests/session.revocation.test.js
+- path → Tests: backend/tests/session.ticket.test.js
+- path → Tests: backend/tests/support.memoryMongo.test.js
+- path → Tests: backend/tests/support/memoryMongo.js
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 5e56089463cb66f8cfb10f4e7537204434f822e6
 
