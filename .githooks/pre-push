@@ -16,6 +16,8 @@ notify_popup() {
 # Skip the gate only when every pushed ref is a deletion.
 ZERO_SHA="0000000000000000000000000000000000000000"
 
+PUSHED_RANGES=""
+
 if [ ! -t 0 ]; then
   HAS_REFS=false
   ONLY_DELETES=true
@@ -24,6 +26,8 @@ if [ ! -t 0 ]; then
     HAS_REFS=true
     if [ "$local_sha" != "$ZERO_SHA" ]; then
       ONLY_DELETES=false
+      PUSHED_RANGES="$PUSHED_RANGES$local_sha $remote_sha
+"
     fi
   done
   if [ "$HAS_REFS" = true ] && [ "$ONLY_DELETES" = true ]; then
@@ -49,7 +53,7 @@ echo " 🛡️  [Project Grimhold] Ejecutando Quality Gate de Pre-Push..."
 echo "========================================================================"
 
 # 1. Scan for exposed credentials and secrets
-echo "[1/3] Verificando que no haya secretos o credenciales expuestas..."
+echo "[1/4] Verificando que no haya secretos o credenciales expuestas..."
 node tools/security/scan-secrets.js
 if [ $? -ne 0 ]; then
   echo "" >&2
@@ -64,7 +68,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # 2. Run Backend Unit & Parity Contract Tests (Direct node execution bypasses npm/bash shell wrappers in Git GUIs)
-echo "[2/3] Verificando tests unitarios y contratos de paridad Unity <-> Backend..."
+echo "[2/4] Verificando tests unitarios y contratos de paridad Unity <-> Backend..."
 (cd backend && node --require ./tests/setup.js --test tests/*.test.js)
 if [ $? -ne 0 ]; then
   echo "" >&2
@@ -84,7 +88,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # 3. Run Backend Concurrency & Integration Tests
-echo "[3/3] Verificando concurrencia e integración con MongoDB..."
+echo "[3/4] Verificando concurrencia e integración con MongoDB..."
 (cd backend && node --require ./tests/setup.js --test tests/concurrency/*.test.js tests/integration/*.test.js)
 if [ $? -ne 0 ]; then
   echo "" >&2
@@ -96,6 +100,90 @@ if [ $? -ne 0 ]; then
   echo "========================================================================" >&2
   notify_popup "❌ PUSH CANCELADO\n\nFallaron tests de concurrencia o integración del backend.\n\nRevisá la consola para más detalles."
   exit 1
+fi
+
+# 4. Run the Unity EditMode subset in the open Editor when the push touches the Unity project
+UNITY_PROJECT="${GRIMHOLD_UNITY_PROJECT:-$(pwd)/Project Grimhold}"
+UNITY_POLL_SECONDS="${GRIMHOLD_UNITY_POLL_SECONDS:-5}"
+UNITY_TIMEOUT_SECONDS="${GRIMHOLD_UNITY_TIMEOUT_SECONDS:-1200}"
+UNITY_RESULT="$UNITY_PROJECT/Temp/PrePushUnityTests.json"
+
+unity_not_ready() {
+  echo "" >&2
+  echo "========================================================================" >&2
+  echo "❌ PUSH BLOQUEADO — UNITY NO ESTÁ LISTO" >&2
+  echo "========================================================================" >&2
+  echo "Motivo: $1" >&2
+  echo "El push cambia 'Project Grimhold/' y los tests de Unity corren dentro del Editor." >&2
+  echo "Solución: Abrí el proyecto en Unity, salí de Play Mode y volvé a pushear." >&2
+  echo "========================================================================" >&2
+  notify_popup "❌ PUSH CANCELADO\n\n$1\n\nAbrí el proyecto en Unity (fuera de Play Mode) y volvé a pushear."
+  exit 1
+}
+
+TOUCHES_UNITY=false
+if [ -n "$PUSHED_RANGES" ]; then
+  CHANGED=$(printf '%s' "$PUSHED_RANGES" | while read -r local_sha remote_sha; do
+    [ -z "$local_sha" ] && continue
+    if [ "$remote_sha" = "$ZERO_SHA" ]; then
+      git log --name-only --format= "$local_sha" --not --remotes
+    else
+      git diff --name-only "$remote_sha" "$local_sha"
+    fi
+  done)
+  if printf '%s\n' "$CHANGED" | grep -q '^Project Grimhold/'; then
+    TOUCHES_UNITY=true
+  fi
+fi
+
+if [ "$TOUCHES_UNITY" = true ]; then
+  echo "[4/4] Verificando tests EditMode de Unity en el Editor abierto..."
+  if ! command -v unity >/dev/null 2>&1; then
+    unity_not_ready "No se encontró el Unity CLI ('unity') en el PATH."
+  fi
+
+  EDITOR_STATUS=$(unity command editor status --project-path "$UNITY_PROJECT" --caller plugin --skill unity-cli --result-only 2>/dev/null)
+  if [ $? -ne 0 ] || ! printf '%s' "$EDITOR_STATUS" | grep -q '"status": *"ready"'; then
+    if printf '%s' "$EDITOR_STATUS" | grep -q '"playMode": *"playing"'; then
+      unity_not_ready "El Editor de Unity está en Play Mode."
+    fi
+    unity_not_ready "El Editor de Unity no está abierto o no responde."
+  fi
+
+  rm -f "$UNITY_RESULT"
+  unity command script eval 'return PrePushUnityTestRun.Start();' --project-path "$UNITY_PROJECT" --caller plugin --skill unity-cli --result-only >/dev/null 2>&1
+  if [ $? -ne 0 ]; then
+    unity_not_ready "No se pudieron iniciar los tests en el Editor de Unity."
+  fi
+
+  WAITED=0
+  while ! grep -q '"status":"\(completed\|error\)"' "$UNITY_RESULT" 2>/dev/null; do
+    if [ "$WAITED" -ge "$UNITY_TIMEOUT_SECONDS" ]; then
+      unity_not_ready "Los tests de Unity no terminaron en ${UNITY_TIMEOUT_SECONDS} s."
+    fi
+    sleep "$UNITY_POLL_SECONDS"
+    WAITED=$((WAITED + UNITY_POLL_SECONDS))
+    [ "$UNITY_POLL_SECONDS" -eq 0 ] && WAITED=$((WAITED + 1))
+  done
+
+  UNITY_FAILED=$(sed -n 's/.*"failed":\([0-9]*\).*/\1/p' "$UNITY_RESULT")
+  UNITY_TOTAL=$(sed -n 's/.*"total":\([0-9]*\).*/\1/p' "$UNITY_RESULT")
+  if ! grep -q '"status":"completed"' "$UNITY_RESULT" || [ "${UNITY_FAILED:-1}" -ne 0 ]; then
+    echo "" >&2
+    echo "========================================================================" >&2
+    echo "❌ PUSH BLOQUEADO — TESTS DE UNITY FALLIDOS" >&2
+    echo "========================================================================" >&2
+    echo "Fallaron ${UNITY_FAILED:-?} de ${UNITY_TOTAL:-?} tests EditMode:" >&2
+    grep -o '"name":"[^"]*"' "$UNITY_RESULT" | sed 's/"name":"\(.*\)"/  - \1/' | head -20 >&2
+    echo "" >&2
+    echo "Revisá el Test Runner de Unity (Window > General > Test Runner), corregí y volvé a pushear." >&2
+    echo "========================================================================" >&2
+    notify_popup "❌ PUSH CANCELADO\n\nFallaron ${UNITY_FAILED:-?} tests de Unity.\n\nRevisá el Test Runner de Unity y la consola para ver cuáles."
+    exit 1
+  fi
+  echo "✅ ${UNITY_TOTAL} tests de Unity pasaron."
+else
+  echo "[4/4] Unity: sin cambios en Project Grimhold/, se omiten los tests de Unity."
 fi
 
 echo "========================================================================"

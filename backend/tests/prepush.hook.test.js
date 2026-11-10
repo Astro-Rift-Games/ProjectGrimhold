@@ -26,11 +26,48 @@ const shell = findShell();
 describe('Pre-push quality gate hook', { skip: shell ? false : 'sh is not available' }, () => {
   let stubDir;
   let callLog;
+  let unityLog;
+  let changedFiles;
+  let unityProject;
 
   before(() => {
     stubDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grimhold-hook-'));
     callLog = path.join(stubDir, 'calls.log');
+    unityLog = path.join(stubDir, 'unity.log');
+    changedFiles = path.join(stubDir, 'changed.txt');
+    unityProject = path.join(stubDir, 'UnityProject');
   });
+
+  const posix = (p) => p.replace(/\\/g, '/');
+
+  function writeStub(name, lines) {
+    const stub = path.join(stubDir, name);
+    fs.writeFileSync(stub, ['#!/bin/sh', ...lines, ''].join('\n'));
+    fs.chmodSync(stub, 0o755);
+  }
+
+  // `git` answers the hook's changed-file queries with a fixed list.
+  function writeGitStub(files) {
+    fs.writeFileSync(changedFiles, files.length ? files.join('\n') + '\n' : '');
+    writeStub('git', [`cat "${posix(changedFiles)}"`]);
+  }
+
+  // `unity` simulates the open Editor: editorState is ready | playing | closed; run is the result JSON.
+  function writeUnityStub({ editorState = 'ready', run = { status: 'completed', total: 3, passed: 3, failed: 0, failures: [] } } = {}) {
+    const resultFile = posix(path.join(unityProject, 'Temp', 'PrePushUnityTests.json'));
+    const status = editorState === 'playing'
+      ? '{"status": "playing", "compiling": false, "playMode": "playing"}'
+      : '{"status": "ready", "compiling": false, "playMode": "stopped"}';
+    writeStub('unity', [
+      `echo "$*" >> "${posix(unityLog)}"`,
+      editorState === 'closed' ? 'exit 12' : '',
+      'case "$*" in',
+      `  *"editor status"*) echo '${status}' ;;`,
+      `  *"script eval"*) mkdir -p "$(dirname "${resultFile}")"; echo '${JSON.stringify(run)}' > "${resultFile}"; echo '{"result": "started"}' ;;`,
+      'esac',
+      'exit 0'
+    ]);
+  }
 
   after(() => {
     fs.rmSync(stubDir, { recursive: true, force: true });
@@ -49,18 +86,92 @@ describe('Pre-push quality gate hook', { skip: shell ? false : 'sh is not availa
     fs.chmodSync(stub, 0o755);
   }
 
-  function runHook(stdin, { withNode = true } = {}) {
-    fs.rmSync(callLog, { force: true });
+  function runHook(stdin, { withNode = true, changed = [], unity = {}, withUnity = true } = {}) {
+    for (const file of [callLog, unityLog]) fs.rmSync(file, { force: true });
+    fs.rmSync(unityProject, { recursive: true, force: true });
     if (!withNode) fs.rmSync(path.join(stubDir, 'node'), { force: true });
+    writeGitStub(changed);
+    if (withUnity) writeUnityStub(unity);
+    else fs.rmSync(path.join(stubDir, 'unity'), { force: true });
     const result = spawnSync(shell, [hookPath], {
       cwd: repoRoot,
       input: stdin,
       encoding: 'utf8',
-      env: { ...process.env, CI: '1', PATH: [stubDir, path.dirname(shell)].join(path.delimiter) }
+      env: {
+        ...process.env,
+        CI: '1',
+        PATH: [stubDir, path.dirname(shell)].join(path.delimiter),
+        GRIMHOLD_UNITY_PROJECT: unityProject,
+        GRIMHOLD_UNITY_POLL_SECONDS: '0'
+      }
     });
-    const calls = fs.existsSync(callLog) ? fs.readFileSync(callLog, 'utf8').trim().split('\n') : [];
-    return { ...result, calls };
+    const read = (file) => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim().split('\n') : []);
+    return { ...result, calls: read(callLog), unityCalls: read(unityLog) };
   }
+
+  const UPDATE = `refs/heads/feature ${SHA} refs/heads/feature ${'b'.repeat(40)}\n`;
+  const UNITY_FILE = 'Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs';
+
+  test('a push that does not touch the Unity project skips the Unity gate', () => {
+    writeNodeStub();
+    const result = runHook(UPDATE, { changed: ['backend/src/app.js', 'docs/README.md'] });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.calls.length, 3);
+    assert.deepEqual(result.unityCalls, []);
+    assert.match(result.stdout, /sin cambios en Project Grimhold/);
+  });
+
+  test('a Unity change runs the EditMode subset in the open Editor and passes', () => {
+    writeNodeStub();
+    const result = runHook(UPDATE, { changed: [UNITY_FILE] });
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(result.unityCalls.some((c) => /editor status/.test(c)), 'checks the Editor state');
+    assert.ok(result.unityCalls.some((c) => /script eval .*PrePushUnityTestRun\.Start/.test(c)), 'starts the subset');
+    assert.match(result.stdout, /\[4\/4\].*Unity/);
+    assert.match(result.stdout, /3 tests de Unity pasaron/);
+  });
+
+  test('failing Unity tests block the push and name the failures', () => {
+    writeNodeStub();
+    const run = { status: 'completed', total: 3, passed: 2, failed: 1, failures: [{ name: 'Tests.EditMode.Loot.FooTests.Bar', message: 'Expected 1' }] };
+    const result = runHook(UPDATE, { changed: [UNITY_FILE], unity: { run } });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /PUSH BLOQUEADO — TESTS DE UNITY FALLIDOS/);
+    assert.match(result.stderr, /Tests\.EditMode\.Loot\.FooTests\.Bar/);
+  });
+
+  test('a closed Editor blocks a Unity push and asks to open it', () => {
+    writeNodeStub();
+    const result = runHook(UPDATE, { changed: [UNITY_FILE], unity: { editorState: 'closed' } });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /PUSH BLOQUEADO — UNITY NO ESTÁ LISTO/);
+    assert.match(result.stderr, /Abrí el proyecto en Unity/);
+    assert.ok(!result.unityCalls.some((c) => /script eval/.test(c)), 'never starts tests');
+  });
+
+  test('an Editor in Play Mode blocks a Unity push', () => {
+    writeNodeStub();
+    const result = runHook(UPDATE, { changed: [UNITY_FILE], unity: { editorState: 'playing' } });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /PUSH BLOQUEADO — UNITY NO ESTÁ LISTO/);
+    assert.match(result.stderr, /Play Mode/);
+    assert.ok(!result.unityCalls.some((c) => /script eval/.test(c)), 'never starts tests');
+  });
+
+  test('a missing Unity CLI blocks a Unity push', () => {
+    writeNodeStub();
+    const result = runHook(UPDATE, { changed: [UNITY_FILE], withUnity: false });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /PUSH BLOQUEADO — UNITY NO ESTÁ LISTO/);
+    assert.match(result.stderr, /Unity CLI/);
+  });
+
+  test('backend failures block before the Unity gate runs', () => {
+    writeNodeStub('.parity.test.js');
+    const result = runHook(UPDATE, { changed: [UNITY_FILE] });
+    assert.equal(result.status, 1);
+    assert.deepEqual(result.unityCalls, []);
+  });
 
   test('a push that only deletes branches skips the gate', () => {
     writeNodeStub();
