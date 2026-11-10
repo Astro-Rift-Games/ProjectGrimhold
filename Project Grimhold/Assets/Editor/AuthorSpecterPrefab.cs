@@ -11,7 +11,7 @@ using ProjectGrimhold.Gameplay.Visibility;
 namespace ProjectGrimhold.Editor
 {
     /// <summary>
-    /// Explicit, idempotent Editor authoring for the Catacombs Specter Prefab Variant (US-78 / TASK-275).
+    /// Explicit, idempotent Editor authoring for the Catacombs Specter Prefab Variant (US-78 / TASK-275 / TASK-285).
     /// Creates NetworkEnemySpecter.prefab as a Prefab Variant of NetworkEnemy.prefab.
     /// </summary>
     [InitializeOnLoad]
@@ -22,6 +22,7 @@ namespace ProjectGrimhold.Editor
         private const string PrefabPath = "Assets/Prefabs/Enemies/NetworkEnemySpecter.prefab";
         private const string SystemsPath = "Assets/Prefabs/Systems.prefab";
         private const string LootTablePath = "Assets/Scriptable Objects/Loot/Tables/SpecterLootContainerContentTable.asset";
+        private const string TelegraphMaterialPath = "Assets/Art/Materials/SpecterTelegraphLine.mat";
 
         [MenuItem("Grimhold/Author Specter Prefab Variant")]
         public static void CreateOrUpdateSpecterPrefab()
@@ -186,6 +187,12 @@ namespace ProjectGrimhold.Editor
                 line.positionCount = 32;
                 line.enabled = false;
 
+                var telegraphMat = AssetDatabase.LoadAssetAtPath<Material>(TelegraphMaterialPath);
+                if (telegraphMat != null)
+                {
+                    line.sharedMaterial = telegraphMat;
+                }
+
                 // Add and wire SpecterVisualPresenter
                 var presenter = root.GetComponent<SpecterVisualPresenter>();
                 if (presenter == null)
@@ -201,71 +208,89 @@ namespace ProjectGrimhold.Editor
                 presenterSerialized.FindProperty("_manifestedAlpha").floatValue = 1.0f;
                 presenterSerialized.FindProperty("_incorporealTint").colorValue = new Color(0.7f, 0.85f, 1.0f, 0.5f);
                 presenterSerialized.FindProperty("_manifestedTint").colorValue = new Color(1.0f, 0.9f, 0.9f, 1.0f);
+                presenterSerialized.FindProperty("_telegraphColor").colorValue = new Color(0.9f, 0.2f, 0.2f, 0.6f);
+                presenterSerialized.FindProperty("_detonationColor").colorValue = new Color(1.0f, 0.8f, 0.2f, 0.9f);
                 presenterSerialized.ApplyModifiedPropertiesWithoutUndo();
 
-                // 5. Save as Prefab Variant
-                GameObject savedPrefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
-                AssetDatabase.SetLabels(savedPrefab, new[] { "FusionPrefab" });
-                AssetDatabase.SaveAssets();
+                // 5. Ensure EntityVisibilityPresenter tracks Specter
+                var visibilityPresenter = root.GetComponent<EntityVisibilityPresenter>();
+                if (visibilityPresenter != null)
+                {
+                    var visSerialized = new SerializedObject(visibilityPresenter);
+                    visSerialized.FindProperty("_visionRadius").floatValue = 7.0f;
+                    visSerialized.ApplyModifiedPropertiesWithoutUndo();
+                }
 
-                Debug.Log($"[AuthorSpecterPrefab] Successfully created Prefab Variant at {PrefabPath}");
-
-                // 6. Register in Systems.prefab
-                RegisterInSystemsPrefab(savedPrefab);
-
-                // 7. Rebuild Fusion Prefab Table
-                EditorApplication.ExecuteMenuItem("Tools/Fusion/Rebuild Prefab Table");
+                // 6. Save Prefab Variant
+                PrefabUtility.SaveAsPrefabAsset(root, PrefabPath, out bool success);
+                if (success)
+                {
+                    Debug.Log($"[AuthorSpecterPrefab] Successfully saved Prefab Variant at {PrefabPath}");
+                }
+                else
+                {
+                    Debug.LogError($"[AuthorSpecterPrefab] Failed to save Prefab Variant at {PrefabPath}");
+                }
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(root);
             }
+
+            // Ensure LineRenderer material is properly persisted on the Prefab Variant asset
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(TelegraphMaterialPath);
+            if (mat != null)
+            {
+                using (var scope = new PrefabUtility.EditPrefabContentsScope(PrefabPath))
+                {
+                    var tl = scope.prefabContentsRoot.transform.Find("TelegraphLine");
+                    if (tl != null && tl.TryGetComponent(out LineRenderer lr))
+                    {
+                        lr.sharedMaterial = mat;
+                    }
+                }
+            }
+
+            // 7. Wire into Systems Prefab table if needed
+            EnsurePrefabInSystemsTable();
         }
 
-        private static void RegisterInSystemsPrefab(GameObject specterPrefab)
+        private static void EnsurePrefabInSystemsTable()
         {
-            if (!File.Exists(SystemsPath) || specterPrefab == null) return;
+            var specterPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            if (specterPrefab == null) return;
 
-            string guid = AssetDatabase.AssetPathToGUID(PrefabPath);
-            if (string.IsNullOrEmpty(guid)) return;
+            var systemsPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(SystemsPath);
+            if (systemsPrefab == null) return;
 
-            GameObject systemsRoot = PrefabUtility.LoadPrefabContents(SystemsPath);
-            try
+            var spawnManager = systemsPrefab.GetComponentInChildren<NetworkSpawnManager>(true);
+            if (spawnManager == null) return;
+
+            var serializedObj = new SerializedObject(spawnManager);
+            var enemyPrefabsProp = serializedObj.FindProperty("_enemyPrefabs");
+            if (enemyPrefabsProp != null && enemyPrefabsProp.isArray)
             {
-                var launcher = systemsRoot.GetComponentInChildren<FusionSessionLauncher>(true);
-                if (launcher == null) return;
-
-                var field = typeof(FusionSessionLauncher).GetField("_enemyPrefabs", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (field == null) return;
-
-                var array = (Fusion.NetworkPrefabRef[])field.GetValue(launcher);
-                bool alreadyRegistered = false;
-                if (array != null)
+                bool alreadyPresent = false;
+                for (int i = 0; i < enemyPrefabsProp.arraySize; i++)
                 {
-                    for (int i = 0; i < array.Length; i++)
+                    var elem = enemyPrefabsProp.GetArrayElementAtIndex(i);
+                    if (elem.objectReferenceValue == specterPrefab)
                     {
-                        if (array[i].ToUnityGuidString() == guid)
-                        {
-                            alreadyRegistered = true;
-                            break;
-                        }
+                        alreadyPresent = true;
+                        break;
                     }
                 }
 
-                if (!alreadyRegistered)
+                if (!alreadyPresent)
                 {
-                    var newArray = new Fusion.NetworkPrefabRef[(array != null ? array.Length : 0) + 1];
-                    if (array != null) System.Array.Copy(array, newArray, array.Length);
-                    newArray[newArray.Length - 1] = Fusion.NetworkPrefabRef.Parse(guid);
-                    field.SetValue(launcher, newArray);
-                    EditorUtility.SetDirty(launcher);
-                    PrefabUtility.SaveAsPrefabAsset(systemsRoot, SystemsPath);
-                    Debug.Log($"[AuthorSpecterPrefab] Registered Specter GUID ({guid}) in {SystemsPath}");
+                    int newIndex = enemyPrefabsProp.arraySize;
+                    enemyPrefabsProp.InsertArrayElementAtIndex(newIndex);
+                    enemyPrefabsProp.GetArrayElementAtIndex(newIndex).objectReferenceValue = specterPrefab;
+                    serializedObj.ApplyModifiedPropertiesWithoutUndo();
+                    EditorUtility.SetDirty(systemsPrefab);
+                    AssetDatabase.SaveAssets();
+                    Debug.Log($"[AuthorSpecterPrefab] Added Specter to Systems.prefab _enemyPrefabs at index {newIndex}");
                 }
-            }
-            finally
-            {
-                PrefabUtility.UnloadPrefabContents(systemsRoot);
             }
         }
     }

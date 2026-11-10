@@ -4,9 +4,10 @@ using Fusion;
 namespace ProjectGrimhold.Gameplay.Enemies.Specter
 {
     /// <summary>
-    /// Visual and client-side presentation for the Catacombs Specter (MVP US-78).
+    /// Visual and client-side presentation for the Catacombs Specter (MVP US-78 / TASK-285).
     /// Dynamically modulates sprite transparency for alternating incorporeity
-    /// and renders the static 1.5m ground telegraph circle during attack channeling.
+    /// and renders the static 1.5m ground telegraph circle during attack channeling,
+    /// progressively intensifying visual warning without altering its 1.5m radius.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(SpecterAIController))]
@@ -99,8 +100,15 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
             if (state == SpecterStateType.Canalizacion)
             {
                 _telegraphLine.enabled = true;
-                _telegraphLine.startColor = _telegraphColor;
-                _telegraphLine.endColor = _telegraphColor;
+                // Progressively intensify alpha and line width over the 1.25s channel without altering the 1.5m radius (§9 / TASK-285)
+                float progress = GetStateProgress();
+                float alpha = Mathf.Lerp(0.2f, 0.95f, progress);
+                Color currentColor = new Color(_telegraphColor.r, _telegraphColor.g, _telegraphColor.b, alpha);
+                _telegraphLine.startColor = currentColor;
+                _telegraphLine.endColor = currentColor;
+                float currentWidth = Mathf.Lerp(0.03f, 0.07f, progress);
+                _telegraphLine.startWidth = currentWidth;
+                _telegraphLine.endWidth = currentWidth;
                 DrawCircle(center, SpecterRules.DetonationRadius);
             }
             else if (state == SpecterStateType.Detonacion)
@@ -108,6 +116,8 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
                 _telegraphLine.enabled = true;
                 _telegraphLine.startColor = _detonationColor;
                 _telegraphLine.endColor = _detonationColor;
+                _telegraphLine.startWidth = 0.08f;
+                _telegraphLine.endWidth = 0.08f;
                 DrawCircle(center, SpecterRules.DetonationRadius);
             }
             else
@@ -158,25 +168,45 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
 
         private void EnsureTelegraphLine()
         {
-            if (_telegraphLine != null) return;
-
-            Transform child = transform.Find("TelegraphLine");
-            if (child != null && child.TryGetComponent(out LineRenderer existingLine))
+            if (_telegraphLine == null)
             {
-                _telegraphLine = existingLine;
-                return;
+                Transform child = transform.Find("TelegraphLine");
+                if (child != null && child.TryGetComponent(out LineRenderer existingLine))
+                {
+                    _telegraphLine = existingLine;
+                }
+                else
+                {
+                    var lineObj = new GameObject("TelegraphLine");
+                    lineObj.transform.SetParent(transform, false);
+                    _telegraphLine = lineObj.AddComponent<LineRenderer>();
+                    _telegraphLine.useWorldSpace = true;
+                    _telegraphLine.loop = true;
+                    _telegraphLine.startWidth = 0.05f;
+                    _telegraphLine.endWidth = 0.05f;
+                    _telegraphLine.sortingOrder = 5;
+                    _telegraphLine.enabled = false;
+                }
             }
 
-            var lineObj = new GameObject("TelegraphLine");
-            lineObj.transform.SetParent(transform, false);
-            _telegraphLine = lineObj.AddComponent<LineRenderer>();
-            _telegraphLine.useWorldSpace = true;
-            _telegraphLine.loop = true;
-            _telegraphLine.startWidth = 0.05f;
-            _telegraphLine.endWidth = 0.05f;
-            _telegraphLine.material = new Material(Shader.Find("Sprites/Default"));
-            _telegraphLine.sortingOrder = 5;
-            _telegraphLine.enabled = false;
+            if (_telegraphLine != null && (_telegraphLine.sharedMaterial == null || _telegraphLine.sharedMaterial.shader == null || _telegraphLine.sharedMaterial.shader.name == "Hidden/InternalErrorShader"))
+            {
+#if UNITY_EDITOR
+                var mat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Art/Materials/SpecterTelegraphLine.mat");
+                if (mat != null)
+                {
+                    _telegraphLine.sharedMaterial = mat;
+                }
+                else
+#endif
+                {
+                    var shader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default") ?? Shader.Find("Sprites/Default");
+                    if (shader != null)
+                    {
+                        _telegraphLine.material = new Material(shader);
+                    }
+                }
+            }
         }
 
         private void CacheDependencies()

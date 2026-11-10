@@ -5,7 +5,7 @@ using Fusion;
 namespace ProjectGrimhold.Gameplay.Enemies.Specter
 {
     /// <summary>
-    /// Host-authoritative AI Controller for the Catacombs Specter (MVP US-78).
+    /// Host-authoritative AI Controller for the Catacombs Specter (MVP US-78 / TASK-285).
     /// Coordinates alternating incorporeity, Hate List target priority,
     /// reactive & post-attack displacement, and static telegraph area magic attacks.
     /// </summary>
@@ -42,6 +42,7 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
         [Networked] public SpecterStateType CurrentState { get; set; }
         [Networked] public TickTimer StateTimer { get; set; }
         [Networked] public TickTimer ReactiveDisplacementTimer { get; set; }
+        [Networked] public TickTimer AttackCooldownTimer { get; set; }
         [Networked] private NetworkBool ReactiveDisplacementPending { get; set; }
         [Networked] public Vector2 AttackTargetPosition { get; set; }
         [Networked] public Vector2 FacingDirection { get; set; }
@@ -51,6 +52,7 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
         public EntityId CurrentTargetId { get; private set; }
         private readonly SpecterHateList _hateList = new();
         private readonly Collider2D[] _scanHits = new Collider2D[16];
+        private Collider2D[] _allColliders;
         private TickTimer _scanTimer;
         private EntityRegistry _entityRegistry;
         private EnemyStunNetworkEffect _stun;
@@ -75,6 +77,7 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
                 HomeAreaPosition = transform.position;
                 FacingDirection = Vector2.down;
                 CurrentState = SpecterStateType.Reposo;
+                SetCollidersActive(true);
             }
         }
 
@@ -141,41 +144,49 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
             {
                 case SpecterStateType.Reposo:
                     StateTimer = default;
+                    SetCollidersActive(true);
                     break;
 
                 case SpecterStateType.Persecucion:
                     StateTimer = default;
+                    SetCollidersActive(true);
                     break;
 
                 case SpecterStateType.Canalizacion:
                     StateTimer = TickTimer.CreateFromSeconds(Runner, SpecterRules.ChannelDuration);
+                    SetCollidersActive(true);
                     break;
 
                 case SpecterStateType.Detonacion:
                     StateTimer = TickTimer.CreateFromSeconds(Runner, SpecterRules.DetonationDuration);
                     ExecuteDetonation();
+                    SetCollidersActive(true);
                     break;
 
                 case SpecterStateType.Recuperacion:
                     StateTimer = TickTimer.CreateFromSeconds(Runner, SpecterRules.RecoveryDuration);
+                    SetCollidersActive(true);
                     break;
 
                 case SpecterStateType.Desvanecimiento:
                     StateTimer = TickTimer.CreateFromSeconds(Runner, SpecterRules.FadeOutDuration);
+                    SetCollidersActive(false);
                     break;
 
                 case SpecterStateType.Desvanecido:
                     StateTimer = TickTimer.CreateFromSeconds(Runner, SpecterRules.HiddenDuration);
+                    SetCollidersActive(false);
                     ExecuteTeleportRelocation();
                     break;
 
                 case SpecterStateType.Reaparicion:
                     StateTimer = TickTimer.CreateFromSeconds(Runner, SpecterRules.FadeInDuration);
+                    SetCollidersActive(true);
                     break;
 
                 case SpecterStateType.Muerte:
                     StateTimer = default;
-                    if (_collider != null) _collider.enabled = false;
+                    SetCollidersActive(false);
                     break;
             }
         }
@@ -183,6 +194,7 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
         public void OnDamageReceived(EntityId attackerId, float damage, DamageType damageType, bool isFatal)
         {
             if (!HasStateAuthority || CurrentState == SpecterStateType.Muerte) return;
+            if (!SpecterRules.CanReceiveDamage(CurrentState)) return;
 
             bool isMagic = damageType == DamageType.Magical;
             bool isCooldownActive = !ReactiveDisplacementTimer.ExpiredOrNotRunning(Runner);
@@ -255,8 +267,8 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
                 return;
             }
 
-            // Check attack readiness: within range and line of sight unobstructed
-            if (distanceToTarget <= _attackRange && HasLineOfSight(myPos, targetPos))
+            // Check attack readiness: within range, attack cooldown expired, and line of sight unobstructed (§9 / TASK-285)
+            if (distanceToTarget <= _attackRange && AttackCooldownTimer.ExpiredOrNotRunning(Runner) && HasLineOfSight(myPos, targetPos))
             {
                 AttackTargetPosition = targetPos;
                 TransitionTo(SpecterStateType.Canalizacion);
@@ -292,6 +304,8 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
         {
             if (StateTimer.Expired(Runner))
             {
+                // After 1.5s recovery concludes, start 3.0s cooldown before next attack channel (§9 / TASK-285)
+                AttackCooldownTimer = TickTimer.CreateFromSeconds(Runner, SpecterRules.AttackCooldown);
                 // Post-attack displacement does NOT consume reactive displacement cooldown
                 TransitionTo(SpecterStateType.Desvanecimiento);
             }
@@ -401,9 +415,10 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
                 targetPos = candidates[0].Position;
             }
 
-            bool LinecastWallCheck(Vector2 from, Vector2 to)
+            // Checks that destination itself is free of walls/obstacles; does not require line-of-sight from origin (TASK-285)
+            bool IsPointBlocked(Vector2 pt)
             {
-                return Physics2D.Linecast(from, to, _obstacleLayer);
+                return Physics2D.OverlapCircle(pt, 0.4f, _obstacleLayer) != null;
             }
 
             Vector2 destination = SpecterTeleportRules.FindDestination(
@@ -411,7 +426,7 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
                 targetPos,
                 HomeAreaPosition,
                 _leashRadius,
-                LinecastWallCheck);
+                IsPointBlocked);
 
             if (TryGetComponent(out NetworkTransform netTransform))
             {
@@ -548,6 +563,33 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
                    !SmokeZoneRegistry.IsLineOccluded(from, to);
         }
 
+        /// <summary>
+        /// Toggles all physical movement and damage hitbox colliders according to incorporeity state (TASK-285).
+        /// During Desvanecimiento and Desvanecido, all body colliders are disabled so projectiles pass through cleanly.
+        /// </summary>
+        private void SetCollidersActive(bool active)
+        {
+            if (_allColliders == null || _allColliders.Length == 0)
+            {
+                _allColliders = GetComponentsInChildren<Collider2D>(true);
+            }
+
+            for (int i = 0; i < _allColliders.Length; i++)
+            {
+                var col = _allColliders[i];
+                if (col == null) continue;
+
+                if (col.gameObject.name == "LootInteraction")
+                {
+                    col.enabled = (CurrentState == SpecterStateType.Muerte);
+                }
+                else
+                {
+                    col.enabled = active;
+                }
+            }
+        }
+
         private void CacheDependencies()
         {
             if (_stun == null) _stun = GetComponent<EnemyStunNetworkEffect>();
@@ -555,6 +597,7 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
             if (_movementMotor == null) _movementMotor = GetComponent<Kinematic2DMovementMotor>();
             if (_rigidbody == null) _rigidbody = GetComponent<Rigidbody2D>();
             if (_collider == null) _collider = GetComponent<Collider2D>();
+            _allColliders = GetComponentsInChildren<Collider2D>(true);
         }
 
 #if UNITY_EDITOR
