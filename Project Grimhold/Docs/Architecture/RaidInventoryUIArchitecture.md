@@ -177,7 +177,7 @@ context menu clear it. A physical cell also dismisses its tooltip when its captu
 even if its `LootId` stays the same. This local presentation has no networking, mutation or simulation role and is
 shared by Town/Raid Inventory, Equipment, Stash, Loadout and an open container panel.
 
-The view binds an authored stable slot pool and never creates inventory cells at runtime. Normal content refreshes reuse those views. The shared personal Inventory prefab authors 30 slots, matching `LocalProfileSnapshot.MaxLoadoutSlots` in Town and the fixed physical storage length in Raid, even when Raid's occupancy limit is lower. Container projections request their source's gameplay capacity and hide the unused remainder of their authored pool. An insufficient authored pool remains an explicit error; the known six-view versus thirty-capacity container case is not repaired by player projection. A missing icon uses the serialized project placeholder. Legacy aggregate projections can degrade an unresolved definition to raw `LootId`, placeholder and quantity, reporting the integration error once per ID. A physical slot requires a catalog-index-to-ID mapping; an invalid physical snapshot makes that panel unavailable rather than inventing an item identity.
+The view binds an authored stable slot pool and never creates inventory cells at runtime. Normal content refreshes reuse those views. The shared personal Inventory prefab authors 30 slots, matching `LocalProfileSnapshot.MaxLoadoutSlots` in Town and the fixed physical storage length in Raid, even when Raid's occupancy limit is lower. Container projections request their source's gameplay capacity and hide the unused remainder of their authored pool. An insufficient authored pool remains an explicit error; the ContainerLootPanel prefab now authors 30 slots, matching the 30-slot corpse container capacity. A missing icon uses the serialized project placeholder. Legacy aggregate projections can degrade an unresolved definition to raw `LootId`, placeholder and quantity, reporting the integration error once per ID. A physical slot requires a catalog-index-to-ID mapping; an invalid physical snapshot makes that panel unavailable rather than inventing an item identity.
 
 `PanelsRow` contains reusable sibling panels. Personal mode shows the player panel and the Equipment
 panel appropriate to the bound context; Town Equipment is mutable only through its explicit local
@@ -504,7 +504,7 @@ that ran zero tests are not behavioral RED evidence.
 These results verify the bounded UI unit, not full TASK-227 closure. Manual visual checks,
 multi-peer RPC behavior and real Host Migration with a Host plus two Clients remain unexecuted.
 Broader suites are not all green: outstanding failures concern damage fixture configuration,
-endpoint word budget, the six-authored-view/thirty-required container pool, a runnerless ritual
+endpoint word budget, a runnerless ritual
 authority fixture and an old Take All test with incompatible stack expectations. Strict container
 shortage logs remain unsuppressed. Previously recorded core/receiver/gear passes are separate
 evidence, not new UI verification. Exact-position persistence was outside that Raid UI work unit;
