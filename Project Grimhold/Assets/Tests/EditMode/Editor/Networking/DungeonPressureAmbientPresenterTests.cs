@@ -243,6 +243,7 @@ public sealed class DungeonPressureAmbientPresenterTests
         var dustPs = dustGo.AddComponent<ParticleSystem>();
 
         _presenter.Configure(null, _config, _globalLight, _volume, dustPs, null);
+        dustPs.Play();
 
         // Setup a custom wall collider at (10, 10)
         var wallGo = new GameObject("WallCollider");
