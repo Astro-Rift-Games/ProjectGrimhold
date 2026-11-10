@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 980,
-  "canonicalEntries": 977,
+  "rawCommits": 982,
+  "canonicalEntries": 979,
   "before": {
+    "Bug Fixes": 104,
     "Tests": 27,
-    "Bug Fixes": 102,
     "Features": 382,
     "Architecture & Infrastructure": 17,
     "Other Changes": 355,
@@ -12,8 +12,8 @@
     "Refactoring": 14
   },
   "after": {
+    "Bug Fixes": 120,
     "Tests": 32,
-    "Bug Fixes": 118,
     "Features": 519,
     "Architecture & Infrastructure": 6,
     "Documentation": 99,
@@ -23,27 +23,27 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Movement": 94,
+    "Inventory & Loot": 397,
+    "Networking & Sessions": 281,
+    "Build & Tooling": 501,
+    "Tests": 610,
+    "Combat": 362,
+    "World & Visibility": 131,
+    "Art & Animation": 230,
     "Persistence & Backend": 221,
-    "Tests": 608,
-    "Inventory & Loot": 396,
-    "Networking & Sessions": 280,
     "UI": 301,
-    "Build & Tooling": 499,
     "Documentation": 381,
-    "Combat": 361,
     "Extraction": 132,
     "Abilities": 123,
-    "World & Visibility": 130,
-    "Art & Animation": 229,
-    "Movement": 92,
     "Input": 29,
     "Unassigned": 20,
     "Audio": 33
   },
   "canonical": {
     "sections": {
+      "Bug Fixes": 119,
       "Tests": 32,
-      "Bug Fixes": 117,
       "Features": 518,
       "Architecture & Infrastructure": 6,
       "Documentation": 99,
@@ -52,19 +52,19 @@
       "Refactoring": 27
     },
     "systems": {
+      "Movement": 94,
+      "Inventory & Loot": 397,
+      "Networking & Sessions": 281,
+      "Build & Tooling": 499,
+      "Tests": 608,
+      "Combat": 360,
+      "World & Visibility": 129,
+      "Art & Animation": 227,
       "Persistence & Backend": 221,
-      "Tests": 606,
-      "Inventory & Loot": 396,
-      "Networking & Sessions": 280,
       "UI": 300,
-      "Build & Tooling": 497,
       "Documentation": 379,
-      "Combat": 359,
       "Extraction": 132,
       "Abilities": 121,
-      "World & Visibility": 128,
-      "Art & Animation": 226,
-      "Movement": 92,
       "Input": 29,
       "Unassigned": 20,
       "Audio": 33
@@ -34083,8 +34083,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 103,
-      "canonicalEntries": 103
+      "originalCommits": 105,
+      "canonicalEntries": 105
     },
     {
       "key": "v0.5.0",
@@ -34128,6 +34128,237 @@
     }
   ],
   "commits": [
+    {
+      "sha": "e4a9c92eb8a99849a10a2f04d5d850e0d78c5b35",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e4a9c92eb8a99849a10a2f04d5d850e0d78c5b35",
+      "subject": "fix(network): reduce enemy footprint, isolate test spawner and fix RPCs",
+      "body": "Reduce NetworkEnemy synchronized properties to comply with the strict\n1291-word ceiling, isolate runtime test spawning from release builds, and\nrestore RPC acceptance validation on consumable requests.\n\nOptimized EnemyMovementAIController by removing the [Networked]\nattribute from its internal State Authority ScanTimer throttle, bringing\nNetworkEnemy.prefab word count from 1292 to exactly 1291 woven words and\npassing RaidLootOriginWordCountTests. Guarded RaidLootTestSpawner under\n#if UNITY_EDITOR || DEVELOPMENT_BUILD and added an editor scene\nprocessor to strip [LootTestSpawner] GameObjects during release builds.\nImplemented WasAccepted static contract validation in\nPlayerConsumableNetworkController to pass RpcAcceptanceContractTests.\n\nTests:\n- RaidLootOriginWordCountTests: 6/6 tests passing.\n- RpcAcceptanceContractTests: 15/15 tests passing across all 5 controllers.\n- RaidLootTestSpawnerSecurityTests: 4/4 tests passing.\n",
+      "date": "2026-11-10T15:12:30-03:00",
+      "files": [
+        "Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerBuildProcessor.cs",
+        "Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerBuildProcessor.cs.meta",
+        "Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Movement/EnemyMovementAIController.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs.meta",
+        "odd/tasks/task-287-networkenemy-footprint-spawner.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "network",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Movement",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Movement/EnemyMovementAIController.cs",
+          "supports": "Movement"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerBuildProcessor.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerBuildProcessor.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs.meta",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerBuildProcessor.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerBuildProcessor.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerBuildProcessor.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerBuildProcessor.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "1335698f97ea562c91cf58192bb9632158a9ce18",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1335698f97ea562c91cf58192bb9632158a9ce18",
+      "subject": "fix(combat): fix Specter incorporeity, collision, and relocation",
+      "body": "Enforce strict incorporeity and non-LOS annular teleportation for the\nCatacombs Specter.\n\nDuring fading and invisible displacement states (Desvanecimiento and\nDesvanecido), disable all physical movement and damage hitbox colliders\nso incoming projectiles and characters pass cleanly through the Specter\nwithout triggering hits or consuming impacts. Ensure hybrid weapon\ndamage resolves only its magical portion during visible incorporeal\nstates, and physical attacks deal zero damage.\n\nRemove the line-of-sight requirement between displacement origin and\ndestination candidates in SpecterTeleportRules, sampling progressively\nwidened annular distance bands (3.0-5.0m, 5.0-7.5m, 7.5-10.0m) and\nfalling back safely to Home Area when obstructed. Add an authoritative\n3.0s cooldown following recovery before initiating subsequent attack\nchannels.\n\nWire a dedicated URP unlit material into TelegraphLine on\nNetworkEnemySpecter.prefab, enabling progressive alpha and line-width\nintensification across the 1.25s channel. Cover all rules,\nrelocation widening, and material integrity with 24 EditMode test cases.\n\nPlayer-Fixed: The Catacombs Specter now cleanly avoids damage and projectile collisions during its fade-out, attacks with a visible telegraph build-up, and relocates behind cover.\nRefs: US-78, TASK-285\n",
+      "date": "2026-11-10T14:44:56-03:00",
+      "files": [
+        "Project Grimhold/Assets/Art/Materials.meta",
+        "Project Grimhold/Assets/Art/Materials/SpecterTelegraphLine.mat",
+        "Project Grimhold/Assets/Art/Materials/SpecterTelegraphLine.mat.meta",
+        "Project Grimhold/Assets/Editor/AuthorSpecterPrefab.cs",
+        "Project Grimhold/Assets/Prefabs/Enemies/NetworkEnemySpecter.prefab",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterAIController.cs",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterRules.cs",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterTeleportRules.cs",
+        "Project Grimhold/Assets/Scripts/Character/Specter/SpecterVisualPresenter.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs",
+        "odd/tasks/task-285-specter-incorporeity-teleport.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "combat",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Movement",
+        "World & Visibility",
+        "Art & Animation",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "scope",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "combat",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "movement",
+          "supports": "Movement"
+        },
+        {
+          "source": "message-term",
+          "value": "Catacombs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Materials.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Materials/SpecterTelegraphLine.mat",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Materials/SpecterTelegraphLine.mat.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/AuthorSpecterPrefab.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "50cd6fadac47c4031ebb5e0be27a7d86ba93fb40",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/50cd6fadac47c4031ebb5e0be27a7d86ba93fb40",

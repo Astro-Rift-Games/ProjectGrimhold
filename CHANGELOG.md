@@ -55,6 +55,7 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - After extracting, you can start another raid without the loadout failing to reserve.
 - Enter the Dungeon with the training weapon you selected.
 - Ready now directs you to the Trainer when no weapon is equipped.
+- The Catacombs Specter now cleanly avoids damage and projectile collisions during its fade-out, attacks with a visible telegraph build-up, and relocates behind cover.
 
 
 ## [0.5.0](https://github.com/Astro-Rift-Games/ProjectGrimhold/releases/tag/v0.5.0) - 2026-11-08

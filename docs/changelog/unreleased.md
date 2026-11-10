@@ -4,32 +4,185 @@
 
 Release: Unreleased
 
-103 original commits; 103 canonical entries.
+105 original commits; 105 canonical entries.
 
 ## Canonical classification
 
-59 features; 24 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 3 tests; 4 maintenance; 2 other changes
+59 features; 26 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 3 tests; 4 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 7 | 6 | 1 | 0 | 4 | 1 |
-| Art & Animation | 7 | 7 | 1 | 0 | 4 | 0 |
+| Art & Animation | 7 | 8 | 1 | 0 | 4 | 0 |
 | Audio | 3 | 0 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 34 | 14 | 1 | 1 | 6 | 2 |
-| Combat | 34 | 5 | 0 | 0 | 6 | 0 |
+| Build & Tooling | 34 | 16 | 1 | 1 | 6 | 2 |
+| Combat | 34 | 6 | 0 | 0 | 6 | 0 |
 | Documentation | 26 | 8 | 0 | 0 | 4 | 0 |
 | Extraction | 9 | 2 | 0 | 0 | 2 | 0 |
 | Input | 0 | 0 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 51 | 20 | 1 | 1 | 6 | 1 |
-| Movement | 3 | 0 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 16 | 6 | 0 | 0 | 2 | 0 |
+| Inventory & Loot | 51 | 21 | 1 | 1 | 6 | 1 |
+| Movement | 3 | 2 | 0 | 0 | 0 | 0 |
+| Networking & Sessions | 16 | 7 | 0 | 0 | 2 | 0 |
 | Persistence & Backend | 24 | 7 | 0 | 1 | 4 | 0 |
-| Tests | 57 | 20 | 1 | 1 | 8 | 0 |
+| Tests | 57 | 22 | 1 | 1 | 8 | 0 |
 | UI | 22 | 5 | 1 | 0 | 4 | 0 |
 | Unassigned | 0 | 0 | 0 | 0 | 2 | 0 |
-| World & Visibility | 16 | 4 | 0 | 0 | 0 | 0 |
+| World & Visibility | 16 | 5 | 0 | 0 | 0 | 0 |
 
 ## Original commit records
+
+### e4a9c92eb8a99849a10a2f04d5d850e0d78c5b35
+
+[e4a9c92eb8a99849a10a2f04d5d850e0d78c5b35](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e4a9c92eb8a99849a10a2f04d5d850e0d78c5b35)
+
+Date: 2026-11-10T15:12:30-03:00 · Classification: Bug Fixes (explicit) · Systems: Movement, Inventory & Loot, Networking & Sessions, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(network): reduce enemy footprint, isolate test spawner and fix RPCs
+```
+
+#### Original body
+
+```text
+Reduce NetworkEnemy synchronized properties to comply with the strict
+1291-word ceiling, isolate runtime test spawning from release builds, and
+restore RPC acceptance validation on consumable requests.
+
+Optimized EnemyMovementAIController by removing the [Networked]
+attribute from its internal State Authority ScanTimer throttle, bringing
+NetworkEnemy.prefab word count from 1292 to exactly 1291 woven words and
+passing RaidLootOriginWordCountTests. Guarded RaidLootTestSpawner under
+#if UNITY_EDITOR || DEVELOPMENT_BUILD and added an editor scene
+processor to strip [LootTestSpawner] GameObjects during release builds.
+Implemented WasAccepted static contract validation in
+PlayerConsumableNetworkController to pass RpcAcceptanceContractTests.
+
+Tests:
+- RaidLootOriginWordCountTests: 6/6 tests passing.
+- RpcAcceptanceContractTests: 15/15 tests passing across all 5 controllers.
+- RaidLootTestSpawnerSecurityTests: 4/4 tests passing.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerBuildProcessor.cs
+Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerBuildProcessor.cs.meta
+Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Movement/EnemyMovementAIController.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs.meta
+odd/tasks/task-287-networkenemy-footprint-spawner.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Movement: Project Grimhold/Assets/Scripts/Player/Movement/EnemyMovementAIController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerBuildProcessor.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerBuildProcessor.cs.meta
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerConsumableNetworkController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs.meta
+- scope → Networking &amp; Sessions: network
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerBuildProcessor.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerBuildProcessor.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerBuildProcessor.cs
+- path → Tests: Project Grimhold/Assets/Editor/Gameplay/RaidLootTestSpawnerBuildProcessor.cs.meta
+- path → Tests: Project Grimhold/Assets/Scripts/Gameplay/Debugging/RaidLootTestSpawner.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootTestSpawnerSecurityTests.cs.meta
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 1335698f97ea562c91cf58192bb9632158a9ce18
+
+[1335698f97ea562c91cf58192bb9632158a9ce18](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1335698f97ea562c91cf58192bb9632158a9ce18)
+
+Date: 2026-11-10T14:44:56-03:00 · Classification: Bug Fixes (explicit) · Systems: Combat, Movement, World & Visibility, Art & Animation, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(combat): fix Specter incorporeity, collision, and relocation
+```
+
+#### Original body
+
+```text
+Enforce strict incorporeity and non-LOS annular teleportation for the
+Catacombs Specter.
+
+During fading and invisible displacement states (Desvanecimiento and
+Desvanecido), disable all physical movement and damage hitbox colliders
+so incoming projectiles and characters pass cleanly through the Specter
+without triggering hits or consuming impacts. Ensure hybrid weapon
+damage resolves only its magical portion during visible incorporeal
+states, and physical attacks deal zero damage.
+
+Remove the line-of-sight requirement between displacement origin and
+destination candidates in SpecterTeleportRules, sampling progressively
+widened annular distance bands (3.0-5.0m, 5.0-7.5m, 7.5-10.0m) and
+falling back safely to Home Area when obstructed. Add an authoritative
+3.0s cooldown following recovery before initiating subsequent attack
+channels.
+
+Wire a dedicated URP unlit material into TelegraphLine on
+NetworkEnemySpecter.prefab, enabling progressive alpha and line-width
+intensification across the 1.25s channel. Cover all rules,
+relocation widening, and material integrity with 24 EditMode test cases.
+
+Player-Fixed: The Catacombs Specter now cleanly avoids damage and projectile collisions during its fade-out, attacks with a visible telegraph build-up, and relocates behind cover.
+Refs: US-78, TASK-285
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Art/Materials.meta
+Project Grimhold/Assets/Art/Materials/SpecterTelegraphLine.mat
+Project Grimhold/Assets/Art/Materials/SpecterTelegraphLine.mat.meta
+Project Grimhold/Assets/Editor/AuthorSpecterPrefab.cs
+Project Grimhold/Assets/Prefabs/Enemies/NetworkEnemySpecter.prefab
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterAIController.cs
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterRules.cs
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterTeleportRules.cs
+Project Grimhold/Assets/Scripts/Character/Specter/SpecterVisualPresenter.cs
+Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs
+odd/tasks/task-285-specter-incorporeity-teleport.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs
+- scope → Combat: combat
+- message-term → Combat: combat
+- message-term → Movement: movement
+- message-term → World &amp; Visibility: Catacombs
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Materials.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Materials/SpecterTelegraphLine.mat
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Materials/SpecterTelegraphLine.mat.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/AuthorSpecterPrefab.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Enemies/SpecterRulesAndCombatTests.cs
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 50cd6fadac47c4031ebb5e0be27a7d86ba93fb40
 
