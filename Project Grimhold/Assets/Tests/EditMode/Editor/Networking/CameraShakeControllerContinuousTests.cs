@@ -66,4 +66,44 @@ public sealed class CameraShakeControllerContinuousTests
         CameraShakeController.AccessibilityScale = 0.5f;
         Assert.That(CameraShakeController.AccessibilityScale, Is.EqualTo(0.5f).Within(0.001f));
     }
+
+    [Test]
+    public void AccessibilityScale_PersistsToPlayerPrefs()
+    {
+        CameraShakeController.AccessibilityScale = 0.42f;
+        Assert.That(PlayerPrefs.GetFloat("Grimhold.Presentation.CameraShakeScale"), Is.EqualTo(0.42f).Within(0.001f));
+
+        CameraShakeController.AccessibilityScale = 0f;
+        Assert.That(PlayerPrefs.GetFloat("Grimhold.Presentation.CameraShakeScale"), Is.EqualTo(0f));
+    }
+
+    [Test]
+    public void DecayRate_ResetsWhenTraumaReachesZero_DuringSustainedShake()
+    {
+        _controller.SetContinuousShake(0.3f);
+        _controller.RequestShake(0.5f, 0.1f);
+
+        Assert.That(_controller.EffectiveTrauma, Is.EqualTo(0.5f).Within(0.001f));
+
+        _controller.UpdateShake(0.2f);
+
+        Assert.That(_controller.EffectiveTrauma, Is.EqualTo(0.3f).Within(0.001f));
+
+        _controller.RequestShake(0.2f, 2.0f);
+        Assert.That(_controller.EffectiveTrauma, Is.GreaterThanOrEqualTo(0.3f));
+    }
+
+    [Test]
+    public void ResetTransientTrauma_ClearsImpulseTrauma_WhilePreservingSustained()
+    {
+        _controller.SetContinuousShake(0.4f);
+        _controller.RequestShake(0.5f, 1f);
+
+        Assert.That(_controller.EffectiveTrauma, Is.EqualTo(0.5f).Within(0.001f));
+
+        _controller.ResetTransientTrauma();
+
+        Assert.That(_controller.EffectiveTrauma, Is.EqualTo(0.4f).Within(0.001f));
+        Assert.That(_controller.SustainedTrauma, Is.EqualTo(0.4f).Within(0.001f));
+    }
 }

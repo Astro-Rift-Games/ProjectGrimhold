@@ -363,16 +363,16 @@ public sealed class PlayerInputReader : MonoBehaviour
             _inputActions.Gameplay.Move.ReadValue<Vector2>();
     }
 
-    private void ReadAimWorldPosition()
+    /// <summary>
+    /// Converts screen-space pointer coordinates into world-space aiming coordinates,
+    /// isolating the result from any transient camera shake offset applied by CameraShakeController.
+    /// </summary>
+    public Vector2 ScreenToAimWorldPosition(Vector2 screenPosition)
     {
         if (_worldCamera == null)
         {
-            _aimWorldPosition = Vector2.zero;
-            return;
+            return Vector2.zero;
         }
-
-        Vector2 screenPosition =
-            _inputActions.Gameplay.AimPosition.ReadValue<Vector2>();
 
         Transform cameraTransform = _worldCamera.transform;
 
@@ -385,8 +385,7 @@ public sealed class PlayerInputReader : MonoBehaviour
 
         if (distanceToAimPlane < 0f)
         {
-            _aimWorldPosition = Vector2.zero;
-            return;
+            return Vector2.zero;
         }
 
         Vector3 screenPoint = new(
@@ -397,9 +396,27 @@ public sealed class PlayerInputReader : MonoBehaviour
         Vector3 worldPosition =
             _worldCamera.ScreenToWorldPoint(screenPoint);
 
-        _aimWorldPosition = new Vector2(
-            worldPosition.x,
-            worldPosition.y);
+        Vector3 shakeOffset = CameraShakeController.Instance != null
+            ? CameraShakeController.Instance.ShakeOffset
+            : Vector3.zero;
+
+        return new Vector2(
+            worldPosition.x - shakeOffset.x,
+            worldPosition.y - shakeOffset.y);
+    }
+
+    private void ReadAimWorldPosition()
+    {
+        if (_worldCamera == null)
+        {
+            _aimWorldPosition = Vector2.zero;
+            return;
+        }
+
+        Vector2 screenPosition =
+            _inputActions.Gameplay.AimPosition.ReadValue<Vector2>();
+
+        _aimWorldPosition = ScreenToAimWorldPosition(screenPosition);
     }
 
     private void ReadPrimaryAttack()
