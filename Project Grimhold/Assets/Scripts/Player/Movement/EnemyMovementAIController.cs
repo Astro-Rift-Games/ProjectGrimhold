@@ -157,7 +157,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
     /// Throttle timer for periodic OverlapCircle scans when no target is active.
     /// Used only in Idle/Patrol context (no active target).
     /// </summary>
-    [Networked] private TickTimer ScanTimer { get; set; }
+    private TickTimer _scanTimer;
 
     /// <summary>
     /// Active while the enemy has an aggro alert from a player hit.
@@ -248,7 +248,7 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
             {
                 // On Host Migration, the simulation tick is reset.
                 // Any active timers from the old runner will be stuck in the future.
-                ScanTimer = TickTimer.None;
+                _scanTimer = TickTimer.None;
                 AggroAlertTimer = TickTimer.None;
                 PatrolWaitTimer = TickTimer.None;
                 
@@ -557,10 +557,10 @@ public sealed class EnemyMovementAIController : NetworkBehaviour, IMovementState
             IsAttacking = false;
 
             // Scan for new targets on a throttled interval to avoid OverlapCircle every tick.
-            if (ScanTimer.ExpiredOrNotRunning(Runner))
+            if (_scanTimer.ExpiredOrNotRunning(Runner))
             {
                 ScanForTargets();
-                ScanTimer = TickTimer.CreateFromSeconds(Runner, _scanInterval);
+                _scanTimer = TickTimer.CreateFromSeconds(Runner, _scanInterval);
             }
         }
     }
