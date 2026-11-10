@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Tilemaps;
 using UnityEngine.Rendering.Universal;
 
 public sealed class DungeonPressureAmbientPresenterTests
@@ -22,6 +23,7 @@ public sealed class DungeonPressureAmbientPresenterTests
         DungeonLightPropRegistry.Clear();
 
         _cameraGo = new GameObject("TestCamera");
+        _cameraGo.tag = "MainCamera";
         var camera = _cameraGo.AddComponent<Camera>();
         camera.orthographic = true;
         _shakeController = _cameraGo.AddComponent<CameraShakeController>();
@@ -243,6 +245,8 @@ public sealed class DungeonPressureAmbientPresenterTests
         var dustPs = dustGo.AddComponent<ParticleSystem>();
 
         _presenter.Configure(null, _config, _globalLight, _volume, dustPs, null);
+        // Configure discovers tilemaps in the open scene; only the custom collider may define occlusion here.
+        _presenter.SetTilemaps(new Tilemap[0], new Tilemap[0]);
         dustPs.Play();
 
         // Setup a custom wall collider at (10, 10)
@@ -250,6 +254,8 @@ public sealed class DungeonPressureAmbientPresenterTests
         var boxCol = wallGo.AddComponent<BoxCollider2D>();
         boxCol.size = new Vector2(4f, 4f);
         wallGo.transform.position = new Vector3(10f, 10f, 0f);
+        // Physics2D does not auto-sync transforms; OverlapPoint must see the moved collider.
+        Physics2D.SyncTransforms();
 
         _presenter.SetCustomOcclusionColliders(new Collider2D[] { boxCol });
 
@@ -259,6 +265,9 @@ public sealed class DungeonPressureAmbientPresenterTests
 
         Assert.That(_presenter.IsPointInOpenSpace(new Vector2(10f, 10f)), Is.False, "Wall space (10, 10) must not be in open space");
         Assert.That(_presenter.IsPointOccluded(new Vector2(10f, 10f)), Is.True, "Wall space (10, 10) must be occluded");
+
+        // A stopped system ignores Emit outside Play Mode; start it so the particles are registered.
+        dustPs.Play();
 
         // Emit 2 particles: 1 in open space (0,0), 1 inside wall (10,10)
         var openParticle = new ParticleSystem.EmitParams

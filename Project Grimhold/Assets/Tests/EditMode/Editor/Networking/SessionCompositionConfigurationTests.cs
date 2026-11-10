@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Fusion;
 using NUnit.Framework;
 using TMPro;
@@ -15,6 +16,8 @@ public sealed class SessionCompositionConfigurationTests
 {
     private const int ContainerInventoryAuthoredSlotCount = 6;
     private const int PlayerInventoryAuthoredSlotCount = 30;
+    // 8 equipment slots plus the 4 Quick Slots wired into the Inventory screen.
+    private const int EquipmentAndQuickSlotCount = 12;
     private const string SocialPlayerPath = "Assets/Prefabs/SocialPlayer.prefab";
     private const string SystemsPath = "Assets/Prefabs/Systems.prefab";
     private const string TownRaidNpcPath = "Assets/Prefabs/TownRaidNpc.prefab";
@@ -324,8 +327,15 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(PrefabUtility.GetCorrespondingObjectFromOriginalSource(networkPresenter), Is.SameAs(sharedPresenter));
         Assert.That(PrefabUtility.GetCorrespondingObjectFromOriginalSource(socialPresenter), Is.SameAs(sharedPresenter));
         Assert.That(sharedPrefab.GetComponentsInChildren<Canvas>(true), Is.Empty);
-        Assert.That(networkPrefab.GetComponentsInChildren<Canvas>(true), Has.Length.EqualTo(1));
-        Assert.That(socialPrefab.GetComponentsInChildren<Canvas>(true), Has.Length.EqualTo(2));
+        // The Raid HUD canvas plus the dedicated Settings canvas (sorting order 100) added with the Raid menu Settings entry.
+        Canvas[] networkCanvases = networkPrefab.GetComponentsInChildren<Canvas>(true);
+        Assert.That(networkCanvases, Has.Length.EqualTo(2));
+        Assert.That(networkCanvases.Count(canvas => canvas.GetComponent<SettingsPanelView>() != null), Is.EqualTo(1));
+        Assert.That(networkCanvases.Count(canvas => canvas.GetComponent<SettingsPanelView>() == null), Is.EqualTo(1));
+        // Town inventory, dialogue and the timed-action status feedback (TASK-220) canvases.
+        Assert.That(
+            socialPrefab.GetComponentsInChildren<Canvas>(true).Select(canvas => canvas.name),
+            Is.EquivalentTo(new[] { "TownInventoryCanvas", "DialogueUI", "TownStatusFeedbackCanvas" }));
 
         Assert.That(networkPrefab.GetComponent<PlayerLootReceiver>(), Is.Not.Null);
         Assert.That(networkPrefab.GetComponent<LocalPlayerHudBinder>(), Is.Not.Null);
@@ -355,7 +365,9 @@ public sealed class SessionCompositionConfigurationTests
         Assert.That(view.TakeAllButton, Is.Not.Null);
         Assert.That(view.ContextMenu, Is.Not.Null);
         Assert.That(SerializedReference(view, "_equipmentPanelRoot"), Is.Not.Null);
-        Assert.That(view.IsOpen, Is.False);
+        // The screen root is authored active so UiPanelTransition can animate it; the presenter owns the closed state.
+        Assert.That(view.ScreenRootRect.GetComponent<UiPanelTransition>(), Is.Not.Null);
+        Assert.That(presenter.IsOpen, Is.False);
 
         string[] equipmentViewFields =
         {
@@ -396,7 +408,7 @@ public sealed class SessionCompositionConfigurationTests
             sharedPrefab.GetComponentsInChildren<RaidInventorySlotView>(true);
         Assert.That(
             slots,
-            Has.Length.EqualTo(PlayerInventoryAuthoredSlotCount + ContainerInventoryAuthoredSlotCount + 8));
+            Has.Length.EqualTo(PlayerInventoryAuthoredSlotCount + ContainerInventoryAuthoredSlotCount + EquipmentAndQuickSlotCount));
         for (int index = 0; index < slots.Length; index++)
         {
             Assert.That(SerializedReference(slots[index], "_icon"), Is.Not.Null);
