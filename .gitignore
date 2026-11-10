@@ -83,6 +83,9 @@ crashlytics-build.properties
 # TestRunner generated files
 InitTestScene*.unity*
 
+# Local test evidence (render-test screenshots, manual task captures)
+/Project Grimhold/Artifacts/
+
 # Addressables default ignores, before user customizations
 /ServerData
 /[Aa]ssets/StreamingAssets/aa*
