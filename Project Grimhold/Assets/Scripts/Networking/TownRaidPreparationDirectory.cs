@@ -34,6 +34,7 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerLeft
     public override void Spawned()
     {
         Runner.GetComponent<TownRaidPreparationDirectoryContext>()?.Register(this);
+        Runner.GetComponent<TownSenderIdentityContext>()?.RegisterAuthorityObject(Object);
         _indexReady = !HasStateAuthority;
         if (HasStateAuthority) BeginAuthorityRebuild();
     }
@@ -55,6 +56,7 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerLeft
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
         runner.GetComponent<TownRaidPreparationDirectoryContext>()?.Unregister(this);
+        runner.GetComponent<TownSenderIdentityContext>()?.UnregisterAuthorityObject(Object);
         _interactionRequested = false;
         _indexReady = false;
         _preparations.Clear();
@@ -63,6 +65,7 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerLeft
 
     public void StateAuthorityChanged()
     {
+        _profileByPlayer.Clear();
         if (HasStateAuthority) BeginAuthorityRebuild();
         else { _indexReady = true; _rebuildTicksRemaining = 0; }
     }
@@ -86,8 +89,18 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerLeft
         TownPartyDirectory parties = Runner?.GetComponent<TownPartyDirectoryContext>()?.Directory;
         if (parties != null && parties.TryResolvePlayer(profile, out player)) return true;
         player = PlayerRef.None;
-        foreach (KeyValuePair<PlayerRef, ProfileId> pair in _profileByPlayer) if (pair.Value == profile) { player = pair.Key; return true; }
         if (Runner == null) return false;
+        if (!HasStateAuthority)
+        {
+            // Presentation only: the replicated claim is not authorization.
+            foreach (PlayerRef active in Runner.ActivePlayers)
+            {
+                if (TownSenderIdentityValidator.TryResolveDeclaredProfile(Runner, active, out ProfileId declared) && declared == profile)
+                { player = active; return true; }
+            }
+            return false;
+        }
+        foreach (KeyValuePair<PlayerRef, ProfileId> pair in _profileByPlayer) if (pair.Value == profile) { player = pair.Key; return true; }
         foreach (PlayerRef candidate in Runner.ActivePlayers)
         {
             if (!TryResolveSender(candidate, out ProfileId resolved)) continue;

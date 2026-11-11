@@ -32,6 +32,7 @@ public sealed class TownPartyDirectory : NetworkBehaviour, IStateAuthorityChange
     public override void Spawned()
     {
         Runner.GetComponent<TownPartyDirectoryContext>()?.Register(this);
+        Runner.GetComponent<TownSenderIdentityContext>()?.RegisterAuthorityObject(Object);
         if (HasStateAuthority) AdvanceEpoch();
         _localRequestPending = true;
         _nextLocalEnsureRetryTime = 0f;
@@ -70,6 +71,7 @@ public sealed class TownPartyDirectory : NetworkBehaviour, IStateAuthorityChange
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
         runner.GetComponent<TownPartyDirectoryContext>()?.Unregister(this);
+        runner.GetComponent<TownSenderIdentityContext>()?.UnregisterAuthorityObject(Object);
         _profileByPlayer.Clear();
         _resultEvents.Clear();
         _continuationClaims.Clear();
@@ -79,6 +81,7 @@ public sealed class TownPartyDirectory : NetworkBehaviour, IStateAuthorityChange
 
     public void StateAuthorityChanged()
     {
+        _profileByPlayer.Clear();
         if (!HasStateAuthority) return;
         _continuationClaims.Clear();
         AdvanceEpoch();
@@ -156,11 +159,21 @@ public sealed class TownPartyDirectory : NetworkBehaviour, IStateAuthorityChange
     public bool TryResolvePlayer(ProfileId profileId, out PlayerRef player)
     {
         player = PlayerRef.None;
+        if (Runner == null) return false;
+        if (!HasStateAuthority)
+        {
+            // Presentation only: the replicated claim is not authorization.
+            foreach (PlayerRef active in Runner.ActivePlayers)
+            {
+                if (TownSenderIdentityValidator.TryResolveDeclaredProfile(Runner, active, out ProfileId declared) && declared == profileId)
+                { player = active; return true; }
+            }
+            return false;
+        }
         foreach (KeyValuePair<PlayerRef, ProfileId> pair in _profileByPlayer)
         {
             if (pair.Value == profileId) { player = pair.Key; return true; }
         }
-        if (Runner == null) return false;
         foreach (PlayerRef candidate in Runner.ActivePlayers)
         {
             if (!TryResolveSender(candidate, out ProfileId candidateProfile)) continue;
