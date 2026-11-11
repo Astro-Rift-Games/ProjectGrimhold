@@ -1,38 +1,38 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1013,
-  "canonicalEntries": 1010,
+  "rawCommits": 1017,
+  "canonicalEntries": 1014,
   "before": {
-    "Tests": 38,
+    "Documentation": 85,
+    "Tests": 40,
     "Bug Fixes": 116,
     "Architecture & Infrastructure": 22,
     "Other Changes": 356,
     "Features": 384,
-    "Documentation": 83,
     "Refactoring": 14
   },
   "after": {
-    "Tests": 43,
+    "Documentation": 101,
+    "Tests": 45,
     "Bug Fixes": 132,
     "Maintenance": 20,
     "Features": 522,
     "Architecture & Infrastructure": 6,
-    "Documentation": 99,
     "Other Changes": 164,
     "Refactoring": 27
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Networking & Sessions": 293,
+    "Documentation": 385,
+    "Build & Tooling": 523,
+    "Tests": 639,
+    "UI": 309,
     "Combat": 368,
     "Abilities": 128,
     "Inventory & Loot": 413,
     "Art & Animation": 234,
-    "Build & Tooling": 521,
-    "Tests": 637,
-    "Networking & Sessions": 289,
     "Persistence & Backend": 231,
-    "Documentation": 383,
-    "UI": 308,
     "World & Visibility": 134,
     "Extraction": 135,
     "Unassigned": 21,
@@ -42,26 +42,26 @@
   },
   "canonical": {
     "sections": {
-      "Tests": 43,
+      "Documentation": 101,
+      "Tests": 45,
       "Bug Fixes": 131,
       "Maintenance": 20,
       "Features": 521,
       "Architecture & Infrastructure": 6,
-      "Documentation": 99,
       "Other Changes": 163,
       "Refactoring": 27
     },
     "systems": {
+      "Networking & Sessions": 293,
+      "Documentation": 383,
+      "Build & Tooling": 521,
+      "Tests": 637,
+      "UI": 308,
       "Combat": 366,
       "Abilities": 126,
       "Inventory & Loot": 413,
       "Art & Animation": 231,
-      "Build & Tooling": 519,
-      "Tests": 635,
-      "Networking & Sessions": 289,
       "Persistence & Backend": 231,
-      "Documentation": 381,
-      "UI": 307,
       "World & Visibility": 132,
       "Extraction": 135,
       "Unassigned": 21,
@@ -34055,8 +34055,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 136,
-      "canonicalEntries": 136
+      "originalCommits": 140,
+      "canonicalEntries": 140
     },
     {
       "key": "v0.5.0",
@@ -34100,6 +34100,262 @@
     }
   ],
   "commits": [
+    {
+      "sha": "83702f1e1b6d23ffe64f963ccb2716280902cbc6",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/83702f1e1b6d23ffe64f963ccb2716280902cbc6",
+      "subject": "docs(network): clarify where FIX-48 run logs live",
+      "body": "",
+      "date": "2026-11-11T09:26:22-03:00",
+      "files": [
+        "docs/fix-48_reporte_traspaso_host_salida_voluntaria.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "network",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "Documentation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "docs/fix-48_reporte_traspaso_host_salida_voluntaria.md",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "64225f4531cf77826aa8863162dfd54109467209",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/64225f4531cf77826aa8863162dfd54109467209",
+      "subject": "docs(network): report FIX-48 voluntary Host handoff findings",
+      "body": "Records the 3-process Host Migration run triggered by the dev-only probe, the state that does not migrate, and the requirements for FIX-50, FIX-51 and FIX-52.\n",
+      "date": "2026-11-11T09:25:55-03:00",
+      "files": [
+        "docs/fix-48_reporte_traspaso_host_salida_voluntaria.md",
+        "odd/evidence/fix-48/offsets.txt",
+        "odd/tasks/fix-48-host-migration-voluntary-exit.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "network",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "Documentation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "docs/fix-48_reporte_traspaso_host_salida_voluntaria.md",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "2577e65e9deb548a240beb939f1503d08183abf9",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2577e65e9deb548a240beb939f1503d08183abf9",
+      "subject": "test(network): cover null runner in FIX-48 handoff probe",
+      "body": "",
+      "date": "2026-11-11T01:39:45-03:00",
+      "files": [
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+        "odd/tasks/fix-48-host-migration-voluntary-exit.md"
+      ],
+      "originalType": "test",
+      "originalScope": "network",
+      "originalSection": "Tests",
+      "breaking": false,
+      "reverts": null,
+      "section": "Tests",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "test",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "4aeb9715a9c3edcbe2424ade2544f4630eba18a3",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4aeb9715a9c3edcbe2424ade2544f4630eba18a3",
+      "subject": "test(network): add FIX-48 voluntary Host handoff probe",
+      "body": "Development-only probe that pushes a Host Migration snapshot and shuts the Raid Host down with ShutdownReason.HostMigration, so a multi-process run can verify whether remaining clients migrate on a voluntary Host exit. Triggered from Grimhold/Dev/FIX-48 Voluntary Host Handoff. Productive handoff stays in FIX-50.\n",
+      "date": "2026-11-11T01:36:39-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs",
+        "Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/VoluntaryHostHandoffProbe.cs",
+        "Project Grimhold/Assets/Scripts/Networking/VoluntaryHostHandoffProbe.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs.meta",
+        "odd/tasks/fix-48-host-migration-voluntary-exit.md"
+      ],
+      "originalType": "test",
+      "originalScope": "network",
+      "originalSection": "Tests",
+      "breaking": false,
+      "reverts": null,
+      "section": "Tests",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "UI",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "test",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/VoluntaryHostHandoffProbe.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/VoluntaryHostHandoffProbe.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "Host Migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
     {
       "sha": "b655db6546eb3886c64ddebc87bf77d55df55fdc",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b655db6546eb3886c64ddebc87bf77d55df55fdc",

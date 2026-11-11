@@ -4,32 +4,201 @@
 
 Release: Unreleased
 
-136 original commits; 136 canonical entries.
+140 original commits; 140 canonical entries.
 
 ## Canonical classification
 
-62 features; 38 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 14 tests; 9 maintenance; 2 other changes
+62 features; 38 bug fixes; 1 refactoring; 1 architecture & infrastructure; 11 documentation; 16 tests; 9 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 7 | 6 | 1 | 0 | 9 | 1 |
 | Art & Animation | 7 | 9 | 1 | 0 | 7 | 0 |
 | Audio | 3 | 1 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 37 | 24 | 1 | 1 | 15 | 2 |
+| Build & Tooling | 37 | 24 | 1 | 1 | 17 | 2 |
 | Combat | 34 | 7 | 0 | 0 | 11 | 0 |
-| Documentation | 26 | 10 | 0 | 0 | 4 | 0 |
+| Documentation | 26 | 10 | 0 | 0 | 6 | 0 |
 | Extraction | 9 | 2 | 0 | 0 | 5 | 0 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
 | Inventory & Loot | 51 | 26 | 1 | 1 | 17 | 1 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 16 | 10 | 0 | 0 | 7 | 0 |
+| Networking & Sessions | 16 | 10 | 0 | 0 | 11 | 0 |
 | Persistence & Backend | 25 | 12 | 0 | 1 | 8 | 0 |
-| Tests | 59 | 32 | 1 | 1 | 23 | 0 |
-| UI | 22 | 8 | 1 | 0 | 8 | 0 |
+| Tests | 59 | 32 | 1 | 1 | 25 | 0 |
+| UI | 22 | 8 | 1 | 0 | 9 | 0 |
 | Unassigned | 0 | 1 | 0 | 0 | 2 | 0 |
 | World & Visibility | 16 | 6 | 0 | 0 | 2 | 0 |
 
 ## Original commit records
+
+### 83702f1e1b6d23ffe64f963ccb2716280902cbc6
+
+[83702f1e1b6d23ffe64f963ccb2716280902cbc6](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/83702f1e1b6d23ffe64f963ccb2716280902cbc6)
+
+Date: 2026-11-11T09:26:22-03:00 · Classification: Documentation (explicit) · Systems: Networking & Sessions, Documentation
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(network): clarify where FIX-48 run logs live
+```
+
+#### Original body
+
+```text
+
+```
+
+#### Changed paths
+
+```text
+docs/fix-48_reporte_traspaso_host_salida_voluntaria.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+- scope → Networking &amp; Sessions: network
+- path → Documentation: docs/fix-48\_reporte\_traspaso\_host\_salida\_voluntaria.md
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 64225f4531cf77826aa8863162dfd54109467209
+
+[64225f4531cf77826aa8863162dfd54109467209](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/64225f4531cf77826aa8863162dfd54109467209)
+
+Date: 2026-11-11T09:25:55-03:00 · Classification: Documentation (explicit) · Systems: Networking & Sessions, Documentation
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(network): report FIX-48 voluntary Host handoff findings
+```
+
+#### Original body
+
+```text
+Records the 3-process Host Migration run triggered by the dev-only probe, the state that does not migrate, and the requirements for FIX-50, FIX-51 and FIX-52.
+```
+
+#### Changed paths
+
+```text
+docs/fix-48_reporte_traspaso_host_salida_voluntaria.md
+odd/evidence/fix-48/offsets.txt
+odd/tasks/fix-48-host-migration-voluntary-exit.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+- scope → Networking &amp; Sessions: network
+- path → Documentation: docs/fix-48\_reporte\_traspaso\_host\_salida\_voluntaria.md
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 2577e65e9deb548a240beb939f1503d08183abf9
+
+[2577e65e9deb548a240beb939f1503d08183abf9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2577e65e9deb548a240beb939f1503d08183abf9)
+
+Date: 2026-11-11T01:39:45-03:00 · Classification: Tests (explicit) · Systems: Networking & Sessions, Build & Tooling, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+test(network): cover null runner in FIX-48 handoff probe
+```
+
+#### Original body
+
+```text
+
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs
+odd/tasks/fix-48-host-migration-voluntary-exit.md
+```
+
+#### Classification evidence
+
+- type → Tests: test
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs
+- scope → Networking &amp; Sessions: network
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 4aeb9715a9c3edcbe2424ade2544f4630eba18a3
+
+[4aeb9715a9c3edcbe2424ade2544f4630eba18a3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4aeb9715a9c3edcbe2424ade2544f4630eba18a3)
+
+Date: 2026-11-11T01:36:39-03:00 · Classification: Tests (explicit) · Systems: Networking & Sessions, UI, Build & Tooling, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+test(network): add FIX-48 voluntary Host handoff probe
+```
+
+#### Original body
+
+```text
+Development-only probe that pushes a Host Migration snapshot and shuts the Raid Host down with ShutdownReason.HostMigration, so a multi-process run can verify whether remaining clients migrate on a voluntary Host exit. Triggered from Grimhold/Dev/FIX-48 Voluntary Host Handoff. Productive handoff stays in FIX-50.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs
+Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs.meta
+Project Grimhold/Assets/Scripts/Networking/VoluntaryHostHandoffProbe.cs
+Project Grimhold/Assets/Scripts/Networking/VoluntaryHostHandoffProbe.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs.meta
+odd/tasks/fix-48-host-migration-voluntary-exit.md
+```
+
+#### Classification evidence
+
+- type → Tests: test
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/VoluntaryHostHandoffProbe.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/VoluntaryHostHandoffProbe.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs.meta
+- scope → Networking &amp; Sessions: network
+- message-term → Networking &amp; Sessions: Host Migration
+- path → UI: Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs
+- path → UI: Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs.meta
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### b655db6546eb3886c64ddebc87bf77d55df55fdc
 
