@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1011,
-  "canonicalEntries": 1008,
+  "rawCommits": 1012,
+  "canonicalEntries": 1009,
   "before": {
+    "Bug Fixes": 116,
     "Architecture & Infrastructure": 22,
     "Other Changes": 356,
-    "Bug Fixes": 115,
     "Tests": 37,
     "Features": 384,
     "Documentation": 83,
     "Refactoring": 14
   },
   "after": {
+    "Bug Fixes": 132,
     "Maintenance": 20,
     "Features": 522,
-    "Bug Fixes": 131,
     "Tests": 42,
     "Architecture & Infrastructure": 6,
     "Documentation": 99,
@@ -23,18 +23,18 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Persistence & Backend": 230,
-    "Build & Tooling": 519,
-    "Tests": 635,
-    "Inventory & Loot": 411,
-    "Networking & Sessions": 288,
+    "Inventory & Loot": 412,
+    "Networking & Sessions": 289,
+    "Persistence & Backend": 231,
+    "Build & Tooling": 520,
+    "Documentation": 383,
+    "Tests": 636,
     "Combat": 367,
     "UI": 308,
     "World & Visibility": 134,
     "Abilities": 127,
     "Extraction": 135,
     "Unassigned": 21,
-    "Documentation": 382,
     "Audio": 34,
     "Art & Animation": 233,
     "Input": 30,
@@ -42,9 +42,9 @@
   },
   "canonical": {
     "sections": {
+      "Bug Fixes": 131,
       "Maintenance": 20,
       "Features": 521,
-      "Bug Fixes": 130,
       "Tests": 42,
       "Architecture & Infrastructure": 6,
       "Documentation": 99,
@@ -52,18 +52,18 @@
       "Refactoring": 27
     },
     "systems": {
-      "Persistence & Backend": 230,
-      "Build & Tooling": 517,
-      "Tests": 633,
-      "Inventory & Loot": 411,
-      "Networking & Sessions": 288,
+      "Inventory & Loot": 412,
+      "Networking & Sessions": 289,
+      "Persistence & Backend": 231,
+      "Build & Tooling": 518,
+      "Documentation": 381,
+      "Tests": 634,
       "Combat": 365,
       "UI": 307,
       "World & Visibility": 132,
       "Abilities": 125,
       "Extraction": 135,
       "Unassigned": 21,
-      "Documentation": 380,
       "Audio": 34,
       "Art & Animation": 230,
       "Input": 30,
@@ -34055,8 +34055,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 134,
-      "canonicalEntries": 134
+      "originalCommits": 135,
+      "canonicalEntries": 135
     },
     {
       "key": "v0.5.0",
@@ -34100,6 +34100,232 @@
     }
   ],
   "commits": [
+    {
+      "sha": "1f2a69d5ee0a0d67911d351b7225b3c04ace0784",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1f2a69d5ee0a0d67911d351b7225b3c04ace0784",
+      "subject": "fix(network): bind Town identity to the real RPC sender",
+      "body": "Town runs in Shared Mode, and every peer wrote and replicated its own\nSessionTicket. Any client could copy a companion's ticket and act as\nthat player in Party, preparation and merchant RPCs (FIX-54).\n\nThe ticket is no longer replicated. Each client delivers it through the\ntargeted static RPC SocialPlayerIdentity.RPC_RegisterTownSender only to\nthe current State Authority of each Town authority object. The\nrunner-scoped TownSenderIdentityContext binds the ticket's profile to\nRpcInfo.Source in TownSenderIdentityRegistry, so the payload never names\nthe sender. Every authoritative Town RPC, including the launch ack and\nreject in TownRaidPreparationNetworkController, now resolves its sender\nonly through that verified binding and requires the visible ProfileId\nto match. Non-authority peers use the replicated claim for presentation\nonly.\n\nReviewers should verify:\n- only a verified binding blocks other claimants; unverified or\n  rejected claims are evicted, so a forged unsigned ticket cannot lock\n  the owner out, and the earliest genuine registration owns a profile;\n- clients re-register when the State Authority PlayerRef changes, and\n  bindings are released on player leave and runner shutdown;\n- GameMode.Single reports StateAuthority as None while HasStateAuthority\n  is true, so local registration uses LocalPlayer.\n\nTests:\n- TownSenderIdentityRegistryTests (14) and TownSenderIdentityContractTests\n  (5) cover the binding, conflicts, forged and pending tickets,\n  reconnection and the non-replicated, targeted RPC contract.\n- Town merchant, party and interaction PlayMode compositions add the\n  context; the merchant test waits for the local registration.\n\nDocs: RemoteIdentityAndAuthArchitecture.md documents sender binding and\nthe residual Shared Mode trust.\n\nRefs: FIX-54\n",
+      "date": "2026-11-11T01:18:32-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Networking/HubRunnerFactory.cs",
+        "Project Grimhold/Assets/Scripts/Networking/SocialPlayerIdentity.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownMerchantNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownPartyDirectory.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationDirectory.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityContext.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityContext.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityRegistry.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityRegistry.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityValidator.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderRegistrationResult.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderRegistrationResult.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs.meta",
+        "Project Grimhold/Assets/Tests/PlayMode/TownInteractionLocalAuthorityPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/TownMerchantTradePlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/TownPartyLocalAuthorityPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md",
+        "odd/tasks/fix-54-town-sender-binding.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "network",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/TownInteractionLocalAuthorityPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "interaction",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/HubRunnerFactory.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SocialPlayerIdentity.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownMerchantNetworkController.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownPartyDirectory.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationDirectory.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityContext.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityContext.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityRegistry.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityRegistry.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityValidator.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderRegistrationResult.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderRegistrationResult.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/TownInteractionLocalAuthorityPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/TownMerchantTradePlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/TownPartyLocalAuthorityPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "82c71822f34396ba615f6c65424e0c58d7b6dd1d",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/82c71822f34396ba615f6c65424e0c58d7b6dd1d",
