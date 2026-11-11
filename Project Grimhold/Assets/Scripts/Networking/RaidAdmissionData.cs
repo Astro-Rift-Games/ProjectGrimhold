@@ -16,6 +16,13 @@ public readonly struct RaidAdmissionData
     public CharacterAttributeState CharacterAttributes { get; }
     public PreparedAbilityLoadout PreparedAbilities { get; }
     public WeaponSetSlot ActiveWeaponSet { get; }
+
+    /// <summary>
+    /// Display-only character name resolved by the State Authority from the verified ticket.
+    /// Never serialized by <see cref="RaidAdmissionDataCodec"/> and never identity.
+    /// </summary>
+    public string DisplayName => _displayName ?? string.Empty;
+    private readonly string _displayName;
     private readonly LootEntry[] _reservedLoadout;
 
     /// <summary>
@@ -79,7 +86,28 @@ public readonly struct RaidAdmissionData
         _reservedLoadout = CopyLoadout(reservedLoadout);
         _entryIndicesPlusOne = CopyIndices(entryIndicesPlusOne);
         ActiveWeaponSet = NormalizeActiveWeaponSet(activeWeaponSet, _entryIndicesPlusOne);
+        _displayName = null;
     }
+
+    private RaidAdmissionData(in RaidAdmissionData source, string displayName)
+    {
+        RaidCode = source.RaidCode;
+        ProfileId = source.ProfileId;
+        ReservationId = source.ReservationId;
+        Level = source.Level;
+        CurrentExperience = source.CurrentExperience;
+        LastAppliedProgressionResultSequence = source.LastAppliedProgressionResultSequence;
+        CharacterAttributes = source.CharacterAttributes;
+        PreparedAbilities = source.PreparedAbilities;
+        ActiveWeaponSet = source.ActiveWeaponSet;
+        _reservedLoadout = source._reservedLoadout;
+        _entryIndicesPlusOne = source._entryIndicesPlusOne;
+        _displayName = displayName;
+    }
+
+    /// <summary>Returns a copy carrying a sanitized, display-only character name.</summary>
+    public RaidAdmissionData WithDisplayName(string displayName) =>
+        new RaidAdmissionData(this, RaidDisplayNamePolicy.Sanitize(displayName));
 
     /// <summary>Resolves the reserved-loadout reference of one Equipment slot.</summary>
     public int GetEntryIndexPlusOne(EquipmentSlot slot)
