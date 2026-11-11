@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1010,
-  "canonicalEntries": 1007,
+  "rawCommits": 1011,
+  "canonicalEntries": 1008,
   "before": {
+    "Architecture & Infrastructure": 22,
     "Other Changes": 356,
     "Bug Fixes": 115,
     "Tests": 37,
     "Features": 384,
-    "Architecture & Infrastructure": 21,
     "Documentation": 83,
     "Refactoring": 14
   },
   "after": {
+    "Maintenance": 20,
     "Features": 522,
     "Bug Fixes": 131,
     "Tests": 42,
-    "Maintenance": 19,
     "Architecture & Infrastructure": 6,
     "Documentation": 99,
     "Other Changes": 164,
@@ -23,11 +23,11 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Build & Tooling": 518,
+    "Persistence & Backend": 230,
+    "Build & Tooling": 519,
+    "Tests": 635,
     "Inventory & Loot": 411,
     "Networking & Sessions": 288,
-    "Persistence & Backend": 229,
-    "Tests": 634,
     "Combat": 367,
     "UI": 308,
     "World & Visibility": 134,
@@ -42,21 +42,21 @@
   },
   "canonical": {
     "sections": {
+      "Maintenance": 20,
       "Features": 521,
       "Bug Fixes": 130,
       "Tests": 42,
-      "Maintenance": 19,
       "Architecture & Infrastructure": 6,
       "Documentation": 99,
       "Other Changes": 163,
       "Refactoring": 27
     },
     "systems": {
-      "Build & Tooling": 516,
+      "Persistence & Backend": 230,
+      "Build & Tooling": 517,
+      "Tests": 633,
       "Inventory & Loot": 411,
       "Networking & Sessions": 288,
-      "Persistence & Backend": 229,
-      "Tests": 632,
       "Combat": 365,
       "UI": 307,
       "World & Visibility": 132,
@@ -34055,8 +34055,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 133,
-      "canonicalEntries": 133
+      "originalCommits": 134,
+      "canonicalEntries": 134
     },
     {
       "key": "v0.5.0",
@@ -34100,6 +34100,95 @@
     }
   ],
   "commits": [
+    {
+      "sha": "82c71822f34396ba615f6c65424e0c58d7b6dd1d",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/82c71822f34396ba615f6c65424e0c58d7b6dd1d",
+      "subject": "chore(hooks): disable the local pre-push quality gate by default",
+      "body": "The local pre-push gate blocked pushes before it was reliable enough to\nbe useful. It now exits immediately unless GRIMHOLD_PREPUSH_GATE=1 is\nset, so it is off for everyone, including clones that already point\ncore.hooksPath at .githooks. The gate logic is kept for later rework.\n\nStop configuring the hook automatically: remove the Unity\nInitializeOnLoad GitHooksSetup and the backend `prepare` script.\n`npm run setup:hooks` remains as a manual opt-in. GitHub Actions CI is\nunchanged.\n\nTests:\n- prepush.hook.test.js runs existing cases with the gate enabled and\n  adds a case asserting the disabled hook exits 0 without running steps\n\nDocs: AGENTS.md Quality Gates line describes the opt-in.\n",
+      "date": "2026-11-11T00:13:14-03:00",
+      "files": [
+        ".githooks/pre-push",
+        "AGENTS.md",
+        "Project Grimhold/Assets/Editor/GitHooks.meta",
+        "Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs",
+        "Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs.meta",
+        "backend/package.json",
+        "backend/tests/prepush.hook.test.js",
+        "tools/hooks/setup-hooks.js"
+      ],
+      "originalType": "chore",
+      "originalScope": "hooks",
+      "originalSection": "Architecture & Infrastructure",
+      "breaking": false,
+      "reverts": null,
+      "section": "Maintenance",
+      "confidence": "explicit",
+      "systems": [
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "chore",
+          "supports": "Maintenance"
+        },
+        {
+          "source": "path",
+          "value": "backend/package.json",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/prepush.hook.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "AGENTS.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/GitHooks.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/hooks/setup-hooks.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/prepush.hook.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
     {
       "sha": "d39a56acee9e44cbd169c96893e05e203fdb6257",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d39a56acee9e44cbd169c96893e05e203fdb6257",

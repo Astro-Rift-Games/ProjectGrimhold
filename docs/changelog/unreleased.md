@@ -4,18 +4,18 @@
 
 Release: Unreleased
 
-133 original commits; 133 canonical entries.
+134 original commits; 134 canonical entries.
 
 ## Canonical classification
 
-62 features; 37 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 13 tests; 8 maintenance; 2 other changes
+62 features; 37 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 13 tests; 9 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 7 | 6 | 1 | 0 | 8 | 1 |
 | Art & Animation | 7 | 9 | 1 | 0 | 6 | 0 |
 | Audio | 3 | 1 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 37 | 23 | 1 | 1 | 13 | 2 |
+| Build & Tooling | 37 | 23 | 1 | 1 | 14 | 2 |
 | Combat | 34 | 7 | 0 | 0 | 10 | 0 |
 | Documentation | 26 | 9 | 0 | 0 | 4 | 0 |
 | Extraction | 9 | 2 | 0 | 0 | 5 | 0 |
@@ -23,13 +23,78 @@ Release: Unreleased
 | Inventory & Loot | 51 | 25 | 1 | 1 | 16 | 1 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 16 | 9 | 0 | 0 | 7 | 0 |
-| Persistence & Backend | 25 | 11 | 0 | 1 | 7 | 0 |
-| Tests | 59 | 31 | 1 | 1 | 21 | 0 |
+| Persistence & Backend | 25 | 11 | 0 | 1 | 8 | 0 |
+| Tests | 59 | 31 | 1 | 1 | 22 | 0 |
 | UI | 22 | 8 | 1 | 0 | 8 | 0 |
 | Unassigned | 0 | 1 | 0 | 0 | 2 | 0 |
 | World & Visibility | 16 | 6 | 0 | 0 | 2 | 0 |
 
 ## Original commit records
+
+### 82c71822f34396ba615f6c65424e0c58d7b6dd1d
+
+[82c71822f34396ba615f6c65424e0c58d7b6dd1d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/82c71822f34396ba615f6c65424e0c58d7b6dd1d)
+
+Date: 2026-11-11T00:13:14-03:00 · Classification: Maintenance (explicit) · Systems: Persistence & Backend, Build & Tooling, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+chore(hooks): disable the local pre-push quality gate by default
+```
+
+#### Original body
+
+```text
+The local pre-push gate blocked pushes before it was reliable enough to
+be useful. It now exits immediately unless GRIMHOLD_PREPUSH_GATE=1 is
+set, so it is off for everyone, including clones that already point
+core.hooksPath at .githooks. The gate logic is kept for later rework.
+
+Stop configuring the hook automatically: remove the Unity
+InitializeOnLoad GitHooksSetup and the backend `prepare` script.
+`npm run setup:hooks` remains as a manual opt-in. GitHub Actions CI is
+unchanged.
+
+Tests:
+- prepush.hook.test.js runs existing cases with the gate enabled and
+  adds a case asserting the disabled hook exits 0 without running steps
+
+Docs: AGENTS.md Quality Gates line describes the opt-in.
+```
+
+#### Changed paths
+
+```text
+.githooks/pre-push
+AGENTS.md
+Project Grimhold/Assets/Editor/GitHooks.meta
+Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs
+Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs.meta
+backend/package.json
+backend/tests/prepush.hook.test.js
+tools/hooks/setup-hooks.js
+```
+
+#### Classification evidence
+
+- type → Maintenance: chore
+- path → Persistence &amp; Backend: backend/package.json
+- path → Persistence &amp; Backend: backend/tests/prepush.hook.test.js
+- message-term → Persistence &amp; Backend: backend
+- path → Build &amp; Tooling: AGENTS.md
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/GitHooks.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs.meta
+- path → Build &amp; Tooling: tools/hooks/setup-hooks.js
+- path → Tests: backend/tests/prepush.hook.test.js
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### d39a56acee9e44cbd169c96893e05e203fdb6257
 
