@@ -13,18 +13,23 @@ public sealed class ValidatedLootContainerContentSnapshot
         public int MinimumAmount { get; }
         public int MaximumAmount { get; }
 
+        /// <summary>Maximum units of this item in one container stack (weapons are individual units, so 1).</summary>
+        public int StackMax { get; }
+
         internal Entry(
             LootId lootId,
             int catalogIndex,
             ulong weight,
             int minimumAmount,
-            int maximumAmount)
+            int maximumAmount,
+            int stackMax)
         {
             LootId = lootId;
             CatalogIndex = catalogIndex;
             Weight = weight;
             MinimumAmount = minimumAmount;
             MaximumAmount = maximumAmount;
+            StackMax = stackMax;
         }
     }
 

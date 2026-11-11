@@ -212,37 +212,9 @@ public static class LootContainerContentRoller
             }
         }
 
-        if (hasChaosCoin && candidates.Count > 0 &&
-            rolled.Count < snapshot.SlotCapacity && rolled.Count < snapshot.NetworkCapacity)
+        if (hasChaosCoin && !TryApplyChaosCoin(snapshot, seed, rolled, out error))
         {
-            var chaosRandom = new DeterministicRandom(seed ^ ChaosCoinSalt);
-            ulong chanceRoll = chaosRandom.NextBelow(
-                CharacterDerivedStatisticsCalculator.BasisPointsDenominator);
-            if (chanceRoll < (ulong)ChaosCoinLootChanceBasisPoints)
-            {
-                int selectedIndex = SelectWeightedIndex(
-                    candidates,
-                    remainingWeight,
-                    ref chaosRandom);
-                if (selectedIndex < 0)
-                {
-                    error = "Chaos coin weighted candidate selection failed.";
-                    return false;
-                }
-
-                ValidatedLootContainerContentSnapshot.Entry selected =
-                    candidates[selectedIndex];
-                int amount = NextInclusive(
-                    ref chaosRandom,
-                    selected.MinimumAmount,
-                    selected.MaximumAmount);
-                rolled.Add(new RolledEntry(
-                    selected.CatalogIndex,
-                    new LootEntry(selected.LootId, amount)));
-
-                remainingWeight = checked(remainingWeight - selected.Weight);
-                candidates.RemoveAt(selectedIndex);
-            }
+            return false;
         }
 
         rolled.Sort((left, right) => left.CatalogIndex.CompareTo(right.CatalogIndex));
@@ -254,6 +226,109 @@ public static class LootContainerContentRoller
 
         result = entries.AsReadOnly();
         return true;
+    }
+
+    /// <summary>
+    /// Applies the independent Chaos Coin roll. The 20% trigger never depends on remaining
+    /// candidates or capacity. With free capacity the item is drawn from table entries not yet in the
+    /// result; only when every entry is already present is it drawn from the full table and merged into
+    /// its stack (clamped to StackMax). With a full container the amount is merged into a result entry
+    /// that still has room below its StackMax. Without any such entry the Coin adds nothing.
+    /// </summary>
+    private static bool TryApplyChaosCoin(
+        ValidatedLootContainerContentSnapshot snapshot,
+        ulong seed,
+        List<RolledEntry> rolled,
+        out string error)
+    {
+        error = null;
+        var chaosRandom = new DeterministicRandom(seed ^ ChaosCoinSalt);
+        ulong chanceRoll = chaosRandom.NextBelow(
+            CharacterDerivedStatisticsCalculator.BasisPointsDenominator);
+        if (chanceRoll >= (ulong)ChaosCoinLootChanceBasisPoints)
+        {
+            return true;
+        }
+
+        bool hasFreeSlot = rolled.Count < snapshot.SlotCapacity && rolled.Count < snapshot.NetworkCapacity;
+        var pool = new List<ValidatedLootContainerContentSnapshot.Entry>(snapshot.EntryCount);
+        ulong poolWeight = 0;
+        for (int i = 0; i < snapshot.EntryCount; i++)
+        {
+            ValidatedLootContainerContentSnapshot.Entry entry = snapshot.GetEntry(i);
+            bool include = hasFreeSlot
+                ? IndexOfRolled(rolled, entry.CatalogIndex) < 0
+                : CanTakeMore(rolled, entry);
+            if (!include)
+            {
+                continue;
+            }
+
+            pool.Add(entry);
+            poolWeight = checked(poolWeight + entry.Weight);
+        }
+
+        if (pool.Count == 0 && hasFreeSlot)
+        {
+            // Every table entry is already present: draw from the full table and merge.
+            for (int i = 0; i < snapshot.EntryCount; i++)
+            {
+                ValidatedLootContainerContentSnapshot.Entry entry = snapshot.GetEntry(i);
+                pool.Add(entry);
+                poolWeight = checked(poolWeight + entry.Weight);
+            }
+        }
+
+        if (pool.Count == 0)
+        {
+            return true;
+        }
+
+        int selectedIndex = SelectWeightedIndex(pool, poolWeight, ref chaosRandom);
+        if (selectedIndex < 0)
+        {
+            error = "Chaos coin weighted candidate selection failed.";
+            return false;
+        }
+
+        ValidatedLootContainerContentSnapshot.Entry selected = pool[selectedIndex];
+        int amount = NextInclusive(ref chaosRandom, selected.MinimumAmount, selected.MaximumAmount);
+        int existing = IndexOfRolled(rolled, selected.CatalogIndex);
+        if (existing < 0)
+        {
+            rolled.Add(new RolledEntry(selected.CatalogIndex, new LootEntry(selected.LootId, amount)));
+            return true;
+        }
+
+        int current = rolled[existing].Loot.Amount;
+        int merged = (int)Math.Min((long)current + amount, selected.StackMax);
+        if (merged > current)
+        {
+            rolled[existing] = new RolledEntry(selected.CatalogIndex, new LootEntry(selected.LootId, merged));
+        }
+
+        return true;
+    }
+
+    private static bool CanTakeMore(
+        List<RolledEntry> rolled,
+        ValidatedLootContainerContentSnapshot.Entry entry)
+    {
+        int index = IndexOfRolled(rolled, entry.CatalogIndex);
+        return index >= 0 && entry.StackMax > 1 && rolled[index].Loot.Amount < entry.StackMax;
+    }
+
+    private static int IndexOfRolled(List<RolledEntry> rolled, int catalogIndex)
+    {
+        for (int i = 0; i < rolled.Count; i++)
+        {
+            if (rolled[i].CatalogIndex == catalogIndex)
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     private static int SelectWeightedIndex(
