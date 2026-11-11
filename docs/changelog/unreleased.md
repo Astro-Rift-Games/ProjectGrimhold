@@ -4,32 +4,132 @@
 
 Release: Unreleased
 
-130 original commits; 130 canonical entries.
+132 original commits; 132 canonical entries.
 
 ## Canonical classification
 
-61 features; 35 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 13 tests; 8 maintenance; 2 other changes
+61 features; 37 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 13 tests; 8 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 7 | 6 | 1 | 0 | 8 | 1 |
 | Art & Animation | 7 | 9 | 1 | 0 | 6 | 0 |
 | Audio | 3 | 1 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 36 | 21 | 1 | 1 | 13 | 2 |
-| Combat | 34 | 6 | 0 | 0 | 10 | 0 |
+| Build & Tooling | 36 | 23 | 1 | 1 | 13 | 2 |
+| Combat | 34 | 7 | 0 | 0 | 10 | 0 |
 | Documentation | 26 | 9 | 0 | 0 | 4 | 0 |
 | Extraction | 9 | 2 | 0 | 0 | 5 | 0 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 51 | 23 | 1 | 1 | 16 | 1 |
+| Inventory & Loot | 51 | 25 | 1 | 1 | 16 | 1 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 16 | 8 | 0 | 0 | 7 | 0 |
-| Persistence & Backend | 25 | 10 | 0 | 1 | 7 | 0 |
-| Tests | 59 | 29 | 1 | 1 | 21 | 0 |
+| Networking & Sessions | 16 | 9 | 0 | 0 | 7 | 0 |
+| Persistence & Backend | 25 | 11 | 0 | 1 | 7 | 0 |
+| Tests | 59 | 31 | 1 | 1 | 21 | 0 |
 | UI | 22 | 8 | 1 | 0 | 8 | 0 |
 | Unassigned | 0 | 1 | 0 | 0 | 2 | 0 |
 | World & Visibility | 16 | 6 | 0 | 0 | 2 | 0 |
 
 ## Original commit records
+
+### e3f247b5822ddfe84cc1b25efa716a8835d17246
+
+[e3f247b5822ddfe84cc1b25efa716a8835d17246](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e3f247b5822ddfe84cc1b25efa716a8835d17246)
+
+Date: 2026-11-10T22:10:27-03:00 · Classification: Bug Fixes (explicit) · Systems: Inventory & Loot, Networking & Sessions, Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(backend): sign v3 raid admission equipment by slot name
+```
+
+#### Original body
+
+```text
+issueRaidAdmissionTicket built the v3 preparedEquipment snapshot with Object.entries on a Mongoose subdocument, signing its internals ($__, _doc with instance ids) instead of the slots. Unity rejected the ticket (DECODE_FAILED), the client fell back to a local payload and the host disconnected it, so fresh (v3) accounts could not join a party raid. The snapshot now maps EQUIPMENT_SLOTS; a Unity EditMode test pins the decoded shape.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs.meta
+backend/src/services/SessionTicketService.js
+backend/tests/session.ticket.v3.test.js
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- message-term → Inventory &amp; Loot: equipment
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs.meta
+- path → Networking &amp; Sessions: backend/src/services/SessionTicketService.js
+- path → Networking &amp; Sessions: backend/tests/session.ticket.v3.test.js
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs.meta
+- path → Persistence &amp; Backend: backend/src/services/SessionTicketService.js
+- path → Persistence &amp; Backend: backend/tests/session.ticket.v3.test.js
+- scope → Persistence &amp; Backend: backend
+- message-term → Persistence &amp; Backend: backend
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs.meta
+- path → Tests: backend/tests/session.ticket.v3.test.js
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### a2f0f9caba8b4e2492ff49b1a75861ea4bd9c67c
+
+[a2f0f9caba8b4e2492ff49b1a75861ea4bd9c67c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a2f0f9caba8b4e2492ff49b1a75861ea4bd9c67c)
+
+Date: 2026-11-10T21:38:15-03:00 · Classification: Bug Fixes (explicit) · Systems: Combat, Inventory & Loot, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(loot): roll the Chaos Coin independently of Luck and container fill
+```
+
+#### Original body
+
+```text
+FIX-74: Luck consumed the last candidate and filled capacity, so the Coin's 20% roll was skipped (Doc 07 9.1 requires both to be independent and co-occur). The Coin now always rolls; with a free slot it adds a not-yet-rolled entry, or merges into an existing stack when every table entry is present; with a full container it merges into a stackable entry below StackMax. The validated snapshot now carries each entry's StackMax (weapons 1).
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Gameplay/LootContainerContentRoller.cs
+Project Grimhold/Assets/Scripts/Gameplay/LootContainerContentTableValidation.cs
+Project Grimhold/Assets/Scripts/Gameplay/ValidatedLootContainerContentSnapshot.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- message-term → Combat: weapons
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/LootContainerContentRoller.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/LootContainerContentTableValidation.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/ValidatedLootContainerContentSnapshot.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### a26f1a6795df1a81cb95439e3adff723e4ad3f32
 

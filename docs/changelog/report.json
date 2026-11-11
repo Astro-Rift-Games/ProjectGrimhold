@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1007,
-  "canonicalEntries": 1004,
+  "rawCommits": 1009,
+  "canonicalEntries": 1006,
   "before": {
+    "Bug Fixes": 115,
     "Tests": 37,
-    "Bug Fixes": 113,
     "Features": 384,
     "Architecture & Infrastructure": 21,
     "Other Changes": 355,
@@ -12,8 +12,8 @@
     "Refactoring": 14
   },
   "after": {
+    "Bug Fixes": 131,
     "Tests": 42,
-    "Bug Fixes": 129,
     "Features": 521,
     "Maintenance": 19,
     "Architecture & Infrastructure": 6,
@@ -23,14 +23,14 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Inventory & Loot": 409,
-    "Networking & Sessions": 287,
-    "Persistence & Backend": 228,
-    "Tests": 632,
-    "Build & Tooling": 515,
+    "Inventory & Loot": 411,
+    "Networking & Sessions": 288,
+    "Persistence & Backend": 229,
+    "Build & Tooling": 517,
+    "Tests": 634,
+    "Combat": 367,
     "UI": 308,
     "World & Visibility": 134,
-    "Combat": 366,
     "Abilities": 127,
     "Extraction": 135,
     "Unassigned": 21,
@@ -42,8 +42,8 @@
   },
   "canonical": {
     "sections": {
+      "Bug Fixes": 130,
       "Tests": 42,
-      "Bug Fixes": 128,
       "Features": 520,
       "Maintenance": 19,
       "Architecture & Infrastructure": 6,
@@ -52,14 +52,14 @@
       "Refactoring": 27
     },
     "systems": {
-      "Inventory & Loot": 409,
-      "Networking & Sessions": 287,
-      "Persistence & Backend": 228,
-      "Tests": 630,
-      "Build & Tooling": 513,
+      "Inventory & Loot": 411,
+      "Networking & Sessions": 288,
+      "Persistence & Backend": 229,
+      "Build & Tooling": 515,
+      "Tests": 632,
+      "Combat": 365,
       "UI": 307,
       "World & Visibility": 132,
-      "Combat": 364,
       "Abilities": 125,
       "Extraction": 135,
       "Unassigned": 21,
@@ -34083,8 +34083,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 130,
-      "canonicalEntries": 130
+      "originalCommits": 132,
+      "canonicalEntries": 132
     },
     {
       "key": "v0.5.0",
@@ -34128,6 +34128,209 @@
     }
   ],
   "commits": [
+    {
+      "sha": "e3f247b5822ddfe84cc1b25efa716a8835d17246",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e3f247b5822ddfe84cc1b25efa716a8835d17246",
+      "subject": "fix(backend): sign v3 raid admission equipment by slot name",
+      "body": "issueRaidAdmissionTicket built the v3 preparedEquipment snapshot with Object.entries on a Mongoose subdocument, signing its internals ($__, _doc with instance ids) instead of the slots. Unity rejected the ticket (DECODE_FAILED), the client fell back to a local payload and the host disconnected it, so fresh (v3) accounts could not join a party raid. The snapshot now maps EQUIPMENT_SLOTS; a Unity EditMode test pins the decoded shape.\n",
+      "date": "2026-11-10T22:10:27-03:00",
+      "files": [
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs.meta",
+        "backend/src/services/SessionTicketService.js",
+        "backend/tests/session.ticket.v3.test.js"
+      ],
+      "originalType": "fix",
+      "originalScope": "backend",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "message-term",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/SessionTicketService.js",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/session.ticket.v3.test.js",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/SessionTicketService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/session.ticket.v3.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "scope",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/BackendV3AdmissionShapeTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/session.ticket.v3.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "a2f0f9caba8b4e2492ff49b1a75861ea4bd9c67c",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a2f0f9caba8b4e2492ff49b1a75861ea4bd9c67c",
+      "subject": "fix(loot): roll the Chaos Coin independently of Luck and container fill",
+      "body": "FIX-74: Luck consumed the last candidate and filled capacity, so the Coin's 20% roll was skipped (Doc 07 9.1 requires both to be independent and co-occur). The Coin now always rolls; with a free slot it adds a not-yet-rolled entry, or merges into an existing stack when every table entry is present; with a full container it merges into a stackable entry below StackMax. The validated snapshot now carries each entry's StackMax (weapons 1).\n",
+      "date": "2026-11-10T21:38:15-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Gameplay/LootContainerContentRoller.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/LootContainerContentTableValidation.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/ValidatedLootContainerContentSnapshot.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs"
+      ],
+      "originalType": "fix",
+      "originalScope": "loot",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Inventory & Loot",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "message-term",
+          "value": "weapons",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/LootContainerContentRoller.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/LootContainerContentTableValidation.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/ValidatedLootContainerContentSnapshot.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChaosCoinRollerTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "a26f1a6795df1a81cb95439e3adff723e4ad3f32",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a26f1a6795df1a81cb95439e3adff723e4ad3f32",
