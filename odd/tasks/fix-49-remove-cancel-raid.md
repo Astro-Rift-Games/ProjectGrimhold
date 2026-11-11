@@ -16,11 +16,11 @@ Constraints: `RaidClosureReason` is `[Networked]` byte — remove `HostCancellat
 
 ## Tasks
 
-- [x] T1 — S4: Host voluntary Abandon is resolved for handoff only after an explicit Return (`HostHandoffPolicy.IsHostExitResolved`, `AuthorizesReturnOnResolvedAbandon`, presenter host early-return at Abandon confirm). Route: inline. Commit: —
-- [x] T2 — S1, S3: menu shows Abandon (with the standard two-step confirm) for the Host; Cancel Raid button, view API and presenter handler removed; prefab refs cleaned in the Editor. Route: inline. Commit: —
-- [x] T3 — S2, S3: remove `TryCancelRaid`, `HostCancellation`, `ObserveHostCancellationClosure`, `ShouldArmHostCancellationReturn`, `_hostCancellationReturnArmed`; migrate tests. Route: inline. Commit: —
-- [x] T4 — S6: architecture sentence updates. Route: inline. Commit: —
-- [x] T5 — S5: suites green + multi-process evidence (Host + 1 Client Abandon; Host + 2 Clients handoff after Abandon; Solo Abandon). Route: user run + log read. Commit: —
+- [x] T1 — S4: Host voluntary Abandon is resolved for handoff only after an explicit Return (`HostHandoffPolicy.IsHostExitResolved`, `AuthorizesReturnOnResolvedAbandon`, presenter host early-return at Abandon confirm). Route: inline. Commit: 71fe7864.
+- [x] T2 — S1, S3: menu shows Abandon (with the standard two-step confirm) for the Host; Cancel Raid button, view API and presenter handler removed; prefab refs cleaned in the Editor. Route: inline. Commit: 71fe7864.
+- [x] T3 — S2, S3: remove `TryCancelRaid`, `HostCancellation`, `ObserveHostCancellationClosure`, `ShouldArmHostCancellationReturn`, `_hostCancellationReturnArmed`; migrate tests. Route: inline. Commit: 71fe7864.
+- [x] T4 — S6: architecture sentence updates. Route: inline. Commit: 71fe7864.
+- [x] T5 — S5: suites green + multi-process evidence (Host + 1 Client Abandon; Host + 2 Clients handoff after Abandon; Solo Abandon). Route: user run + log read. Commit: n/a (evidence L10).
 
 ## Log
 
