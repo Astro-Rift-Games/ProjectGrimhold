@@ -54,6 +54,7 @@ public sealed class TownMerchantTradePlayModeTests
         _runner = owner.AddComponent<NetworkRunner>();
         owner.AddComponent<EntityRegistry>();
         owner.AddComponent<LocalInputContext>();
+        owner.AddComponent<TownSenderIdentityContext>();
         owner.AddComponent<LocalPlayerJoinContext>().Initialize(new PlayerJoinData(_profile.ProfileId));
         var start = _runner.StartGame(new StartGameArgs
         {
@@ -66,11 +67,12 @@ public sealed class TownMerchantTradePlayModeTests
         Assert.That(start.Result.Ok, Is.True, start.Result.ShutdownReason.ToString());
         var player = Spawn("b58bec13d63beb74ca61349f7d983c36");
         _runner.SetPlayerObject(_runner.LocalPlayer, player);
-        Assert.That(player.GetComponent<SocialPlayerIdentity>().SessionTicket.ToString(), Is.Not.Empty);
         _merchant = Spawn("2b48446013b1f154b878ae1793dab811").GetComponent<TownMerchantNetworkController>();
         Assert.That(_merchant, Is.Not.Null);
         Assert.That(_merchant.HasStateAuthority, Is.True);
         _merchant.TicketVerifier = _profile;
+        var senders = owner.GetComponent<TownSenderIdentityContext>();
+        yield return WaitFor(() => senders.Registry.TryResolve(_runner.LocalPlayer, _profile, out _), "Local sender registration");
         _endpoint = new PlayModeMerchantComposition.EndpointObserver(_merchant);
         _uiObject = UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(
             "Assets/Prefabs/UI/MerchantShopUI.prefab"));

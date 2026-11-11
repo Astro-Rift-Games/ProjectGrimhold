@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1009,
-  "canonicalEntries": 1006,
+  "rawCommits": 1013,
+  "canonicalEntries": 1010,
   "before": {
-    "Bug Fixes": 115,
-    "Tests": 37,
+    "Tests": 38,
+    "Bug Fixes": 116,
+    "Architecture & Infrastructure": 22,
+    "Other Changes": 356,
     "Features": 384,
-    "Architecture & Infrastructure": 21,
-    "Other Changes": 355,
     "Documentation": 83,
     "Refactoring": 14
   },
   "after": {
-    "Bug Fixes": 131,
-    "Tests": 42,
-    "Features": 521,
-    "Maintenance": 19,
+    "Tests": 43,
+    "Bug Fixes": 132,
+    "Maintenance": 20,
+    "Features": 522,
     "Architecture & Infrastructure": 6,
     "Documentation": 99,
     "Other Changes": 164,
@@ -23,49 +23,49 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Inventory & Loot": 411,
-    "Networking & Sessions": 288,
-    "Persistence & Backend": 229,
-    "Build & Tooling": 517,
-    "Tests": 634,
-    "Combat": 367,
+    "Combat": 368,
+    "Abilities": 128,
+    "Inventory & Loot": 413,
+    "Art & Animation": 234,
+    "Build & Tooling": 521,
+    "Tests": 637,
+    "Networking & Sessions": 289,
+    "Persistence & Backend": 231,
+    "Documentation": 383,
     "UI": 308,
     "World & Visibility": 134,
-    "Abilities": 127,
     "Extraction": 135,
     "Unassigned": 21,
-    "Documentation": 382,
     "Audio": 34,
-    "Art & Animation": 233,
     "Input": 30,
     "Movement": 94
   },
   "canonical": {
     "sections": {
-      "Bug Fixes": 130,
-      "Tests": 42,
-      "Features": 520,
-      "Maintenance": 19,
+      "Tests": 43,
+      "Bug Fixes": 131,
+      "Maintenance": 20,
+      "Features": 521,
       "Architecture & Infrastructure": 6,
       "Documentation": 99,
       "Other Changes": 163,
       "Refactoring": 27
     },
     "systems": {
-      "Inventory & Loot": 411,
-      "Networking & Sessions": 288,
-      "Persistence & Backend": 229,
-      "Build & Tooling": 515,
-      "Tests": 632,
-      "Combat": 365,
+      "Combat": 366,
+      "Abilities": 126,
+      "Inventory & Loot": 413,
+      "Art & Animation": 231,
+      "Build & Tooling": 519,
+      "Tests": 635,
+      "Networking & Sessions": 289,
+      "Persistence & Backend": 231,
+      "Documentation": 381,
       "UI": 307,
       "World & Visibility": 132,
-      "Abilities": 125,
       "Extraction": 135,
       "Unassigned": 21,
-      "Documentation": 380,
       "Audio": 34,
-      "Art & Animation": 230,
       "Input": 30,
       "Movement": 94
     }
@@ -31501,6 +31501,48 @@
   ],
   "examples": [
     {
+      "sha": "d39a56acee9e44cbd169c96893e05e203fdb6257",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d39a56acee9e44cbd169c96893e05e203fdb6257",
+      "subject": "Add multiplayer playmode package",
+      "body": "Enables Unity Multiplayer Play Mode 3.0.0 and adds the corresponding virtual projects configuration.\n",
+      "date": "2026-11-10T23:02:38-03:00",
+      "files": [
+        "Project Grimhold/Packages/manifest.json",
+        "Project Grimhold/Packages/packages-lock.json",
+        "Project Grimhold/ProjectSettings/VirtualProjectsConfig.json"
+      ],
+      "originalType": null,
+      "originalScope": null,
+      "originalSection": "Other Changes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "inferred",
+      "systems": [
+        "Build & Tooling"
+      ],
+      "evidence": [
+        {
+          "source": "subject-action",
+          "value": "Add multiplayer playmode package",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Packages/manifest.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Packages/packages-lock.json",
+          "supports": "Build & Tooling"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
       "sha": "9509f3b4842b9f6d1b936665435ae49f75904a3b",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9509f3b4842b9f6d1b936665435ae49f75904a3b",
       "subject": "Enforce strict TDD in project workflows",
@@ -34005,76 +34047,6 @@
       "diagnostics": [],
       "generic": false,
       "secondary": false
-    },
-    {
-      "sha": "8ab041de6a86016264ce0d6f65aef4ab60ad3baa",
-      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8ab041de6a86016264ce0d6f65aef4ab60ad3baa",
-      "subject": "Fix ability stop and equip guard during casts",
-      "body": "Makes ability stop callbacks resilient to transient slot unbinding by building stop context from the cached execution behaviour instead of live slot binding. Also tightens weapon equip authority checks to reject replacing an active main-hand weapon whenever an ability execution is in progress. Adds play mode coverage for both regressions: active-set equip rejection during execution and guaranteed Stop delivery after participation ends even after a temporary unresolve.\n",
-      "date": "2026-10-04T04:33:19-03:00",
-      "files": [
-        "Project Grimhold/Assets/Scripts/Abilities/Runtime/PlayerAbilityRuntimeNetworkController.cs",
-        "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
-        "Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs"
-      ],
-      "originalType": null,
-      "originalScope": null,
-      "originalSection": "Other Changes",
-      "breaking": false,
-      "reverts": null,
-      "section": "Bug Fixes",
-      "confidence": "inferred",
-      "systems": [
-        "Combat",
-        "Abilities",
-        "Inventory & Loot",
-        "Tests"
-      ],
-      "evidence": [
-        {
-          "source": "subject-action",
-          "value": "Fix ability stop and equip guard during casts",
-          "supports": "Bug Fixes"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
-          "supports": "Combat"
-        },
-        {
-          "source": "message-term",
-          "value": "weapon",
-          "supports": "Combat"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Abilities/Runtime/PlayerAbilityRuntimeNetworkController.cs",
-          "supports": "Abilities"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs",
-          "supports": "Abilities"
-        },
-        {
-          "source": "message-term",
-          "value": "ability",
-          "supports": "Abilities"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
-          "supports": "Inventory & Loot"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs",
-          "supports": "Tests"
-        }
-      ],
-      "diagnostics": [],
-      "generic": false,
-      "secondary": false
     }
   ],
   "periods": [
@@ -34083,8 +34055,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 132,
-      "canonicalEntries": 132
+      "originalCommits": 136,
+      "canonicalEntries": 136
     },
     {
       "key": "v0.5.0",
@@ -34128,6 +34100,470 @@
     }
   ],
   "commits": [
+    {
+      "sha": "b655db6546eb3886c64ddebc87bf77d55df55fdc",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b655db6546eb3886c64ddebc87bf77d55df55fdc",
+      "subject": "test: compare remaining sprite assertions by native identity",
+      "body": "Unity 6000.6 can surface the same native Sprite through different\nmanaged wrappers (serialized reference vs AssetDatabase load), so\nIs.SameAs failed with identical names on both sides. 09c85bd3 fixed\nmost sites; four sprite assertions it did not cover kept 27 EditMode\ntests red. Is.EqualTo still compares instance ids, so a different\nSprite with the same name still fails. ScriptableObject definition\nassertions keep Is.SameAs.\n\nTests: ArmorSetCatalogTests 6/6, ConsumableUtilitySpriteAssetsTests\n10/10, WeaponAttackSpriteAnimationTests 30/30.\n",
+      "date": "2026-11-11T01:28:52-03:00",
+      "files": [
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs"
+      ],
+      "originalType": "test",
+      "originalScope": null,
+      "originalSection": "Tests",
+      "breaking": false,
+      "reverts": null,
+      "section": "Tests",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Abilities",
+        "Inventory & Loot",
+        "Art & Animation",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "test",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "message-term",
+          "value": "sprite",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "1f2a69d5ee0a0d67911d351b7225b3c04ace0784",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1f2a69d5ee0a0d67911d351b7225b3c04ace0784",
+      "subject": "fix(network): bind Town identity to the real RPC sender",
+      "body": "Town runs in Shared Mode, and every peer wrote and replicated its own\nSessionTicket. Any client could copy a companion's ticket and act as\nthat player in Party, preparation and merchant RPCs (FIX-54).\n\nThe ticket is no longer replicated. Each client delivers it through the\ntargeted static RPC SocialPlayerIdentity.RPC_RegisterTownSender only to\nthe current State Authority of each Town authority object. The\nrunner-scoped TownSenderIdentityContext binds the ticket's profile to\nRpcInfo.Source in TownSenderIdentityRegistry, so the payload never names\nthe sender. Every authoritative Town RPC, including the launch ack and\nreject in TownRaidPreparationNetworkController, now resolves its sender\nonly through that verified binding and requires the visible ProfileId\nto match. Non-authority peers use the replicated claim for presentation\nonly.\n\nReviewers should verify:\n- only a verified binding blocks other claimants; unverified or\n  rejected claims are evicted, so a forged unsigned ticket cannot lock\n  the owner out, and the earliest genuine registration owns a profile;\n- clients re-register when the State Authority PlayerRef changes, and\n  bindings are released on player leave and runner shutdown;\n- GameMode.Single reports StateAuthority as None while HasStateAuthority\n  is true, so local registration uses LocalPlayer.\n\nTests:\n- TownSenderIdentityRegistryTests (14) and TownSenderIdentityContractTests\n  (5) cover the binding, conflicts, forged and pending tickets,\n  reconnection and the non-replicated, targeted RPC contract.\n- Town merchant, party and interaction PlayMode compositions add the\n  context; the merchant test waits for the local registration.\n\nDocs: RemoteIdentityAndAuthArchitecture.md documents sender binding and\nthe residual Shared Mode trust.\n\nRefs: FIX-54\n",
+      "date": "2026-11-11T01:18:32-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Networking/HubRunnerFactory.cs",
+        "Project Grimhold/Assets/Scripts/Networking/SocialPlayerIdentity.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownMerchantNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownPartyDirectory.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationDirectory.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityContext.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityContext.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityRegistry.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityRegistry.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityValidator.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderRegistrationResult.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderRegistrationResult.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs.meta",
+        "Project Grimhold/Assets/Tests/PlayMode/TownInteractionLocalAuthorityPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/TownMerchantTradePlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/TownPartyLocalAuthorityPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md",
+        "odd/tasks/fix-54-town-sender-binding.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "network",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/TownInteractionLocalAuthorityPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "interaction",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/HubRunnerFactory.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SocialPlayerIdentity.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownMerchantNetworkController.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownPartyDirectory.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationDirectory.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityContext.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityContext.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityRegistry.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityRegistry.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityValidator.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderRegistrationResult.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderRegistrationResult.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/TownInteractionLocalAuthorityPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/TownMerchantTradePlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/TownPartyLocalAuthorityPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "82c71822f34396ba615f6c65424e0c58d7b6dd1d",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/82c71822f34396ba615f6c65424e0c58d7b6dd1d",
+      "subject": "chore(hooks): disable the local pre-push quality gate by default",
+      "body": "The local pre-push gate blocked pushes before it was reliable enough to\nbe useful. It now exits immediately unless GRIMHOLD_PREPUSH_GATE=1 is\nset, so it is off for everyone, including clones that already point\ncore.hooksPath at .githooks. The gate logic is kept for later rework.\n\nStop configuring the hook automatically: remove the Unity\nInitializeOnLoad GitHooksSetup and the backend `prepare` script.\n`npm run setup:hooks` remains as a manual opt-in. GitHub Actions CI is\nunchanged.\n\nTests:\n- prepush.hook.test.js runs existing cases with the gate enabled and\n  adds a case asserting the disabled hook exits 0 without running steps\n\nDocs: AGENTS.md Quality Gates line describes the opt-in.\n",
+      "date": "2026-11-11T00:13:14-03:00",
+      "files": [
+        ".githooks/pre-push",
+        "AGENTS.md",
+        "Project Grimhold/Assets/Editor/GitHooks.meta",
+        "Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs",
+        "Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs.meta",
+        "backend/package.json",
+        "backend/tests/prepush.hook.test.js",
+        "tools/hooks/setup-hooks.js"
+      ],
+      "originalType": "chore",
+      "originalScope": "hooks",
+      "originalSection": "Architecture & Infrastructure",
+      "breaking": false,
+      "reverts": null,
+      "section": "Maintenance",
+      "confidence": "explicit",
+      "systems": [
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "chore",
+          "supports": "Maintenance"
+        },
+        {
+          "source": "path",
+          "value": "backend/package.json",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/prepush.hook.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "AGENTS.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/GitHooks.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/hooks/setup-hooks.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/prepush.hook.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "d39a56acee9e44cbd169c96893e05e203fdb6257",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d39a56acee9e44cbd169c96893e05e203fdb6257",
+      "subject": "Add multiplayer playmode package",
+      "body": "Enables Unity Multiplayer Play Mode 3.0.0 and adds the corresponding virtual projects configuration.\n",
+      "date": "2026-11-10T23:02:38-03:00",
+      "files": [
+        "Project Grimhold/Packages/manifest.json",
+        "Project Grimhold/Packages/packages-lock.json",
+        "Project Grimhold/ProjectSettings/VirtualProjectsConfig.json"
+      ],
+      "originalType": null,
+      "originalScope": null,
+      "originalSection": "Other Changes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "inferred",
+      "systems": [
+        "Build & Tooling"
+      ],
+      "evidence": [
+        {
+          "source": "subject-action",
+          "value": "Add multiplayer playmode package",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Packages/manifest.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Packages/packages-lock.json",
+          "supports": "Build & Tooling"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "e3f247b5822ddfe84cc1b25efa716a8835d17246",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e3f247b5822ddfe84cc1b25efa716a8835d17246",

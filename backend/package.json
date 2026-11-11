@@ -12,8 +12,7 @@
     "seed": "node scripts/seed-test-accounts.js",
     "security:scan": "node ../tools/security/scan-secrets.js",
     "test:coverage": "node --require ./tests/setup.js --experimental-test-coverage --test tests/*.test.js",
-    "setup:hooks": "node ../tools/hooks/setup-hooks.js",
-    "prepare": "node ../tools/hooks/setup-hooks.js"
+    "setup:hooks": "node ../tools/hooks/setup-hooks.js"
   },
   "keywords": [],
   "author": "",

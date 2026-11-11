@@ -4,32 +4,317 @@
 
 Release: Unreleased
 
-132 original commits; 132 canonical entries.
+136 original commits; 136 canonical entries.
 
 ## Canonical classification
 
-61 features; 37 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 13 tests; 8 maintenance; 2 other changes
+62 features; 38 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 14 tests; 9 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Abilities | 7 | 6 | 1 | 0 | 8 | 1 |
-| Art & Animation | 7 | 9 | 1 | 0 | 6 | 0 |
+| Abilities | 7 | 6 | 1 | 0 | 9 | 1 |
+| Art & Animation | 7 | 9 | 1 | 0 | 7 | 0 |
 | Audio | 3 | 1 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 36 | 23 | 1 | 1 | 13 | 2 |
-| Combat | 34 | 7 | 0 | 0 | 10 | 0 |
-| Documentation | 26 | 9 | 0 | 0 | 4 | 0 |
+| Build & Tooling | 37 | 24 | 1 | 1 | 15 | 2 |
+| Combat | 34 | 7 | 0 | 0 | 11 | 0 |
+| Documentation | 26 | 10 | 0 | 0 | 4 | 0 |
 | Extraction | 9 | 2 | 0 | 0 | 5 | 0 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 51 | 25 | 1 | 1 | 16 | 1 |
+| Inventory & Loot | 51 | 26 | 1 | 1 | 17 | 1 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 16 | 9 | 0 | 0 | 7 | 0 |
-| Persistence & Backend | 25 | 11 | 0 | 1 | 7 | 0 |
-| Tests | 59 | 31 | 1 | 1 | 21 | 0 |
+| Networking & Sessions | 16 | 10 | 0 | 0 | 7 | 0 |
+| Persistence & Backend | 25 | 12 | 0 | 1 | 8 | 0 |
+| Tests | 59 | 32 | 1 | 1 | 23 | 0 |
 | UI | 22 | 8 | 1 | 0 | 8 | 0 |
 | Unassigned | 0 | 1 | 0 | 0 | 2 | 0 |
 | World & Visibility | 16 | 6 | 0 | 0 | 2 | 0 |
 
 ## Original commit records
+
+### b655db6546eb3886c64ddebc87bf77d55df55fdc
+
+[b655db6546eb3886c64ddebc87bf77d55df55fdc](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b655db6546eb3886c64ddebc87bf77d55df55fdc)
+
+Date: 2026-11-11T01:28:52-03:00 · Classification: Tests (explicit) · Systems: Combat, Abilities, Inventory & Loot, Art & Animation, Build & Tooling, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+test: compare remaining sprite assertions by native identity
+```
+
+#### Original body
+
+```text
+Unity 6000.6 can surface the same native Sprite through different
+managed wrappers (serialized reference vs AssetDatabase load), so
+Is.SameAs failed with identical names on both sides. 09c85bd3 fixed
+most sites; four sprite assertions it did not cover kept 27 EditMode
+tests red. Is.EqualTo still compares instance ids, so a different
+Sprite with the same name still fails. ScriptableObject definition
+assertions keep Is.SameAs.
+
+Tests: ArmorSetCatalogTests 6/6, ConsumableUtilitySpriteAssetsTests
+10/10, WeaponAttackSpriteAnimationTests 30/30.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs
+```
+
+#### Classification evidence
+
+- type → Tests: test
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs
+- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Art &amp; Animation: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Art &amp; Animation: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs
+- message-term → Art &amp; Animation: sprite
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 1f2a69d5ee0a0d67911d351b7225b3c04ace0784
+
+[1f2a69d5ee0a0d67911d351b7225b3c04ace0784](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1f2a69d5ee0a0d67911d351b7225b3c04ace0784)
+
+Date: 2026-11-11T01:18:32-03:00 · Classification: Bug Fixes (explicit) · Systems: Inventory & Loot, Networking & Sessions, Persistence & Backend, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(network): bind Town identity to the real RPC sender
+```
+
+#### Original body
+
+```text
+Town runs in Shared Mode, and every peer wrote and replicated its own
+SessionTicket. Any client could copy a companion's ticket and act as
+that player in Party, preparation and merchant RPCs (FIX-54).
+
+The ticket is no longer replicated. Each client delivers it through the
+targeted static RPC SocialPlayerIdentity.RPC_RegisterTownSender only to
+the current State Authority of each Town authority object. The
+runner-scoped TownSenderIdentityContext binds the ticket's profile to
+RpcInfo.Source in TownSenderIdentityRegistry, so the payload never names
+the sender. Every authoritative Town RPC, including the launch ack and
+reject in TownRaidPreparationNetworkController, now resolves its sender
+only through that verified binding and requires the visible ProfileId
+to match. Non-authority peers use the replicated claim for presentation
+only.
+
+Reviewers should verify:
+- only a verified binding blocks other claimants; unverified or
+  rejected claims are evicted, so a forged unsigned ticket cannot lock
+  the owner out, and the earliest genuine registration owns a profile;
+- clients re-register when the State Authority PlayerRef changes, and
+  bindings are released on player leave and runner shutdown;
+- GameMode.Single reports StateAuthority as None while HasStateAuthority
+  is true, so local registration uses LocalPlayer.
+
+Tests:
+- TownSenderIdentityRegistryTests (14) and TownSenderIdentityContractTests
+  (5) cover the binding, conflicts, forged and pending tickets,
+  reconnection and the non-replicated, targeted RPC contract.
+- Town merchant, party and interaction PlayMode compositions add the
+  context; the merchant test waits for the local registration.
+
+Docs: RemoteIdentityAndAuthArchitecture.md documents sender binding and
+the residual Shared Mode trust.
+
+Refs: FIX-54
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/HubRunnerFactory.cs
+Project Grimhold/Assets/Scripts/Networking/SocialPlayerIdentity.cs
+Project Grimhold/Assets/Scripts/Networking/TownMerchantNetworkController.cs
+Project Grimhold/Assets/Scripts/Networking/TownPartyDirectory.cs
+Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationDirectory.cs
+Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs
+Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityContext.cs
+Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityContext.cs.meta
+Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityRegistry.cs
+Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityRegistry.cs.meta
+Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityValidator.cs
+Project Grimhold/Assets/Scripts/Networking/TownSenderRegistrationResult.cs
+Project Grimhold/Assets/Scripts/Networking/TownSenderRegistrationResult.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs.meta
+Project Grimhold/Assets/Tests/PlayMode/TownInteractionLocalAuthorityPlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/TownMerchantTradePlayModeTests.cs
+Project Grimhold/Assets/Tests/PlayMode/TownPartyLocalAuthorityPlayModeTests.cs
+Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md
+odd/tasks/fix-54-town-sender-binding.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/TownInteractionLocalAuthorityPlayModeTests.cs
+- message-term → Inventory &amp; Loot: interaction
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/HubRunnerFactory.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/SocialPlayerIdentity.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownMerchantNetworkController.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownPartyDirectory.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationDirectory.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityContext.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityContext.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityRegistry.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityRegistry.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityValidator.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownSenderRegistrationResult.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownSenderRegistrationResult.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs.meta
+- scope → Networking &amp; Sessions: network
+- path → Persistence &amp; Backend: Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs.meta
+- path → Documentation: Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/TownInteractionLocalAuthorityPlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/TownMerchantTradePlayModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/TownPartyLocalAuthorityPlayModeTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 82c71822f34396ba615f6c65424e0c58d7b6dd1d
+
+[82c71822f34396ba615f6c65424e0c58d7b6dd1d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/82c71822f34396ba615f6c65424e0c58d7b6dd1d)
+
+Date: 2026-11-11T00:13:14-03:00 · Classification: Maintenance (explicit) · Systems: Persistence & Backend, Build & Tooling, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+chore(hooks): disable the local pre-push quality gate by default
+```
+
+#### Original body
+
+```text
+The local pre-push gate blocked pushes before it was reliable enough to
+be useful. It now exits immediately unless GRIMHOLD_PREPUSH_GATE=1 is
+set, so it is off for everyone, including clones that already point
+core.hooksPath at .githooks. The gate logic is kept for later rework.
+
+Stop configuring the hook automatically: remove the Unity
+InitializeOnLoad GitHooksSetup and the backend `prepare` script.
+`npm run setup:hooks` remains as a manual opt-in. GitHub Actions CI is
+unchanged.
+
+Tests:
+- prepush.hook.test.js runs existing cases with the gate enabled and
+  adds a case asserting the disabled hook exits 0 without running steps
+
+Docs: AGENTS.md Quality Gates line describes the opt-in.
+```
+
+#### Changed paths
+
+```text
+.githooks/pre-push
+AGENTS.md
+Project Grimhold/Assets/Editor/GitHooks.meta
+Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs
+Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs.meta
+backend/package.json
+backend/tests/prepush.hook.test.js
+tools/hooks/setup-hooks.js
+```
+
+#### Classification evidence
+
+- type → Maintenance: chore
+- path → Persistence &amp; Backend: backend/package.json
+- path → Persistence &amp; Backend: backend/tests/prepush.hook.test.js
+- message-term → Persistence &amp; Backend: backend
+- path → Build &amp; Tooling: AGENTS.md
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/GitHooks.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs.meta
+- path → Build &amp; Tooling: tools/hooks/setup-hooks.js
+- path → Tests: backend/tests/prepush.hook.test.js
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### d39a56acee9e44cbd169c96893e05e203fdb6257
+
+[d39a56acee9e44cbd169c96893e05e203fdb6257](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d39a56acee9e44cbd169c96893e05e203fdb6257)
+
+Date: 2026-11-10T23:02:38-03:00 · Classification: Features (inferred) · Systems: Build & Tooling
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+Add multiplayer playmode package
+```
+
+#### Original body
+
+```text
+Enables Unity Multiplayer Play Mode 3.0.0 and adds the corresponding virtual projects configuration.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Packages/manifest.json
+Project Grimhold/Packages/packages-lock.json
+Project Grimhold/ProjectSettings/VirtualProjectsConfig.json
+```
+
+#### Classification evidence
+
+- subject-action → Features: Add multiplayer playmode package
+- path → Build &amp; Tooling: Project Grimhold/Packages/manifest.json
+- path → Build &amp; Tooling: Project Grimhold/Packages/packages-lock.json
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### e3f247b5822ddfe84cc1b25efa716a8835d17246
 

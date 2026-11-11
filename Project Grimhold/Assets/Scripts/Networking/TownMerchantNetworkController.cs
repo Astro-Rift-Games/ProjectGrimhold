@@ -111,11 +111,13 @@ public sealed class TownMerchantNetworkController : NetworkBehaviour, IMerchantT
         }
 
         _requestValidator = new MerchantRequestValidator(_stock, this);
+        Runner.GetComponent<TownSenderIdentityContext>()?.RegisterAuthorityObject(Object);
         EnsureStockInitialized();
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
+        runner.GetComponent<TownSenderIdentityContext>()?.UnregisterAuthorityObject(Object);
         _requestValidator = null;
         _tradeClient = null;
     }

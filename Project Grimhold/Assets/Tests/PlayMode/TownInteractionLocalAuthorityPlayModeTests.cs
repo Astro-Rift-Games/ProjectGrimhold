@@ -39,6 +39,7 @@ public sealed class TownInteractionLocalAuthorityPlayModeTests
         _runner = runnerObject.AddComponent<NetworkRunner>();
         runnerObject.AddComponent<EntityRegistry>();
         runnerObject.AddComponent<LocalInputContext>();
+        runnerObject.AddComponent<TownSenderIdentityContext>();
         var joinContext = runnerObject.AddComponent<LocalPlayerJoinContext>();
         joinContext.Initialize(new PlayerJoinData(
             new ProfileId("11111111111111111111111111111111")));
