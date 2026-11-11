@@ -54,6 +54,14 @@ public sealed class VoluntaryHostHandoffProbeTests
         Assert.That(runner.Calls, Is.EqualTo(new[] { "push" }));
     }
 
+    [Test]
+    public async Task RunAsync_NullRunner_IsRejected()
+    {
+        VoluntaryHostHandoffOutcome outcome = await VoluntaryHostHandoffProbe.RunAsync(null);
+
+        Assert.That(outcome, Is.EqualTo(VoluntaryHostHandoffOutcome.Rejected));
+    }
+
     [TestCase(false, true, true)]
     [TestCase(true, false, true)]
     [TestCase(true, true, false)]
