@@ -32,7 +32,7 @@ La Party admite 2 miembros (`TownPartyRules.MaxMembers = 2`), pero la raid junt�
 
 ## 3. Evidencia
 
-Logs filtrados en `odd/evidence/fix-48/` (`mppm45af563a.filtered.log`, `main.filtered.log`, `mppm78c6231b.filtered.log`; offsets en `offsets.txt`).
+Las líneas de abajo son textuales. Los logs filtrados completos quedaron solo en la máquina de la corrida (`odd/evidence/fix-48/*.filtered.log`, ignorados por `.gitignore`); `offsets.txt` (versionado) indica desde qué línea de cada `Editor.log` empieza la corrida.
 
 **Host que se va (Player 2):**
 ```
