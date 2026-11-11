@@ -13,7 +13,9 @@ const {
   slotMoveValidator,
   slotSplitValidator,
   moveItemValidator,
+  transferAllValidator,
   preparedEquipmentValidator,
+  trainingWeaponValidator,
   pendingReservationValidator,
   admitReservationValidator,
   commitExtractionValidator,
@@ -110,6 +112,18 @@ router.post('/me/inventory/loadout/move-to-stash', inventoryProtocol, moveItemVa
   }
 });
 
+// POST /character/me/inventory/transfer-all
+// Moves every stack of the source list in one revision-guarded write (Take All / Leave All).
+// Body: { direction: 'toLoadout' | 'toStash', expectedRevision }
+router.post('/me/inventory/transfer-all', inventoryProtocol, transferAllValidator, async (req, res, next) => {
+  try {
+    const { direction, expectedRevision } = req.body;
+    res.json(await InventoryService.transferAll(req.accountId, direction, expectedRevision));
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /character/me/inventory/shop/sell
 // Sells an item from the loadout, awarding authoritative currency from shop catalog.
 // Body: { transactionId, lootId, amount, expectedRevision, sourceSlot? (required v2), declaredSellValue? }
@@ -166,6 +180,21 @@ router.put('/me/inventory/prepared-equipment', inventoryProtocol, preparedEquipm
     }
     const expectedRevision = req.body.expectedRevision;
     const result = await InventoryService.updatePreparedEquipment(req.accountId, slots, expectedRevision);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /character/me/inventory/training-weapon
+// Body: { weaponId: string, destinationSlot?: ''|'weaponSlot1'|'weaponSlot2', expectedRevision: number }
+router.post('/me/inventory/training-weapon', inventoryProtocol, trainingWeaponValidator, async (req, res, next) => {
+  try {
+    const { weaponId, destinationSlot = '' } = req.body;
+    const expectedRevision = req.body.expectedRevision;
+    const result = await InventoryService.requestTrainingWeapon(
+      req.accountId, weaponId, destinationSlot, expectedRevision
+    );
     res.json(result);
   } catch (err) {
     next(err);

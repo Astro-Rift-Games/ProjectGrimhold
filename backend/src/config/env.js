@@ -84,7 +84,7 @@ module.exports = {
     return this.inventoryInstanceProtocolGate ? 3 : this.inventoryProtocolGate ? 2 : 1;
   },
   get inventorySplitEnabled() {
-    return process.env.INVENTORY_SPLIT_ENABLED === 'true';
+    return process.env.INVENTORY_SPLIT_ENABLED !== 'false';
   },
   get enableDebugRoutes() {
     return this.nodeEnv !== 'production' && process.env.ENABLE_DEV_DEBUG_ROUTES === 'true';

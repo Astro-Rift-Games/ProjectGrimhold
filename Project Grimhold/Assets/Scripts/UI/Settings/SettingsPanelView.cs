@@ -43,7 +43,7 @@ public sealed class SettingsPanelView : MonoBehaviour
 
     public void Open()
     {
-        _control = _boundControl ?? AudioManager.Instance;
+        _control = Alive(_boundControl) ?? Alive(AudioManager.Instance);
         UiPanelVisibility.SetVisible(gameObject, true);
         if (_control == null)
         {
@@ -69,6 +69,10 @@ public sealed class SettingsPanelView : MonoBehaviour
         slider.maxValue = 1f;
         slider.wholeNumbers = false;
     }
+
+    // A destroyed Unity object still passes ?? and ?. checks; treat it as missing.
+    private static IAudioVolumeControl Alive(IAudioVolumeControl control) =>
+        control is UnityEngine.Object unityObject && unityObject == null ? null : control;
 
     private void OnMasterChanged(float value) => _control?.SetMasterVolume(value);
     private void OnMusicChanged(float value) => _control?.SetMusicVolume(value);

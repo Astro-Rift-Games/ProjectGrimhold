@@ -56,6 +56,31 @@ namespace Tests.PlayMode.Loot
         }
 
         [UnityTest]
+        public IEnumerator TrainingWeapon_IsClearedFromThePlayerButNeverLoadedIntoTheCorpse()
+        {
+            yield return StartRunnerAndLoadPlayer();
+            NetworkObject playerObject = _runner.Spawn(_playerPrefab, Vector3.zero, Quaternion.identity);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, playerObject);
+            PlayerCharacter player = playerObject.GetComponent<PlayerCharacter>();
+            PlayerLootReceiver receiver = playerObject.GetComponent<PlayerLootReceiver>();
+            NetworkLootContainer container = playerObject.GetComponent<NetworkLootContainer>();
+            var bones = new LootEntry(new LootId("bone"), 2);
+
+            _driver.Target = player;
+            _driver.Receiver = receiver;
+            _driver.SetEntries(new[] { new LootEntry(new LootId("training_dagger"), 1, isEquipmentUnit: true), bones });
+            _driver.IsRequested = true;
+            yield return WaitForDefeat(player);
+
+            Assert.That((bool)container.IsAvailable, Is.True);
+            Assert.That(container.GetLootAmount(new LootId("training_dagger")), Is.Zero);
+            Assert.That(container.TryGetLootContent(out IReadOnlyList<LootEntry> content), Is.True);
+            Assert.That(content, Is.EquivalentTo(new[] { bones }));
+            Assert.That(receiver.TryGetLootContent(out IReadOnlyList<LootEntry> inventory), Is.True);
+            Assert.That(inventory, Is.Empty);
+        }
+
+        [UnityTest]
         public IEnumerator MultipleStacks_AreLoadedThenThePlayerInventoryIsClearedOnce()
         {
             yield return StartRunnerAndLoadPlayer();
@@ -69,10 +94,13 @@ namespace Tests.PlayMode.Loot
             var entries = new[] { new LootEntry(new LootId("bone"), 2), new LootEntry(new LootId("coins"), 7) };
 
             AssertAliveContainerState(playerObject, player, receiver, container, interactable);
-            Transform body = playerObject.transform.Find("Body");
+            Transform body = playerObject.transform.Find("VisualRoot/Body");
             Assert.That(body, Is.Not.Null);
             SpriteRenderer[] bodyRenderers = body.GetComponentsInChildren<SpriteRenderer>(true);
             Assert.That(bodyRenderers, Is.Not.Empty);
+            // Empty equipment slots (e.g. ArmorVisual) are disabled while alive; defeat must not hide what was shown.
+            SpriteRenderer[] visibleBodyRenderers = Array.FindAll(bodyRenderers, renderer => renderer.enabled);
+            Assert.That(visibleBodyRenderers, Is.Not.Empty);
 
             _driver.Target = player;
             _driver.Receiver = receiver;
@@ -102,9 +130,9 @@ namespace Tests.PlayMode.Loot
                 player.Id,
                 _runner.Tick)), Is.True);
             Assert.That(body.gameObject.activeSelf, Is.True);
-            for (int index = 0; index < bodyRenderers.Length; index++)
+            for (int index = 0; index < visibleBodyRenderers.Length; index++)
             {
-                Assert.That(bodyRenderers[index].enabled, Is.True);
+                Assert.That(visibleBodyRenderers[index].enabled, Is.True, visibleBodyRenderers[index].name);
             }
         }
 

@@ -8,4 +8,5 @@ public interface ITownEquipmentMutationEndpoint
     bool CanEquip(LootId lootId, EquipmentSlot slot);
     StashOperationResult TryEquip(LootId lootId, EquipmentSlot slot);
     StashOperationResult TryUnequip(EquipmentSlot slot);
+    System.Threading.Tasks.Task<StashOperationResult> RequestTrainingWeaponAsync(LootId trainingWeaponId, EquipmentSlot targetSlot = EquipmentSlot.None);
 }

@@ -75,7 +75,7 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
         try
         {
             CacheDependencies();
-            if (_lootReceiver == null || _weaponEquipment == null || _lootContainer == null || Runner == null ||
+            if (_lootReceiver == null || _lootReceiver.LootCatalog == null || _weaponEquipment == null || _lootContainer == null || Runner == null ||
                 (!Runner.IsSimulationUpdating && !Runner.IsServer))
             {
                 FailAndCompensate(contentLoaded, null, null, null, simulationTick, "Dependencies or runner are invalid.");
@@ -93,14 +93,21 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
                 return false;
             }
 
-            snapshot = ownershipSnapshot.Combined;
-            originSnapshot = ownershipSnapshot.CombinedOrigins;
-            modifiedUnits = ownershipSnapshot.ModifiedWeaponUnits;
-            if (!TryValidateSnapshot(snapshot, out snapshotError))
+            if (!TryValidateSnapshot(ownershipSnapshot.Combined, out snapshotError))
             {
                 FailAndCompensate(contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, $"Cannot capture a valid inventory snapshot. {snapshotError}");
                 return false;
             }
+
+            // The container receives the corpse projection; the player is still cleared from the full snapshot.
+            CorpseLootProjection.ExcludeTrainingWeapons(
+                ownershipSnapshot.Combined,
+                ownershipSnapshot.CombinedOrigins,
+                ownershipSnapshot.ModifiedWeaponUnits,
+                _lootReceiver.LootCatalog,
+                out snapshot,
+                out originSnapshot,
+                out modifiedUnits);
 
             if (!_lootContainer.IsInitialized || _lootContainer.IsAvailable || !_lootContainer.IsEmpty)
             {

@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { startMemoryMongo } = require('../support/memoryMongo');
 
 const Character = require('../../src/models/Character');
 const InventoryService = require('../../src/services/InventoryService');
@@ -10,7 +10,7 @@ let mongoServer;
 
 test('InventoryService - Concurrency and Revision', async (t) => {
   t.before(async () => {
-    mongoServer = await MongoMemoryServer.create();
+    mongoServer = await startMemoryMongo();
     const uri = mongoServer.getUri();
     await mongoose.connect(uri);
   });
@@ -121,7 +121,7 @@ test('InventoryService - Concurrency and Revision', async (t) => {
       accountId: accountId,
       name: 'ResChar',
       revision: 0,
-      inventory: { stash: [{ lootId: 'potion', amount: 10 }], loadout: [{ lootId: 'sword', amount: 1 }], preparedEquipment: {} }
+      inventory: { stash: [{ lootId: 'potion', amount: 10 }], loadout: [{ lootId: 'sword', amount: 1 }], preparedEquipment: { weaponSlot1: { lootId: 'arming_sword', slot: 'weaponSlot1' } } }
     });
     await char.save();
 

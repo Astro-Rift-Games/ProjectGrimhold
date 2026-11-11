@@ -145,6 +145,11 @@ public sealed class RaidInventoryView : MonoBehaviour
         if (_sortButton != null) _sortButton.interactable = interactable;
     }
 
+    public void SetSortVisible(bool visible)
+    {
+        if (_sortButton != null) _sortButton.gameObject.SetActive(visible);
+    }
+
     private void OnSortClicked()
     {
         if (isActiveAndEnabled && _sortButton != null && _sortButton.interactable)

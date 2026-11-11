@@ -18,6 +18,7 @@ const {
 const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
 const { serializeItems, requireMigratedInventory, inventoryVersion, receiveItem } = require('./InventoryEntries');
 const { validateResultItems, resultEquipmentToInstances, equipmentToResult } = require('./ItemInstances');
+const { returnTrainingWeapons } = require('./TrainingWeapons');
 const {
   computeLevelAndExperience,
   computeAttributePointsGranted,
@@ -118,9 +119,16 @@ class ExtractionCommitService {
     const rewards = version === 3 ? validateResultItems(authResult.items) : normalizeItems(authResult.items);
     for (const item of rewards) receiveItem(newLoadout, 'loadout', item, version);
     // Equipment is validated and IDs issued before claiming, just like reward capacity.
-    const newPreparedEquipment = version === 3
+    const settledPreparedEquipment = version === 3
       ? resultEquipmentToInstances(authResult.preparedEquipment || equipmentToResult(character.inventory.pendingReservation?.preparedEquipment))
       : sanitizePreparedEquipment(authResult.preparedEquipment || character.inventory.pendingReservation?.preparedEquipment);
+    // Doc 09 §15.2: the training weapon returns to the Trainer once a normal weapon is owned.
+    const trainingReturn = returnTrainingWeapons({
+      loadout: newLoadout,
+      stash: serializeItems(character.inventory.stash),
+      preparedEquipment: settledPreparedEquipment
+    });
+    const newPreparedEquipment = trainingReturn.preparedEquipment;
 
     // ------------------------------------------------------------------
     // 3. Atomically claim authoritative result (distributed lock)
@@ -194,7 +202,8 @@ class ExtractionCommitService {
       $unset: { 'inventory.pendingReservation': 1 },
       $set: { 
         'inventory.preparedEquipment': newPreparedEquipment,
-        'inventory.loadout': newLoadout,
+        'inventory.loadout': trainingReturn.loadout,
+        ...(trainingReturn.changed ? { 'inventory.stash': trainingReturn.stash } : {}),
         level: computed.resultingLevel,
         experience: computed.resultingExperience,
         'characterAttributes.availablePoints': newAvailablePoints,

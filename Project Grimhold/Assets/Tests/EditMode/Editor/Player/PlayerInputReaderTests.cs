@@ -165,5 +165,45 @@ namespace Tests.EditMode.Player
             Assert.That(method, Is.Not.Null);
             method.Invoke(_reader, null);
         }
+
+        [Test]
+        public void ScreenToAimWorldPosition_CompensatesForCameraShakeOffset()
+        {
+            var cameraGo = new GameObject("TestCam");
+            var camera = cameraGo.AddComponent<Camera>();
+            camera.orthographic = true;
+            camera.orthographicSize = 5f;
+            camera.transform.position = new Vector3(0f, 0f, -10f);
+
+            var shakeGo = new GameObject("CameraShake");
+            var shake = shakeGo.AddComponent<CameraShakeController>();
+            var config = ScriptableObject.CreateInstance<CameraShakeConfig>();
+            shake.Configure(config);
+
+            try
+            {
+                var camField = typeof(PlayerInputReader).GetField("_worldCamera", BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(camField, Is.Not.Null);
+                camField.SetValue(_reader, camera);
+
+                Vector2 screenPos = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+                Vector2 aimWithoutShake = _reader.ScreenToAimWorldPosition(screenPos);
+
+                shake.RequestShake(1f, 1f);
+                shake.UpdateShake(0.01f);
+                Vector3 offset = shake.ShakeOffset;
+                camera.transform.position += offset;
+
+                Vector2 aimWithShake = _reader.ScreenToAimWorldPosition(screenPos);
+
+                Assert.That(aimWithShake.x, Is.EqualTo(aimWithoutShake.x).Within(0.001f));
+                Assert.That(aimWithShake.y, Is.EqualTo(aimWithoutShake.y).Within(0.001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(cameraGo);
+                UnityEngine.Object.DestroyImmediate(shakeGo);
+            }
+        }
     }
 }

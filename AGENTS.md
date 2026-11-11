@@ -21,7 +21,7 @@ Project Grimhold is a multiplayer 2D top-down PvPvE extraction RPG built by a fo
 - Prefer simple, maintainable solutions. Keep changes within the requested scope; avoid unrelated refactors, speculative abstractions and unnecessary dependencies.
 - Preserve contributors' uncommitted work. Do not overwrite, revert or clean up unrelated changes; ask when they conflict with the task.
 - Commits, pushes, publishing and destructive operations require explicit authorization for that action and target. Permission to edit is not permission to deliver or discard work.
-- Run relevant tests and available build, lint or structural checks. Use failing tests before behavior fixes when practical; documentation-only work needs proportionate Markdown/reference checks.
+- Run relevant tests and available build, lint or structural checks. Enforce strict Test-Driven Development (TDD) for behavioral implementation: write failing tests asserting Acceptance Criteria first (RED), implement the minimum clean code to satisfy them (GREEN), and refactor for maintainability and architecture (REFACTOR). Tests must not pass "just to pass"—never use superficial mocks, test shortcuts, or architectural compromises merely to achieve a green test runner. If implementation encounters friction or blocks, solve the root cause cleanly within the architecture. Documentation-only work needs proportionate Markdown/reference checks.
 - Review the full task diff against acceptance criteria, including unintended generated or serialized changes. Report observed results, failed/skipped/unavailable checks, remaining manual checks and out-of-scope follow-ups honestly.
 
 ## Repository map
@@ -81,10 +81,12 @@ For architectural or cross-system changes, provide a focused plan covering the r
 
 ## ODD execution
 
-Implementation work follows Organic Driven Development (ODD). With Gentle Shell, the native ODD workflow (authorize, explore, resolve uncertainty, classify, track, implement, close) and its native Task Size classification are mandatory; this repository does not override that classification or the orchestrator's subagent delegation decisions. Without Gentle Shell, follow the same sequence manually.
+Implementation work follows Organic Driven Development (ODD) as the macro workflow, with Test-Driven Development (TDD) as the mandatory implementation engine. With Gentle Shell, the native ODD workflow (authorize, explore, resolve uncertainty, classify, track, implement, close) and its native Task Size classification are mandatory; this repository does not override that classification or the orchestrator's subagent delegation decisions. Without Gentle Shell, follow the same sequence manually.
 
 - **Explore before implementing, at any size:** relevant code, callers and tests; owning Architecture contracts; live Game Design for gameplay-dependent behavior; affected dependencies and package versions. A HacknPlan item defines scope, not the technical solution.
-- **Small tasks:** implement directly after that exploration, then run proportionate validation. No tracker is created.
+- **TDD inside implementation:** For any task (small or substantial), the first step of implementation for each requirement/spec (`S#`) is writing the automated test that reproduces or defines expected behavior and observing it fail (RED). Implement the solution cleanly to pass (GREEN), then REFACTOR for clean code and architectural boundaries.
+- **No green-hacking:** Tests must never pass "just to pass". Do not introduce shallow mocks, tautological assertions, or hacky workarounds to force a green test. When friction arises, stop and resolve the underlying architectural or design friction cleanly.
+- **Small tasks:** implement directly via TDD after exploration, then run proportionate validation. No tracker is created.
 - **Substantial tasks:** keep recoverable ODD tracking in `odd/tasks/<feature>.md` (plus its Engram mirror when available), linked to the HacknPlan item as described above.
 - ODD tracking does not change delivery authorization: commits, including ODD work-unit commits, and pushes still require explicit authorization per Shared Development Standards.
 
@@ -109,6 +111,7 @@ Upon completion, the main agent summarizes the changes made, verification result
 - CoplayDev Unity MCP (`com.coplaydev.unity-mcp`) was removed; do not invoke or reinstall it. This applies only to Unity MCP; the other MCP servers in this file remain in use.
 - Ask before changing approved architecture, Game Design or dependencies. Dependency proposals must establish the existing project's gap and impact before adoption.
 - When replacing a contract, check consumers, migrate them minimally and remove the obsolete path only when safe. Update the owning architecture for an authorized contract change; do not rewrite Game Design just to match implementation.
+- Quality Gates and Git hooks: run `npm run setup:hooks` (from `backend/`) to activate local Git pre-push hooks (`.githooks/pre-push`); opening the Unity project also configures them. The hook runs the secret scan and backend suites on every push and, when the pushed commits touch `Project Grimhold/`, the EditMode subset (`PrePushUnityTestRun`, excluding the slow editor-tooling suites listed in `PrePushTestSelection`) inside the open Editor; it blocks the push if Unity is closed or in Play Mode. Full EditMode and PlayMode suites still run manually before larger deliveries. PRs and pushes targeting `New-Testing` and `main` are automatically verified by GitHub Actions CI (`.github/workflows/ci.yml`), covering secret scans, backend suites, parity contracts, and test coverage.
 
 ### Tool availability and fallbacks
 

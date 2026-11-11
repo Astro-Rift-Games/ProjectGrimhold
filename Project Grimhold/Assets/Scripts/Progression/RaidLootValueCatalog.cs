@@ -5,6 +5,7 @@ using UnityEngine;
 /// <summary>
 /// Local provisional source of progression Value. It is intentionally independent from
 /// extraction-progress and economic values on <see cref="LootDefinition"/>.
+/// Training weapons are Trainer-issued equipment, not productive loot, and have no progression Value.
 /// </summary>
 [CreateAssetMenu(fileName = "RaidLootValueCatalog", menuName = "Grimhold/Progression/Raid Loot Value Catalog")]
 public sealed class RaidLootValueCatalog : ScriptableObject, IRaidLootValueSource
@@ -26,7 +27,7 @@ public sealed class RaidLootValueCatalog : ScriptableObject, IRaidLootValueSourc
             RaidLootValueEntry entry = _entries[index];
             if (entry?.LootDefinition == null ||
                 string.IsNullOrWhiteSpace(entry.LootDefinition.Id) ||
-                entry.ValuePerUnit <= 0)
+                entry.LootDefinition.IsTrainingWeapon || entry.ValuePerUnit <= 0)
             {
                 continue;
             }
@@ -86,6 +87,12 @@ public sealed class RaidLootValueCatalog : ScriptableObject, IRaidLootValueSourc
                 return false;
             }
 
+            if (entry.LootDefinition.IsTrainingWeapon)
+            {
+                error = $"Raid loot Value must not include training weapon '{entry.LootDefinition.Id}'.";
+                return false;
+            }
+
             if (entry.ValuePerUnit <= 0)
             {
                 error = $"Raid loot Value for '{entry.LootDefinition.Id}' must be positive.";
@@ -105,16 +112,10 @@ public sealed class RaidLootValueCatalog : ScriptableObject, IRaidLootValueSourc
             }
         }
 
-        if (seenLootIds.Count != lootCatalog.DefinitionCount)
-        {
-            error = "Raid loot Value catalog does not cover every productive LootId.";
-            return false;
-        }
-
         for (int index = 0; index < lootCatalog.DefinitionCount; index++)
         {
             if (!lootCatalog.TryGetByIndex(index, out LootDefinition definition) ||
-                !seenLootIds.Contains(definition.LootId))
+                (!definition.IsTrainingWeapon && !seenLootIds.Contains(definition.LootId)))
             {
                 error = $"Raid loot Value is missing for productive catalog index {index}.";
                 return false;

@@ -15,4 +15,6 @@ public interface ISlotPlayerLoadoutService
     StashOperationResult TryOrderSlots(ProfileId profile, InventoryList list, IReadOnlyList<int> slots);
     StashOperationResult EvaluateMove(ProfileId profile, InventoryList from, int fromSlot, InventoryList to, int toSlot, LootId id);
     StashOperationResult TryMove(ProfileId profile, InventoryList from, int fromSlot, InventoryList to, int toSlot, LootId id);
+    /// <summary>Commits the backend's bulk transfer lists and revision as one local commit.</summary>
+    StashOperationResult TryApplyConfirmedTransferAll(ProfileId profile, Grimhold.Backend.TransferAllResult result);
 }

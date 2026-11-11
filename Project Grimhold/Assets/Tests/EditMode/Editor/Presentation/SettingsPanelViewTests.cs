@@ -118,6 +118,29 @@ namespace Tests.EditMode.Presentation
             LogAssert.NoUnexpectedReceived();
         }
 
+        [Test]
+        public void OpenWithDestroyedAudioSingleton_WarnsAndIgnoresSliderChanges()
+        {
+            // With domain reload disabled, AudioManager.Instance can still reference a destroyed manager.
+            PropertyInfo instance = typeof(AudioManager).GetProperty(nameof(AudioManager.Instance));
+            var managerObject = new GameObject("DestroyedAudioManager");
+            instance.SetValue(null, managerObject.AddComponent<AudioManager>());
+            Object.DestroyImmediate(managerObject);
+            try
+            {
+                _view.Bind(null);
+                LogAssert.Expect(LogType.Warning, "SettingsPanelView has no audio volume control; changes will be ignored.");
+                Assert.DoesNotThrow(() => _view.Open());
+                Assert.DoesNotThrow(() => _master.value = 0.3f);
+                Assert.That(_view.IsOpen, Is.True);
+                LogAssert.NoUnexpectedReceived();
+            }
+            finally
+            {
+                instance.SetValue(null, null);
+            }
+        }
+
         private Slider CreateSlider(string name, string field)
         {
             var child = new GameObject(name, typeof(RectTransform), typeof(Slider));

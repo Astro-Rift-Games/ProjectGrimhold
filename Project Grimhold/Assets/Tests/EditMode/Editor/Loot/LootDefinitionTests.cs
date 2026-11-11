@@ -489,12 +489,27 @@ namespace Tests.EditMode.Loot
             Assert.That(error, Does.Contain("marked as a training weapon but its category is"));
         }
 
+        private void SetValidTrainingDefaults()
+        {
+            var source = UnityEditor.AssetDatabase.LoadAssetAtPath<LootDefinition>(
+                "Assets/Scriptable Objects/Loot/Definitions/TrainingShortSword.asset");
+            Assert.That(source, Is.Not.Null);
+            Object.DestroyImmediate(_loot);
+            _loot = Object.Instantiate(source);
+            Assert.That(_loot.TryValidate(out string error), Is.True, error);
+        }
+
+        [Test]
+        public void TrainingWeapon_ValidDefinitionPassesValidation()
+        {
+            SetValidTrainingDefaults();
+            Assert.That(_loot.IsTrainingWeapon, Is.True);
+        }
+
         [Test]
         public void TrainingWeapon_CannotBeDiscarded()
         {
-            SetValidDefaults();
-            SetField("_isTrainingWeapon", true);
-            SetField("_category", LootCategory.Weapon);
+            SetValidTrainingDefaults();
             SetField("_canBeDiscarded", true);
 
             bool result = _loot.TryValidate(out string error);
@@ -505,9 +520,7 @@ namespace Tests.EditMode.Loot
         [Test]
         public void TrainingWeapon_CannotBeTransferred()
         {
-            SetValidDefaults();
-            SetField("_isTrainingWeapon", true);
-            SetField("_category", LootCategory.Weapon);
+            SetValidTrainingDefaults();
             SetField("_canBeDiscarded", false);
             SetField("_canBeTransferred", true);
 
@@ -519,9 +532,7 @@ namespace Tests.EditMode.Loot
         [Test]
         public void TrainingWeapon_CannotBeTradable()
         {
-            SetValidDefaults();
-            SetField("_isTrainingWeapon", true);
-            SetField("_category", LootCategory.Weapon);
+            SetValidTrainingDefaults();
             SetField("_canBeDiscarded", false);
             SetField("_canBeTransferred", false);
             SetField("_tradable", true);
@@ -534,9 +545,7 @@ namespace Tests.EditMode.Loot
         [Test]
         public void TrainingWeapon_MustHaveZeroValue()
         {
-            SetValidDefaults();
-            SetField("_isTrainingWeapon", true);
-            SetField("_category", LootCategory.Weapon);
+            SetValidTrainingDefaults();
             SetField("_canBeDiscarded", false);
             SetField("_canBeTransferred", false);
             SetField("_tradable", false);

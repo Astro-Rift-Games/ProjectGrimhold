@@ -60,7 +60,7 @@ namespace Tests.EditMode.Scenario
 
         [TestCase("Coins", 1)]
         [TestCase("Bone", 5)]
-        [TestCase("HealthPotion", 10)]
+        [TestCase("HealthPotion", 20)]
         public void LootDefinitions_HaveExpectedSellValue(string assetName, int expectedSellValue)
         {
             LootDefinition definition = AssetDatabase.LoadAssetAtPath<LootDefinition>(

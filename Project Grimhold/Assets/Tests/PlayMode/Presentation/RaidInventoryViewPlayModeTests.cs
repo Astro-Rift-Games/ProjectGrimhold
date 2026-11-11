@@ -225,6 +225,15 @@ namespace Tests.PlayMode.Presentation
             Assert.That(requests, Is.EqualTo(1));
         }
 
+        [Test]
+        public void SetSortVisible_TogglesSortButtonGameObject()
+        {
+            _view.SetSortVisible(false);
+            Assert.That(_view.SortButton.gameObject.activeSelf, Is.False);
+            _view.SetSortVisible(true);
+            Assert.That(_view.SortButton.gameObject.activeSelf, Is.True);
+        }
+
         [UnityTest]
         public IEnumerator InventoryAndContainerSlots_ShowAndDismissSharedTooltip()
         {

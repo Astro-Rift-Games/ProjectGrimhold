@@ -26,13 +26,17 @@ public sealed class RaidDefeatLifecycleSourceTests
     [Test]
     public void ProgressionAck_ConfirmsPersistenceWithoutPublishingReturnAuthorization()
     {
-        string acknowledgement = ReadMethod(
+        // The durable-commit acknowledgement now completes the extraction experience transaction.
+        string finalization = ReadMethod(
             File.ReadAllText(ParticipantPath),
-            "internal bool TryConfirmProgressionCommit");
+            "internal PlayerExpeditionProgressionFinalizationResult TryFinalizeExtractionProgression");
+        string acknowledgement = finalization.Substring(
+            0,
+            finalization.IndexOf("\n    }", StringComparison.Ordinal));
 
         Assert.That(
             acknowledgement,
-            Does.Contain("IsProgressionCommitConfirmed = true"));
+            Does.Contain("ExtractionExperiencePhase = ExtractionExperienceTransactionPhase.Complete"));
         Assert.That(acknowledgement, Does.Not.Contain("IsReturnAuthorized = true"));
     }
 

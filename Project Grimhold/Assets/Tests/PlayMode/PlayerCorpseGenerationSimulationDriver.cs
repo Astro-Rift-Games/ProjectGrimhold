@@ -36,6 +36,9 @@ public sealed class PlayerCorpseGenerationSimulationDriver : SimulationBehaviour
         _entries = entries;
     }
 
+    /// <summary>Grants entries with Dungeon provenance instead of a looted Player origin, so they stack with world loot.</summary>
+    public bool GrantDungeonOrigin { get; set; }
+
     public override void FixedUpdateNetwork()
     {
         if (!IsRequested || Target == null || Receiver == null)
@@ -67,7 +70,16 @@ public sealed class PlayerCorpseGenerationSimulationDriver : SimulationBehaviour
 
                 if (Receiver.IsRaidLootOriginAware)
                 {
-                    RaidLootOriginTransfer.TryCreatePlayer(TestParticipantId, entry.Amount, out RaidLootOriginTransfer transfer);
+                    RaidLootOriginTransfer transfer;
+                    if (GrantDungeonOrigin)
+                    {
+                        transfer = RaidLootOriginTransfer.Dungeon(entry.Amount);
+                    }
+                    else
+                    {
+                        RaidLootOriginTransfer.TryCreatePlayer(TestParticipantId, entry.Amount, out transfer);
+                    }
+
                     if (Receiver.ValidateRaidLootOriginReceive(receive, transfer) == LootTransferFailureReason.None)
                     {
                         Receiver.CommitRaidLootReceive(receive, transfer);

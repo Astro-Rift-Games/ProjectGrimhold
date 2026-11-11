@@ -15,16 +15,20 @@ namespace Tests.PlayMode.Presentation
     public sealed class RaidMenuPlayModeTests
     {
         private const string PlayerPrefabGuid = "fea3a7b256f965a4eb9b965832939741";
+        private const string ParticipantPrefabGuid = "c39d451563bae6e43934008a0dadc6d6";
 
         private NetworkRunner _runner;
         private GameObject _inputReaderObject;
         private PlayerInputReader _inputReader;
         private NetworkObject _playerObject;
         private PlayerCorpseGenerationSimulationDriver _defeatDriver;
+        private PlayModeLocalProfile _localProfile;
 
         [UnityTearDown]
         public IEnumerator TearDown()
         {
+            _localProfile?.Dispose();
+            _localProfile = null;
             if (_runner != null && _runner.IsRunning)
             {
                 _runner.Shutdown();
@@ -81,7 +85,8 @@ namespace Tests.PlayMode.Presentation
             }
 
             Assert.That(abandonTask.IsCompletedSuccessfully, Is.True);
-            Assert.That(_runner == null || !_runner.IsRunning, Is.True);
+            // Abandon is a request to the Raid lifecycle, which rejects it for the operational Host (0748702e7).
+            Assert.That(_runner.IsRunning, Is.True);
         }
 
         [UnityTest]
@@ -98,15 +103,28 @@ namespace Tests.PlayMode.Presentation
             _defeatDriver.Receiver = receiver;
             _defeatDriver.IsRequested = true;
 
+            NetworkRaidParticipant participant = _playerObject
+                .GetComponent<RaidAvatarParticipantLink>()
+                .TryResolveParticipant(out NetworkRaidParticipant resolved) ? resolved : null;
+            Assert.That(participant, Is.Not.Null);
+
             yield return WaitUntil(
-                () => !character.IsAlive,
+                () => !character.IsAlive &&
+                    participant.State == RaidParticipantState.Defeated &&
+                    menuView.SpectatorBarRoot.activeSelf,
                 "Character defeat simulation failed to trigger.");
 
+            yield return null;
+            // A defeated participant enters spectator presentation automatically instead of opening the menu (5cbb2bded).
+            Assert.That(menuPresenter.IsOpen, Is.False);
+            Assert.That(ReadSuppressionCount(_inputReader), Is.GreaterThan(0));
+
+            menuPresenter.OpenMenu();
             yield return null;
 
             Assert.That(menuPresenter.IsOpen, Is.True);
             Assert.That(menuView.TitleText.text, Is.EqualTo("DERROTA"));
-            Assert.That(menuView.ResumeButton.gameObject.activeSelf, Is.False);
+            Assert.That(menuView.ResumeButton.gameObject.activeSelf, Is.True);
             Assert.That(ReadSuppressionCount(_inputReader), Is.GreaterThan(0));
 
             menuPresenter.CloseMenu();
@@ -258,8 +276,12 @@ namespace Tests.PlayMode.Presentation
             var runnerObject = new GameObject("RaidMenuPlayModeRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
             runnerObject.AddComponent<EntityRegistry>();
+            PlayModeRunnerComposition.AddRaidSceneMinimap(_runner);
             _defeatDriver = runnerObject.AddComponent<PlayerCorpseGenerationSimulationDriver>();
             LocalInputContext inputContext = runnerObject.AddComponent<LocalInputContext>();
+            LocalPlayerJoinContext joinContext = runnerObject.AddComponent<LocalPlayerJoinContext>();
+            _localProfile = PlayModeLocalProfile.Create();
+            _localProfile.BindTo(joinContext);
 
             _inputReaderObject = new GameObject("RaidMenuPlayModeInputReader");
             _inputReader = _inputReaderObject.AddComponent<PlayerInputReader>();
@@ -282,12 +304,29 @@ namespace Tests.PlayMode.Presentation
             NetworkPrefabId playerId = _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(PlayerPrefabGuid));
             NetworkObject playerPrefab = _runner.Config.PrefabTable.Load(playerId, true);
 
+            NetworkPrefabId participantId =
+                _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(ParticipantPrefabGuid));
+            NetworkObject participantPrefab = _runner.Config.PrefabTable.Load(participantId, true);
+            RaidParticipantId.TryCreate(1, out RaidParticipantId raidParticipantId);
+            NetworkObject participantObject = _runner.Spawn(
+                participantPrefab,
+                Vector3.zero,
+                Quaternion.identity,
+                _runner.LocalPlayer,
+                (runner, spawnedObject) => spawnedObject.GetComponent<NetworkRaidParticipant>()
+                    .Initialize("local-profile", raidParticipantId,
+                        ProgressionBalanceDefaults.InitialCharacterAttributeState,
+                        ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _playerObject = _runner.Spawn(
                 playerPrefab,
                 Vector3.zero,
                 Quaternion.identity,
-                _runner.LocalPlayer);
+                _runner.LocalPlayer,
+                (runner, spawnedObject) => spawnedObject.GetComponent<RaidAvatarParticipantLink>()
+                    .Initialize(participantObject));
             ExtractionProgressTestAssertions.AssertRegistered(_runner, _playerObject);
+            Assert.That(participantObject.GetComponent<NetworkRaidParticipant>().TrySetCurrentAvatar(_playerObject), Is.True);
+            _runner.SetPlayerObject(_runner.LocalPlayer, participantObject);
 
             yield return null;
             Assert.That(_playerObject, Is.Not.Null);

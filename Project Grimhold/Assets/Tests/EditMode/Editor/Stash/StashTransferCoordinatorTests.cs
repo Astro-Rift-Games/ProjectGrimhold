@@ -40,7 +40,7 @@ namespace Tests.EditMode.Stash
         {
             _catalog = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(CatalogPath);
             Assert.That(_catalog, Is.Not.Null);
-            _remote = new FakeRemote();
+            _remote = new FakeRemote { Simulate = SimulateBulk };
             _reconciliation = new FakeReconciliation();
             _canMutateEquipment = true;
             _profile = new ProfileId(ProfileValue);
@@ -118,7 +118,7 @@ namespace Tests.EditMode.Stash
         }
 
         [Test]
-        public async Task LeaveAll_StashFills_PreservesSuccessfulStacksAndSkipsRemoteForRejectedStack()
+        public async Task LeaveAll_StashFills_SkipsTheRefusedStackAndKeepsEvaluatingLaterStacks()
         {
             LootId[] ids = CreateCapacityCatalog();
             StashTransferCoordinator coordinator = Create(snapshot =>
@@ -130,7 +130,10 @@ namespace Tests.EditMode.Stash
             });
             StashTransferOutcome outcome = await coordinator.LeaveAllAsync();
             Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.Partial));
-            Assert.That(_remote.Calls, Is.EqualTo(new[] { $"toStash:{ids[59].Value}:2", $"toStash:{ids[0].Value}:4" }));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "bulk:toStash" }));
+            Assert.That(outcome.Completed, Is.EqualTo(2));
+            Assert.That(outcome.Failed, Is.EqualTo(1));
+            Assert.That(outcome.Rule, Is.EqualTo(StashOperationResult.InventoryFull));
             Assert.That(_store.GetStash(), Has.Count.EqualTo(60));
             Assert.That(_store.GetStash().Single(x => x.LootId == ids[0]).Amount, Is.EqualTo(5));
             Assert.That(_store.GetLoadout().Single(), Is.EqualTo(new StashItem(ids[60], 3, 1)));
@@ -655,20 +658,29 @@ namespace Tests.EditMode.Stash
         }
 
         [Test]
-        public async Task TakeAll_MovesEveryStackRemotelyThenLocally()
+        public async Task TakeAll_IssuesOneBulkCall_AndAppliesTheBackendResultWithOneCommit()
         {
             StashTransferCoordinator coordinator = Create(snapshot =>
             {
                 snapshot.Stash.Add(new StashItem(Bone, 2));
                 snapshot.Stash.Add(new StashItem(Sword, 1));
             });
+            int commits = 0;
+            _store.ProfileCommitted += _ => commits++;
+            TransferAllResult backend = default;
+            _remote.OnResult = result => backend = result;
 
             StashTransferOutcome outcome = await coordinator.TakeAllAsync();
 
             Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.Success));
-            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:bone:2", "toLoadout:rapier:1" }));
+            Assert.That(outcome.Completed, Is.EqualTo(2));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "bulk:toLoadout" }));
+            Assert.That(commits, Is.EqualTo(1));
             Assert.That(_store.GetStash(), Is.Empty);
-            Assert.That(_store.GetLoadout(), Has.Count.EqualTo(2));
+            Assert.That(_store.GetLoadout().Select(item => (item.Slot, item.LootId.Value, item.Amount)),
+                Is.EquivalentTo(backend.loadout.Select(item => (item.slot, item.lootId, item.amount))));
+            Assert.That(_store.RemoteRevision, Is.EqualTo(backend.revision));
+            Assert.That(_reconciliation.Calls, Is.Zero);
         }
 
         [Test]
@@ -688,13 +700,13 @@ namespace Tests.EditMode.Stash
             Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.Partial));
             Assert.That(outcome.Completed, Is.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
             Assert.That(outcome.Failed, Is.EqualTo(1));
-            Assert.That(_remote.Calls, Has.Count.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "bulk:toLoadout" }));
             Assert.That(_store.GetLoadout(), Has.Count.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
             Assert.That(_store.GetStash().Single().LootId, Is.EqualTo(ids[LocalProfileSnapshot.MaxLoadoutSlots]));
         }
 
         [Test]
-        public async Task TakeAll_NothingFits_IsRejectedBeforeAnyRemoteCall()
+        public async Task TakeAll_NothingFits_IsRejectedWithoutChangingLocalState()
         {
             LootId[] ids = DistinctLootIds(LocalProfileSnapshot.MaxLoadoutSlots + 2);
             StashTransferCoordinator coordinator = Create(snapshot =>
@@ -707,6 +719,8 @@ namespace Tests.EditMode.Stash
                 snapshot.Stash.Add(new StashItem(ids[LocalProfileSnapshot.MaxLoadoutSlots], 1));
                 snapshot.Stash.Add(new StashItem(ids[LocalProfileSnapshot.MaxLoadoutSlots + 1], 1));
             });
+            int commits = 0;
+            _store.ProfileCommitted += _ => commits++;
 
             StashTransferOutcome outcome = await coordinator.TakeAllAsync();
 
@@ -714,12 +728,51 @@ namespace Tests.EditMode.Stash
             Assert.That(outcome.Rule, Is.EqualTo(StashOperationResult.InventoryFull));
             Assert.That(outcome.Completed, Is.Zero);
             Assert.That(outcome.Failed, Is.EqualTo(2));
-            Assert.That(_remote.Calls, Is.Empty);
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "bulk:toLoadout" }));
+            Assert.That(commits, Is.Zero);
             Assert.That(_store.GetStash(), Has.Count.EqualTo(2));
         }
 
         [Test]
-        public async Task TakeAll_RemoteFailureOnOneStack_ContinuesAndKeepsEarlierMoves()
+        public async Task TakeAll_EmptySource_SucceedsWithoutARemoteCall()
+        {
+            StashTransferCoordinator coordinator = Create(_ => { });
+
+            StashTransferOutcome outcome = await coordinator.TakeAllAsync();
+
+            Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.Success));
+            Assert.That(outcome.Completed, Is.Zero);
+            Assert.That(_remote.Calls, Is.Empty);
+        }
+
+        [Test]
+        public async Task TakeAll_CountsComeFromThePerStackResults()
+        {
+            StashTransferCoordinator coordinator = Create(snapshot =>
+            {
+                snapshot.Stash.Add(new StashItem(Bone, 2));
+                snapshot.Stash.Add(new StashItem(Sword, 1));
+            });
+            _remote.Override = simulated =>
+            {
+                simulated.results = new[]
+                {
+                    new TransferAllStackResult { slot = 0, lootId = "bone", amount = 2, moved = true },
+                    new TransferAllStackResult { slot = 1, lootId = "rapier", amount = 1, moved = false, errorCode = "INVENTORY_FULL" },
+                };
+                return simulated;
+            };
+
+            StashTransferOutcome outcome = await coordinator.TakeAllAsync();
+
+            Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.Partial));
+            Assert.That(outcome.Completed, Is.EqualTo(1));
+            Assert.That(outcome.Failed, Is.EqualTo(1));
+            Assert.That(outcome.Rule, Is.EqualTo(StashOperationResult.InventoryFull));
+        }
+
+        [Test]
+        public async Task TakeAll_RemoteFailure_LeavesLocalStateUnchangedAndReconcilesOnce()
         {
             LootId[] ids = DistinctLootIds(3);
             StashTransferCoordinator coordinator = Create(snapshot =>
@@ -729,36 +782,36 @@ namespace Tests.EditMode.Stash
                     snapshot.Stash.Add(new StashItem(id, 1));
                 }
             });
-            _remote.FailWhen = call => call.Contains(ids[1].Value);
+            int commits = 0;
+            _store.ProfileCommitted += _ => commits++;
+            _remote.Succeeds = false;
 
             StashTransferOutcome outcome = await coordinator.TakeAllAsync();
 
-            Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.Partial));
-            Assert.That(outcome.Completed, Is.EqualTo(2));
-            Assert.That(outcome.Failed, Is.EqualTo(1));
-            Assert.That(_remote.Calls, Has.Count.EqualTo(3));
+            Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.RemoteFailed));
+            Assert.That(outcome.RemoteErrorCode, Is.EqualTo("REVISION_CONFLICT"));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "bulk:toLoadout" }));
             Assert.That(_reconciliation.Calls, Is.EqualTo(1));
-            Assert.That(_store.GetLoadout().Select(item => item.LootId), Is.EqualTo(new[] { ids[0], ids[2] }));
-            Assert.That(_store.GetStash().Single().LootId, Is.EqualTo(ids[1]));
+            Assert.That(commits, Is.Zero);
+            Assert.That(_store.GetLoadout(), Is.Empty);
+            Assert.That(_store.GetStash(), Has.Count.EqualTo(3));
         }
 
         [Test]
-        public async Task TakeAll_RemoteFailureAndFailedReconciliation_StopsBeforeTheNextRemoteCall()
+        public async Task TakeAll_RemoteFailureAndFailedReconciliation_ReportsRecoveryFailed()
         {
             StashTransferCoordinator coordinator = Create(snapshot =>
             {
                 snapshot.Stash.Add(new StashItem(Bone, 2));
                 snapshot.Stash.Add(new StashItem(Sword, 1));
             });
-            _remote.FailWhen = call => call == "toLoadout:bone:2";
+            _remote.Succeeds = false;
             _reconciliation.Succeeds = false;
 
             StashTransferOutcome outcome = await coordinator.TakeAllAsync();
 
             Assert.That(_reconciliation.Calls, Is.EqualTo(1));
-            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:bone:2" }),
-                "A failed reconciliation must stop further mutations against untrusted local state.");
-            Assert.That(outcome.IsSuccess, Is.False);
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "bulk:toLoadout" }));
             Assert.That(_store.GetLoadout(), Is.Empty);
             Assert.That(_store.GetStash(), Has.Count.EqualTo(2));
             Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.RecoveryFailed));
@@ -770,138 +823,70 @@ namespace Tests.EditMode.Stash
         }
 
         [Test]
-        public async Task TakeAll_LocalApplyDivergenceAndFailedReconciliation_StopsBeforeTheNextRemoteCall()
+        public async Task TakeAll_BackendResultThatCannotBeApplied_ReconcilesOnceAsDiverged()
         {
             StashTransferCoordinator coordinator = Create(snapshot =>
             {
                 snapshot.Stash.Add(new StashItem(Bone, 2));
                 snapshot.Stash.Add(new StashItem(Sword, 1));
             });
-            _remote.OnCall = call =>
+            _remote.Override = simulated =>
             {
-                if (call == "toLoadout:bone:2")
-                {
-                    Assert.That(_stash.TryConsumeLoot(_profile, Bone, 2), Is.EqualTo(StashOperationResult.Success));
-                }
+                simulated.revision = _store.RemoteRevision;
+                return simulated;
+            };
+
+            StashTransferOutcome outcome = await coordinator.TakeAllAsync();
+
+            Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.Diverged));
+            Assert.That(outcome.Rule, Is.EqualTo(StashOperationResult.InvalidInventory));
+            Assert.That(_reconciliation.Calls, Is.EqualTo(1));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "bulk:toLoadout" }));
+            Assert.That(_store.GetStash(), Has.Count.EqualTo(2));
+            Assert.That(_store.GetLoadout(), Is.Empty);
+        }
+
+        [Test]
+        public async Task TakeAll_BackendResultThatCannotBeAppliedAndFailedReconciliation_ReportsRecoveryFailed()
+        {
+            StashTransferCoordinator coordinator = Create(snapshot => snapshot.Stash.Add(new StashItem(Bone, 2)));
+            _remote.Override = simulated =>
+            {
+                simulated.revision = _store.RemoteRevision;
+                return simulated;
             };
             _reconciliation.Succeeds = false;
 
             StashTransferOutcome outcome = await coordinator.TakeAllAsync();
 
-            Assert.That(_reconciliation.Calls, Is.EqualTo(1));
-            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:bone:2" }),
-                "Remote success followed by local divergence cannot permit another mutation when recovery fails.");
-            Assert.That(outcome.IsSuccess, Is.False);
-            Assert.That(_store.GetStash().Single(), Is.EqualTo(new StashItem(Sword, 1, 1)));
-            Assert.That(_store.GetLoadout(), Is.Empty);
             Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.RecoveryFailed));
             Assert.That(outcome.Rule, Is.EqualTo(StashOperationResult.InvalidInventory));
             Assert.That(outcome.RemoteErrorCode, Is.Null);
             Assert.That(outcome.RecoveryErrorCode, Is.EqualTo("RECONCILIATION_FAILED"));
-            Assert.That(outcome.Completed, Is.Zero);
-            Assert.That(outcome.Failed, Is.EqualTo(2));
+            Assert.That(_reconciliation.Calls, Is.EqualTo(1));
         }
 
         [Test]
-        public async Task TakeAll_RemoteErrorButReconciliationRestoresCommittedDestination_DoesNotClaimNotMoved()
+        public async Task LeaveAll_RemoteFailure_LeavesLocalStateUnchangedAndReconcilesOnce()
         {
             StashTransferCoordinator coordinator = Create(snapshot =>
             {
-                snapshot.Stash.Add(new StashItem(Bone, 2));
-                snapshot.Stash.Add(new StashItem(Sword, 1));
+                snapshot.Loadout.Add(new StashItem(Bone, 2));
+                snapshot.Loadout.Add(new StashItem(Sword, 1));
             });
-            _remote.FailWhen = call => call == "toLoadout:rapier:1";
-            _remote.Error = new BackendError { error = "TRANSPORT_ERROR", message = "response lost" };
-            _reconciliation.OnCall = () =>
-            {
-                // Model the authoritative refresh after a committed mutation whose response was lost.
-                Assert.That(_loadout.TryTransferToLoadout(_profile, Sword, 1), Is.EqualTo(StashOperationResult.Success));
-            };
+            _remote.Succeeds = false;
 
-            StashTransferOutcome outcome = await coordinator.TakeAllAsync();
+            StashTransferOutcome outcome = await coordinator.LeaveAllAsync();
 
+            Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.RemoteFailed));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "bulk:toStash" }));
             Assert.That(_reconciliation.Calls, Is.EqualTo(1));
-            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:bone:2", "toLoadout:rapier:1" }));
-            Assert.That(_store.GetStash(), Is.Empty);
             Assert.That(_store.GetLoadout(), Has.Count.EqualTo(2));
-            Assert.That(outcome.Completed, Is.EqualTo(1));
-            Assert.That(outcome.Failed, Is.EqualTo(1));
-            Assert.That(outcome.RemoteErrorCode, Is.EqualTo("TRANSPORT_ERROR"));
-            Assert.That(outcome.ToString(), Does.Not.Contain("not moved"),
-                "A lost response does not prove the mutation failed; refreshed ownership confirms the destination.");
+            Assert.That(_store.GetStash(), Is.Empty);
         }
 
         [Test]
-        public async Task TakeAll_OwnershipDisappearsAfterReconciliation_AccountsForEveryOriginalStack()
-        {
-            LootId[] ids = DistinctLootIds(3);
-            StashTransferCoordinator coordinator = Create(snapshot =>
-            {
-                foreach (LootId id in ids)
-                {
-                    snapshot.Stash.Add(new StashItem(id, 1));
-                }
-            });
-            _remote.FailWhen = call => call == $"toLoadout:{ids[1].Value}:1";
-            _reconciliation.OnCall = () =>
-            {
-                Assert.That(_stash.TryConsumeLoot(_profile, ids[2], 1), Is.EqualTo(StashOperationResult.Success));
-            };
-
-            StashTransferOutcome outcome = await coordinator.TakeAllAsync();
-
-            Assert.That(_reconciliation.Calls, Is.EqualTo(1));
-            Assert.That(_remote.Calls, Is.EqualTo(new[]
-            {
-                $"toLoadout:{ids[0].Value}:1", $"toLoadout:{ids[1].Value}:1"
-            }));
-            Assert.That(_store.GetLoadout().Single().LootId, Is.EqualTo(ids[0]));
-            Assert.That(_store.GetStash().Single().LootId, Is.EqualTo(ids[1]));
-            Assert.That(outcome.IsSuccess, Is.False);
-            Assert.That(outcome.Completed, Is.EqualTo(1));
-            Assert.That(outcome.Completed + outcome.Failed, Is.EqualTo(ids.Length),
-                "A stack removed by reconciliation must not disappear from the sequence summary.");
-        }
-
-        [Test]
-        public async Task TakeAll_AppliesEachStackLocallyBeforeTheNextRemoteCall()
-        {
-            StashTransferCoordinator coordinator = Create(snapshot =>
-            {
-                snapshot.Stash.Add(new StashItem(Bone, 2));
-                snapshot.Stash.Add(new StashItem(Sword, 1));
-            });
-            var loadoutCountAtEachCall = new List<int>();
-            _remote.OnCall = _ => loadoutCountAtEachCall.Add(_store.GetLoadout().Count);
-
-            StashTransferOutcome outcome = await coordinator.TakeAllAsync();
-
-            Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.Success));
-            Assert.That(loadoutCountAtEachCall, Is.EqualTo(new[] { 0, 1 }));
-        }
-
-        [Test]
-        public async Task LeaveAll_RemoteFailureOnOneStack_ContinuesAndKeepsEarlierMoves()
-        {
-            StashTransferCoordinator coordinator = Create(snapshot =>
-            {
-                snapshot.Loadout.Add(new StashItem(Bone, 2));
-                snapshot.Loadout.Add(new StashItem(Sword, 1));
-            });
-            _remote.FailWhen = call => call.Contains(Bone.Value);
-
-            StashTransferOutcome outcome = await coordinator.LeaveAllAsync();
-
-            Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.Partial));
-            Assert.That(outcome.Completed, Is.EqualTo(1));
-            Assert.That(outcome.Failed, Is.EqualTo(1));
-            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toStash:bone:2", "toStash:rapier:1" }));
-            Assert.That(_store.GetLoadout().Single().LootId, Is.EqualTo(Bone));
-            Assert.That(_store.GetStash().Single().LootId, Is.EqualTo(Sword));
-        }
-
-        [Test]
-        public async Task LeaveAll_MovesEveryStackRemotelyThenLocally()
+        public async Task LeaveAll_IssuesOneBulkCall_AndAppliesTheBackendResult()
         {
             StashTransferCoordinator coordinator = Create(snapshot =>
             {
@@ -912,7 +897,7 @@ namespace Tests.EditMode.Stash
             StashTransferOutcome outcome = await coordinator.LeaveAllAsync();
 
             Assert.That(outcome.Status, Is.EqualTo(StashTransferStatus.Success));
-            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toStash:bone:2", "toStash:rapier:1" }));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "bulk:toStash" }));
             Assert.That(_store.GetLoadout(), Is.Empty);
             Assert.That(_store.GetStash(), Has.Count.EqualTo(2));
         }
@@ -1047,7 +1032,7 @@ namespace Tests.EditMode.Stash
 
         [TestCase(true)]
         [TestCase(false)]
-        public async Task BulkTransfer_WithCatalog_UsesStoredOrder(bool fromStash)
+        public async Task BulkTransfer_WithCatalog_StillIssuesOneCall(bool fromStash)
         {
             var coordinator = Create(snapshot =>
             {
@@ -1056,8 +1041,7 @@ namespace Tests.EditMode.Stash
                 source.Add(new StashItem(Bone, 2));
             }, withCatalog: true);
             Assert.That((await (fromStash ? coordinator.TakeAllAsync() : coordinator.LeaveAllAsync())).IsSuccess, Is.True);
-            string direction = fromStash ? "toLoadout" : "toStash";
-            Assert.That(_remote.Calls, Is.EqualTo(new[] { $"{direction}:rapier:1", $"{direction}:bone:2" }));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { $"bulk:{(fromStash ? "toLoadout" : "toStash")}" }));
         }
 
         [TestCase(InventoryList.Stash, false)]
@@ -1270,6 +1254,43 @@ namespace Tests.EditMode.Stash
             return _capacityDefinitions.Select(d => d.LootId).ToArray();
         }
 
+        /// <summary>Models the backend: the same per-stack rules, in source slot order, on a scratch profile.</summary>
+        private TransferAllResult SimulateBulk(bool fromStash)
+        {
+            var repository = new InMemoryLocalProfileRepository();
+            Assert.That(repository.Initialize(_profile, _catalog), Is.True);
+            LocalProfileSnapshot scratch = repository.Snapshot.Clone();
+            scratch.InventorySchemaVersion = _store.InventorySchemaVersion;
+            scratch.Stash.AddRange(_store.GetStash());
+            scratch.Loadout.AddRange(_store.GetLoadout());
+            scratch.PreparedEquipment = _store.GetPreparedEquipment();
+            Assert.That(repository.TrySave(scratch, out string error), Is.True, error);
+            var backend = new LocalProfileStore(repository, _profile, _catalog);
+            var results = new List<TransferAllStackResult>();
+            foreach (StashItem item in (fromStash ? backend.GetStash() : backend.GetLoadout()).OrderBy(i => i.Slot).ToArray())
+            {
+                StashOperationResult rule = backend.TryTransfer(item.Slot, item.LootId, item.Amount, fromStash);
+                results.Add(new TransferAllStackResult
+                {
+                    slot = item.Slot, lootId = item.LootId.Value, amount = item.Amount,
+                    moved = rule == StashOperationResult.Success,
+                    errorCode = rule == StashOperationResult.Success ? null
+                        : rule == StashOperationResult.InventoryFull ? "INVENTORY_FULL" : "VALIDATION_FAILED"
+                });
+            }
+
+            static InventoryItemData[] Map(IReadOnlyList<StashItem> items) => items.Select(item => new InventoryItemData
+            {
+                slot = item.Slot, lootId = item.LootId.Value, amount = item.Amount,
+                instance = EquipmentInstanceData.FromInstance(item.Instance)
+            }).ToArray();
+            return new TransferAllResult
+            {
+                stash = Map(backend.GetStash()), loadout = Map(backend.GetLoadout()), results = results.ToArray(),
+                revision = _store.RemoteRevision + (results.Any(r => r.moved) ? 1 : 0)
+            };
+        }
+
         private LootId[] DistinctLootIds(int count)
         {
             var ids = new LootId[count];
@@ -1320,8 +1341,22 @@ namespace Tests.EditMode.Stash
                 withCatalog ? _catalog : null);
         }
 
-        private sealed class FakeRemote : IRemoteInventoryService, ISlotRemoteInventoryService
+        private sealed class FakeRemote : IRemoteInventoryService, ISlotRemoteInventoryService, IRemoteBulkTransferService
         {
+            public Func<bool, TransferAllResult> Simulate;
+            public Func<TransferAllResult, TransferAllResult> Override;
+            public Action<TransferAllResult> OnResult;
+
+            public async Task<(bool success, TransferAllResult data, BackendError error)> TransferAllAsync(bool fromStash)
+            {
+                (bool success, BackendError error) = await Run($"bulk:{(fromStash ? "toLoadout" : "toStash")}");
+                if (!success) return (false, default, error);
+                TransferAllResult result = Simulate(fromStash);
+                if (Override != null) result = Override(result);
+                OnResult?.Invoke(result);
+                return (true, result, default);
+            }
+
             public Task<(bool success, BackendError error)> SplitSlotAsync(InventoryList list, int sourceSlot, int amount, int destinationSlot, LootId id) =>
                 Run($"split:{list}:{sourceSlot}:{amount}:{destinationSlot}:{id.Value}");
             public Task<(bool success, BackendError error)> OrderSlotsAsync(InventoryList list, IReadOnlyList<int> slots) => Run("order");

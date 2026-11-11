@@ -217,61 +217,57 @@ public sealed class StashTransferCoordinator
         return await ApplyLocalAsync(local.TryTransfer(_profileId, sourceSlot, lootId, amount, fromStash));
     }
 
-    private Task<StashTransferOutcome> TakeAllCoreAsync() => TransferEachStackAsync(fromStash: true);
+    private Task<StashTransferOutcome> TakeAllCoreAsync() => TransferAllCoreAsync(fromStash: true);
 
-    private Task<StashTransferOutcome> LeaveAllCoreAsync() => TransferEachStackAsync(fromStash: false);
+    private Task<StashTransferOutcome> LeaveAllCoreAsync() => TransferAllCoreAsync(fromStash: false);
 
     /// <summary>
-    /// Take All / Leave All snapshots all source IDs in stored order, including items outside the
-    /// visible pool. Each stack is checked, moved remotely and applied locally before the next.
-    /// Ordinary failures are skipped, but failed reconciliation stops further mutations.
-    /// Counts describe confirmed attempts versus unconfirmed/not-attempted IDs, not actual moves.
+    /// Take All / Leave All is one backend request that applies the single-transfer rules to every source
+    /// stack in slot order, skips refused stacks and persists the rest in one write. On success the local
+    /// profile takes the returned lists in one commit; counts come from the per-stack results. A failed or
+    /// undetermined request leaves the local profile unchanged, reconciles once and never retries.
     /// </summary>
-    private async Task<StashTransferOutcome> TransferEachStackAsync(bool fromStash)
+    private async Task<StashTransferOutcome> TransferAllCoreAsync(bool fromStash)
     {
-        if (_remote == null)
+        if (!(_remote is IRemoteBulkTransferService bulk) || !(_loadout is ISlotPlayerLoadoutService local))
         {
             return StashTransferOutcome.Unavailable();
         }
 
-        IReadOnlyList<StashItem> source = fromStash ? _stash.GetStash(_profileId) : _loadout.GetLoadout(_profileId);
-        // Snapshot once inside the queue, not from a visible page or a cached projection.
-        StashItem[] order = source.OrderBy(item => item.Slot).ToArray();
-        int completed = 0;
-        int failed = 0;
-        StashTransferOutcome firstFailure = default;
-        for (int index = 0; index < order.Length; index++)
+        int sourceCount = (fromStash ? _stash.GetStash(_profileId) : _loadout.GetLoadout(_profileId)).Count;
+        if (sourceCount == 0)
         {
-            LootId lootId = order[index].LootId;
-            int sourceSlot = order[index].Slot;
-            // A reconciliation after an earlier failure may have changed the source, so every
-            // stack is re-read and checked against the current state.
-            if (!IsOwned(sourceSlot, lootId, fromStash))
-            {
-                if (failed++ == 0)
-                {
-                    firstFailure = StashTransferOutcome.Rejected(StashOperationResult.InvalidInventory);
-                }
-                continue;
-            }
+            return StashTransferOutcome.Success();
+        }
 
-            StashTransferOutcome outcome = await TransferCoreAsync(sourceSlot, lootId, fromStash, LootTransferQuantityMode.FullStack);
-            if (outcome.IsSuccess)
-            {
-                completed++;
-                continue;
-            }
+        bool success;
+        Grimhold.Backend.TransferAllResult data;
+        Grimhold.Backend.BackendError error;
+        try
+        {
+            (success, data, error) = await bulk.TransferAllAsync(fromStash);
+        }
+        catch (Exception)
+        {
+            // An exception cannot establish whether the server committed. Reconcile, never retry.
+            return await TransferAllFailedAsync(sourceCount, "Remote result unavailable", "REMOTE_RESULT_UNKNOWN");
+        }
 
-            if (failed++ == 0)
-            {
-                firstFailure = outcome;
-            }
+        if (!success)
+        {
+            return await TransferAllFailedAsync(sourceCount, error.message, error.error);
+        }
 
-            if (outcome.Status == StashTransferStatus.RecoveryFailed)
+        Grimhold.Backend.TransferAllStackResult[] results =
+            data.results ?? Array.Empty<Grimhold.Backend.TransferAllStackResult>();
+        int completed = results.Count(result => result.moved);
+        int failed = results.Length - completed;
+        if (completed > 0)
+        {
+            StashTransferOutcome applied = await ApplyLocalAsync(local.TryApplyConfirmedTransferAll(_profileId, data));
+            if (!applied.IsSuccess)
             {
-                return StashTransferOutcome.RecoveryFailed(
-                    outcome.Rule, outcome.RemoteError, outcome.RemoteErrorCode,
-                    completed, failed + order.Length - index - 1);
+                return applied;
             }
         }
 
@@ -280,25 +276,19 @@ public sealed class StashTransferCoordinator
             return StashTransferOutcome.Success(completed);
         }
 
+        StashOperationResult rule = RuleFor(results.First(result => !result.moved).errorCode);
         return completed == 0
-            ? firstFailure.WithCounts(completed, failed)
-            : StashTransferOutcome.Partial(
-                completed, failed, firstFailure.RemoteError, firstFailure.RemoteErrorCode, firstFailure.Rule);
+            ? StashTransferOutcome.Rejected(rule).WithCounts(0, failed)
+            : StashTransferOutcome.Partial(completed, failed, rule: rule);
     }
 
-    private bool IsOwned(int slot, LootId lootId, bool fromStash)
-    {
-        IReadOnlyList<StashItem> source = fromStash ? _stash.GetStash(_profileId) : _loadout.GetLoadout(_profileId);
-        foreach (StashItem item in source)
-        {
-            if (item.Slot == slot && item.LootId == lootId)
-            {
-                return true;
-            }
-        }
+    private async Task<StashTransferOutcome> TransferAllFailedAsync(int sourceCount, string message, string errorCode) =>
+        await ReconcileAsync()
+            ? StashTransferOutcome.RemoteFailed(message, errorCode).WithCounts(0, sourceCount)
+            : StashTransferOutcome.RecoveryFailed(StashOperationResult.Success, message, errorCode, 0, sourceCount);
 
-        return false;
-    }
+    private static StashOperationResult RuleFor(string errorCode) =>
+        errorCode == "INVENTORY_FULL" ? StashOperationResult.InventoryFull : StashOperationResult.InvalidInventory;
 
     private async Task<StashTransferOutcome> EquipCoreAsync(LootId lootId, EquipmentSlot slot, bool fromStash,
         ITownEquipmentMutationEndpoint equipment)

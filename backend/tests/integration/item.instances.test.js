@@ -91,6 +91,7 @@ test('v3 HTTP durable instance ownership and extraction', async t => {
     const response = await send('get', '/me/inventory', undefined, '3'); assert.equal(response.status, 409); assert.equal(response.body.error, 'INVENTORY_MIGRATION_REQUIRED');
   });
   await t.test('host publishes ID-free variants and equipment; commit reissues IDs and rejects invalid modifiers before consuming result', async () => {
+    await Inventory.updatePreparedEquipment(accountId, { weaponSlot1: { lootId: 'arming_sword', instanceId: instance.instanceId } }, 0);
     await Inventory.savePendingReservation(accountId, 'reserve');
     const published = await send('post', '/raid/extraction-result', { raidId: 'raid', resultSequence: 1, experienceGranted: 0,
       items: [{ lootId: 'arming_sword', amount: 1, modifiers: modifiers() }, { lootId: 'arming_sword', amount: 1 }],
@@ -108,6 +109,7 @@ test('v3 HTTP durable instance ownership and extraction', async t => {
     assert.deepEqual(await get(), after);
   });
   await t.test('invalid extraction modifiers reject publication without creating an authoritative result', async () => {
+    await Inventory.updatePreparedEquipment(accountId, { weaponSlot1: { lootId: 'arming_sword', instanceId: instance.instanceId } }, 0);
     await Inventory.savePendingReservation(accountId, 'reserve');
     await reject('/raid/extraction-result', { raidId: 'bad', resultSequence: 1, experienceGranted: 0,
       items: [{ lootId: 'arming_sword', amount: 1, modifiers: { primary: { attribute: 'luck', grade: 'S' }, gemSocketCount: 0, gems: [] } }] }, 'INVALID_INVENTORY', 400);

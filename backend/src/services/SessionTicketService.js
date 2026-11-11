@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const Character = require('../models/Character');
 const env = require('../config/env');
+const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
 const { normalizeItems } = require('./InventoryLootIdNormalizer');
 const { inventoryVersion, requireMigratedInventory, serializeItems, copyEntry } = require('./InventoryEntries');
 
@@ -160,6 +161,11 @@ class SessionTicketService {
       };
     }
 
+    if (!reservation.preparedEquipment?.weaponSlot1 && !reservation.preparedEquipment?.weaponSlot2) {
+      throw { statusCode: 409, errorCode: 'PREPARED_WEAPON_REQUIRED',
+        message: 'Equip a weapon in a Weapon Set or ask the Trainer before preparing an expedition.' };
+    }
+
     const now = Math.floor(Date.now() / 1000);
     const expiresAt = now + RAID_TICKET_TTL_SECONDS;
 
@@ -194,10 +200,11 @@ class SessionTicketService {
           ? normalizeItems(reservation.items)
           : (reservation.items || []).map(i => ({ lootId: i.lootId, amount: i.amount })),
       preparedEquipment: inventoryVersion(character) === 3
-        ? Object.fromEntries(Object.entries(reservation.preparedEquipment).map(([slot, item]) =>
-          [slot, admissionEquipment(item)]))
+        // Read named slots: Object.entries on a Mongoose subdocument yields its internals.
+        ? Object.fromEntries(EQUIPMENT_SLOTS.map(slot =>
+          [slot, admissionEquipment(reservation.preparedEquipment?.[slot])]))
         : {
-        weaponSlot1: reservation.preparedEquipment?.weaponSlot1 || (!reservation.preparedEquipment?.weaponSlot2 ? 'arming_sword' : ''),
+        weaponSlot1: reservation.preparedEquipment?.weaponSlot1 || '',
         weaponSlot2: reservation.preparedEquipment?.weaponSlot2 || '',
         offHand1:    reservation.preparedEquipment?.offHand1 || '',
         helmet:      reservation.preparedEquipment?.helmet || '',

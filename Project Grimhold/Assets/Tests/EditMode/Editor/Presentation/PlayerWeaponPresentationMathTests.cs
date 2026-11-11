@@ -297,8 +297,15 @@ namespace Tests.EditMode.Presentation
                 .ToArray();
             Assert.That(attackStates.Select(state => state.name),
                 Is.EquivalentTo(new[] { "Attack" }));
+            // Any State also routes to the knockback reaction (a51a721ce), which is not an attack state.
+            AnimatorState[] knockbackStates = attackLayer.stateMachine.states
+                .Select(child => child.state)
+                .Where(state => state.tag == "Knockback")
+                .ToArray();
+            Assert.That(knockbackStates.Select(state => state.name),
+                Is.EquivalentTo(new[] { "RightHand-Knockback" }));
             Assert.That(attackLayer.stateMachine.anyStateTransitions.Select(transition => transition.destinationState),
-                Is.EquivalentTo(attackStates));
+                Is.EquivalentTo(attackStates.Concat(knockbackStates)));
             Assert.That(attackLayer.stateMachine.states.Any(child =>
                 child.state.name.StartsWith("MagicWand-")), Is.False);
             Assert.That(attackStates.All(state => state.motion is BlendTree), Is.True);

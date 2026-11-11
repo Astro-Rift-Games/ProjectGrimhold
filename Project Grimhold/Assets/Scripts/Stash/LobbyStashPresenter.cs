@@ -24,6 +24,8 @@ public class LobbyStashPresenter : MonoBehaviour
     private DragPayload _activeDrag = DragPayload.Empty;
     private int _activeDragSlot = -1;
     private int _pendingActions;
+    private bool _deferCommitRefresh;
+    private bool _refreshDeferred;
     private TownGemInstallSession _gemSession;
     private TownGemInstallUIBinding _gemBinding;
     private readonly TownLootGemInstallContextActionProvider _gemProvider = new();
@@ -131,6 +133,8 @@ public class LobbyStashPresenter : MonoBehaviour
 
         if (_context != null) _context.ProfileCommitted -= OnProfileCommitted;
         _context = null;
+        _deferCommitRefresh = false;
+        _refreshDeferred = false;
     }
 
     /// <summary>
@@ -233,9 +237,9 @@ public class LobbyStashPresenter : MonoBehaviour
     private void OnSortRequested(InventoryList list) =>
         Run(coordinator => coordinator.SortAsync(list, _lootCatalog), allowWhileBuildLocked: true);
 
-    private void OnTakeAllRequested() => Run(coordinator => coordinator.TakeAllAsync());
+    private void OnTakeAllRequested() => Run(coordinator => coordinator.TakeAllAsync(), bulk: true);
 
-    private void OnLeaveAllRequested() => Run(coordinator => coordinator.LeaveAllAsync());
+    private void OnLeaveAllRequested() => Run(coordinator => coordinator.LeaveAllAsync(), bulk: true);
 
     private void OnTransferRequested(int sourceSlot, LootId lootId, bool isFromStash, LootTransferQuantityMode mode) =>
         Run(coordinator => coordinator.TransferAsync(sourceSlot, lootId, isFromStash, mode));
@@ -274,7 +278,8 @@ public class LobbyStashPresenter : MonoBehaviour
     private void Run(
         Func<StashTransferCoordinator, Task<StashTransferOutcome>> action,
         bool split = false,
-        bool allowWhileBuildLocked = false)
+        bool allowWhileBuildLocked = false,
+        bool bulk = false)
     {
         if (_coordinator == null || _gemSession?.LocksMutations == true) return;
         if (!allowWhileBuildLocked && IsBuildLocked)
@@ -284,8 +289,10 @@ public class LobbyStashPresenter : MonoBehaviour
         }
 
         _pendingActions++;
+        // A bulk action commits once per stack; its commits refresh the view a single time when it ends.
+        if (bulk) _deferCommitRefresh = true;
         UpdateActions();
-        _ = ObserveAsync(action, _coordinator, split);
+        _ = ObserveAsync(action, _coordinator, split, bulk);
     }
 
     private void UpdateActions()
@@ -308,7 +315,7 @@ public class LobbyStashPresenter : MonoBehaviour
     }
 
     private async Task ObserveAsync(
-        Func<StashTransferCoordinator, Task<StashTransferOutcome>> action, StashTransferCoordinator coordinator, bool split)
+        Func<StashTransferCoordinator, Task<StashTransferOutcome>> action, StashTransferCoordinator coordinator, bool split, bool bulk)
     {
         try
         {
@@ -329,6 +336,12 @@ public class LobbyStashPresenter : MonoBehaviour
         finally
         {
             _pendingActions--;
+            if (bulk)
+            {
+                _deferCommitRefresh = false;
+                if (_refreshDeferred && this != null && isActiveAndEnabled && _context != null) RefreshUI();
+                _refreshDeferred = false;
+            }
             if (this != null) UpdateActions();
         }
     }
@@ -373,7 +386,8 @@ public class LobbyStashPresenter : MonoBehaviour
     {
         if (updatedProfileId.Value == _localProfileId.Value)
         {
-            RefreshUI();
+            if (_deferCommitRefresh) _refreshDeferred = true;
+            else RefreshUI();
         }
     }
 

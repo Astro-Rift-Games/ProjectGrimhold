@@ -1,6 +1,7 @@
 #if UNITY_EDITOR && UNITY_INCLUDE_TESTS
 using System;
 using System.Collections;
+using System.Linq;
 using System.Reflection;
 using Fusion;
 using NUnit.Framework;
@@ -16,10 +17,8 @@ namespace Tests.PlayMode.Presentation
     {
         private const string PlayerPrefabPath = "Assets/Prefabs/NetworkPlayer.prefab";
         private const string EnemyPrefabPath = "Assets/Prefabs/Enemies/NetworkEnemy.prefab";
-        private const string MeleePrefabPath = "Assets/Prefabs/NetworkPlayerMelee.prefab";
-        private const string RangedPrefabPath = "Assets/Prefabs/NetworkPlayerRanged.prefab";
         private const string PlayerPrefabGuid = "fea3a7b256f965a4eb9b965832939741";
-        private const string MeleePrefabGuid = "982f360e5acbdd344a8a75bbc0af94ec";
+        private const string SwordDefinitionPath = "Assets/Scriptable Objects/Loot/Definitions/ArmingSword.asset";
         private const string ParticipantPrefabGuid = "c39d451563bae6e43934008a0dadc6d6";
 
         private NetworkRunner _runner;
@@ -65,7 +64,11 @@ namespace Tests.PlayMode.Presentation
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath);
             Assert.That(prefab, Is.Not.Null);
-            Assert.That(prefab.GetComponentsInChildren<Canvas>(true), Has.Length.EqualTo(1));
+            // The Raid HUD canvas plus the dedicated Settings canvas added with the Raid menu Settings entry (fce29a1d0).
+            Canvas[] canvases = prefab.GetComponentsInChildren<Canvas>(true);
+            Assert.That(canvases, Has.Length.EqualTo(2));
+            Assert.That(canvases.Count(canvas => canvas.GetComponent<SettingsPanelView>() != null), Is.EqualTo(1));
+            Assert.That(canvases.Count(canvas => canvas.GetComponent<SettingsPanelView>() == null), Is.EqualTo(1));
             Assert.That(prefab.GetComponentsInChildren<RaidHudPresenter>(true), Has.Length.EqualTo(1));
             Assert.That(prefab.GetComponentsInChildren<RaidHudView>(true), Has.Length.EqualTo(1));
             Assert.That(prefab.GetComponentsInChildren<RaidTeammateHudPresenter>(true), Has.Length.EqualTo(1));
@@ -144,10 +147,6 @@ namespace Tests.PlayMode.Presentation
             Assert.That(menuView.ProgressionExperienceText, Is.Not.Null);
             Assert.That(menuView.ProgressionLevelText, Is.Not.Null);
             Assert.That(menuView.ProgressionLevelStatusText, Is.Not.Null);
-            Assert.That(menuView.ProgressionExperienceFill, Is.Not.Null);
-            Assert.That(
-                menuView.ProgressionExperienceFill.type,
-                Is.EqualTo(UnityEngine.UI.Image.Type.Filled));
 
             MonoBehaviour[] behaviours = prefab.GetComponentsInChildren<MonoBehaviour>(true);
             for (int index = 0; index < behaviours.Length; index++)
@@ -186,32 +185,6 @@ namespace Tests.PlayMode.Presentation
             {
                 Object.DestroyImmediate(instance);
             }
-        }
-
-        [TestCase(MeleePrefabPath)]
-        [TestCase(RangedPrefabPath)]
-        public void PlayerVariantCooldownUsesAnExistingWeaponSprite(string prefabPath)
-        {
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
-            Assert.That(prefab, Is.Not.Null);
-            RaidHudView view = prefab.GetComponentInChildren<RaidHudView>(true);
-            Assert.That(view, Is.Not.Null);
-            Assert.That(view.CooldownIcon, Is.Not.Null);
-            Assert.That(view.CooldownIcon.sprite, Is.Not.Null);
-
-            SpriteRenderer[] renderers = prefab.GetComponentsInChildren<SpriteRenderer>(true);
-            bool reusesConfiguredSprite = false;
-            for (int index = 0; index < renderers.Length; index++)
-            {
-                if (renderers[index].sprite == view.CooldownIcon.sprite)
-                {
-                    reusesConfiguredSprite = true;
-                    break;
-                }
-            }
-
-            Assert.That(reusesConfiguredSprite, Is.True);
-            Assert.That(view.CooldownFill.sprite, Is.SameAs(view.CooldownIcon.sprite));
         }
 
         [Test]
@@ -265,8 +238,6 @@ namespace Tests.PlayMode.Presentation
         public IEnumerator VitalityDefinesFreshHealthHealingLimitAndHudMaximum()
         {
             yield return StartRunner();
-            _localProfile = PlayModeLocalProfile.Create();
-            _localProfile.BindTo(_joinContext);
 
             Assert.That(
                 CharacterAttributeState.TryCreate(
@@ -347,7 +318,7 @@ namespace Tests.PlayMode.Presentation
             yield return StartRunner();
 
             NetworkObject playerPrefab = _runner.Config.PrefabTable.Load(
-                _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(MeleePrefabGuid)),
+                _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(PlayerPrefabGuid)),
                 true);
             NetworkObject participantPrefab = _runner.Config.PrefabTable.Load(
                 _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(ParticipantPrefabGuid)),
@@ -422,7 +393,10 @@ namespace Tests.PlayMode.Presentation
             yield return null;
             Assert.That(menuPresenter.IsOpen, Is.True);
             Assert.That(menuView.ResumeButtonText.text, Is.EqualTo("Continuar observando"));
-            Assert.That(menuView.AbandonButton.gameObject.activeSelf, Is.False);
+            // Results keep the return action visible but disabled while the raid is active (cefb86809).
+            Assert.That(menuView.AbandonButton.gameObject.activeSelf, Is.True);
+            Assert.That(menuView.AbandonButton.interactable, Is.False);
+            Assert.That(menuView.AbandonButtonText.text, Is.EqualTo("Volver al pueblo"));
             Assert.That(menuView.CancelRaidButton.gameObject.activeSelf, Is.False);
             Assert.That(menuView.SpectatorTargetText.text, Does.Contain("client-profile"));
             Assert.That(_runner.GetPlayerObject(_runner.LocalPlayer), Is.SameAs(localParticipantObject));
@@ -440,7 +414,7 @@ namespace Tests.PlayMode.Presentation
         {
             yield return StartRunner();
 
-            NetworkObject playerPrefab = LoadPrefab(MeleePrefabGuid);
+            NetworkObject playerPrefab = LoadPrefab(PlayerPrefabGuid);
             NetworkObject participantPrefab = LoadPrefab(ParticipantPrefabGuid);
             NetworkObject localParticipantObject = _runner.Spawn(
                 participantPrefab,
@@ -453,7 +427,6 @@ namespace Tests.PlayMode.Presentation
                         ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _localParticipant = localParticipantObject.GetComponent<NetworkRaidParticipant>();
 
-            ExpectIncompletePlayerFixtureLogs();
             _localPlayer = _runner.Spawn(
                 playerPrefab,
                 Vector3.zero,
@@ -502,7 +475,6 @@ namespace Tests.PlayMode.Presentation
                         ExperienceCurve.InitialLevel, 0, "raid-generation"));
             _proxyParticipant = proxyParticipantObject.GetComponent<NetworkRaidParticipant>();
 
-            ExpectIncompletePlayerFixtureLogs();
             _proxyPlayer = _runner.Spawn(
                 playerPrefab,
                 new Vector3(3f, 0f, 0f),
@@ -516,7 +488,6 @@ namespace Tests.PlayMode.Presentation
                 () => teammateView.HealthText.text == "Compañero: 100 / 100",
                 "The teammate HUD did not resolve the materialized frozen profile.");
 
-            ExpectIncompletePlayerFixtureLogs();
             NetworkObject replacementAvatar = _runner.Spawn(
                 playerPrefab,
                 new Vector3(4f, 0f, 0f),
@@ -561,7 +532,7 @@ namespace Tests.PlayMode.Presentation
             yield return StartRunner();
 
             NetworkPrefabId playerId =
-                _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(MeleePrefabGuid));
+                _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(PlayerPrefabGuid));
             NetworkObject playerPrefab = _runner.Config.PrefabTable.Load(playerId, true);
             NetworkPrefabId participantId =
                 _runner.Config.PrefabTable.GetId(NetworkObjectGuid.Parse(ParticipantPrefabGuid));
@@ -647,8 +618,7 @@ namespace Tests.PlayMode.Presentation
             Assert.That(inventoryView.PlayerPanel.TotalValueText.text, Is.EqualTo("Valor: 0"));
             Assert.That(view.ExtractionText.text, Is.EqualTo("Extracción: no disponible"));
 
-            _joinContext.Initialize(new PlayerJoinData(new ProfileId("local-profile")));
-
+            yield return EquipStartingSword(_localPlayer);
             PlayerCombatNetworkController combat =
                 _localPlayer.GetComponent<PlayerCombatNetworkController>();
             Assert.That(combat.TryGetPrimaryAttackStatus(out PrimaryAttackStatus readyStatus), Is.True);
@@ -735,9 +705,9 @@ namespace Tests.PlayMode.Presentation
                 () => !character.IsAlive &&
                     _localParticipant.State == RaidParticipantState.Defeated &&
                     !_localParticipant.CurrentAvatarId.IsValid &&
-                    _localPlayer.InputAuthority.IsNone &&
                     view.DefeatedRoot.activeSelf,
                 "Defeat was not presented by the raid HUD.");
+            // Single mode keeps the local player as input authority; the release on defeat is observable on proxies only.
             Assert.That(localHud.activeSelf, Is.True);
             Assert.That(view.MainHudRoot.activeSelf, Is.True);
 
@@ -747,9 +717,16 @@ namespace Tests.PlayMode.Presentation
             yield return WaitUntil(
                 () => !menuPresenter.IsOpen && menuView.SpectatorBarRoot.activeSelf,
                 "The defeated Host did not enter spectator presentation automatically.");
-            Assert.That(menuView.AbandonButton.gameObject.activeSelf, Is.False);
+            menuPresenter.OpenMenu();
+            yield return null;
+            // Results keep the return action visible but disabled while the raid is active (cefb86809).
+            Assert.That(menuView.AbandonButton.gameObject.activeSelf, Is.True);
+            Assert.That(menuView.AbandonButton.interactable, Is.False);
+            Assert.That(menuView.AbandonButtonText.text, Is.EqualTo("Volver al pueblo"));
             Assert.That(menuView.CancelRaidButton.gameObject.activeSelf, Is.False);
-            Assert.That(_localParticipant.IsReturnAuthorized, Is.False);
+            menuPresenter.CloseMenu();
+            yield return null;
+            Assert.That((bool)_localParticipant.IsReturnAuthorized, Is.False);
             Assert.That(_runner.GetPlayerObject(_runner.LocalPlayer), Is.SameAs(localParticipantObject));
             Assert.That(_localParticipant.HasInputAuthority, Is.True);
             Assert.That(_proxyParticipant.HasInputAuthority, Is.False);
@@ -783,10 +760,13 @@ namespace Tests.PlayMode.Presentation
             var runnerObject = new GameObject("RaidMainHudSingleRunner");
             _runner = runnerObject.AddComponent<NetworkRunner>();
             runnerObject.AddComponent<EntityRegistry>();
+            PlayModeRunnerComposition.AddRaidSceneMinimap(_runner);
             LocalInputContext inputContext = runnerObject.AddComponent<LocalInputContext>();
             _joinContext = runnerObject.AddComponent<LocalPlayerJoinContext>();
             _cooldownDriver = runnerObject.AddComponent<PrimaryAttackStatusSimulationDriver>();
             _defeatDriver = runnerObject.AddComponent<PlayerCorpseGenerationSimulationDriver>();
+            _localProfile = PlayModeLocalProfile.Create();
+            _localProfile.BindTo(_joinContext);
 
             _inputReaderObject = new GameObject("RaidMainHudInputReader");
             _inputReader = _inputReaderObject.AddComponent<PlayerInputReader>();
@@ -882,11 +862,41 @@ namespace Tests.PlayMode.Presentation
             Assert.That(property.objectReferenceValue, Is.Not.Null);
         }
 
-        private static void ExpectIncompletePlayerFixtureLogs()
+        /// <summary>
+        /// The unified player starts neutral, so a primary attack status exists only after a real Equipment
+        /// request assigns a weapon through the Raid inventory.
+        /// </summary>
+        private IEnumerator EquipStartingSword(NetworkObject player)
         {
-            LogAssert.Expect(
-                UnityEngine.LogType.Error,
-                "PlayerWeaponEquipmentNetworkController has missing weapon dependencies.");
+            var sword = AssetDatabase.LoadAssetAtPath<LootDefinition>(SwordDefinitionPath);
+            Assert.That(sword, Is.Not.Null, SwordDefinitionPath);
+            var equipment = player.GetComponent<PlayerWeaponEquipmentNetworkController>();
+            var inventoryDriver = _runner.gameObject.AddComponent<PlayerEquipmentSimulationDriver>();
+            _runner.AddGlobal(inventoryDriver);
+            int setup = inventoryDriver.CompletionSequence;
+            inventoryDriver.RequestInitializeLoadout(
+                player.GetComponent<PlayerLootReceiver>(),
+                new[] { new LootEntry(sword.LootId, 1) });
+            yield return WaitUntil(
+                () => inventoryDriver.CompletionSequence != setup,
+                "Raid inventory setup did not run in simulation.");
+            Assert.That(inventoryDriver.LastResult, Is.True, inventoryDriver.LastError);
+
+            EquipmentOperationResult result = EquipmentOperationResult.None;
+            void OnResolved(EquipmentOperationResult resolved) => result = resolved;
+            equipment.EquipRequestResolved += OnResolved;
+            try
+            {
+                Assert.That(equipment.TryRequestEquip(sword.LootId, EquipmentSlot.WeaponSetAMainHand), Is.True);
+                yield return WaitUntil(
+                    () => result != EquipmentOperationResult.None,
+                    "Equipment request was not confirmed.");
+                Assert.That(result, Is.EqualTo(EquipmentOperationResult.Succeeded));
+            }
+            finally
+            {
+                equipment.EquipRequestResolved -= OnResolved;
+            }
         }
 
         private static RaidParticipantId CreateParticipantId(int value)

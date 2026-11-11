@@ -3,7 +3,7 @@ using UnityEngine;
 namespace ProjectGrimhold.Gameplay.Enemies.Specter
 {
     /// <summary>
-    /// Reglas puras y deterministas de combate, incorporeidad y temporizaciones del Espectro (US-78 / TASK-272).
+    /// Reglas puras y deterministas de combate, incorporeidad y temporizaciones del Espectro (US-78 / TASK-272 / TASK-285).
     /// </summary>
     public static class SpecterRules
     {
@@ -14,6 +14,7 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
         public const float InvisibleDurationSeconds = 0.5f;
         public const float FadeInDurationSeconds = 0.4f;
         public const float ReactiveDisplacementCooldownSeconds = 4.0f;
+        public const float AttackCooldownSeconds = 3.0f;
 
         public const float ChannelDuration = ChannelDurationSeconds;
         public const float DetonationDuration = DetonationDurationSeconds;
@@ -22,6 +23,7 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
         public const float HiddenDuration = InvisibleDurationSeconds;
         public const float FadeInDuration = FadeInDurationSeconds;
         public const float ReactiveDisplacementCooldown = ReactiveDisplacementCooldownSeconds;
+        public const float AttackCooldown = AttackCooldownSeconds;
 
         public const float AttackRange = 5.0f;
         public const float AttackRadius = 1.5f;
@@ -65,26 +67,33 @@ namespace ProjectGrimhold.Gameplay.Enemies.Specter
 
         /// <summary>
         /// Determina si el espectro es elegible para recibir daño mágico.
-        /// Afecta en todos los estados visibles; inmune sólo durante el estado Desvanecido o Muerte (§3).
+        /// Afecta en todos los estados visibles; inmune durante Desvanecimiento, Desvanecido o Muerte (§3, TASK-285).
         /// </summary>
         public static bool CanReceiveMagicalDamage(SpecterStateType state) =>
+            state != SpecterStateType.Desvanecimiento &&
             state != SpecterStateType.Desvanecido &&
             state != SpecterStateType.Muerte;
 
         /// <summary>
         /// Determina si la entidad puede procesar daño en general.
+        /// Inmune durante Desvanecimiento, Desvanecido o Muerte (§3, TASK-285).
         /// </summary>
         public static bool CanReceiveDamage(SpecterStateType state) =>
+            state != SpecterStateType.Desvanecimiento &&
             state != SpecterStateType.Desvanecido &&
             state != SpecterStateType.Muerte;
 
         /// <summary>
-        /// Calcula el daño mitigado por las reglas de incorporeidad del espectro (§3).
+        /// Calcula el daño mitigado por las reglas de incorporeidad del espectro (§3, TASK-285).
         /// Inmunidad estricta al componente físico en estados incorpóreos; daño mágico efectivo en estados visibles.
+        /// Inmunidad total tanto a físico como a mágico durante Desvanecimiento, Desvanecido o Muerte.
         /// </summary>
         public static float CalculateMitigatedDamage(SpecterStateType state, float amount, DamageType damageType)
         {
-            if (amount <= 0f || state == SpecterStateType.Desvanecido || state == SpecterStateType.Muerte)
+            if (amount <= 0f ||
+                state == SpecterStateType.Desvanecimiento ||
+                state == SpecterStateType.Desvanecido ||
+                state == SpecterStateType.Muerte)
             {
                 return 0f;
             }

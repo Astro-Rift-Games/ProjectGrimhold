@@ -1,0 +1,931 @@
+#if UNITY_EDITOR && UNITY_INCLUDE_TESTS
+using System;
+using System.Collections.Generic;
+using System.IO;
+using NUnit.Framework;
+using UnityEditor;
+using UnityEngine.TestTools;
+
+[Category("TASK143")]
+public sealed class LocalProfilePersistenceEditModeTests
+{
+    private static string MainPath(ProfileId profile) => Path.Combine(".", $"grimhold-profile-{profile.Value}.json");
+    private static string BackupPath(ProfileId profile) => MainPath(profile) + ".bak";
+    private LootDefinitionCatalog _catalog;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _catalog = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(
+            "Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset");
+        Assert.That(_catalog, Is.Not.Null);
+    }
+
+    [Test]
+    public void InMemoryRepository_NewInstanceStartsWithEmptyGameplayData()
+    {
+        var profile = new ProfileId("10101010101010101010101010101010");
+        var currentProcess = new InMemoryLocalProfileRepository();
+        Assert.That(currentProcess.Initialize(profile, _catalog), Is.True);
+        var snapshot = currentProcess.Snapshot.Clone();
+        snapshot.Stash.Add(new StashItem(new LootId("coins"), 5));
+        Assert.That(currentProcess.TrySave(snapshot, out string error), Is.True, error);
+        Assert.That(currentProcess.Snapshot.Stash, Has.Count.EqualTo(1));
+
+        var nextProcess = new InMemoryLocalProfileRepository();
+        Assert.That(nextProcess.Initialize(profile, _catalog), Is.True);
+        Assert.That(nextProcess.Snapshot.Stash, Is.Empty);
+        Assert.That(nextProcess.Snapshot.Loadout, Is.Empty);
+        Assert.That(nextProcess.Snapshot.PendingReservation, Is.Null);
+        Assert.That(nextProcess.Snapshot.AppliedExtractionReceipts, Is.Empty);
+    }
+
+    [Test]
+    public void InMemoryRepository_RejectsSnapshotFromAnotherProfile()
+    {
+        var localProfile = new ProfileId("20202020202020202020202020202020");
+        var repository = new InMemoryLocalProfileRepository();
+        Assert.That(repository.Initialize(localProfile, _catalog), Is.True);
+        var foreignSnapshot = new LocalProfileSnapshot
+        {
+            ProfileId = new ProfileId("30303030303030303030303030303030")
+        };
+
+        Assert.That(repository.TrySave(foreignSnapshot, out string error), Is.False);
+        Assert.That(error, Does.Contain("does not match"));
+        Assert.That(repository.Snapshot.ProfileId, Is.EqualTo(localProfile));
+    }
+
+    [Test]
+    public void Repository_RoundTripsCurrentSnapshot()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("11111111111111111111111111111111");
+        var repository = new LocalProfileRepository(files, ".");
+
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var snapshot = repository.Snapshot.Clone();
+        snapshot.Stash.Add(new StashItem(new LootId("healthpotion"), 2, 5));
+        Assert.That(repository.TrySave(snapshot, out string error), Is.True, error);
+
+        var reloaded = new LocalProfileRepository(files, ".");
+        Assert.That(reloaded.Initialize(profile, _catalog), Is.True, reloaded.LastError);
+        CollectionAssert.AreEqual(snapshot.Stash, reloaded.Snapshot.Stash);
+    }
+
+    [Test]
+    public void Codec_RoundTripWithoutPendingReservationKeepsReservationAbsent()
+    {
+        var profile = new ProfileId("77777777777777777777777777777777");
+        var snapshot = new LocalProfileSnapshot { ProfileId = profile };
+
+        bool decoded = LocalProfileSaveCodec.TryDecode(
+            LocalProfileSaveCodec.Encode(snapshot),
+            profile,
+            _catalog,
+            out LocalProfileSnapshot restored,
+            out LocalProfilePersistenceStatus status,
+            out string error);
+
+        Assert.That(decoded, Is.True, error);
+        Assert.That(status, Is.EqualTo(LocalProfilePersistenceStatus.Ready));
+        Assert.That(restored.PendingReservation, Is.Null);
+    }
+
+    [Test]
+    public void Codec_RoundTripsPreparedWeaponsInLoadoutAndReservation()
+    {
+        var profile = new ProfileId("17171717171717171717171717171717");
+        LootId sword = new("rapier");
+        var active = new LocalProfileSnapshot { ProfileId = profile };
+        active.Loadout.Add(new StashItem(sword, 2, 3));
+        active.PreparedEquipment = new PreparedEquipmentLoadout(sword, sword);
+
+        Assert.That(LocalProfileSaveCodec.TryDecode(
+            LocalProfileSaveCodec.Encode(active),
+            profile,
+            _catalog,
+            out LocalProfileSnapshot restoredActive,
+            out _,
+            out string activeError), Is.True, activeError);
+        CollectionAssert.AreEqual(active.Loadout, restoredActive.Loadout);
+        Assert.That(restoredActive.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(sword));
+        Assert.That(restoredActive.PreparedEquipment.WeaponSetBMainHand, Is.EqualTo(sword));
+
+        var pending = new LocalProfileSnapshot { ProfileId = profile };
+        pending.PendingReservation = new PendingLoadoutReservation(
+            "reservation-codec",
+            new[] { new StashItem(sword, 2, 7) },
+            new PreparedEquipmentLoadout(sword, sword));
+
+        Assert.That(LocalProfileSaveCodec.TryDecode(
+            LocalProfileSaveCodec.Encode(pending),
+            profile,
+            _catalog,
+            out LocalProfileSnapshot restoredPending,
+            out _,
+            out string pendingError), Is.True, pendingError);
+        CollectionAssert.AreEqual(pending.PendingReservation.Items, restoredPending.PendingReservation.Items);
+        Assert.That(restoredPending.PendingReservation.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(sword));
+        Assert.That(restoredPending.PendingReservation.PreparedEquipment.WeaponSetBMainHand, Is.EqualTo(sword));
+    }
+
+    [Test]
+    public void Repository_EquipAndUnequipReloadAsExclusiveLocations()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("18181818181818181818181818181818");
+        LootId sword = new("rapier");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True, repository.LastError);
+        var store = new LocalProfileStore(repository, profile, _catalog);
+        Assert.That(
+            store.TryImportItems(new[] { new StashItem(sword, 2) }),
+            Is.EqualTo(StashOperationResult.Success));
+        Assert.That(
+            store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, sword),
+            Is.EqualTo(StashOperationResult.Success));
+
+        var equippedReload = new LocalProfileRepository(files, ".");
+        Assert.That(equippedReload.Initialize(profile, _catalog), Is.True, equippedReload.LastError);
+        Assert.That(equippedReload.Snapshot.Loadout, Is.EqualTo(new[] { new StashItem(sword, 1, 0) }));
+        Assert.That(equippedReload.Snapshot.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(sword));
+
+        var reloadedStore = new LocalProfileStore(equippedReload, profile, _catalog);
+        Assert.That(
+            reloadedStore.TryClearPreparedEquipment(EquipmentSlot.WeaponSetAMainHand),
+            Is.EqualTo(StashOperationResult.Success));
+        var unequippedReload = new LocalProfileRepository(files, ".");
+        Assert.That(unequippedReload.Initialize(profile, _catalog), Is.True, unequippedReload.LastError);
+        Assert.That(unequippedReload.Snapshot.Loadout, Is.EqualTo(new[] { new StashItem(sword, 2, 0) }));
+        Assert.That(unequippedReload.Snapshot.PreparedEquipment.HasAnyWeapon, Is.False);
+    }
+
+    [Test]
+    public void Store_RepeatedExtractionReceiptDoesNotDuplicateLootOrEvents()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("22222222222222222222222222222222");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile);
+        var initial = repository.Snapshot.Clone();
+        initial.Stash.Add(new StashItem(new LootId("bone"), 2, 4));
+        Assert.That(repository.TrySave(initial, out string initialError), Is.True, initialError);
+        int eventCount = 0;
+        store.ProfileCommitted += _ => eventCount++;
+        var receipt = new ExtractionReceipt("raid-1", profile, 1);
+        var items = new[] { new StashItem(new LootId("coins"), 3) };
+        var expectedLoadout = new[] { new StashItem(new LootId("coins"), 3, 0) };
+
+        Assert.That(store.TryCommitExtraction(receipt, items, new PreparedEquipmentLoadout(), 0, 1, 0), Is.EqualTo(StashOperationResult.Success));
+        CollectionAssert.AreEqual(expectedLoadout, store.GetLoadout());
+        CollectionAssert.AreEqual(initial.Stash, store.GetStash());
+
+        // The duplicate must be recognized before inspecting the current Loadout.
+        Assert.That(store.TryCommitExtraction(receipt, items, new PreparedEquipmentLoadout(), 0, 1, 0), Is.EqualTo(StashOperationResult.AlreadySecured));
+        CollectionAssert.AreEqual(expectedLoadout, store.GetLoadout());
+        CollectionAssert.AreEqual(initial.Stash, store.GetStash());
+        Assert.That(eventCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Store_ExtractionPersistenceFailurePreservesSnapshotAndRetryCommitsOnce()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("55555555555555555555555555555555");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile);
+        var initial = repository.Snapshot.Clone();
+        initial.Stash.Add(new StashItem(new LootId("bone"), 2, 4));
+        Assert.That(repository.TrySave(initial, out string initialError), Is.True, initialError);
+        var receipt = new ExtractionReceipt("raid-failure", profile, 1);
+        var items = new[] { new StashItem(new LootId("coins"), 5) };
+        var expectedLoadout = new[] { new StashItem(new LootId("coins"), 5, 0) };
+
+        files.FailWrites = true;
+        LogAssert.Expect(UnityEngine.LogType.Error,
+            "[LocalProfileStore] Commit failed. Available=True; Status=Ready; Error=Simulated disk failure.");
+        Assert.That(store.TryCommitExtraction(receipt, items, new PreparedEquipmentLoadout(), 0, 1, 0), Is.EqualTo(StashOperationResult.PersistenceFailed));
+        Assert.That(store.GetLoadout(), Is.Empty);
+        CollectionAssert.AreEqual(initial.Stash, store.GetStash());
+        Assert.That(repository.Snapshot.AppliedExtractionReceipts, Is.Empty);
+
+        files.FailWrites = false;
+        Assert.That(store.TryCommitExtraction(receipt, items, new PreparedEquipmentLoadout(), 0, 1, 0), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryCommitExtraction(receipt, items, new PreparedEquipmentLoadout(), 0, 1, 0), Is.EqualTo(StashOperationResult.AlreadySecured));
+        CollectionAssert.AreEqual(expectedLoadout, store.GetLoadout());
+        CollectionAssert.AreEqual(initial.Stash, store.GetStash());
+        Assert.That(repository.Snapshot.AppliedExtractionReceipts, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void Store_EmptyExtractionCommitsReceiptWithoutCreatingInventoryEntries()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("66666666666666666666666666666666");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile);
+        var receipt = new ExtractionReceipt("raid-empty", profile, 1);
+
+        Assert.That(store.TryCommitExtraction(receipt, Array.Empty<StashItem>(), new PreparedEquipmentLoadout(), 0, 1, 0), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryCommitExtraction(receipt, Array.Empty<StashItem>(), new PreparedEquipmentLoadout(), 0, 1, 0), Is.EqualTo(StashOperationResult.AlreadySecured));
+        Assert.That(store.GetLoadout(), Is.Empty);
+        Assert.That(store.GetStash(), Is.Empty);
+        Assert.That(repository.Snapshot.AppliedExtractionReceipts, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void Store_NewExtractionRejectsUnexpectedLoadoutWithoutChangingProfile()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("12121212121212121212121212121212");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var initial = repository.Snapshot.Clone();
+        initial.Loadout.Add(new StashItem(new LootId("coins"), 7, 3));
+        initial.Stash.Add(new StashItem(new LootId("bone"), 2, 4));
+        Assert.That(repository.TrySave(initial, out string initialError), Is.True, initialError);
+        var store = new LocalProfileStore(repository, profile);
+        var receipt = new ExtractionReceipt("raid-non-empty-loadout", profile, 1);
+
+        Assert.That(
+            store.TryCommitExtraction(receipt, new[] { new StashItem(new LootId("healthpotion"), 1) }, new PreparedEquipmentLoadout(), 0, 1, 0),
+            Is.EqualTo(StashOperationResult.PersistenceFailed));
+        CollectionAssert.AreEqual(initial.Loadout, store.GetLoadout());
+        CollectionAssert.AreEqual(initial.Stash, store.GetStash());
+        Assert.That(repository.Snapshot.AppliedExtractionReceipts, Is.Empty);
+    }
+
+    [Test]
+    public void Store_ExtractionBeyondLoadoutCapacityFailsWithoutPartialCommit()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("13131313131313131313131313131313");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile);
+        var items = new List<StashItem>();
+        for (int index = 0; index <= LocalProfileSnapshot.MaxLoadoutSlots; index++)
+        {
+            items.Add(new StashItem(new LootId($"extracted-{index}"), 1));
+        }
+
+        Assert.That(
+            store.TryCommitExtraction(new ExtractionReceipt("raid-over-capacity", profile, 1), items, new PreparedEquipmentLoadout(), 0, 1, 0),
+            Is.EqualTo(StashOperationResult.PersistenceFailed));
+        Assert.That(store.GetLoadout(), Is.Empty);
+        Assert.That(store.GetStash(), Is.Empty);
+        Assert.That(repository.Snapshot.AppliedExtractionReceipts, Is.Empty);
+    }
+
+    [Test]
+    public void Store_ExtractedLoadoutCanBeReservedForTheNextRaid()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("14141414141414141414141414141414");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile, _catalog);
+        var items = new[]
+        {
+            new StashItem(new LootId("rapier"), 1),
+            new StashItem(new LootId("bone"), 2)
+        };
+        Assert.That(
+            store.TryCommitExtraction(new ExtractionReceipt("raid-next", profile, 1), items, new PreparedEquipmentLoadout(), 0, 1, 0),
+            Is.EqualTo(StashOperationResult.Success));
+        Assert.That(
+            store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, new LootId("rapier")),
+            Is.EqualTo(StashOperationResult.Success));
+
+        Assert.That(
+            store.TryCreateLoadoutReservation("next-raid", out PendingLoadoutReservation reservation),
+            Is.EqualTo(StashOperationResult.Success));
+        CollectionAssert.AreEqual(
+            new[] { new StashItem(new LootId("bone"), 2, 1) },
+            reservation.Items);
+        Assert.That(reservation.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(new LootId("rapier")));
+        Assert.That(store.GetLoadout(), Is.Empty);
+        Assert.That(store.PendingReservation.ReservationId, Is.EqualTo("next-raid"));
+    }
+
+    [Test]
+    public void Store_EmptyLoadoutReservationIsRejectedWithoutMutation()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("88888888888888888888888888888888");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile);
+        int eventCount = 0;
+        store.ProfileCommitted += _ => eventCount++;
+
+        LogAssert.Expect(UnityEngine.LogType.Error,
+            "[LocalProfileStore] TryCreateLoadoutReservation failed. Validation failed: Prepared equipment validation dependencies are unavailable.");
+        Assert.That(
+            store.TryCreateLoadoutReservation("reservation-empty", out PendingLoadoutReservation reservation),
+            Is.EqualTo(StashOperationResult.InvalidInventory));
+        Assert.That(reservation, Is.Null);
+        Assert.That(store.PendingReservation, Is.Null);
+        Assert.That(eventCount, Is.Zero);
+
+        var reloaded = new LocalProfileRepository(files, ".");
+        Assert.That(reloaded.Initialize(profile, _catalog), Is.True, reloaded.LastError);
+        Assert.That(reloaded.Snapshot.PendingReservation, Is.Null);
+    }
+
+    [Test]
+    public void Store_SameWeaponInBothSlotsRequiresTwoOwnedUnits()
+    {
+        var profile = new ProfileId("15151515151515151515151515151515");
+        var repository = new InMemoryLocalProfileRepository();
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile, _catalog);
+        LootId sword = new("rapier");
+
+        Assert.That(
+            store.TryImportItems(new[] { new StashItem(sword, 1) }),
+            Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, sword), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetBMainHand, sword), Is.EqualTo(StashOperationResult.InvalidInventory));
+
+        Assert.That(
+            store.TryImportItems(new[] { new StashItem(sword, 1) }),
+            Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetBMainHand, sword), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(sword));
+        Assert.That(store.GetPreparedEquipment().WeaponSetBMainHand, Is.EqualTo(sword));
+    }
+
+    [Test]
+    public void Store_InventoryTransfersDoNotMutateExclusivePreparedAssignments()
+    {
+        var profile = new ProfileId("16161616161616161616161616161616");
+        var repository = new InMemoryLocalProfileRepository();
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var store = new LocalProfileStore(repository, profile, _catalog);
+        LootId sword = new("rapier");
+        Assert.That(
+            store.TryImportItems(new[] { new StashItem(sword, 2) }),
+            Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, sword), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetBMainHand, sword), Is.EqualTo(StashOperationResult.Success));
+
+        Assert.That(store.GetLoadout(), Is.Empty);
+        Assert.That(store.TryTransferToStash(sword, 1), Is.EqualTo(StashOperationResult.InvalidInventory));
+        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(sword));
+        Assert.That(store.GetPreparedEquipment().WeaponSetBMainHand, Is.EqualTo(sword));
+    }
+
+    private LocalProfileStore CreatePreparedStore(
+        string profileValue,
+        out InMemoryLocalProfileRepository repository)
+    {
+        var profile = new ProfileId(profileValue);
+        repository = new InMemoryLocalProfileRepository();
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        return new LocalProfileStore(
+            repository,
+            profile,
+            _catalog);
+    }
+
+    [Test]
+    public void Configuration_DoesNotConfigureAnAutomaticWeapon()
+    {
+        var configuration = AssetDatabase.LoadAssetAtPath<LocalProfilePersistenceConfiguration>(
+            "Assets/Resources/LocalProfilePersistenceConfiguration.asset");
+        Assert.That(configuration, Is.Not.Null);
+        using var serialized = new SerializedObject(configuration);
+        Assert.That(serialized.FindProperty("_recoveryWeaponLootId"), Is.Null);
+    }
+
+    [Test]
+    public void Store_PreparationKeepsAValidEffectiveWeaponUntouched()
+    {
+        LocalProfileStore store = CreatePreparedStore("41414141414141414141414141414141", out _);
+        LootId sword = new("arming_sword");
+        Assert.That(store.TryImportItems(new[] { new StashItem(sword, 1) }), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, sword), Is.EqualTo(StashOperationResult.Success));
+        int commits = 0;
+        store.ProfileCommitted += _ => commits++;
+
+        Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.Success));
+
+        Assert.That(commits, Is.Zero, "An already prepared profile must not commit.");
+        Assert.That(store.GetLoadout(), Is.Empty);
+        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(sword));
+    }
+
+    [Test]
+    public void Store_PreparationPreservesTheOnlyOccupiedWeaponSet()
+    {
+        LocalProfileStore store = CreatePreparedStore("42424242424242424242424242424242", out _);
+        LootId sword = new("arming_sword");
+        Assert.That(store.TryImportItems(new[] { new StashItem(sword, 1) }), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetBMainHand, sword), Is.EqualTo(StashOperationResult.Success));
+
+        Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.Success));
+
+        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand.IsValid, Is.False);
+        Assert.That(store.GetPreparedEquipment().WeaponSetBMainHand, Is.EqualTo(sword));
+        Assert.That(store.GetLoadout(), Is.Empty);
+    }
+
+    [Test]
+    public void Store_PreparationWithoutEquippedWeaponIsRejectedWithoutMutation()
+    {
+        LocalProfileStore store = CreatePreparedStore("43434343434343434343434343434343", out _);
+        int commits = 0;
+        store.ProfileCommitted += _ => commits++;
+
+        Assert.That(
+            store.TryPrepareExpeditionEquipment(),
+            Is.EqualTo(ExpeditionPreparationResult.PreparedWeaponRequired));
+
+        Assert.That(commits, Is.Zero);
+        Assert.That(store.GetLoadout(), Is.Empty);
+        Assert.That(store.GetPreparedEquipment().HasAnyWeapon, Is.False);
+        // The domain invariant still rejects the reservation.
+        LogAssert.Expect(UnityEngine.LogType.Error,
+            "[LocalProfileStore] TryCreateLoadoutReservation failed. Validation failed: At least one prepared weapon is required.");
+        Assert.That(
+            store.TryCreateLoadoutReservation("no-weapon", out PendingLoadoutReservation reservation),
+            Is.EqualTo(StashOperationResult.InvalidInventory));
+        Assert.That(reservation, Is.Null);
+    }
+
+    [Test]
+    public void Store_WeaponlessPreparationNeverGrantsAWeaponEvenOnRetry()
+    {
+        LocalProfileStore store = CreatePreparedStore("44444444444444444444444444444444", out _);
+        int commits = 0;
+        store.ProfileCommitted += _ => commits++;
+        for (int i = 0; i < 3; i++)
+            Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.PreparedWeaponRequired));
+        Assert.That(commits, Is.Zero);
+        Assert.That(store.PendingReservation, Is.Null);
+        Assert.That(store.GetPreparedEquipment().HasAnyEquipment, Is.False);
+        Assert.That(store.GetStash(), Is.Empty);
+        Assert.That(store.GetLoadout(), Is.Empty);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Store_PreparationNeverAutoEquipsOwnedArmingSword(bool inStash)
+    {
+        LocalProfileStore store = CreatePreparedStore("45454545454545454545454545454545", out _);
+        LootId sword = new("arming_sword");
+        Assert.That(store.TryImportItems(new[] { new StashItem(sword, 1) }), Is.EqualTo(StashOperationResult.Success));
+        if (inStash)
+            Assert.That(store.TryTransferToStash(sword, 1), Is.EqualTo(StashOperationResult.Success));
+        int commits = 0;
+        store.ProfileCommitted += _ => commits++;
+        Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.PreparedWeaponRequired));
+        Assert.That(store.GetPreparedEquipment().HasAnyEquipment, Is.False);
+        Assert.That(store.PendingReservation, Is.Null);
+        Assert.That(commits, Is.Zero);
+        Assert.That(inStash ? store.GetStash() : store.GetLoadout(),
+            Is.EquivalentTo(new[] { new StashItem(sword, 1, 0) }));
+        Assert.That(inStash ? store.GetLoadout() : store.GetStash(), Is.Empty);
+    }
+
+    [Test]
+    public void Store_PreparationFailsExplicitlyOnAnInvalidPersistedReference()
+    {
+        LocalProfileStore store = CreatePreparedStore(
+            "46464646464646464646464646464646",
+            out InMemoryLocalProfileRepository repository);
+        LocalProfileSnapshot corrupted = repository.Snapshot.Clone();
+        corrupted.Loadout.Add(new StashItem(new LootId("bone"), 1));
+        // "bone" is owned but is not a Weapon: a reference no preparation may silently overwrite.
+        corrupted.PreparedEquipment = new PreparedEquipmentLoadout(new LootId("bone"), default);
+        Assert.That(repository.TrySave(corrupted, out string error), Is.True, error);
+        int commits = 0;
+        store.ProfileCommitted += _ => commits++;
+
+        Assert.That(
+            store.TryPrepareExpeditionEquipment(),
+            Is.EqualTo(ExpeditionPreparationResult.InvalidPreparedWeapon));
+
+        Assert.That(commits, Is.Zero);
+        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(new LootId("bone")));
+        Assert.That(store.GetLoadout(), Is.EquivalentTo(new[] { new StashItem(new LootId("bone"), 1) }));
+    }
+
+    [Test]
+    public void Store_PreparationKeepsBothSlotsAndQuantitiesForTheSameWeapon()
+    {
+        LocalProfileStore store = CreatePreparedStore("47474747474747474747474747474747", out _);
+        LootId sword = new("arming_sword");
+        Assert.That(store.TryImportItems(new[] { new StashItem(sword, 2) }), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, sword), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetBMainHand, sword), Is.EqualTo(StashOperationResult.Success));
+
+        Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.Success));
+
+        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(sword));
+        Assert.That(store.GetPreparedEquipment().WeaponSetBMainHand, Is.EqualTo(sword));
+        Assert.That(store.GetLoadout(), Is.Empty);
+    }
+
+    [Test]
+    public void Store_PreparedProfileProducesAReservationCarryingInventoryAndEquipment()
+    {
+        LocalProfileStore store = CreatePreparedStore("48484848484848484848484848484848", out _);
+        LootId recovery = new("arming_sword");
+        Assert.That(store.TryImportItems(new[] { new StashItem(new LootId("bone"), 3), new StashItem(recovery, 1) }), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, recovery), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.Success));
+
+        Assert.That(
+            store.TryCreateLoadoutReservation("prepared-raid", out PendingLoadoutReservation reservation),
+            Is.EqualTo(StashOperationResult.Success));
+
+        Assert.That(reservation.Items, Is.EquivalentTo(new[]
+        {
+            new StashItem(new LootId("bone"), 3, 0)
+        }));
+        Assert.That(reservation.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(recovery));
+        Assert.That(reservation.PreparedEquipment.HasWeaponSetBMainHand, Is.False);
+        Assert.That(store.GetLoadout(), Is.Empty);
+        Assert.That(store.GetPreparedEquipment().HasAnyWeapon, Is.False);
+
+        // Preparation is inert while a reservation owns the equipment.
+        Assert.That(store.TryPrepareExpeditionEquipment(), Is.EqualTo(ExpeditionPreparationResult.Success));
+        Assert.That(store.GetLoadout(), Is.Empty);
+
+        Assert.That(store.TryRollbackLoadoutReservation("prepared-raid"), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.GetLoadout(), Is.EquivalentTo(new[]
+        {
+            new StashItem(new LootId("bone"), 3, 0)
+        }));
+        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(recovery));
+    }
+
+    [Test]
+    public void Store_LoadoutReservationRollbackRestoresExactContentAndConfirmConsumesIt()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("99999999999999999999999999999999");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var snapshot = repository.Snapshot.Clone();
+        snapshot.Loadout.Add(new StashItem(new LootId("rapier"), 1, 0));
+        snapshot.Loadout.Add(new StashItem(new LootId("bone"), 2, 7));
+        Assert.That(repository.TrySave(snapshot, out _), Is.True);
+        var store = new LocalProfileStore(repository, profile, _catalog);
+        Assert.That(
+            store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, new LootId("rapier")),
+            Is.EqualTo(StashOperationResult.Success));
+
+        Assert.That(store.TryCreateLoadoutReservation("reservation-1", out PendingLoadoutReservation reservation), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(reservation.Items, Is.EqualTo(new[] { new StashItem(new LootId("bone"), 2, 7) }));
+        Assert.That(reservation.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(new LootId("rapier")));
+        Assert.That(store.GetLoadout(), Is.Empty);
+        Assert.That(store.TryRollbackLoadoutReservation("reservation-1"), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.GetLoadout(), Is.EquivalentTo(new[]
+        {
+            new StashItem(new LootId("bone"), 2, 7)
+        }));
+        Assert.That(store.GetPreparedEquipment().WeaponSetAMainHand, Is.EqualTo(new LootId("rapier")));
+
+        Assert.That(store.TryCreateLoadoutReservation("reservation-2", out _), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryConfirmLoadoutReservation("reservation-2"), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.PendingReservation, Is.Null);
+        Assert.That(store.GetLoadout(), Is.Empty);
+        Assert.That(store.TryRollbackLoadoutReservation("reservation-2"), Is.EqualTo(StashOperationResult.InvalidInventory));
+
+        Assert.That(
+            store.TryImportItems(new[] { new StashItem(new LootId("rapier"), 1) }),
+            Is.EqualTo(StashOperationResult.Success));
+        Assert.That(
+            store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, new LootId("rapier")),
+            Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.TryCreateLoadoutReservation("reservation-3", out _), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(store.PendingReservation.ReservationId, Is.EqualTo("reservation-3"));
+        Assert.That(store.PendingReservation.ReservationId, Is.Not.EqualTo("reservation-2"));
+    }
+
+    [Test]
+    public void Repository_UsesValidBackupWhenMainIsMalformed()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("33333333333333333333333333333333");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        var snapshot = repository.Snapshot.Clone();
+        snapshot.Stash.Add(new StashItem(new LootId("bone"), 4, 4));
+        Assert.That(repository.TrySave(snapshot, out _), Is.True);
+        files.Files[BackupPath(profile)] = files.Files[MainPath(profile)];
+        files.Files[MainPath(profile)] = "{ malformed";
+
+        var recovered = new LocalProfileRepository(files, ".");
+        Assert.That(recovered.Initialize(profile, _catalog), Is.True);
+        Assert.That(recovered.Status, Is.EqualTo(LocalProfilePersistenceStatus.RecoveredFromBackup));
+        CollectionAssert.AreEqual(snapshot.Stash, recovered.Snapshot.Stash);
+    }
+
+    [Test]
+    public void Codec_RejectsFutureSchema()
+    {
+        const string json = "{\"schemaVersion\":99,\"profileId\":\"44444444444444444444444444444444\"}";
+        Assert.That(LocalProfileSaveCodec.TryDecode(
+            json,
+            new ProfileId("44444444444444444444444444444444"),
+            _catalog,
+            out _,
+            out LocalProfilePersistenceStatus status,
+            out _), Is.False);
+        Assert.That(status, Is.EqualTo(LocalProfilePersistenceStatus.UnsupportedVersion));
+    }
+
+    [Test]
+    public void Codec_MigratesVersionOneWithInitialProgressionState()
+    {
+        var profile = new ProfileId("51515151515151515151515151515151");
+        string json =
+            $"{{\"schemaVersion\":1,\"profileId\":\"{profile.Value}\",\"currency\":0}}";
+
+        Assert.That(LocalProfileSaveCodec.TryDecode(
+            json,
+            profile,
+            _catalog,
+            out LocalProfileSnapshot migrated,
+            out _,
+            out string error), Is.True, error);
+        Assert.That(migrated.SchemaVersion, Is.EqualTo(LocalProfileSnapshot.CurrentSchemaVersion));
+        Assert.That(migrated.Level, Is.EqualTo(1));
+        Assert.That(migrated.CurrentExperience, Is.Zero);
+        Assert.That(migrated.LastAppliedProgressionResultSequence, Is.Zero);
+        Assert.That(migrated.LastProgressionReceipt, Is.Null);
+        Assert.That(migrated.AppliedProgressionReceipts, Is.Empty);
+    }
+
+
+
+    [Test]
+    public void Codec_RejectsInconsistentLastProgressionReceiptInvariant()
+    {
+        var profile = new ProfileId("57575757575757575757575757575757");
+        var invalid = new LocalProfileSnapshot
+        {
+            ProfileId = profile,
+            LastAppliedProgressionResultSequence = 1,
+            LastProgressionReceipt = null
+        };
+
+        Assert.That(LocalProfileSaveCodec.TryDecode(
+            LocalProfileSaveCodec.Encode(invalid),
+            profile,
+            _catalog,
+            out _,
+            out _,
+            out string error), Is.False);
+        Assert.That(error, Does.Contain("last receipt").IgnoreCase);
+    }
+
+    [Test]
+    public void Repository_RecoversBackupWhenPrimaryProgressionStateIsInvalid()
+    {
+        var files = new MemoryFileStore();
+        var profile = new ProfileId("58585858585858585858585858585858");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profile, _catalog), Is.True);
+        Assert.That(repository.TrySave(repository.Snapshot.Clone(), out _), Is.True);
+        files.Files[BackupPath(profile)] = files.Files[MainPath(profile)];
+        files.Files[MainPath(profile)] = files.Files[MainPath(profile)].Replace("\"level\": 1", "\"level\": 0");
+
+        var recovered = new LocalProfileRepository(files, ".");
+        Assert.That(recovered.Initialize(profile, _catalog), Is.True, recovered.LastError);
+        Assert.That(recovered.Status, Is.EqualTo(LocalProfilePersistenceStatus.RecoveredFromBackup));
+        Assert.That(recovered.Snapshot.Level, Is.EqualTo(1));
+    }
+
+    private static bool TryCreateResolution(
+        long experience,
+        out ExpeditionExperienceResolution resolution)
+    {
+        resolution = default;
+        if (!ExpeditionExperienceRules.TryApplyNormalReward(
+                default,
+                ExpeditionExperienceCategory.Kill,
+                experience,
+                out ExpeditionExperienceSnapshot snapshot,
+                out _))
+        {
+            return false;
+        }
+
+        return ExpeditionExperienceResolutionRules.TryResolve(
+            default,
+            snapshot,
+            ExpeditionExperienceResolutionOutcome.Extracted,
+            ProgressionBalanceDefaults.InitialExpeditionExperienceRetentionPolicy,
+            out resolution,
+            out _);
+    }
+
+    private static ProgressionReceipt CreateReceipt(
+        LocalProfileSnapshot current,
+        ProfileId profile,
+        string raidId,
+        int resultSequence,
+        in ExpeditionExperienceResolution resolution)
+    {
+        Assert.That(ConsolidatedExperienceApplicationRules.TryApply(
+            ProgressionBalanceDefaults.InitialExperienceCurve,
+            default,
+            current.Level,
+            current.CurrentExperience,
+            resolution,
+            out ConsolidatedExperienceApplication application,
+            out _), Is.True);
+        return new ProgressionReceipt(
+            raidId,
+            profile,
+            resultSequence,
+            resolution.ConsolidatedExperience,
+            application.Result.ResultingLevel);
+    }
+
+    private sealed class MemoryFileStore : ILocalProfileFileStore
+    {
+        public readonly Dictionary<string, string> Files = new(StringComparer.Ordinal);
+        public bool FailWrites;
+        public int WriteCount;
+
+        public bool Exists(string path) => Files.ContainsKey(path);
+        public bool TryRead(string path, out string contents, out string error)
+        {
+            if (Files.TryGetValue(path, out contents)) { error = null; return true; }
+            error = "Missing file";
+            return false;
+        }
+
+        public bool TryWriteAtomically(string mainPath, string temporaryPath, string backupPath, string contents, out string error)
+        {
+            WriteCount++;
+            if (FailWrites)
+            {
+                error = "Simulated disk failure";
+                return false;
+            }
+
+            if (Files.TryGetValue(mainPath, out string previous)) Files[backupPath] = previous;
+            Files[temporaryPath] = contents;
+            Files[mainPath] = Files[temporaryPath];
+            Files.Remove(temporaryPath);
+            error = null;
+            return true;
+        }
+
+        public bool TryRestoreMainFromBackup(string mainPath, string backupPath, out string error)
+        {
+            if (!Files.TryGetValue(backupPath, out string backup)) { error = "Missing backup"; return false; }
+            Files[mainPath] = backup;
+            error = null;
+            return true;
+        }
+    }
+
+    [Test]
+    public void HydrateSnapshot_DoesNotDuplicate_AppliedExtractionReceipts()
+    {
+        var profile = new ProfileId("test_profile_ext");
+        var snapshot = new LocalProfileSnapshot { ProfileId = profile };
+        
+        // Arrange: snapshot already has the receipt from a previous load
+        snapshot.AppliedExtractionReceipts.Add(new ExtractionReceipt("raid_1", profile, 5));
+        
+        // Arrange: backend sends the same receipt
+        var backendData = new Grimhold.Backend.InventoryData
+        {
+            lastAppliedExtractionReceipt = new Grimhold.Backend.ExtractionReceiptData
+            {
+                raidId = "raid_1",
+                resultSequence = 5
+            }
+        };
+
+        // Act: Hydrate directly
+        ApplicationStashServiceBootstrapper.HydrateSnapshot(profile, snapshot, backendData, null, _catalog, null);
+
+        // Assert: should only have 1 receipt, not 2
+        Assert.That(snapshot.AppliedExtractionReceipts, Has.Count.EqualTo(1));
+        Assert.That(snapshot.AppliedExtractionReceipts[0].ResultSequence, Is.EqualTo(5));
+    }
+
+    [Test]
+    public void HydrateSnapshot_SuccessiveLogins_PreserveValidSnapshot()
+    {
+        var profile = new ProfileId("test_profile_ext2");
+        var snapshot = new LocalProfileSnapshot { ProfileId = profile };
+        
+        var backendData = new Grimhold.Backend.InventoryData
+        {
+            lastAppliedExtractionReceipt = new Grimhold.Backend.ExtractionReceiptData
+            {
+                raidId = "raid_1",
+                resultSequence = 5
+            }
+        };
+
+        // First login
+        ApplicationStashServiceBootstrapper.HydrateSnapshot(profile, snapshot, backendData, null, _catalog, null);
+        
+        // Second login (simulate closing and opening app, reading from disk gives the snapshot with the receipt)
+        ApplicationStashServiceBootstrapper.HydrateSnapshot(profile, snapshot, backendData, null, _catalog, null);
+        
+        // TryDecode should pass
+        string json = LocalProfileSaveCodec.Encode(snapshot);
+        bool decoded = LocalProfileSaveCodec.TryDecode(json, profile, _catalog, out _, out var status, out string error);
+        
+        Assert.That(decoded, Is.True, $"Decode failed: {error}");
+        Assert.That(status, Is.EqualTo(LocalProfilePersistenceStatus.Ready));
+    }
+}
+
+[TestFixture]
+public sealed class ExtractionProgressionReceiptTests
+{
+    private LootDefinitionCatalog _catalog;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _catalog = UnityEditor.AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(
+            "Assets/Scriptable Objects/Loot/Catalogs/LootDefinitionCatalog.asset");
+        Assert.That(_catalog, Is.Not.Null);
+    }
+
+    [Test]
+    public void TryCommitExtraction_SetsProgressionReceipt_MatchingWatermark()
+    {
+        var profileId = new ProfileId("test_profile_extraction");
+        var repository = new InMemoryLocalProfileRepository();
+        Assert.That(repository.Initialize(profileId, _catalog), Is.True);
+
+        var snapshot = new LocalProfileSnapshot { ProfileId = profileId };
+        snapshot.LastAppliedProgressionResultSequence = 0;
+        snapshot.LastProgressionReceipt = null;
+        Assert.That(repository.TrySave(snapshot, out string initError), Is.True, initError);
+
+        var store = new LocalProfileStore(repository, profileId, _catalog);
+
+        var receipt = new ExtractionReceipt("raid_abc", profileId, 7);
+        var result = store.TryCommitExtraction(
+            receipt,
+            new System.Collections.Generic.List<StashItem>(),
+            default,
+            consolidatedExperience: 200,
+            resultingLevel: 2,
+            resultingExperience: 50);
+
+        Assert.That(result, Is.EqualTo(StashOperationResult.Success));
+
+        var saved = repository.Snapshot;
+        Assert.That(saved.LastAppliedProgressionResultSequence, Is.EqualTo(7));
+        Assert.That(saved.LastProgressionReceipt.HasValue, Is.True);
+        Assert.That(saved.LastProgressionReceipt.Value.ResultSequence, Is.EqualTo(7));
+        Assert.That(saved.AppliedProgressionReceipts, Has.Count.EqualTo(1));
+        Assert.That(saved.AppliedProgressionReceipts[0], Is.EqualTo(saved.LastProgressionReceipt.Value));
+    }
+
+    [Test]
+    public void TryCommitExtraction_ResultsInValidCodecRoundTrip()
+    {
+        var profileId = new ProfileId("test_profile_extraction_codec");
+        var repository = new InMemoryLocalProfileRepository();
+        Assert.That(repository.Initialize(profileId, _catalog), Is.True);
+
+        var snapshot = new LocalProfileSnapshot { ProfileId = profileId };
+        Assert.That(repository.TrySave(snapshot, out string initError), Is.True, initError);
+
+        var store = new LocalProfileStore(repository, profileId, _catalog);
+
+        var receipt = new ExtractionReceipt("raid_xyz", profileId, 3);
+        var result = store.TryCommitExtraction(
+            receipt,
+            new System.Collections.Generic.List<StashItem>(),
+            default,
+            consolidatedExperience: 100,
+            resultingLevel: 2,
+            resultingExperience: 0);
+
+        Assert.That(result, Is.EqualTo(StashOperationResult.Success));
+
+        string json = LocalProfileSaveCodec.Encode(repository.Snapshot);
+        bool decoded = LocalProfileSaveCodec.TryDecode(json, profileId, _catalog,
+            out LocalProfileSnapshot restored, out var status, out string error);
+
+        Assert.That(decoded, Is.True, $"Codec round-trip failed after extraction: {error}");
+        Assert.That(status, Is.EqualTo(LocalProfilePersistenceStatus.Ready));
+        Assert.That(restored.Level, Is.EqualTo(2));
+        Assert.That(restored.CurrentExperience, Is.Zero);
+    }
+}
+#endif

@@ -216,8 +216,7 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
         uint sequence = _clientNextSequence++;
         _clientInFlightSequence = sequence;
         RpcInvokeInfo info = RPC_RequestConsume(catalogIndex, sequence, targetPosition);
-        if (info.SendMessageResult == RpcSendMessageResult.Sent ||
-            HasStateAuthority && info.LocalInvokeResult == RpcLocalInvokeResult.Invoked) return true;
+        if (WasAccepted(info, HasStateAuthority)) return true;
         _clientInFlightSequence = 0;
         return false;
     }
@@ -764,6 +763,12 @@ public sealed class PlayerConsumableNetworkController : NetworkBehaviour,
         public readonly ConsumableFailureReason Failure;
         public Confirmation(int index, bool success, ConsumableFailureReason failure)
         { Index = index; Success = success; Failure = failure; }
+    }
+
+    private static bool WasAccepted(in RpcInvokeInfo invokeInfo, bool hasStateAuthority)
+    {
+        return invokeInfo.SendMessageResult == RpcSendMessageResult.Sent ||
+            hasStateAuthority && invokeInfo.LocalInvokeResult == RpcLocalInvokeResult.Invoked;
     }
 
 #if UNITY_EDITOR

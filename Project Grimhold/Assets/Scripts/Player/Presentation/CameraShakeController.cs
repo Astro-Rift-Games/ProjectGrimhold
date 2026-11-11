@@ -34,17 +34,47 @@ public sealed class CameraShakeController : MonoBehaviour
     /// </summary>
     public Vector3 ShakeOffset { get; private set; }
 
-    private static float s_accessibilityScale = 1f;
+    private const string AccessibilityPrefKey = "Grimhold.Presentation.CameraShakeScale";
+    private static float s_accessibilityScale = -1f;
 
     /// <summary>
     /// Global accessibility multiplier for screen shake intensity clamped to [0, 1].
     /// Setting this to 0 completely disables camera shake for players sensitive to motion sickness.
-    /// Default is 1.
+    /// Default is 1. Persisted via PlayerPrefs under "Grimhold.Presentation.CameraShakeScale".
     /// </summary>
     public static float AccessibilityScale
     {
-        get => s_accessibilityScale;
-        set => s_accessibilityScale = Mathf.Clamp01(value);
+        get
+        {
+            if (s_accessibilityScale < 0f)
+            {
+                s_accessibilityScale = PlayerPrefs.HasKey(AccessibilityPrefKey)
+                    ? Mathf.Clamp01(PlayerPrefs.GetFloat(AccessibilityPrefKey, 1f))
+                    : 1f;
+            }
+            return s_accessibilityScale;
+        }
+        set
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value)) return;
+            s_accessibilityScale = Mathf.Clamp01(value);
+            PlayerPrefs.SetFloat(AccessibilityPrefKey, s_accessibilityScale);
+            PlayerPrefs.Save();
+        }
+    }
+
+    /// <summary>
+    /// Resets transient impulse trauma and decay rate without altering sustained baseline trauma.
+    /// Useful on session join/late-join to eliminate stale impulses.
+    /// </summary>
+    public void ResetTransientTrauma()
+    {
+        _trauma = 0f;
+        _traumaDecayPerSecond = 0f;
+        if (_sustainedTrauma <= 0f)
+        {
+            ShakeOffset = Vector3.zero;
+        }
     }
 
     /// <summary>
@@ -159,7 +189,7 @@ public sealed class CameraShakeController : MonoBehaviour
         }
     }
 
-    private void LateUpdate()
+    public void UpdateShake(float deltaTime)
     {
         if (_trauma <= 0f && _sustainedTrauma <= 0f)
         {
@@ -168,7 +198,7 @@ public sealed class CameraShakeController : MonoBehaviour
         }
 
         // Advance Perlin noise time independently from trauma level.
-        _noiseTime += Time.deltaTime * 24f;
+        _noiseTime += deltaTime * 24f;
 
         float effectiveTrauma = Mathf.Max(_trauma, _sustainedTrauma);
         float shake = Mathf.Pow(effectiveTrauma, _decayExponent);
@@ -176,19 +206,30 @@ public sealed class CameraShakeController : MonoBehaviour
         float offsetX = (Mathf.PerlinNoise(_noiseOffsetX + _noiseTime, 0f) * 2f - 1f) * _maxOffset * shake;
         float offsetY = (Mathf.PerlinNoise(_noiseOffsetY, _noiseTime) * 2f - 1f) * _maxOffset * shake;
 
-        ShakeOffset = new Vector3(offsetX, offsetY, 0f) * s_accessibilityScale;
+        ShakeOffset = new Vector3(offsetX, offsetY, 0f) * AccessibilityScale;
 
         // Decay trauma after computing the offset.
         float decay = _traumaDecayPerSecond == float.MaxValue
             ? _trauma
-            : _traumaDecayPerSecond * Time.deltaTime;
+            : _traumaDecayPerSecond * deltaTime;
 
         _trauma = Mathf.Max(0f, _trauma - decay);
+
+        if (_trauma <= 0f)
+        {
+            _trauma = 0f;
+            _traumaDecayPerSecond = 0f;
+        }
 
         if (_trauma <= 0f && _sustainedTrauma <= 0f)
         {
             ResetState();
         }
+    }
+
+    private void LateUpdate()
+    {
+        UpdateShake(Time.deltaTime);
     }
 
     private void ResetState()

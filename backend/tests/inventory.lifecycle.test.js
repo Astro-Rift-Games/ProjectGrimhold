@@ -230,13 +230,10 @@ test('reservation admission and loss lifecycle', async t => {
     results.push({ accountId: 'other-account', consumed: false }, { accountId: 'account', consumed: true });
     const before = await snapshot();
     const response = await call('post', `${base}/reservation`, { reservationId: 'new-reservation' });
-    assert.equal(response.status, 201);
-    assert.deepEqual(response.body, {
-      pendingReservation: { reservationId: 'new-reservation', admittedAt: null, items: [],
-        preparedEquipment: equipment({ weaponSlot1: 'arming_sword' }) }, revision: 8
-    });
-    assert.deepEqual(await snapshot(), { ...before, ...response.body });
-    assert.equal(writes, 1);
+    assert.equal(response.status, 409);
+    assert.equal(response.body.error, 'PREPARED_WEAPON_REQUIRED');
+    assert.deepEqual(await snapshot(), before);
+    assert.equal(writes, 0);
   });
 
   await t.test('same-id save of admitted reservation remains idempotent with a pending extraction', async () => {

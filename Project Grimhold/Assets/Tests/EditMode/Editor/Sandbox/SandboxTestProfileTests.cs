@@ -48,7 +48,7 @@ namespace Tests.EditMode.Sandbox
         private LocalProfileSnapshot CreateSnapshot()
         {
             bool created = SandboxTestProfile.TryCreateSnapshot(
-                _abilityCatalog, _configuration.RecoveryWeaponLootId, out LocalProfileSnapshot snapshot, out string error);
+                _abilityCatalog, SandboxTestProfile.WeaponId, out LocalProfileSnapshot snapshot, out string error);
             Assert.That(created, Is.True, error);
             return snapshot;
         }
@@ -111,14 +111,14 @@ namespace Tests.EditMode.Sandbox
         }
 
         [Test]
-        public void Equipment_PreparesTheConfiguredRecoveryWeaponInSetAMainHand()
+        public void Equipment_PreparesAnExplicitTrainingWeaponInSetAMainHand()
         {
             LocalProfileSnapshot snapshot = CreateSnapshot();
 
-            Assert.That(_configuration.RecoveryWeaponLootId.IsValid, Is.True);
+            Assert.That(SandboxTestProfile.WeaponId.Value, Is.EqualTo("training_short_sword"));
             Assert.That(
                 snapshot.PreparedEquipment.Get(EquipmentSlot.WeaponSetAMainHand),
-                Is.EqualTo(_configuration.RecoveryWeaponLootId));
+                Is.EqualTo(SandboxTestProfile.WeaponId));
         }
 
         [Test]
@@ -137,7 +137,7 @@ namespace Tests.EditMode.Sandbox
         [Test]
         public void Creation_RejectsMissingCatalogEmptyCatalogAndMissingWeapon()
         {
-            LootId weapon = _configuration.RecoveryWeaponLootId;
+            LootId weapon = SandboxTestProfile.WeaponId;
             AbilityDefinitionCatalog empty = AbilityTestFactory.CreateCatalog();
             try
             {

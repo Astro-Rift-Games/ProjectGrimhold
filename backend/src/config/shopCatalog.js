@@ -23,7 +23,7 @@ const BUYBACK_ELIGIBLE_IDS = Object.freeze([
   'light_armor_chain_mail_armor', 'light_armor_chain_mail_trousers', 'light_armor_gloves', 'light_armor_open_sallet',
   'arming_sword', 'great_hammer', 'compound_bow', 'light_crossbow', 'long_bow', 'long_sword',
   'magic_cinquedea', 'magic_staff', 'magic_sword', 'magic_wand', 'rapier', 'rondel_dagger',
-  'shield', 'spell_book', 'zweihander'
+  'shield', 'spell_book', 'zweihander', 'training_short_sword', 'training_dagger', 'training_wand'
 ]);
 
 // Unity LootDefinitions are the source; parity tests check both references and values.
@@ -35,6 +35,7 @@ const EQUIPMENT_TEMPLATES = Object.freeze({
   magic_cinquedea: weapon('dexterity'), magic_staff: weapon('intelligence'), magic_sword: weapon('strength'),
   magic_wand: weapon('intelligence'), rapier: weapon('strength'), rondel_dagger: weapon('dexterity'),
   spell_book: weapon('intelligence'), zweihander: weapon('strength'), shield: Object.freeze({ category: 'Shield', sellValue: 0 }),
+  training_short_sword: weapon('strength'), training_dagger: weapon('dexterity'), training_wand: weapon('intelligence'),
   placeholder_helmet: armor('Helmet'), placeholder_armor: armor('Armor'), placeholder_gloves: armor('Gloves'), placeholder_boots: armor('Boots'),
   army_ranger_armor: armor('Armor'), army_ranger_gloves: armor('Gloves'), army_ranger_hat: armor('Helmet'), army_ranger_trousers: armor('Boots'),
   fire_mage_garb: armor('Armor'), fire_mage_gloves: armor('Gloves'), fire_mage_hood: armor('Helmet'), fire_mage_trousers: armor('Boots'),

@@ -177,7 +177,7 @@ context menu clear it. A physical cell also dismisses its tooltip when its captu
 even if its `LootId` stays the same. This local presentation has no networking, mutation or simulation role and is
 shared by Town/Raid Inventory, Equipment, Stash, Loadout and an open container panel.
 
-The view binds an authored stable slot pool and never creates inventory cells at runtime. Normal content refreshes reuse those views. The shared personal Inventory prefab authors 30 slots, matching `LocalProfileSnapshot.MaxLoadoutSlots` in Town and the fixed physical storage length in Raid, even when Raid's occupancy limit is lower. Container projections request their source's gameplay capacity and hide the unused remainder of their authored pool. An insufficient authored pool remains an explicit error; the known six-view versus thirty-capacity container case is not repaired by player projection. A missing icon uses the serialized project placeholder. Legacy aggregate projections can degrade an unresolved definition to raw `LootId`, placeholder and quantity, reporting the integration error once per ID. A physical slot requires a catalog-index-to-ID mapping; an invalid physical snapshot makes that panel unavailable rather than inventing an item identity.
+The view binds an authored stable slot pool and never creates inventory cells at runtime. Normal content refreshes reuse those views. The shared personal Inventory prefab authors 30 slots, matching `LocalProfileSnapshot.MaxLoadoutSlots` in Town and the fixed physical storage length in Raid, even when Raid's occupancy limit is lower. Container projections request their source's gameplay capacity and hide the unused remainder of their authored pool. An insufficient authored pool remains an explicit error; the ContainerLootPanel prefab now authors 30 slots, matching the 30-slot corpse container capacity. A missing icon uses the serialized project placeholder. Legacy aggregate projections can degrade an unresolved definition to raw `LootId`, placeholder and quantity, reporting the integration error once per ID. A physical slot requires a catalog-index-to-ID mapping; an invalid physical snapshot makes that panel unavailable rather than inventing an item identity.
 
 `PanelsRow` contains reusable sibling panels. Personal mode shows the player panel and the Equipment
 panel appropriate to the bound context; Town Equipment is mutable only through its explicit local
@@ -252,9 +252,8 @@ moves or changes.
 
 `Assets/Prefabs/UI/GemInstallConfirmation.prefab` is authored once and nested independently in
 `RaidInventoryUI.prefab` and `StashInventory.prefab`. Its gem-specific view references `Modal`,
-`Modal/Message`, `Modal/Confirm` and `Modal/Cancel`. Opening selects Cancel. It borrows the recovery
-consent visual structure, not its coordinator or behavior; `Systems.prefab` and
-`RecoveryWeaponConsentView` are unchanged. The existing screen feedback channels show selection,
+`Modal/Message`, `Modal/Confirm` and `Modal/Cancel`. Opening selects Cancel. It borrowed the visual structure of the former recovery
+consent modal (removed by TASK-278), not its coordinator or behavior. The existing screen feedback channels show selection,
 pending, success and refusal messages; no cells or modal hierarchy are generated at runtime.
 
 Confirmation captures both list/slot addresses, backend weapon instance ID, gem LootId, expected
@@ -344,19 +343,20 @@ evaluators (`IPlayerLoadoutService.EvaluateTransfer*`), so one the Store would r
 into a full Inventory (`StashOperationResult.InventoryFull`), never reaches the backend; it then keeps
 the remote-first order and reconciles the profile with the backend when a remote call fails or the
 local profile cannot apply a transfer the backend accepted. Take All / Leave All are not one indivisible
-batch (GD 07, section 16): the coordinator snapshots all source `(slot, lootId)` entries in ascending
-physical-slot order, including duplicate IDs and stacks outside the visible pool, and runs each as
-an independent addressed full-stack transfer with the same pre-check, remote call and local apply
-before the next stack. The screen refreshes per commit through
-`ProfileCommitted`. Ordinary refusals and remote failures with successful reconciliation are skipped;
-there are no mutation retries or inferences of destination ownership. Failed reconciliation after a
-remote error or local divergence stops further calls and returns `RecoveryFailed`, preserving the
-original remote code/message or local rule separately from `RECONCILIATION_FAILED`. Bulk summaries
-count confirmed successful attempts (`Completed`) versus unconfirmed/not-attempted source entries
-(`Failed`), never actual moved/not-moved stacks. Addresses whose guarded source ownership disappears
-after reconciliation and entries remaining when recovery stops are explicitly counted in `Failed`. Unless
-recovery failed, a sequence with both confirmed and unconfirmed outcomes returns `Partial`; when no
-attempt succeeded, it retains the first failure's status and details with the full sequence counts. Equipment changes use the same Ready gate
+batch (GD 07, section 16) but are one request and at most one write: the coordinator issues a single
+`POST /character/me/inventory/transfer-all` (`IRemoteBulkTransferService`) and the backend applies the
+single-transfer rules to every source stack in ascending physical-slot order, including duplicate IDs
+and stacks outside the visible pool. A refused stack is skipped and later stacks are still evaluated;
+the accepted ones persist in one revision-guarded write that a stale revision, a pending reservation
+or a missing character rejects entirely. On success the local profile takes the returned `stash`,
+`loadout` and `revision` in one commit (`LocalProfileStore.ApplyConfirmedTransferAll`), so the screen
+refreshes once; when nothing moved nothing is written or committed. Bulk summaries count the per-stack
+results: `Completed` are moved stacks and `Failed` are refused ones, returning `Success`, `Partial`
+(some moved, some refused) or `Rejected` (none moved, with the first refusal's rule). A remote error or
+undetermined result leaves the local profile unchanged and reconciles once without retry, returning
+`RemoteFailed`; failed reconciliation or an unappliable backend result returns `RecoveryFailed` /
+`Diverged`, preserving the original remote code/message or local rule separately from
+`RECONCILIATION_FAILED`, with every source stack counted in `Failed`. Equipment changes use the same Ready gate
 as the Town Inventory screen (`TownEquipmentMutationGate`, supplied by `TownStashPresenter` through
 `LobbyStashPresenter.SetEquipmentGate`). Stash alone paginates over its 16 authored slots;
 no slots are instantiated. Serialized previous/next buttons and a TMP page label belong to the
@@ -428,7 +428,7 @@ policy. Stash and Town Loadout persist physical slots with holes and duplicate I
 a hole; reception fills the lowest matching in-capacity stack or lowest free in-capacity slot under
 the [persistence rules](LocalPlayerPersistenceArchitecture.md#stash-capacity-admission). Addressed
 cell moves/merges/swaps may change positions without compacting other entries. Only Sort compacts.
-TASK-227/#613 disables Raid Sort entirely; Raid addresses and holes remain in physical order.
+TASK-227/#613 hides and disables Raid Sort entirely; Raid addresses and holes remain in physical order.
 `StashDisplayOrder` is the shared Sort comparer, not a display projection: category rank Valuable, Material, Quest, Miscellaneous, Weapon,
 Helmet, Armor, Gloves, Boots, Shield, then None/unresolved/unrecognized at one last rank; display
 name ordinal-ignore-case next, then raw `LootId` ordinal and original slot as the final tie-breaker.
@@ -450,7 +450,7 @@ Stash and Loadout buttons affect only their own lists.
 
 Raid no longer seeds, reconciles or sorts a personal `LootId` display permutation. Its player panel
 reads the receiver's thirty physical slots directly, preserving duplicate IDs, origins and holes.
-The shared Sort control is disabled for every Raid mode, including after Downed recovery. There is
+The shared Sort control is hidden (inactive) and disabled for every Raid mode, including after Downed recovery. There is
 no new sorting RPC or authoritative rearrangement. Town's comparer, persistent Sort queue and Ready/
 reservation gates remain unchanged. Container panels have no Sort button. Admission/extraction
 stay aggregate at the Raid boundary; extraction placement uses fresh physical Town Loadout slots,
@@ -493,7 +493,7 @@ Physical-slot UI (TASK-227/#613) has parent-observed Unity compilation and focus
 The Console had 0 errors and 0 warnings after the full UI run. Coverage includes thirty addresses,
 holes and exact origins; duplicate-stack selection; immutable/default metadata; selected-slot
 deposit/drop/equip metadata; stale context/drag dispatch before refresh and cancellation after
-refresh; hidden pooled-button rejection; tooltip revision changes; Raid Sort disabled with Town
+refresh; hidden pooled-button rejection; tooltip revision changes; Raid Sort hidden with Town
 persistent Sort retained; ID-only physical-cell pulse suppression with legacy container feedback;
 and definition-only PlayerFirst consumption. Repeated bind/disable/enable is exercised with a real
 button confirmation; one confirmation does not establish an exact delegate invocation count.
@@ -504,7 +504,7 @@ that ran zero tests are not behavioral RED evidence.
 These results verify the bounded UI unit, not full TASK-227 closure. Manual visual checks,
 multi-peer RPC behavior and real Host Migration with a Host plus two Clients remain unexecuted.
 Broader suites are not all green: outstanding failures concern damage fixture configuration,
-endpoint word budget, the six-authored-view/thirty-required container pool, a runnerless ritual
+endpoint word budget, a runnerless ritual
 authority fixture and an old Take All test with incompatible stack expectations. Strict container
 shortage logs remain unsuppressed. Previously recorded core/receiver/gear passes are separate
 evidence, not new UI verification. Exact-position persistence was outside that Raid UI work unit;

@@ -40,8 +40,8 @@ public interface IPlayerLoadoutService
         ProfileId profileId, LootId lootId, EquipmentSlot slot, out PreparedEquipmentLoadout equipment);
 
     /// <summary>
-    /// Normalizes the Loadout and prepared Weapon Equipment so a raid reservation can succeed.
-    /// It must run before <see cref="TryCreateLoadoutReservation"/> and is safe to retry.
+    /// Validates already-equipped weapons without granting, moving or equipping any item.
+    /// Used by Ready and before <see cref="TryCreateLoadoutReservation"/>; safe to retry.
     /// </summary>
     ExpeditionPreparationResult TryPrepareExpeditionLoadout(ProfileId profileId);
 

@@ -84,11 +84,14 @@ Use Unity CLI (via the `unity-cli` skill when available) when correctness depend
 
 ## Testing and validation
 
-Tests live under `Assets/Tests/EditMode/` and `Assets/Tests/PlayMode/`. Prefer EditMode tests for deterministic pure C# logic; separate it from MonoBehaviours when that materially improves testability. Use PlayMode for component, scene and runtime integration where applicable.
+Tests live under `Assets/Tests/EditMode/` and `Assets/Tests/PlayMode/`. Follow strict Test-Driven Development (TDD): write the failing EditMode or PlayMode test asserting the acceptance criteria first (RED), write clean, modular implementation code to pass (GREEN), and refactor (REFACTOR). Tests must not pass "just to pass"—never compromise architecture, rely on unrealistic test stubs, or bypass proper lifecycle handling just to see green.
+
+Prefer EditMode tests for deterministic pure C# logic; separate domain and application logic from MonoBehaviours when that materially improves testability and keeps architecture clean. Use PlayMode for component, scene and runtime integration where applicable.
 
 For executable Unity changes:
 
-1. Check Unity compilation and relevant automated tests through Unity CLI when available; report unavailable checks rather than substituting source inspection for Editor execution.
+1. Execute the TDD cycle: observe failing automated tests before writing behavioral code, then verify them passing cleanly.
+2. Check Unity compilation and relevant automated tests through Unity CLI when available; report unavailable checks rather than substituting source inspection for Editor execution.
 2. Inspect generated-file and scene/prefab/asset diffs for unintended changes.
 3. For networked behavior, validate applicable State/Input Authority and proxy paths, Host/Client flows, missing/disabled input, prediction/resimulation and irreversible side effects.
 4. When restoration is affected, check Host Migration restore behavior. Real migration requires a multi-process Host plus at least two Clients; single-runner or state-copy tests do not prove that flow.

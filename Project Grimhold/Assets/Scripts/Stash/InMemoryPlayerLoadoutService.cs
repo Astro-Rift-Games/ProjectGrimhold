@@ -26,6 +26,9 @@ public sealed class InMemoryPlayerLoadoutService : MonoBehaviour, IPlayerLoadout
     public StashOperationResult TryMove(ProfileId profile, InventoryList from, int fromSlot, InventoryList to, int toSlot, LootId id) =>
         IsProfile(profile) ? _store.TryMove(from, fromSlot, to, toSlot, id) : StashOperationResult.InvalidInventory;
 
+    public StashOperationResult TryApplyConfirmedTransferAll(ProfileId profile, Grimhold.Backend.TransferAllResult result) =>
+        IsProfile(profile) ? _store.ApplyConfirmedTransferAll(result) : StashOperationResult.InvalidInventory;
+
     public StashOperationResult TryOrder(ProfileId profileId, InventoryList list, IReadOnlyList<LootId> lootIds) =>
         IsProfile(profileId) ? _store.TryOrder(list, lootIds) : StashOperationResult.InvalidInventory;
 

@@ -77,14 +77,33 @@ test('E2E Concurrency & Idempotency (US-45)', async (t) => {
       .set('Authorization', `Bearer ${token}`)
       .send({ transactionId: 'tx-buy-1', lootId: 'healthpotion', amount: 1, declaredPrice: 50, expectedRevision: currentRevision });
 
-    const [res1, res2] = await Promise.all([req1, req2]);
-    
-    const statuses = [res1.status, res2.status].sort();
-    assert.deepStrictEqual(statuses, [200, 409], 'Duplicate shop transaction should be rejected or conflict');
-    
+    const responses = await Promise.all([req1, req2]);
+
+    // Exactly one request applies the purchase. The duplicate either replays the stored
+    // receipt (200 alreadySecured) or, if both read before the commit, loses the revision race.
+    const applied = responses.filter(r => r.status === 200 && r.body.alreadySecured !== true);
+    assert.strictEqual(applied.length, 1, `Exactly one purchase should apply, got ${responses.map(r => r.status)}`);
+    const duplicate = responses.find(r => r !== applied[0]);
+    if (duplicate.status === 200) {
+      assert.strictEqual(duplicate.body.alreadySecured, true, 'A 200 duplicate must be a receipt replay');
+    } else {
+      assert.strictEqual(duplicate.status, 409);
+      assert.strictEqual(duplicate.body.error, 'REVISION_CONFLICT');
+    }
+
     // Currency should only decrease by authoritative cost (40) once
     const char = await Character.findOne({ accountId });
     assert.strictEqual(char.inventory.currency, 460);
+    assert.strictEqual(char.appliedShopReceipts.filter(r => r.transactionId === 'tx-buy-1').length, 1);
+
+    // A later retry of the same receipt replays without charging again.
+    const replay = await request(app).post('/character/me/inventory/shop/buy')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ transactionId: 'tx-buy-1', lootId: 'healthpotion', amount: 1, declaredPrice: 50, expectedRevision: currentRevision });
+    assert.strictEqual(replay.status, 200);
+    assert.strictEqual(replay.body.alreadySecured, true);
+    const afterReplay = await Character.findOne({ accountId });
+    assert.strictEqual(afterReplay.inventory.currency, 460, 'Replay must not charge again');
   });
 
   await t.test('Duplicate Extraction Commits', async () => {

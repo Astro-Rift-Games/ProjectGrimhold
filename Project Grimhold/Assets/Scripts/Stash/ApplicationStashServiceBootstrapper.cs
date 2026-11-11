@@ -113,7 +113,6 @@ public static class ApplicationStashServiceBootstrapper
             repository,
             profileId,
             _configuration.LootCatalog,
-            _configuration.RecoveryWeaponLootId,
             _configuration.MissionCatalog,
             _configuration.AbilityCatalog,
             _configuration.StashCapacity);

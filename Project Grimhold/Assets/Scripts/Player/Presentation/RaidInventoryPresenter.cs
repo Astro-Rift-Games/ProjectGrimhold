@@ -21,8 +21,9 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
     [SerializeField]
     private RaidInventoryView _view;
 
-    [SerializeField]
     private const string NotTransferableMessage = "Este objeto no se puede transferir a contenedores";
+
+    [SerializeField]
     private LootDefinitionCatalog _lootCatalog;
 
     [SerializeField]
@@ -1964,7 +1965,11 @@ public sealed class RaidInventoryPresenter : MonoBehaviour
         _mode == ScreenMode.Personal && !_sortPending &&
         _townSortCoordinator != null && _canSortTown != null && _canSortTown();
 
-    private void UpdateSortInteractable() => _view?.SetSortInteractable(CanSortInventory);
+    private void UpdateSortInteractable()
+    {
+        _view?.SetSortVisible(!_isRaidBinding);
+        _view?.SetSortInteractable(CanSortInventory);
+    }
 
     private void OnSortRequested()
     {

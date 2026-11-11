@@ -349,7 +349,7 @@ test('InventoryService', async (t) => {
     assert.deepStrictEqual(mockChar.inventory.loadout, []);
   });
 
-  await t.test('savePendingReservation() - equips recovery weapon arming_sword when no main hand weapon is prepared', async () => {
+  await t.test('savePendingReservation() - rejects without auto-equipping an owned arming_sword', async () => {
     const mockChar = makeCharacter();
     mockChar.inventory.stash = [makeItem('arming_sword', 1)];
     mockChar.inventory.loadout = [];
@@ -358,10 +358,10 @@ test('InventoryService', async (t) => {
     };
     setupMocks(mockChar);
 
-    const result = await InventoryService.savePendingReservation('acc123', 'res-recovery-01');
-    assert.strictEqual(result.pendingReservation.reservationId, 'res-recovery-01');
-    assert.strictEqual(result.pendingReservation.preparedEquipment.weaponSlot1, 'arming_sword');
-    assert.deepStrictEqual(mockChar.inventory.stash, []);
+    const before = JSON.stringify(mockChar);
+    await assert.rejects(() => InventoryService.savePendingReservation('acc123', 'res-recovery-01'),
+      err => err.statusCode === 409 && err.errorCode === 'PREPARED_WEAPON_REQUIRED');
+    assert.strictEqual(JSON.stringify(mockChar), before);
   });
 
   await t.test('clearPendingReservation() with rollback=true - restores items and preparedEquipment to character', async () => {

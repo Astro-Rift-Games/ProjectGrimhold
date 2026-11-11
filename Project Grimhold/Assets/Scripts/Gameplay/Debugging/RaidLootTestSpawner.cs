@@ -1,3 +1,4 @@
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
 using Fusion;
 using UnityEngine;
@@ -265,3 +266,5 @@ public sealed class RaidLootTestSpawner : MonoBehaviour
         return NetworkRunner.GetRunnerForGameObject(gameObject) ?? FindAnyObjectByType<NetworkRunner>();
     }
 }
+
+#endif

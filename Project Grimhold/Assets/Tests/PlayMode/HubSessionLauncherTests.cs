@@ -18,6 +18,7 @@ public class HubSessionLauncherTests
     private Task<bool> _startupTask;
     private Scene _ownedTownScene;
     private string _initialSceneName;
+    private Tests.PlayMode.PlayModeMerchantComposition _localProfile;
 
     [SetUp]
     public void SetUp()
@@ -58,6 +59,8 @@ public class HubSessionLauncherTests
                 yield return null;
         }
 
+        _localProfile?.Dispose();
+        _localProfile = null;
         LocalProfileProvider.ClearRemoteCharacterId();
         Assert.That(_ownedTownScene.isLoaded, Is.False, "The fixture must release its own Town scene.");
         Assert.That(shutdown == null || (!shutdown.IsFaulted && !shutdown.IsCanceled && shutdown.Result),
@@ -88,9 +91,8 @@ public class HubSessionLauncherTests
 
         bool startSuccess = false;
 
-        LogAssert.Expect(
-            UnityEngine.LogType.Error,
-            "[TownProgressionPresenter] The local persistent profile context is unavailable.");
+        _localProfile = new Tests.PlayMode.PlayModeMerchantComposition(0);
+        LocalProfileProvider.SetRemoteCharacterId(_localProfile.ProfileId);
         var task = _startupTask = launcher.StartHubSessionAsync();
 
         // Convert async to coroutine

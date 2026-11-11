@@ -23,7 +23,6 @@ public static class Task220Composition
             Set(view, "_pulseRoot", view.transform as RectTransform);
         });
         Edit("Assets/Prefabs/SocialPlayer.prefab", ComposeTown);
-        Edit("Assets/Prefabs/Systems.prefab", ComposeRecovery);
         // SaveAsPrefabAsset persists only the targeted prefabs; never flush unrelated dirty assets.
         Debug.Log("TASK220_COMPOSITION_COMPLETE");
     }
@@ -146,36 +145,6 @@ public static class Task220Composition
             hudRoots.GetArrayElementAtIndex(index).objectReferenceValue = statusRoot.gameObject;
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
-    }
-
-    private static void ComposeRecovery(GameObject root)
-    {
-        var coordinator = root.GetComponentInChildren<SessionConnectionCoordinator>(true);
-        if (coordinator == null) throw new InvalidOperationException("Application coordinator missing.");
-        var canvasRoot = Rect(coordinator.transform, "RecoveryWeaponConsentCanvas", Vector2.zero, new Vector2(1920,1080));
-        var canvas = Require<Canvas>(canvasRoot.gameObject);
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 900;
-        var scaler = Require<CanvasScaler>(canvasRoot.gameObject);
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920,1080);
-        if (canvasRoot.GetComponent<GraphicRaycaster>() == null) canvasRoot.gameObject.AddComponent<GraphicRaycaster>();
-        var view = Require<RecoveryWeaponConsentView>(canvasRoot.gameObject);
-        var shade = Rect(canvasRoot, "Modal", Vector2.zero, new Vector2(1920,1080));
-        shade.anchorMin = Vector2.zero;
-        shade.anchorMax = Vector2.one;
-        shade.offsetMin = shade.offsetMax = Vector2.zero;
-        var image = Require<Image>(shade.gameObject);
-        image.color = new Color(0,0,0,.85f);
-        var message = Label(shade, "Message", "Free recovery weapon", new Vector2(0,55), new Vector2(650,100));
-        var accept = Button(shade, "AcceptAndEnter", "Accept and enter", new Vector2(-135,-45), new Vector2(250,44));
-        var cancel = Button(shade, "Cancel", "Cancel", new Vector2(135,-45), new Vector2(250,44));
-        Set(view, "_coordinator", coordinator);
-        Set(view, "_root", shade.gameObject);
-        Set(view, "_acceptButton", accept);
-        Set(view, "_cancelButton", cancel);
-        Set(view, "_message", message);
-        shade.gameObject.SetActive(false);
     }
 
     private static RectTransform Rect(Transform parent, string name, Vector2 position, Vector2 size)

@@ -33,6 +33,9 @@ public sealed class TownInventoryBinder : NetworkBehaviour
     [SerializeField]
     private TownAbilitiesPresenter _abilitiesPresenter;
 
+    [SerializeField]
+    private TownTrainerPresenter _trainerPresenter;
+
     private ApplicationStashContext _profileContext;
     private LocalInputContext _inputContext;
     private LocalLoadoutInventoryReadSource _inventorySource;
@@ -119,6 +122,7 @@ public sealed class TownInventoryBinder : NetworkBehaviour
         BindMerchantProfile();
         BindAbilityVendorProfile();
         BindMissionGuildProfile();
+        BindTrainerProfile();
     }
 
     private void BindMerchantProfile()
@@ -238,6 +242,8 @@ public sealed class TownInventoryBinder : NetworkBehaviour
 
     private async void SyncPreparedEquipmentAsync()
     {
+        // A training acknowledgement already includes authoritative equipment and revision.
+        if (_equipmentEndpoint != null && _equipmentEndpoint.IsTrainingWeaponRequestInFlight) return;
         if (_profileContext != null && _profileContext.TryGetComponent<RemoteInventoryService>(out var remoteInventory))
         {
             _profileContext.TryGetComponent<ProfileReconciliationService>(out var reconciliationService);
@@ -310,5 +316,27 @@ public sealed class TownInventoryBinder : NetworkBehaviour
         Debug.LogError(
             $"{nameof(TownInventoryBinder)} could not bind the local persistent Loadout or input context.",
             this);
+    }
+
+    private void BindTrainerProfile()
+    {
+        if (_trainerPresenter == null)
+        {
+            Debug.LogError($"{nameof(TownInventoryBinder)} requires a serialized trainer presenter.", this);
+            return;
+        }
+
+        var config = LoginFlowController.Instance != null
+            ? LoginFlowController.Instance.Config : null;
+        if (config == null) config = Resources.Load<Grimhold.Backend.BackendConfiguration>("BackendConfiguration");
+        if (config != null && _profileContext.TryGetComponent<RemoteInventoryService>(out _))
+        {
+            _profileContext.TryGetComponent<ProfileReconciliationService>(out var reconciliation);
+            _equipmentEndpoint.BindTrainingBackend(_profileContext.Store, request =>
+                Grimhold.Backend.InventoryClient.RequestTrainingWeaponAsync(config,
+                    ApplicationAuthContext.Instance?.Token, request),
+                async () => reconciliation != null && await reconciliation.ReconcileAsync());
+        }
+        _trainerPresenter.BindEndpoint(_equipmentEndpoint, _profileContext.Store, _lootCatalog);
     }
 }

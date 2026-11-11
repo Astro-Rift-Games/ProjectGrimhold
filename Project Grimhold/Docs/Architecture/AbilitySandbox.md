@@ -21,7 +21,7 @@ The sandbox never uses a real, logged-in or development (`dev-local-*`) profile.
 
 - Identity `sandbox-test-player`; Vitality, Resistance, Strength, Dexterity, Intelligence and Luck all `30`, no pending points.
 - Every ability in the `AbilityDefinitionCatalog` unlocked; no abilities prepared (pick them in the Abilities tab).
-- Empty stash and loadout, currency 0, no reservation or receipts. The configured recovery weapon (`LocalProfilePersistenceConfiguration`) is prepared in Weapon Set A Main Hand so the raid admission is valid.
+- Empty stash and loadout, currency 0, no reservation or receipts. `training_short_sword` is equipped in Weapon Set A Main Hand so the raid admission is valid; there is no automatic recovery weapon (TASK-278).
 - Held only by an `InMemoryLocalProfileRepository`. The installer bypasses `ApplicationStashServiceBootstrapper`, attaches only the in-memory stash, loadout and currency services, and adds no `RemoteInventoryService`, `ProfileReconciliationService` or shop service. Nothing is read from or written to `persistentDataPath`, no backend call is possible, and the game code uses no `PlayerPrefs`.
 - It refuses to replace a profile that is already active.
 

@@ -1,0 +1,235 @@
+#!/bin/sh
+# Project Grimhold — Pre-Push Quality Gate
+# Prevents pushing broken tests, contracts or exposed secrets to remote branches.
+
+notify_popup() {
+  # Desktop alert for Git GUIs on Windows; skipped in CI and headless runs.
+  if [ -n "$CI" ]; then return; fi
+  if [ -n "$WINDIR" ] || [ -n "$SYSTEMROOT" ]; then
+    # Pass text through the environment so quotes cannot break the PowerShell command.
+    GRIMHOLD_POPUP_TITLE="Project Grimhold — Push Bloqueado" \
+    GRIMHOLD_POPUP_MSG="$(printf '%b' "$1")" \
+    powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show(\$env:GRIMHOLD_POPUP_MSG, \$env:GRIMHOLD_POPUP_TITLE, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)" >/dev/null 2>&1 &
+  fi
+}
+
+# Skip the gate only when every pushed ref is a deletion.
+ZERO_SHA="0000000000000000000000000000000000000000"
+
+PUSHED_RANGES=""
+
+if [ ! -t 0 ]; then
+  HAS_REFS=false
+  ONLY_DELETES=true
+  while read -r local_ref local_sha remote_ref remote_sha; do
+    [ -z "$local_ref" ] && continue
+    HAS_REFS=true
+    if [ "$local_sha" != "$ZERO_SHA" ]; then
+      ONLY_DELETES=false
+      PUSHED_RANGES="$PUSHED_RANGES$local_sha $remote_sha
+"
+    fi
+  done
+  if [ "$HAS_REFS" = true ] && [ "$ONLY_DELETES" = true ]; then
+    echo "[Pre-Push] Branch deletion detected. Skipping test execution."
+    exit 0
+  fi
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "========================================================================" >&2
+  echo "❌ PUSH BLOQUEADO — NODE.JS NO ENCONTRADO" >&2
+  echo "========================================================================" >&2
+  echo "Motivo: El Quality Gate necesita Node.js para correr los tests." >&2
+  echo "Solución: Instalá Node.js 22 y verificá que 'node' esté en el PATH" >&2
+  echo "          (reiniciá GitHub Desktop o la terminal después de instalarlo)." >&2
+  echo "========================================================================" >&2
+  notify_popup "❌ PUSH CANCELADO\n\nNo se encontró Node.js en el PATH.\n\nInstalá Node.js 22 y reiniciá GitHub Desktop o la terminal."
+  exit 1
+fi
+
+echo "========================================================================"
+echo " 🛡️  [Project Grimhold] Ejecutando Quality Gate de Pre-Push..."
+echo "========================================================================"
+
+# 1. Scan for exposed credentials and secrets
+echo "[1/4] Verificando que no haya secretos o credenciales expuestas..."
+node tools/security/scan-secrets.js
+if [ $? -ne 0 ]; then
+  echo "" >&2
+  echo "========================================================================" >&2
+  echo "❌ PUSH BLOQUEADO — CREDENCIALES O SECRETOS DETECTADOS" >&2
+  echo "========================================================================" >&2
+  echo "Motivo: Se encontraron API keys, tokens o contraseñas en los archivos." >&2
+  echo "Solución: Eliminá las claves privadas o credenciales antes de pushear." >&2
+  echo "========================================================================" >&2
+  notify_popup "❌ PUSH CANCELADO\n\nSe detectaron credenciales o secretos expuestos en el código.\n\nEliminá las claves privadas antes de subir cambios."
+  exit 1
+fi
+
+# 2. Run Backend Unit & Parity Contract Tests (Direct node execution bypasses npm/bash shell wrappers in Git GUIs)
+echo "[2/4] Verificando tests unitarios y contratos de paridad Unity <-> Backend..."
+(cd backend && node --require ./tests/setup.js --test tests/*.test.js)
+if [ $? -ne 0 ]; then
+  echo "" >&2
+  echo "========================================================================" >&2
+  echo "❌ PUSH BLOQUEADO — TESTS O CONTRATOS DE PARIDAD FALLIDOS" >&2
+  echo "========================================================================" >&2
+  echo "Motivo: Fallaron tests unitarios o contratos de sincronización entre Unity y Backend." >&2
+  echo "Causa probable: Se agregó un arma, ítem o habilidad sin registrar en ambos lados." >&2
+  echo "" >&2
+  echo "¿Cómo ver qué falló en tu máquina?" >&2
+  echo "  1. Abrí la terminal en la carpeta 'backend'" >&2
+  echo "  2. Ejecutá: npm test" >&2
+  echo "  3. Revisá qué test dio FAIL en rojo y corregilo." >&2
+  echo "========================================================================" >&2
+  notify_popup "❌ PUSH CANCELADO\n\nFallaron los tests de paridad de contratos entre Unity y Backend.\n\nPara ver qué falló:\n1. Abrí la carpeta 'backend'\n2. Ejecutá: npm test"
+  exit 1
+fi
+
+# 3. Run Backend Concurrency & Integration Tests
+echo "[3/4] Verificando concurrencia e integración con MongoDB..."
+(cd backend && node --require ./tests/setup.js --test tests/concurrency/*.test.js tests/integration/*.test.js)
+if [ $? -ne 0 ]; then
+  echo "" >&2
+  echo "========================================================================" >&2
+  echo "❌ PUSH BLOQUEADO — TESTS DE INTEGRACIÓN O CONCURRENCIA FALLIDOS" >&2
+  echo "========================================================================" >&2
+  echo "Motivo: Fallaron transacciones concurrentes o rutas de integración del backend." >&2
+  echo "Ejecutá 'npm run test:concurrency' en 'backend' para ver los detalles." >&2
+  echo "========================================================================" >&2
+  notify_popup "❌ PUSH CANCELADO\n\nFallaron tests de concurrencia o integración del backend.\n\nRevisá la consola para más detalles."
+  exit 1
+fi
+
+# 4. Run the Unity EditMode subset in the open Editor when the push touches the Unity project
+UNITY_PROJECT="${GRIMHOLD_UNITY_PROJECT:-$(pwd)/Project Grimhold}"
+UNITY_POLL_SECONDS="${GRIMHOLD_UNITY_POLL_SECONDS:-5}"
+UNITY_TIMEOUT_SECONDS="${GRIMHOLD_UNITY_TIMEOUT_SECONDS:-1200}"
+UNITY_RESULT="$UNITY_PROJECT/Temp/PrePushUnityTests.json"
+
+unity_not_ready() {
+  echo "" >&2
+  echo "========================================================================" >&2
+  echo "❌ PUSH BLOQUEADO — UNITY NO ESTÁ LISTO" >&2
+  echo "========================================================================" >&2
+  echo "Motivo: $1" >&2
+  echo "El push cambia 'Project Grimhold/' y los tests de Unity corren dentro del Editor." >&2
+  echo "Solución: Abrí el proyecto en Unity, salí de Play Mode y volvé a pushear." >&2
+  echo "========================================================================" >&2
+  notify_popup "❌ PUSH CANCELADO\n\n$1\n\nAbrí el proyecto en Unity (fuera de Play Mode) y volvé a pushear."
+  exit 1
+}
+
+TOUCHES_UNITY=false
+if [ -n "$PUSHED_RANGES" ]; then
+  CHANGED=$(printf '%s' "$PUSHED_RANGES" | while read -r local_sha remote_sha; do
+    [ -z "$local_sha" ] && continue
+    # If git cannot compare (e.g. an unfetched remote commit), assume Unity changed rather than skip the gate.
+    if [ "$remote_sha" = "$ZERO_SHA" ]; then
+      git log --name-only --format= "$local_sha" --not --remotes 2>/dev/null || echo "Project Grimhold/"
+    else
+      git diff --name-only "$remote_sha" "$local_sha" 2>/dev/null || echo "Project Grimhold/"
+    fi
+  done)
+  if printf '%s\n' "$CHANGED" | grep -q '^Project Grimhold/'; then
+    TOUCHES_UNITY=true
+  fi
+fi
+
+if [ "$TOUCHES_UNITY" = true ]; then
+  echo "[4/4] Verificando tests EditMode de Unity en el Editor abierto..."
+  if ! command -v unity >/dev/null 2>&1; then
+    unity_not_ready "No se encontró el Unity CLI ('unity') en el PATH."
+  fi
+
+  # Measure waits with the wall clock: some Git GUI shells return from sleep immediately.
+  UNITY_STARTED_AT=$(date +%s)
+  unity_elapsed() { echo $(( $(date +%s) - UNITY_STARTED_AT )); }
+
+  # A compiling or importing Editor is awaited; only a closed Editor or Play Mode blocks.
+  ANNOUNCED_COMPILING=false
+  UNITY_SILENT_SINCE=""
+  while :; do
+    EDITOR_STATUS=$(unity command editor status --project-path "$UNITY_PROJECT" --caller plugin --skill unity-cli --result-only 2>/dev/null)
+    STATUS_EXIT=$?
+    if printf '%s' "$EDITOR_STATUS" | grep -q '"playMode": *"playing"'; then
+      unity_not_ready "El Editor de Unity está en Play Mode."
+    fi
+    if [ $STATUS_EXIT -eq 0 ] && printf '%s' "$EDITOR_STATUS" | grep -q '"status": *"ready"'; then
+      break
+    fi
+    if [ $STATUS_EXIT -ne 0 ] || [ -z "$EDITOR_STATUS" ]; then
+      # A busy Editor (running tests, reloading) can miss a status call; retry for a grace period.
+      [ -z "$UNITY_SILENT_SINCE" ] && UNITY_SILENT_SINCE=$(date +%s)
+      if [ $(( $(date +%s) - UNITY_SILENT_SINCE )) -ge "${GRIMHOLD_UNITY_GRACE_SECONDS:-30}" ]; then
+        unity_not_ready "El Editor de Unity no está abierto o no responde."
+      fi
+      sleep "$UNITY_POLL_SECONDS"
+      continue
+    fi
+    UNITY_SILENT_SINCE=""
+    if [ "$ANNOUNCED_COMPILING" = false ]; then
+      echo "      Esperando a que Unity termine de compilar o importar..."
+      ANNOUNCED_COMPILING=true
+    fi
+    if [ "$(unity_elapsed)" -ge "$UNITY_TIMEOUT_SECONDS" ]; then
+      unity_not_ready "El Editor de Unity no quedó listo en ${UNITY_TIMEOUT_SECONDS} s."
+    fi
+    sleep "$UNITY_POLL_SECONDS"
+  done
+
+  rm -f "$UNITY_RESULT"
+  START_REPLY=$(unity command script eval 'return PrePushUnityTestRun.Start();' --project-path "$UNITY_PROJECT" --caller plugin --skill unity-cli --result-only 2>/dev/null)
+  if [ $? -ne 0 ]; then
+    unity_not_ready "No se pudieron iniciar los tests en el Editor de Unity."
+  fi
+  if printf '%s' "$START_REPLY" | grep -q 'already-running'; then
+    echo "      Unity: ya hay una corrida de tests en curso; esperando su resultado..."
+  fi
+  echo "      Unity queda ocupado mientras corren los tests (unos 4 minutos); no lo uses hasta que termine."
+
+  while ! grep -Eq '"status":"(completed|error)"' "$UNITY_RESULT" 2>/dev/null; do
+    if [ "$(unity_elapsed)" -ge "$UNITY_TIMEOUT_SECONDS" ]; then
+      unity_not_ready "Los tests de Unity no terminaron en ${UNITY_TIMEOUT_SECONDS} s."
+    fi
+    sleep "$UNITY_POLL_SECONDS"
+  done
+
+  if grep -q '"status":"error"' "$UNITY_RESULT"; then
+    echo "" >&2
+    echo "========================================================================" >&2
+    echo "❌ PUSH BLOQUEADO — TESTS DE UNITY NO EJECUTADOS" >&2
+    echo "========================================================================" >&2
+    echo "Motivo:" >&2
+    grep -o '"message":"[^"]*"' "$UNITY_RESULT" | sed 's/"message":"\(.*\)"/  \1/' >&2
+    echo "Revisá la consola de Unity y volvé a pushear." >&2
+    echo "========================================================================" >&2
+    notify_popup "❌ PUSH CANCELADO\n\nNo se pudieron ejecutar los tests de Unity.\n\nRevisá la consola de Unity."
+    exit 1
+  fi
+
+  UNITY_FAILED=$(sed -n 's/.*"failed":\([0-9]*\).*/\1/p' "$UNITY_RESULT")
+  UNITY_TOTAL=$(sed -n 's/.*"total":\([0-9]*\).*/\1/p' "$UNITY_RESULT")
+  if ! grep -q '"status":"completed"' "$UNITY_RESULT" || [ "${UNITY_FAILED:-1}" -ne 0 ]; then
+    echo "" >&2
+    echo "========================================================================" >&2
+    echo "❌ PUSH BLOQUEADO — TESTS DE UNITY FALLIDOS" >&2
+    echo "========================================================================" >&2
+    echo "Fallaron ${UNITY_FAILED:-?} de ${UNITY_TOTAL:-?} tests EditMode:" >&2
+    grep -o '"name":"[^"]*"' "$UNITY_RESULT" | sed 's/"name":"\(.*\)"/  - \1/' | head -20 >&2
+    echo "" >&2
+    echo "Revisá el Test Runner de Unity (Window > General > Test Runner), corregí y volvé a pushear." >&2
+    echo "========================================================================" >&2
+    notify_popup "❌ PUSH CANCELADO\n\nFallaron ${UNITY_FAILED:-?} tests de Unity.\n\nRevisá el Test Runner de Unity y la consola para ver cuáles."
+    exit 1
+  fi
+  echo "✅ ${UNITY_TOTAL} tests de Unity pasaron."
+else
+  echo "[4/4] Unity: sin cambios en Project Grimhold/, se omiten los tests de Unity."
+fi
+
+echo "========================================================================"
+echo "✅ [Quality Gate APROBADO] Todos los tests y contratos pasaron exitosamente."
+echo "========================================================================"
+exit 0

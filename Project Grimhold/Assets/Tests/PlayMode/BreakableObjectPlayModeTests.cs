@@ -354,7 +354,7 @@ namespace Tests.PlayMode.Loot
                 FindObjectsInactive.Exclude);
         }
 
-        private sealed class StubLootReceiver : ILootReceiver
+        private sealed class StubLootReceiver : ILootReceiver, IRaidLootOriginReceiver
         {
             public EntityId Id { get; }
             public int CommittedAmount { get; private set; }
@@ -375,6 +375,16 @@ namespace Tests.PlayMode.Loot
             {
                 CommittedAmount += request.RequestedAmount;
             }
+
+            // Pickups deliver through the Raid provenance capability; this stub only counts the delivered amount.
+            public bool IsRaidLootOriginAware => true;
+
+            public LootTransferFailureReason ValidateRaidLootOriginReceive(
+                in LootTransferRequest request,
+                RaidLootOriginTransfer transfer) => ValidateReceive(request);
+
+            public void CommitRaidLootReceive(in LootTransferRequest request, RaidLootOriginTransfer transfer) =>
+                CommitReceive(request);
         }
     }
 }

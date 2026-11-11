@@ -12,10 +12,13 @@ public sealed class TownPartyLocalAuthorityPlayModeTests
     private const string SocialPlayerPrefabGuid = "b58bec13d63beb74ca61349f7d983c36";
     private const string TownRaidNpcPrefabGuid = "a9ffa00805946954c9c2e987819f1857";
     private NetworkRunner _runner;
+    private Tests.PlayMode.PlayModeMerchantComposition _identity;
 
     [UnityTearDown]
     public IEnumerator TearDown()
     {
+        _identity?.Dispose();
+        _identity = null;
         LogAssert.ignoreFailingMessages = false;
         if (_runner != null && _runner.IsRunning)
         {
@@ -36,7 +39,9 @@ public sealed class TownPartyLocalAuthorityPlayModeTests
         runnerObject.AddComponent<TownRaidPreparationDirectoryContext>();
         runnerObject.AddComponent<TownPartyDirectoryContext>();
         var joinContext = runnerObject.AddComponent<LocalPlayerJoinContext>();
-        var localProfile = new ProfileId("11111111111111111111111111111111");
+        // The Party directory only serves senders whose Town session ticket verifies, so the fixture composes one.
+        _identity = new Tests.PlayMode.PlayModeMerchantComposition(0);
+        ProfileId localProfile = _identity.ProfileId;
         joinContext.Initialize(new PlayerJoinData(localProfile));
 
         var start = _runner.StartGame(new StartGameArgs
@@ -53,6 +58,7 @@ public sealed class TownPartyLocalAuthorityPlayModeTests
         NetworkObject playerPrefab = LoadPrefab(SocialPlayerPrefabGuid);
         NetworkObject npc = _runner.Spawn(npcPrefab);
         NetworkObject localPlayer = _runner.Spawn(playerPrefab, Vector3.zero, Quaternion.identity, _runner.LocalPlayer);
+        _runner.SetPlayerObject(_runner.LocalPlayer, localPlayer);
         NetworkObject proxy = _runner.Spawn(playerPrefab, Vector3.right, Quaternion.identity, PlayerRef.None);
 
         TownPartyDirectory directory = npc.GetComponent<TownPartyDirectory>();

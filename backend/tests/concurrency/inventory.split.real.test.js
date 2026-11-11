@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { startMemoryMongo } = require('../support/memoryMongo');
 const Character = require('../../src/models/Character');
 const Inventory = require('../../src/services/InventoryService');
 
@@ -11,7 +11,7 @@ const entry = (slot, amount) => ({ slot, lootId: 'bone', amount });
 test('real concurrent split: revision-guarded single winner', async t => {
   const flag = process.env.INVENTORY_SPLIT_ENABLED;
   process.env.INVENTORY_SPLIT_ENABLED = 'true';
-  const mongo = await MongoMemoryServer.create();
+  const mongo = await startMemoryMongo();
   await mongoose.connect(mongo.getUri());
   t.after(async () => {
     if (flag === undefined) delete process.env.INVENTORY_SPLIT_ENABLED;

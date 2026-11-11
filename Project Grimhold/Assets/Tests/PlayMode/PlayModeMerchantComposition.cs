@@ -52,6 +52,7 @@ namespace Tests.PlayMode
             _suspended = Object.FindObjectsByType<ApplicationStashContext>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             foreach (var context in _suspended) context.gameObject.SetActive(false);
             _owner = new GameObject("Merchant in-memory test composition");
+            Object.DontDestroyOnLoad(_owner); // Survives a Single Town scene load; Dispose still destroys it.
             var stash = _owner.AddComponent<InMemoryPlayerStashService>();
             stash.Initialize(Store);
             var loadout = _owner.AddComponent<InMemoryPlayerLoadoutService>();

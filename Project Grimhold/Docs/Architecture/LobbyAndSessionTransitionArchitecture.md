@@ -357,11 +357,11 @@ closes both gates for local Animation/VFX/gameplay testing without a backend:
   deterministic dev `ProfileId` and initializes the local stash; when a profile (real or
   already-assigned dev) is present, neither is ever touched again. Every attempt — new profile or
   reused one — then always runs `IPlayerLoadoutService.TryPrepareExpeditionLoadout`, the same
-  normalization the Town launch path runs before reserving (recovery weapon `arming_sword` when
-  no Main Hand is prepared); it is atomic, deterministic and idempotent, so a second direct raid
-  attempt for an already-prepared or already-reserved profile grants nothing twice, and a raid
-  after a confirmed reservation (which consumed the previous grant) is prepared again from
-  scratch. A failed preparation blocks the Fusion start entirely: the starter logs a clear error
+  read-only equipped-weapon gate the Town launch path runs before reserving. TASK-278 L20/L22
+  supersedes the recovery fallback: no automatic weapon is granted or equipped (GD Doc 04 §13 /
+  Doc 09 §15). Ready requires a valid equipped weapon; the Trainer supplies training weapons,
+  which count. After a consumed reservation, a new attempt needs another explicitly equipped
+  weapon. A failed preparation blocks the Fusion start entirely: the starter logs a clear error
   and returns without calling the coordinator.
 - **Gating**: serialized fields (`_enabled`, default `false`; `_profileKey`, default `"host"`)
   are always compiled, so the release player keeps the same serialization layout as the

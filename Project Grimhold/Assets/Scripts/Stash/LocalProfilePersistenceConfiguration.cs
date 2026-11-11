@@ -11,12 +11,6 @@ public sealed class LocalProfilePersistenceConfiguration : ScriptableObject
     [SerializeField] private AbilityDefinitionCatalog _abilityCatalog;
     [SerializeField, Min(1)] private int _receiptCapacity = LocalProfileSnapshot.MaxAppliedExtractionReceipts;
 
-    [SerializeField]
-    [Tooltip("Loot id of the base recovery weapon Town guarantees when no weapon is prepared. " +
-             "Must be a Weapon category loot with a valid WeaponDefinition. While empty, a profile " +
-             "without any prepared weapon cannot start an expedition.")]
-    private string _recoveryWeaponLootId;
-
     public LootDefinitionCatalog LootCatalog => _lootCatalog;
     public MissionDefinitionCatalog MissionCatalog => _missionCatalog;
     public AbilityDefinitionCatalog AbilityCatalog => _abilityCatalog;
@@ -31,6 +25,4 @@ public sealed class LocalProfilePersistenceConfiguration : ScriptableObject
             Debug.LogError("Stash capacity must be positive.", this);
     }
 
-    public LootId RecoveryWeaponLootId =>
-        string.IsNullOrWhiteSpace(_recoveryWeaponLootId) ? default : new LootId(_recoveryWeaponLootId);
 }

@@ -6,8 +6,19 @@ using Grimhold.Backend;
 /// Service responsible for fetching authoritative state from the backend and applying it to the LocalProfileStore
 /// when a revision conflict is detected.
 /// </summary>
-public class ProfileReconciliationService : MonoBehaviour, IProfileReconciliation, IRecoveryWeaponAuthorityReader
+public class ProfileReconciliationService : MonoBehaviour, IProfileReconciliation
 {
+    private sealed class RemoteProfileState
+    {
+        public InventoryData Inventory { get; }
+        public ProgressionData Progression { get; }
+
+        public RemoteProfileState(InventoryData inventory, ProgressionData progression)
+        {
+            Inventory = inventory;
+            Progression = progression;
+        }
+    }
     private BackendConfiguration _config;
     private LocalProfilePersistenceConfiguration _localConfig;
     private LocalProfileStore _store;
@@ -37,7 +48,7 @@ public class ProfileReconciliationService : MonoBehaviour, IProfileReconciliatio
 
     public async Task<bool> ReconcileAsync()
     {
-        RecoveryWeaponAuthorityState state = await FetchRecoveryWeaponAuthorityAsync();
+        RemoteProfileState state = await FetchRemoteProfileAsync();
         if (state == null) return false;
         var result = _store.ReconcileRemoteState(state.Inventory, state.Progression,
             _localConfig.LootCatalog, _localConfig.AbilityCatalog);
@@ -56,7 +67,7 @@ public class ProfileReconciliationService : MonoBehaviour, IProfileReconciliatio
         string token = AuthToken;
         try
         {
-            RecoveryWeaponAuthorityState state = await FetchRecoveryWeaponAuthorityAsync();
+            RemoteProfileState state = await FetchRemoteProfileAsync();
             if (state == null || token != AuthToken || _store == null || _localConfig == null)
             {
                 Debug.LogError("[ProfileReconciliationService] Extraction hydration fetch failed or session changed. Pending extraction retained for retry.");
@@ -80,7 +91,7 @@ public class ProfileReconciliationService : MonoBehaviour, IProfileReconciliatio
     }
 
     /// <summary>Shares ordinary reconciliation's consistent full-read boundary without applying it.</summary>
-    public async Task<RecoveryWeaponAuthorityState> FetchRecoveryWeaponAuthorityAsync()
+    private async Task<RemoteProfileState> FetchRemoteProfileAsync()
     {
         if (string.IsNullOrEmpty(AuthToken) || _store == null || _localConfig == null)
         {
@@ -128,6 +139,6 @@ public class ProfileReconciliationService : MonoBehaviour, IProfileReconciliatio
             return null; // Still mismatching, can't safely reconcile
         }
 
-        return new RecoveryWeaponAuthorityState(invData, progData);
+        return new RemoteProfileState(invData, progData);
     }
 }

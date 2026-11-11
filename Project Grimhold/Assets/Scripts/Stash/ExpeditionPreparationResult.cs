@@ -1,5 +1,5 @@
 /// <summary>
-/// Outcome of normalizing the local Loadout and prepared Weapon Equipment immediately before a
+/// Outcome of validating the local Loadout and prepared Weapon Equipment immediately before a
 /// Town to Raid reservation. Every value other than <see cref="Success"/> is a permanent
 /// rejection of the current launch revision.
 /// </summary>
@@ -17,10 +17,10 @@ public enum ExpeditionPreparationResult
     /// <summary>The confirmed character attributes do not satisfy a prepared weapon.</summary>
     AttributeRequirementsNotMet,
 
-    /// <summary>No weapon is prepared and Town has no configured recovery weapon to grant.</summary>
-    RecoveryWeaponUnavailable,
+    /// <summary>No usable weapon is equipped; the player must equip one or visit the Trainer.</summary>
+    PreparedWeaponRequired,
 
-    /// <summary>The recovery weapon cannot be placed because the Loadout has no free slot.</summary>
+    /// <summary>The Loadout has no free slot for an explicit equipment operation.</summary>
     LoadoutFull,
 
     /// <summary>Preparation succeeded but the raid loadout reservation was rejected.</summary>

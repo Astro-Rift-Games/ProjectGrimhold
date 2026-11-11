@@ -117,6 +117,43 @@ public sealed class RaidAdmissionLoadoutMatcherTests
         Assert.That(c.Modifiers, Is.EqualTo(modifiers));
     }
 
+    [TestCase("training_short_sword")]
+    [TestCase("training_dagger")]
+    [TestCase("training_wand")]
+    public void TrainingAcknowledgement_MatchesIdentityFreeBackendTicket(string id)
+    {
+        var profile = new ProfileId("training-admission");
+        var repository = new InMemoryLocalProfileRepository();
+        Assert.That(repository.Initialize(profile, Catalog), Is.True);
+        var initial = repository.Snapshot.Clone();
+        initial.InventorySchemaVersion = 3;
+        Assert.That(repository.TrySave(initial, out _), Is.True);
+        var store = new LocalProfileStore(repository, profile, Catalog);
+        Assert.That(Catalog.TryGet(id, out var definition), Is.True);
+        var localEquipment = default(PreparedEquipmentLoadout).With(EquipmentSlot.WeaponSetAMainHand,
+            new LootId(id), new EquipmentInstance("111111111111111111111111", EquipmentInstance.PlainCache(definition).Modifiers));
+        Assert.That(store.ApplyConfirmedTrainingWeapon(new Grimhold.Backend.TrainingWeaponResult
+        {
+            preparedEquipment = Grimhold.Backend.PreparedEquipmentData.FromLoadout(localEquipment), revision = 1,
+            stash = Array.Empty<Grimhold.Backend.InventoryItemData>(), loadout = Array.Empty<Grimhold.Backend.InventoryItemData>()
+        }, 0), Is.EqualTo(StashOperationResult.Success));
+        Assert.That(AuthoritativeRaidAdmissionTicketCodec.TryDecode(TrainingWeaponAdmissionTicketTests.CreateTicket(id, true), out var ticket), Is.True);
+        Assert.That(ticket.TryToRaidAdmissionData(out var expected, catalog: Catalog), Is.True);
+        var prepared = store.GetPreparedEquipment();
+        Assert.That(prepared.GetInstance(EquipmentSlot.WeaponSetAMainHand).HasIdentity, Is.True);
+        Assert.That(WeaponInstanceModifiersNetworkData.TryCreate(prepared.GetInstance(EquipmentSlot.WeaponSetAMainHand).Modifiers.Value,
+            definition.WeaponDefinition.NaturalScalingAttribute, Catalog, out var packed, out _), Is.True);
+        var slots = new LootEntry?[EquipmentSlotRules.AllSlots.Length];
+        var modifiers = new WeaponInstanceModifiersNetworkData[slots.Length];
+        int a = Array.IndexOf(EquipmentSlotRules.AllSlots, EquipmentSlot.WeaponSetAMainHand);
+        slots[a] = new LootEntry(new LootId(id), 1);
+        modifiers[a] = packed;
+        var units = new List<ExpeditionWeaponUnit>();
+        if (!packed.IsEmpty) units.Add(new ExpeditionWeaponUnit(new LootId(id), RaidLootOrigin.Dungeon, packed));
+        Assert.That(RaidAdmissionLoadoutMatcher.Matches(expected, new[] { new LootEntry(new LootId(id), 1) },
+            units, slots, modifiers, WeaponSetSlot.SetA, Catalog), Is.True);
+    }
+
     public static bool MatchesInventory(IReadOnlyList<StashItem> inventory, IReadOnlyList<LootEntry> actual)
     {
         var prepared = default(PreparedEquipmentLoadout).With(EquipmentSlot.WeaponSetAMainHand,

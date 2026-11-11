@@ -12,7 +12,6 @@ public sealed class LocalProfileStore : IMissionClaimService
     private readonly ILocalProfileRepository _repository;
     private readonly ProfileId _profileId;
     private readonly LootDefinitionCatalog _lootCatalog;
-    private readonly LootId _recoveryWeaponLootId;
     private readonly MissionDefinitionCatalog _missionCatalog;
     private readonly AbilityDefinitionCatalog _abilityCatalog;
 
@@ -33,7 +32,6 @@ public sealed class LocalProfileStore : IMissionClaimService
         ILocalProfileRepository repository,
         ProfileId profileId,
         LootDefinitionCatalog lootCatalog = null,
-        LootId recoveryWeaponLootId = default,
         MissionDefinitionCatalog missionCatalog = null,
         AbilityDefinitionCatalog abilityCatalog = null,
         int stashCapacity = DefaultStashCapacity)
@@ -43,7 +41,6 @@ public sealed class LocalProfileStore : IMissionClaimService
         StashCapacity = stashCapacity;
         _profileId = profileId;
         _lootCatalog = lootCatalog;
-        _recoveryWeaponLootId = recoveryWeaponLootId;
         _missionCatalog = missionCatalog;
         _abilityCatalog = abilityCatalog;
     }
@@ -978,6 +975,51 @@ public sealed class LocalProfileStore : IMissionClaimService
         }
     }
 
+    /// <summary>
+    /// Applies the bulk transfer endpoint's authoritative lists through the hydration transaction: one
+    /// commit, local state equal to the backend result. The revision must advance because a bulk that
+    /// moved nothing writes nothing and is never applied.
+    /// </summary>
+    public StashOperationResult ApplyConfirmedTransferAll(Grimhold.Backend.TransferAllResult result)
+    {
+        lock (_sync)
+        {
+            var current = _repository.Snapshot;
+            if (!IsAvailable || current == null || !InventorySchemaSupportsSlots(current.InventorySchemaVersion) ||
+                current.RequiresEquipmentHydration || current.PendingReservation != null ||
+                current.PendingExtractionCommit != null ||
+                result.stash == null || result.loadout == null || result.revision <= current.RemoteRevision)
+                return StashOperationResult.InvalidInventory;
+            return ReconcileRemoteState(new Grimhold.Backend.InventoryData
+            {
+                inventorySchemaVersion = current.InventorySchemaVersion, stash = result.stash, loadout = result.loadout,
+                revision = result.revision, currency = current.Currency,
+                preparedEquipment = Grimhold.Backend.PreparedEquipmentData.FromLoadout(current.PreparedEquipment)
+            }, null, _lootCatalog, _abilityCatalog);
+        }
+    }
+
+    private static bool InventorySchemaSupportsSlots(int schema) => schema == 2 || schema == 3;
+
+    /// <summary>Commits the complete training grant acknowledgement without re-planning ownership locally.</summary>
+    public StashOperationResult ApplyConfirmedTrainingWeapon(Grimhold.Backend.TrainingWeaponResult result, int expectedRevision)
+    {
+        lock (_sync)
+        {
+            var current = _repository.Snapshot;
+            if (!IsAvailable || current == null || current.RemoteRevision != expectedRevision ||
+                current.RequiresEquipmentHydration || current.PendingReservation != null ||
+                result.stash == null || result.loadout == null || result.revision <= expectedRevision)
+                return StashOperationResult.InvalidInventory;
+            return ReconcileRemoteState(new Grimhold.Backend.InventoryData
+            {
+                inventorySchemaVersion = current.InventorySchemaVersion,
+                stash = result.stash, loadout = result.loadout, preparedEquipment = result.preparedEquipment,
+                revision = result.revision, currency = current.Currency
+            }, null, _lootCatalog, _abilityCatalog);
+        }
+    }
+
     public void SetRemoteRevision(int revision)
     {
         lock (_sync)
@@ -1797,206 +1839,28 @@ public sealed class LocalProfileStore : IMissionClaimService
     }
 
     /// <summary>
-    /// Normalizes the local Loadout and prepared Weapon Equipment so the aggregate holds exactly
-    /// one valid effective Main Hand weapon before a raid reservation is attempted.
-    /// The operation is atomic, deterministic and idempotent: a profile that is already prepared
-    /// commits nothing, so retrying a launch never grants or duplicates a recovery weapon.
+    /// Validates the equipment already selected by the player without granting or equipping items.
+    /// Town Ready and launch use the same read-only gate (GD Doc 04 §13 / Doc 09 §15).
     /// </summary>
     public ExpeditionPreparationResult TryPrepareExpeditionEquipment()
     {
         lock (_sync)
         {
-            ExpeditionPreparationResult result = InspectRecoveryWeaponPreparation(out RecoveryWeaponPreparation preparation);
-            return result != ExpeditionPreparationResult.Success || preparation.WeaponSource == RecoveryWeaponPreparation.Source.Prepared
-                ? result
-                : TryPrepareRecoveryWeapon(_repository.Snapshot);
-        }
-    }
-
-    /// <summary>Read-only classification; opening or cancelling consent never changes ownership.</summary>
-    public ExpeditionPreparationResult InspectRecoveryWeaponPreparation(out RecoveryWeaponPreparation preparation)
-    {
-        lock (_sync) return InspectRecoveryWeaponPreparationCore(out preparation);
-    }
-
-    private ExpeditionPreparationResult InspectRecoveryWeaponPreparationCore(out RecoveryWeaponPreparation preparation)
-    {
-        preparation = null;
-        LocalProfileSnapshot current = _repository.Snapshot;
-        if (!IsAvailable || current == null || current.ProfileId != _profileId || _lootCatalog == null)
-        {
-            return ExpeditionPreparationResult.ProfileUnavailable;
-        }
-
-        // A reservation already owns the prepared equipment; re-preparing would double-grant.
-        if (current.PendingReservation != null)
-        {
-            preparation = new RecoveryWeaponPreparation(this, current, RecoveryWeaponPreparation.Source.Prepared);
-            return ExpeditionPreparationResult.Success;
-        }
-
-        PreparedEquipmentLoadout prepared = current.PreparedEquipment;
-
-        // A persisted assignment that no longer resolves to a usable weapon is corruption.
-        // It fails explicitly instead of being overwritten or hidden behind a recovery grant.
-        if (prepared.HasAnyWeapon && !PreparedEquipmentLoadout.TryValidate(
-                prepared,
-                _lootCatalog,
-                requireWeapon: false,
-                out _))
-        {
-            return ExpeditionPreparationResult.InvalidPreparedWeapon;
-        }
-
-        if (!PreparedEquipmentLoadout.TryValidateWeaponRequirements(
-                prepared,
-                current.CharacterAttributes,
-                _lootCatalog,
-                out _))
-        {
-            return ExpeditionPreparationResult.AttributeRequirementsNotMet;
-        }
-
-        // Admission carries the active Set explicitly, so either valid Main Hand is sufficient.
-        if (PreparedEquipmentLoadout.HasUsableWeapon(prepared, _lootCatalog))
-        {
-            preparation = new RecoveryWeaponPreparation(this, current, RecoveryWeaponPreparation.Source.Prepared);
-            return ExpeditionPreparationResult.Success;
-        }
-
-        if (!PreparedEquipmentLoadout.IsUsableWeaponDefinition(_recoveryWeaponLootId, _lootCatalog))
-            return ExpeditionPreparationResult.RecoveryWeaponUnavailable;
-        var recovery = new PreparedEquipmentLoadout(_recoveryWeaponLootId, default);
-        if (!PreparedEquipmentLoadout.TryValidateWeaponRequirements(recovery, current.CharacterAttributes, _lootCatalog, out _))
-            return ExpeditionPreparationResult.AttributeRequirementsNotMet;
-        RecoveryWeaponPreparation.Source source = FindAmount(current.Loadout, _recoveryWeaponLootId) > 0
-            ? RecoveryWeaponPreparation.Source.Loadout
-            : FindAmount(current.Stash, _recoveryWeaponLootId) > 0
-                ? RecoveryWeaponPreparation.Source.Stash
-                : RecoveryWeaponPreparation.Source.NewGrant;
-        preparation = new RecoveryWeaponPreparation(this, current, source);
-        return ExpeditionPreparationResult.Success;
-    }
-
-    public bool IsRecoveryWeaponPreparationCurrent(RecoveryWeaponPreparation preparation)
-    {
-        lock (_sync)
-            return preparation != null && preparation.Matches(this, _repository.Snapshot) && IsAvailable;
-    }
-
-    /// <summary>The backend's existing fallback protocol supports only arming_sword.</summary>
-    public bool CanReserveRecoveryWeapon(RecoveryWeaponPreparation preparation)
-    {
-        lock (_sync)
-            return IsRecoveryWeaponPreparationCurrent(preparation) && preparation.RequiresConsent &&
-                   InventorySchemaVersion == 3 && !RequiresEquipmentHydration &&
-                   _recoveryWeaponLootId == new LootId("arming_sword") && PendingReservation == null &&
-                   PendingExtractionCommit == null;
-    }
-
-    /// <summary>Hydrates the full authoritative aggregate before publishing reserved ownership.</summary>
-    public ExpeditionPreparationResult TryApplyRecoveryWeaponReservation(
-        RecoveryWeaponPreparation preparation, string reservationId, int minimumRevision,
-        RecoveryWeaponAuthorityState state)
-    {
-        lock (_sync)
-        {
-            if (!CanReserveRecoveryWeapon(preparation) || state == null || string.IsNullOrWhiteSpace(reservationId))
+            LocalProfileSnapshot current = _repository.Snapshot;
+            if (!IsAvailable || current == null || current.ProfileId != _profileId || _lootCatalog == null)
                 return ExpeditionPreparationResult.ProfileUnavailable;
-            var inventory = state.Inventory;
-            if (inventory.inventorySchemaVersion != 3 || inventory.stash == null || inventory.loadout == null ||
-                inventory.revision < minimumRevision || inventory.revision != state.Progression.revision ||
-                inventory.pendingReservation.reservationId != reservationId ||
-                !string.IsNullOrEmpty(inventory.pendingReservation.admittedAt) ||
-                inventory.pendingReservation.items == null)
-                return ExpeditionPreparationResult.ReservationFailed;
-            StashOperationResult result = ReconcileRemoteStateCore(inventory, state.Progression, _lootCatalog, _abilityCatalog, candidate =>
-            {
-                var reservation = candidate.PendingReservation;
-                var equipment = reservation?.PreparedEquipment ?? default;
-                return reservation != null && reservation.ReservationId == reservationId &&
-                       candidate.Loadout.Count == 0 && !candidate.PreparedEquipment.HasAnyEquipment &&
-                       equipment.WeaponSetAMainHand == _recoveryWeaponLootId &&
-                       equipment.GetInstance(EquipmentSlot.WeaponSetAMainHand)?.HasIdentity == true &&
-                       PreparedEquipmentLoadout.TryValidate(equipment, _lootCatalog, true, out _) &&
-                       PreparedEquipmentLoadout.TryValidateWeaponRequirements(equipment, candidate.CharacterAttributes, _lootCatalog, out _);
-            });
-            return result == StashOperationResult.Success ? ExpeditionPreparationResult.Success :
-                result == StashOperationResult.PersistenceFailed ? ExpeditionPreparationResult.PersistenceFailed :
-                ExpeditionPreparationResult.ReservationFailed;
-        }
-    }
 
-    /// <summary>Publish restored ownership only for the unchanged local cleanup binding.</summary>
-    public bool TryApplyRecoveredReservation(RecoveryWeaponPreparation binding, string expectedReservationId,
-        RecoveryWeaponAuthorityState state)
-    {
-        lock (_sync)
-        {
-            if (!IsRecoveryWeaponPreparationCurrent(binding) || state == null ||
-                (PendingReservation != null && PendingReservation.ReservationId != expectedReservationId)) return false;
-            var inventory = state.Inventory;
-            if (inventory.inventorySchemaVersion != 3 || inventory.stash == null || inventory.loadout == null ||
-                !string.IsNullOrEmpty(inventory.pendingReservation.reservationId) ||
-                inventory.revision != state.Progression.revision || inventory.revision < binding.RemoteRevision) return false;
-            return ReconcileRemoteStateCore(inventory, state.Progression, _lootCatalog, _abilityCatalog,
-                candidate => candidate.PendingReservation == null) == StashOperationResult.Success;
-        }
-    }
-
-    /// <summary>Commits the inspected profile revision through the existing recovery ownership helper.</summary>
-    public ExpeditionPreparationResult TryPrepareExpeditionEquipment(RecoveryWeaponPreparation preparation)
-    {
-        lock (_sync)
-        {
-            if (!IsRecoveryWeaponPreparationCurrent(preparation))
-                return ExpeditionPreparationResult.ProfileUnavailable;
-            ExpeditionPreparationResult result = InspectRecoveryWeaponPreparation(out RecoveryWeaponPreparation current);
-            if (result != ExpeditionPreparationResult.Success || current.WeaponSource != preparation.WeaponSource)
-                return result == ExpeditionPreparationResult.Success ? ExpeditionPreparationResult.InvalidPreparedWeapon : result;
-            return current.WeaponSource == RecoveryWeaponPreparation.Source.Prepared
+            PreparedEquipmentLoadout prepared = current.PendingReservation?.PreparedEquipment ?? current.PreparedEquipment;
+            if (prepared.HasAnyWeapon && !PreparedEquipmentLoadout.TryValidate(
+                    prepared, _lootCatalog, requireWeapon: false, out _))
+                return ExpeditionPreparationResult.InvalidPreparedWeapon;
+            if (!PreparedEquipmentLoadout.TryValidateWeaponRequirements(
+                    prepared, current.CharacterAttributes, _lootCatalog, out _))
+                return ExpeditionPreparationResult.AttributeRequirementsNotMet;
+            return PreparedEquipmentLoadout.HasUsableWeapon(prepared, _lootCatalog)
                 ? ExpeditionPreparationResult.Success
-                : TryPrepareRecoveryWeapon(_repository.Snapshot);
+                : ExpeditionPreparationResult.PreparedWeaponRequired;
         }
-    }
-
-    /// <summary>
-    /// Guarantees Town access to exactly one recovery weapon when no weapon is prepared. A unit
-    /// already owned is reused before a new one is granted, so the grant cannot accumulate.
-    /// </summary>
-    private ExpeditionPreparationResult TryPrepareRecoveryWeapon(LocalProfileSnapshot current)
-    {
-        if (!PreparedEquipmentLoadout.IsUsableWeaponDefinition(_recoveryWeaponLootId, _lootCatalog))
-        {
-            return ExpeditionPreparationResult.RecoveryWeaponUnavailable;
-        }
-
-        var recovery = new PreparedEquipmentLoadout(_recoveryWeaponLootId, default);
-        if (!PreparedEquipmentLoadout.TryValidateWeaponRequirements(
-                recovery,
-                current.CharacterAttributes,
-                _lootCatalog,
-                out _))
-        {
-            return ExpeditionPreparationResult.AttributeRequirementsNotMet;
-        }
-
-        LocalProfileSnapshot next = current.Clone();
-        List<StashItem> source = FindIndex(next.Loadout, _recoveryWeaponLootId) >= 0 ? next.Loadout : next.Stash;
-        int index = FindIndex(source, _recoveryWeaponLootId);
-        EquipmentInstance instance = index >= 0 ? source[index].Instance : null;
-        // A strict v3 cache cannot grant a durable ID. Its consented path must await authority.
-        if (current.InventorySchemaVersion == 3 && (current.RequiresEquipmentHydration || instance?.HasIdentity != true))
-            return ExpeditionPreparationResult.ProfileUnavailable;
-        if (index >= 0 && !TryRemove(source, _recoveryWeaponLootId, 1))
-            return ExpeditionPreparationResult.PersistenceFailed;
-
-        // Only Set A Main Hand changes; retain the exact owned unit and every other assignment.
-        next.PreparedEquipment = next.PreparedEquipment
-            .With(EquipmentSlot.WeaponSetAMainHand, _recoveryWeaponLootId, instance);
-        return Commit(next) == StashOperationResult.Success
-            ? ExpeditionPreparationResult.Success
-            : ExpeditionPreparationResult.PersistenceFailed;
     }
 
     public StashOperationResult TryCreateLoadoutReservation(
@@ -2205,7 +2069,10 @@ public sealed class LocalProfileStore : IMissionClaimService
         while (next.AppliedProgressionReceipts.Count > LocalProfileSnapshot.MaxAppliedProgressionReceipts)
             next.AppliedProgressionReceipts.RemoveAt(0);
 
-        next.PreparedEquipment = preparedEquipment;
+        // The retry payload below keeps the exact raid result; the backend settles the same rule.
+        PreparedEquipmentLoadout settledEquipment = preparedEquipment;
+        TrainingWeaponReturnRule.TryApply(next.Loadout, next.Stash, ref settledEquipment, _lootCatalog);
+        next.PreparedEquipment = settledEquipment;
 
         next.PendingExtractionCommit = new PendingExtractionCommit(
             receipt,
@@ -2389,5 +2256,7 @@ public sealed class LocalProfileStore : IMissionClaimService
 
         return totalSlots > int.MaxValue ? int.MaxValue : (int)totalSlots;
     }
+
+
 
 }

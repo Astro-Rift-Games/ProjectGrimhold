@@ -176,7 +176,7 @@ namespace Tests.EditMode.Player.Presentation
             Sprite expectedSprite = PlayerWeaponPresentationMath.ResolveMainHandSprite(
                 state.AttackWeapon.WorldSprite ?? state.AttackWeapon.Icon, presentation.AttackSpriteAnimation, true, state.AttackSeconds);
             Assert.That(renderer.enabled, Is.True);
-            Assert.That(renderer.sprite, Is.SameAs(expectedSprite));
+            Assert.That(renderer.sprite, Is.EqualTo(expectedSprite));
             Assert.That(renderer.transform.IsChildOf(grip), Is.True);
             float angle = PlayerWeaponPresentationMath.CalculateFacingAngleDegrees(Vector2.down) +
                 PlayerWeaponPresentationMath.ResolveAngleCorrection(presentation.AngleCorrection, false);

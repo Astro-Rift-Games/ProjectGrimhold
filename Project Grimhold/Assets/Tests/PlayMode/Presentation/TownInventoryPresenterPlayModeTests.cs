@@ -53,7 +53,7 @@ namespace Tests.PlayMode.Presentation
             Assert.That(_view.IsOpen, Is.True);
             Assert.That(_view.PlayerPanel.SlotCount, Is.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
             Assert.That(_reader.IsGameplayInputSuppressed, Is.True);
-            Assert.That(_view.ContainerPanel.gameObject.activeSelf, Is.False);
+            Assert.That(UiPanelVisibility.IsVisible(_view.ContainerPanel.gameObject), Is.False);
             Assert.That(FindDescendant(_instance.transform, "EquipmentPanel").gameObject.activeSelf, Is.True);
 
             _source.PublishChange();
@@ -256,6 +256,9 @@ namespace Tests.PlayMode.Presentation
                 UnequipCalls++;
                 return StashOperationResult.Success;
             }
+
+            public System.Threading.Tasks.Task<StashOperationResult> RequestTrainingWeaponAsync(LootId trainingWeaponId, EquipmentSlot targetSlot = EquipmentSlot.None) =>
+                System.Threading.Tasks.Task.FromResult(CanMutate ? StashOperationResult.Success : StashOperationResult.InvalidInventory);
 
             public void PublishChange()
             {

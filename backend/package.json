@@ -10,7 +10,10 @@
     "test:concurrency": "node --require ./tests/setup.js --test tests/concurrency/*.test.js",
     "test:integration": "node --require ./tests/setup.js --test tests/integration/*.test.js",
     "seed": "node scripts/seed-test-accounts.js",
-    "security:scan": "node ../tools/security/scan-secrets.js"
+    "security:scan": "node ../tools/security/scan-secrets.js",
+    "test:coverage": "node --require ./tests/setup.js --experimental-test-coverage --test tests/*.test.js",
+    "setup:hooks": "node ../tools/hooks/setup-hooks.js",
+    "prepare": "node ../tools/hooks/setup-hooks.js"
   },
   "keywords": [],
   "author": "",
@@ -33,4 +36,4 @@
     "body-parser": "2.4.0",
     "qs": "^6.16.1"
   }
-}
+}

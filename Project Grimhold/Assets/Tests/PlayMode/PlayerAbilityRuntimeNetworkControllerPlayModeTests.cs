@@ -995,7 +995,8 @@ namespace Tests.PlayMode.Abilities
             yield return InSimulation(() => result = (ConsumableResult)typeof(PlayerConsumableNetworkController)
                 .GetMethod("ProcessAuthoritativeConsume", BindingFlags.Instance | BindingFlags.NonPublic)
                 .Invoke(runtime.GetComponent<PlayerConsumableNetworkController>(), new object[] { -1 }));
-            Assert.That(result.FailureReason, Is.EqualTo(ConsumableFailureReason.TargetUnavailable));
+            // An active ability execution is rejected explicitly before the catalog index is read (90b01f5f9).
+            Assert.That(result.FailureReason, Is.EqualTo(ConsumableFailureReason.AbilityInProgress));
             var interaction = runtime.GetComponent<PlayerInteractionNetworkController>();
             _inputDriver.Buttons.Set(PlayerInputButton.Interact, true);
             yield return WaitTicks();

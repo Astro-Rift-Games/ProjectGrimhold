@@ -130,9 +130,95 @@ namespace Tests.PlayMode.Presentation
             ClickButton(button);
             for (int frame = 0; frame < 5; frame++) yield return null;
 
-            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:bone:3" }));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "bulk:toLoadout" }));
             Assert.That(_store.GetStash(), Is.Empty);
             Assert.That(_store.GetLoadout(), Is.EqualTo(new[] { new StashItem(Bone, 3, 0) }));
+        }
+
+        [UnityTest]
+        public IEnumerator TakeAllWithSeveralStacks_RefreshesTheViewOnceAfterTheBulkCompletes()
+        {
+            LootId[] ids = DistinctLootIds(3);
+            CreateScreen(snapshot =>
+            {
+                for (int slot = 0; slot < ids.Length; slot++) snapshot.Stash.Add(new StashItem(ids[slot], 2, slot));
+            });
+            yield return null;
+            int before = _view.StashDisplayCount;
+
+            ClickButton(GetButton("_takeAllButton"));
+            for (int frame = 0; frame < 8; frame++) yield return null;
+
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "bulk:toLoadout" }), "Take All is one request.");
+            Assert.That(_store.GetStash(), Is.Empty);
+            Assert.That(_store.GetLoadout(), Has.Count.EqualTo(3));
+            Assert.That(_view.StashDisplayCount - before, Is.EqualTo(1));
+            Assert.That(FindOccupiedSlot(StashPanel()), Is.Null);
+            Assert.That(LoadoutPanel().GetComponentsInChildren<RaidInventorySlotView>(true).Count(s => s.IsOccupied),
+                Is.EqualTo(3));
+        }
+
+        [UnityTest]
+        public IEnumerator LeaveAllWithSeveralStacks_RefreshesTheViewOnceAfterTheBulkCompletes()
+        {
+            LootId[] ids = DistinctLootIds(3);
+            CreateScreen(snapshot =>
+            {
+                for (int slot = 0; slot < ids.Length; slot++) snapshot.Loadout.Add(new StashItem(ids[slot], 2, slot));
+            });
+            yield return null;
+            int before = _view.StashDisplayCount;
+
+            ClickButton(GetButton("_leaveAllButton"));
+            for (int frame = 0; frame < 8; frame++) yield return null;
+
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "bulk:toStash" }), "Leave All is one request.");
+            Assert.That(_store.GetLoadout(), Is.Empty);
+            Assert.That(_store.GetStash(), Has.Count.EqualTo(3));
+            Assert.That(_view.StashDisplayCount - before, Is.EqualTo(1));
+            Assert.That(StashPanel().GetComponentsInChildren<RaidInventorySlotView>(true).Count(s => s.IsOccupied),
+                Is.EqualTo(3));
+            Assert.That(FindOccupiedSlot(LoadoutPanel()), Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator TakeAll_WhenALaterStackIsRefused_RefreshesOnceWithTheActualState()
+        {
+            LootId[] ids = DistinctLootIds(LocalProfileSnapshot.MaxLoadoutSlots + 2);
+            CreateScreen(snapshot =>
+            {
+                for (int slot = 0; slot < LocalProfileSnapshot.MaxLoadoutSlots - 1; slot++)
+                    snapshot.Loadout.Add(new StashItem(ids[slot], 1, slot));
+                snapshot.Stash.Add(new StashItem(ids[LocalProfileSnapshot.MaxLoadoutSlots - 1], 1, 0));
+                snapshot.Stash.Add(new StashItem(ids[LocalProfileSnapshot.MaxLoadoutSlots], 1, 1));
+            });
+            yield return null;
+            int before = _view.StashDisplayCount;
+            LogAssert.ignoreFailingMessages = true;
+
+            ClickButton(GetButton("_takeAllButton"));
+            for (int frame = 0; frame < 8; frame++) yield return null;
+            LogAssert.ignoreFailingMessages = false;
+
+            Assert.That(_store.GetLoadout(), Has.Count.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
+            Assert.That(_store.GetStash(), Has.Count.EqualTo(1));
+            Assert.That(_view.StashDisplayCount - before, Is.EqualTo(1));
+            Assert.That(StashPanel().GetComponentsInChildren<RaidInventorySlotView>(true).Count(s => s.IsOccupied),
+                Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator SingleTransfer_RefreshesTheViewImmediatelyOnCommit()
+        {
+            CreateScreen(snapshot => snapshot.Stash.Add(new StashItem(Bone, 3, 0)));
+            yield return null;
+            int before = _view.StashDisplayCount;
+
+            ClickMoveAll(StashPanel());
+            yield return null;
+
+            Assert.That(_view.StashDisplayCount - before, Is.EqualTo(1));
+            Assert.That(FindOccupiedSlot(StashPanel()), Is.Null);
         }
 
         [UnityTest]
@@ -146,7 +232,7 @@ namespace Tests.PlayMode.Presentation
             ClickButton(button);
             for (int frame = 0; frame < 5; frame++) yield return null;
 
-            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toStash:bone:3" }));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "bulk:toStash" }));
             Assert.That(_store.GetLoadout(), Is.Empty);
             Assert.That(_store.GetStash(), Is.EqualTo(new[] { new StashItem(Bone, 3, 0) }));
         }
@@ -270,12 +356,11 @@ namespace Tests.PlayMode.Presentation
                 Assert.That(commits, Is.Zero);
                 ClickButton(GetButton("_takeAllButton"));
                 for (int frame = 0; frame < 5; frame++) yield return null;
-                Assert.That(_remote.Calls, Is.EqualTo(expected.Select(id => $"toLoadout:{id.Value}:1")));
+                Assert.That(_remote.Calls, Is.EqualTo(new[] { "bulk:toLoadout" }));
                 _remote.Calls.Clear();
-                var amounts = _store.GetLoadout().ToDictionary(s => s.LootId, s => s.Amount);
                 ClickButton(GetButton("_leaveAllButton"));
                 for (int frame = 0; frame < 5; frame++) yield return null;
-                Assert.That(_remote.Calls, Is.EqualTo(expected.Select(id => $"toStash:{id.Value}:{amounts[id]}")));
+                Assert.That(_remote.Calls, Is.EqualTo(new[] { "bulk:toStash" }));
             }
             finally
             {
@@ -551,7 +636,7 @@ namespace Tests.PlayMode.Presentation
             Assert.That(FeedbackText(), Is.Empty);
             ClickButton(takeAll);
             for (int frame = 0; frame < 5; frame++) yield return null;
-            Assert.That(_remote.Calls, Is.EqualTo(new[] { "toLoadout:bone:3" }));
+            Assert.That(_remote.Calls, Is.EqualTo(new[] { "bulk:toLoadout" }));
             Assert.That(_store.GetStash(), Is.Empty);
         }
 
@@ -975,9 +1060,49 @@ namespace Tests.PlayMode.Presentation
         private static RaidInventorySlotView FindOccupiedSlot(RaidLootPanelView panel) =>
             Array.Find(panel.GetComponentsInChildren<RaidInventorySlotView>(true), slot => slot.IsOccupied);
 
-        public sealed class FakeRemoteComponent : MonoBehaviour, IRemoteInventoryService, ISlotRemoteInventoryService, IRemoteGemInstallService
+        public sealed class FakeRemoteComponent : MonoBehaviour, IRemoteInventoryService, ISlotRemoteInventoryService, IRemoteGemInstallService, IRemoteBulkTransferService
         {
             public readonly List<int> TransferSlots = new();
+
+            /// <summary>Models the backend: the same per-stack rules, in source slot order, on a scratch profile.</summary>
+            public async Task<(bool success, TransferAllResult data, BackendError error)> TransferAllAsync(bool fromStash)
+            {
+                await Run($"bulk:{(fromStash ? "toLoadout" : "toStash")}");
+                var store = GetComponent<ApplicationStashContext>().Store;
+                var profile = new ProfileId(ProfileValue);
+                var repository = new InMemoryLocalProfileRepository();
+                Assert.That(repository.Initialize(profile, store.LootCatalog), Is.True);
+                LocalProfileSnapshot scratch = repository.Snapshot.Clone();
+                scratch.InventorySchemaVersion = store.InventorySchemaVersion;
+                scratch.Stash.AddRange(store.GetStash());
+                scratch.Loadout.AddRange(store.GetLoadout());
+                scratch.PreparedEquipment = store.GetPreparedEquipment();
+                Assert.That(repository.TrySave(scratch, out string error), Is.True, error);
+                var backend = new LocalProfileStore(repository, profile, store.LootCatalog);
+                var results = new List<TransferAllStackResult>();
+                foreach (StashItem item in (fromStash ? backend.GetStash() : backend.GetLoadout()).OrderBy(i => i.Slot).ToArray())
+                {
+                    StashOperationResult rule = backend.TryTransfer(item.Slot, item.LootId, item.Amount, fromStash);
+                    results.Add(new TransferAllStackResult
+                    {
+                        slot = item.Slot, lootId = item.LootId.Value, amount = item.Amount,
+                        moved = rule == StashOperationResult.Success,
+                        errorCode = rule == StashOperationResult.Success ? null
+                            : rule == StashOperationResult.InventoryFull ? "INVENTORY_FULL" : "VALIDATION_FAILED"
+                    });
+                }
+
+                InventoryItemData[] Map(IReadOnlyList<StashItem> items) => items.Select(item => new InventoryItemData
+                {
+                    slot = item.Slot, lootId = item.LootId.Value, amount = item.Amount,
+                    instance = EquipmentInstanceData.FromInstance(item.Instance)
+                }).ToArray();
+                return (true, new TransferAllResult
+                {
+                    stash = Map(backend.GetStash()), loadout = Map(backend.GetLoadout()), results = results.ToArray(),
+                    revision = store.RemoteRevision + (results.Any(r => r.moved) ? 1 : 0)
+                }, default);
+            }
             public async Task<(bool success, MoveItemResult data, BackendError error)> InstallGemAsync(InstallGemRequest request)
             {
                 await Run($"gem:{request.gemList}:{request.gemSlot}:{request.weaponList}:{request.weaponSlot}");

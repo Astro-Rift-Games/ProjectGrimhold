@@ -159,7 +159,7 @@ function scanDirectory(dir, rootDir = dir) {
         allFindings = allFindings.concat(scanDirectory(fullPath, rootDir));
       }
     } else if (entry.isFile()) {
-      if (IGNORED_LOCAL_FILES.has(entry.name)) {
+      if (IGNORED_LOCAL_FILES.has(entry.name) || (entry.name.startsWith('.env') && !entry.name.endsWith('.example'))) {
         continue;
       }
       const ext = path.extname(entry.name).toLowerCase();

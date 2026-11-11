@@ -89,11 +89,11 @@ public sealed class KillExperienceSource : NetworkBehaviour, IKillExperienceSour
             return;
         }
 
-        if (AssistRetryTimer.IsRunning)
+        if (!AssistRetryTimer.ExpiredOrNotRunning(Runner))
         {
             return;
         }
-        
+
         AssistRetryTimer = TickTimer.CreateFromSeconds(Runner, AssistRetryIntervalSeconds);
 
         if (_spawnManager != null)

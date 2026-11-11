@@ -518,11 +518,26 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
     public void SetCustomOcclusionColliders(Collider2D[] colliders)
     {
         _customOcclusionColliders = colliders;
+        Physics2D.SyncTransforms();
     }
 
     public bool IsPointInOpenSpace(Vector2 worldPos)
     {
-        // 1. If it touches any wall or obstacle tile, it is NOT in open space
+        // 1. If custom occlusion colliders are set (e.g. unit tests or explicit room overrides), test them directly
+        if (_customOcclusionColliders != null && _customOcclusionColliders.Length > 0)
+        {
+            for (int i = 0; i < _customOcclusionColliders.Length; i++)
+            {
+                var col = _customOcclusionColliders[i];
+                if (col != null && col.isActiveAndEnabled && col.OverlapPoint(worldPos))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // 2. If it touches any wall or obstacle tile, it is NOT in open space
         if (_wallTilemaps != null)
         {
             for (int i = 0; i < _wallTilemaps.Length; i++)
@@ -539,7 +554,7 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
             }
         }
 
-        // 2. If floor tilemaps exist in the scene, ensure the point is over an active floor tile (not outside the dungeon)
+        // 3. If floor tilemaps exist in the scene, ensure the point is over an active floor tile (not outside the dungeon)
         if (_floorTilemaps != null && _floorTilemaps.Length > 0)
         {
             bool hasFloor = false;
@@ -560,19 +575,6 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
             if (!hasFloor)
             {
                 return false;
-            }
-        }
-
-        // 3. Custom colliders check (e.g. for unit tests)
-        if (_customOcclusionColliders != null)
-        {
-            for (int i = 0; i < _customOcclusionColliders.Length; i++)
-            {
-                var col = _customOcclusionColliders[i];
-                if (col != null && col.isActiveAndEnabled && col.OverlapPoint(worldPos))
-                {
-                    return false;
-                }
             }
         }
 
@@ -666,10 +668,16 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
             return;
         }
 
-        VolumeProfile profile = _volume.sharedProfile;
-        if (profile == null)
+        VolumeProfile profile;
+        if (Application.isPlaying)
         {
+            // In Play Mode, volume.profile creates an isolated runtime clone in memory,
+            // preventing overrides from mutating the shared project asset on disk.
             profile = _volume.profile;
+        }
+        else
+        {
+            profile = _volume.sharedProfile != null ? _volume.sharedProfile : _volume.profile;
         }
 
         if (profile != null)
@@ -715,6 +723,7 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         // Apply continuous shake if this phase defines a sustained baseline (e.g. Collapse)
         if (CameraShakeController.Instance != null)
         {
+            CameraShakeController.Instance.ResetTransientTrauma();
             CameraShakeController.Instance.SetContinuousShake(settings.ContinuousShakeIntensity);
         }
 

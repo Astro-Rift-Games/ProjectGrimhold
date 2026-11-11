@@ -30,31 +30,23 @@ block Join, Ready or Start.
 
 ## Launch and runner transition
 
-### Recovery weapon consent
+### Equipped weapon requirement
 
-Start first opens a separate, replicated weapon-consent attempt while the preparation remains
-`Waiting`. Its revision is independent of `LaunchRevision`; no reservation, ACK deadline or
-countdown starts during this phase. Every member inspects the confirmed local profile without
-mutating it. A prepared weapon proceeds silently. An already-owned configured recovery weapon in
-Loadout or Stash also proceeds silently, retaining the existing deterministic reuse priority.
-Only a genuinely new free recovery weapon opens the preauthored `RecoveryWeaponConsentView`.
+TASK-278 L20/L22 supersedes the recovery-weapon and consent contract (GD Doc 04 §13 / Doc 09 §15).
+Ready requires at least one valid equipped weapon in the Weapon Sets. Training weapons count;
+the Trainer supplies the player's chosen training weapon through the authoritative request path.
+There is no automatic weapon grant or auto-equip from Stash/Loadout, including owned `arming_sword`.
 
-The application coordinator retains an immutable inspection bound to the store, character and
-accepted aggregate snapshot revision. Accept revalidates that binding; it is not a global grant
-permission. The State Authority freezes the launch only after every current member accepts or
-needs no new grant. Until then Cancel, membership/Ready changes or authority replacement invalidate
-the entire attempt, reset Ready and leave every member in Town without granting or equipping.
-There is deliberately no consent timeout.
+Town Ready checks the same read-only preparation gate used at launch, before any reservation.
+With no equipped weapon, the notice is: "Necesitás un arma equipada para salir de expedición.
+Pedile una al Entrenador." Invalid persisted definitions retain `InvalidPreparedWeapon` rejection.
+A normal equipped weapon also satisfies the gate. Cancelling Ready remains possible without a weapon.
 
-After unanimous consent, the existing local launch materialization revalidates current need and
-commits through `LocalProfileStore`'s existing recovery helper before reservation. A replaced profile
-snapshot cannot authorize a new grant, even when its remote revision is unchanged. Double-clicks
-are consumed once by the modal, member responses are idempotent and repeated materialization never
-duplicates a granted unit. Persistence failures continue through the existing cohort rejection path.
-
-The view owns only serialized UI controls and registers with the coordinator through explicit Town
-composition. Its modal root is a child, not its own GameObject, so hiding it never removes its binding.
-Unloading/disable cancels any pending consent. No runtime UI construction or view scene search is used.
+Start freezes the existing roster directly: there is no consent modal, consent RPC or networked
+consent state. Launch revalidates equipment, then uses the normal reservation path. Each peer waits
+for its reservation save before acknowledging; `409 PREPARED_WEAPON_REQUIRED` is not retried and
+shows the same Trainer notice. The reservation and admission retain the selected weapon rather
+than substituting `arming_sword` or any other template.
 
 Each preparation member controls only its own Ready flag. Only the Raid Host may Start, and only
 when every current member is Ready. Start freezes the full preparation snapshot and the current ACK,

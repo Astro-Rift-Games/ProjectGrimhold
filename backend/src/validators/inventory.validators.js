@@ -67,6 +67,14 @@ const moveItemValidator = [
   handleValidationErrors
 ];
 
+// Validates the body for the bulk transfer-all operation.
+const transferAllValidator = [
+  body('direction').isIn(['toLoadout', 'toStash']).withMessage('must be toLoadout or toStash'),
+  body('expectedRevision')
+    .isInt({ min: 0 }).withMessage('must be a non-negative integer'),
+  handleValidationErrors
+];
+
 // Validates the body for the update-prepared-equipment operation.
 // All slots are optional. Legacy strings and v3 {lootId, instanceId} intentions
 // coexist; the service validates the format against the character's schema version.
@@ -207,4 +215,15 @@ const shopTradeValidator = [
   handleValidationErrors
 ];
 
-module.exports = { shopTradeValidator, slotSplitValidator, slotMoveValidator, shopBuybackValidator, inventoryOrderValidator, moveItemValidator, preparedEquipmentValidator, pendingReservationValidator, admitReservationValidator, commitExtractionValidator, shopSellValidator, shopBuyValidator };
+const trainingWeaponValidator = [
+  body('weaponId')
+    .isString().bail().trim().notEmpty().isIn(['training_short_sword', 'training_dagger', 'training_wand'])
+    .withMessage('must be one of: training_short_sword, training_dagger, training_wand'),
+  body().custom(value => Object.keys(value).every(key => ['weaponId', 'destinationSlot', 'expectedRevision'].includes(key)))
+    .withMessage('Unknown training weapon request field.'),
+  body('destinationSlot').optional().isString().isIn(['', 'weaponSlot1', 'weaponSlot2']),
+  body('expectedRevision').isInt({ min: 0 }).custom(value => Number.isSafeInteger(value)),
+  handleValidationErrors
+];
+
+module.exports = { trainingWeaponValidator, shopTradeValidator, slotSplitValidator, slotMoveValidator, shopBuybackValidator, inventoryOrderValidator, moveItemValidator, transferAllValidator, preparedEquipmentValidator, pendingReservationValidator, admitReservationValidator, commitExtractionValidator, shopSellValidator, shopBuyValidator };

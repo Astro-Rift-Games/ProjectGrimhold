@@ -147,7 +147,8 @@ public static class LootContainerContentTableValidation
                 catalogIndex,
                 configuredEntry.Weight,
                 configuredEntry.MinimumAmount,
-                configuredEntry.MaximumAmount);
+                configuredEntry.MaximumAmount,
+                definition.Category == LootCategory.Weapon ? 1 : definition.StackMax);
         }
 
         snapshot = new ValidatedLootContainerContentSnapshot(

@@ -324,12 +324,27 @@ namespace Tests.EditMode.Combat
         }
 
         [Test]
-        public void CatalogValidation_AcceptsExactlySixOneHandedWeapons()
+        public void CatalogValidation_AcceptsNineOneHandedWeaponsIncludingTrainingFamilies()
         {
             var weapons = AssetDatabase.FindAssets("t:WeaponDefinition")
                 .Select(g => AssetDatabase.LoadAssetAtPath<WeaponDefinition>(AssetDatabase.GUIDToAssetPath(g)))
                 .Where(w => w.Handedness == WeaponHandedness.OneHanded && w.Presentation.HasGenericAttack).ToArray();
-            Assert.That(weapons, Has.Length.EqualTo(6));
+            Assert.That(weapons, Has.Length.EqualTo(9));
+            foreach (var family in new[]
+            {
+                new[] { "TrainingShortSword", "ArmingSword" },
+                new[] { "TrainingDagger", "RondelDagger" },
+                new[] { "TrainingWand", "MagicWand" }
+            })
+            {
+                var training = AssetDatabase.LoadAssetAtPath<LootDefinition>(
+                    $"Assets/Scriptable Objects/Loot/Definitions/{family[0]}.asset").WeaponDefinition;
+                var normal = AssetDatabase.LoadAssetAtPath<LootDefinition>(
+                    $"Assets/Scriptable Objects/Loot/Definitions/{family[1]}.asset").WeaponDefinition;
+                Assert.That(weapons, Does.Contain(training));
+                Assert.That(training.Presentation.OffHandAttackAnimationSet,
+                    Is.SameAs(normal.Presentation.OffHandAttackAnimationSet), family[0]);
+            }
             Assert.That(OffHandAnimationGenerator.TryValidateCatalog(weapons, out string error), Is.True, error);
             Assert.That(OffHandAnimationGenerator.TryValidateCatalog(out error), Is.True, error);
         }
@@ -338,33 +353,87 @@ namespace Tests.EditMode.Combat
         public void GeneratedCatalogIsCompleteAndRegenerationPreservesGuidsAndSourceBytes()
         {
             Assert.That(OffHandAnimationGenerator.TryValidateCatalog(out string error), Is.True, error);
-            var files = new Dictionary<string, string>();
-            var generated = new Dictionary<string, string>();
             foreach (string name in new[] { "ArmingSword", "MagicCinquedea", "MagicSword", "MagicWand", "Rapier", "RondelDagger" })
             {
-                var loot = AssetDatabase.LoadAssetAtPath<LootDefinition>($"Assets/Scriptable Objects/Loot/Definitions/{name}.asset");
+                var presentation = AssetDatabase.LoadAssetAtPath<LootDefinition>($"Assets/Scriptable Objects/Loot/Definitions/{name}.asset").WeaponDefinition.Presentation;
                 for (int direction = 0; direction < 6; direction++)
-                {
-                    string source = AssetDatabase.GetAssetPath(loot.WeaponDefinition.Presentation.GetAttackClip(direction));
-                    files[source] = System.Convert.ToBase64String(System.IO.File.ReadAllBytes(source));
-                    string derived = AssetDatabase.GetAssetPath(loot.WeaponDefinition.Presentation.GetOffHandAttackClip(direction));
-                    generated[derived] = AssetDatabase.AssetPathToGUID(derived);
-                    foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(loot.WeaponDefinition.Presentation.GetOffHandAttackClip(direction)))
+                    foreach (EditorCurveBinding binding in AnimationUtility.GetCurveBindings(presentation.GetOffHandAttackClip(direction)))
                         Assert.That(binding.path == Off || binding.path == Off + "/OffHandGrip", Is.True, binding.path);
-                }
-                string set = AssetDatabase.GetAssetPath(loot.WeaponDefinition.Presentation.OffHandAttackAnimationSet);
-                generated[set] = AssetDatabase.AssetPathToGUID(set);
             }
-            var derivedBytes = new Dictionary<string, string>();
-            foreach (string path in generated.Keys) derivedBytes[path] = System.Convert.ToBase64String(System.IO.File.ReadAllBytes(path));
-            OffHandAnimationGenerator.GenerateAll();
-            foreach (var pair in files)
-                Assert.That(System.Convert.ToBase64String(System.IO.File.ReadAllBytes(pair.Key)), Is.EqualTo(pair.Value), pair.Key);
-            foreach (var pair in generated)
+
+            // Regeneration runs against temporary copies so the tracked *_OffHand.anim assets are never rewritten.
+            string root = AssetDatabase.GUIDToAssetPath(AssetDatabase.CreateFolder(TempParent, "OffHandRegeneration_" + System.Guid.NewGuid().ToString("N")));
+            try
             {
-                Assert.That(AssetDatabase.AssetPathToGUID(pair.Key), Is.EqualTo(pair.Value), pair.Key);
-                Assert.That(System.Convert.ToBase64String(System.IO.File.ReadAllBytes(pair.Key)), Is.EqualTo(derivedBytes[pair.Key]), pair.Key);
+                foreach (string name in new[] { "ArmingSword", "MagicCinquedea", "MagicSword", "MagicWand", "Rapier", "RondelDagger" })
+                {
+                    WeaponDefinition weapon = CopyWeaponWithItsMainSet(name, root);
+                    DirectionalAttackAnimationSet mainSet = weapon.Presentation.AttackAnimationSet;
+                    var sources = new Dictionary<string, string>();
+                    for (int direction = 0; direction < 6; direction++)
+                    {
+                        string source = AssetDatabase.GetAssetPath(mainSet.GetAttackClip(direction));
+                        sources[source] = System.Convert.ToBase64String(System.IO.File.ReadAllBytes(source));
+                    }
+
+                    OffHandAnimationGenerator.Generate(weapon);
+                    var generated = new Dictionary<string, string>();
+                    var derivedBytes = new Dictionary<string, string>();
+                    for (int direction = 0; direction < 6; direction++)
+                        generated[AssetDatabase.GetAssetPath(weapon.Presentation.GetOffHandAttackClip(direction))] = null;
+                    generated[AssetDatabase.GetAssetPath(weapon.Presentation.OffHandAttackAnimationSet)] = null;
+                    foreach (string path in generated.Keys.ToArray())
+                    {
+                        Assert.That(path, Does.StartWith(root + "/"), path);
+                        generated[path] = AssetDatabase.AssetPathToGUID(path);
+                        derivedBytes[path] = System.Convert.ToBase64String(System.IO.File.ReadAllBytes(path));
+                    }
+
+                    OffHandAnimationGenerator.Generate(weapon);
+                    foreach (var pair in sources)
+                        Assert.That(System.Convert.ToBase64String(System.IO.File.ReadAllBytes(pair.Key)), Is.EqualTo(pair.Value), pair.Key);
+                    foreach (var pair in generated)
+                    {
+                        Assert.That(AssetDatabase.AssetPathToGUID(pair.Key), Is.EqualTo(pair.Value), pair.Key);
+                        Assert.That(System.Convert.ToBase64String(System.IO.File.ReadAllBytes(pair.Key)), Is.EqualTo(derivedBytes[pair.Key]), pair.Key);
+                    }
+                }
             }
+            finally { AssetDatabase.DeleteAsset(root); }
+        }
+
+        private const string TempParent = "Assets/Tests/EditMode/Editor/Combat";
+        private static readonly string[] AttackClipFields = { "_attackN", "_attackNE", "_attackNW", "_attackS", "_attackSE", "_attackSW" };
+
+        // Copies the weapon, its Main Hand set and the six source clips under the root, rewiring the copies to each other.
+        private static WeaponDefinition CopyWeaponWithItsMainSet(string name, string root)
+        {
+            WeaponDefinition original = AssetDatabase.LoadAssetAtPath<LootDefinition>($"Assets/Scriptable Objects/Loot/Definitions/{name}.asset").WeaponDefinition;
+            DirectionalAttackAnimationSet originalSet = original.Presentation.AttackAnimationSet;
+            string folder = AssetDatabase.GUIDToAssetPath(AssetDatabase.CreateFolder(root, name));
+            var setCopy = AssetDatabase.LoadAssetAtPath<DirectionalAttackAnimationSet>(CopyAsset(AssetDatabase.GetAssetPath(originalSet), folder));
+            var set = new SerializedObject(setCopy);
+            for (int direction = 0; direction < 6; direction++)
+            {
+                string clip = CopyAsset(AssetDatabase.GetAssetPath(originalSet.GetAttackClip(direction)), folder);
+                set.FindProperty(AttackClipFields[direction]).objectReferenceValue = AssetDatabase.LoadAssetAtPath<AnimationClip>(clip);
+            }
+            set.ApplyModifiedPropertiesWithoutUndo();
+            AssetDatabase.SaveAssetIfDirty(setCopy);
+
+            var weaponCopy = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(CopyAsset(AssetDatabase.GetAssetPath(original), folder));
+            var weapon = new SerializedObject(weaponCopy);
+            weapon.FindProperty("_presentation").FindPropertyRelative("_attackAnimationSet").objectReferenceValue = setCopy;
+            weapon.ApplyModifiedPropertiesWithoutUndo();
+            AssetDatabase.SaveAssetIfDirty(weaponCopy);
+            return weaponCopy;
+        }
+
+        private static string CopyAsset(string source, string folder)
+        {
+            string destination = $"{folder}/{System.IO.Path.GetFileName(source)}";
+            Assert.That(AssetDatabase.CopyAsset(source, destination), Is.True, source);
+            return destination;
         }
     }
 }

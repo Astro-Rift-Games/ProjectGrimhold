@@ -347,8 +347,11 @@ namespace Tests.PlayMode.Loot
             ClickOccupiedSlot(view.PlayerPanel, BoneLootId);
             yield return WaitUntil(
                 () => !transferController.HasRequestInFlight &&
-                    view.TransferFeedbackText.text == "Contenedor lleno",
+                    view.ContainerPanel.CapacityFeedbackText != null &&
+                    view.ContainerPanel.CapacityFeedbackText.text == "Lleno" &&
+                    view.ContainerPanel.CapacityFeedbackText.gameObject.activeSelf,
                 "The authoritative container-full rejection was not presented.");
+            Assert.That(view.TransferFeedbackText.gameObject.activeSelf, Is.False);
 
             Assert.That(receiver.GetLootAmount(BoneLootId), Is.EqualTo(2));
             Assert.That(container.GetLootAmount(BoneLootId), Is.Zero);
@@ -471,6 +474,8 @@ namespace Tests.PlayMode.Loot
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(capacityField, Is.Not.Null);
             capacityField.SetValue(receiver, 1);
+            // Stacks merge only within one provenance, so the held coin must share the chest coins' Dungeon origin.
+            _defeatDriver.GrantDungeonOrigin = true;
             yield return GrantLooterLoot(new LootEntry(CoinsLootId, 1));
 
             NetworkObject chest = SpawnLootSource(
@@ -636,6 +641,7 @@ namespace Tests.PlayMode.Loot
             _enemyDamageDriver = runnerObject.AddComponent<EnemyFatalDamageSimulationDriver>();
             LocalInputContext inputContext = runnerObject.AddComponent<LocalInputContext>();
             PlayModeRunnerComposition.AddTeamExtractionProgress(_runner);
+            PlayModeRunnerComposition.AddRaidSceneMinimap(_runner);
             LocalPlayerJoinContext joinContext = runnerObject.AddComponent<LocalPlayerJoinContext>();
             _localProfile = PlayModeLocalProfile.Create();
             _localProfile.BindTo(joinContext);
