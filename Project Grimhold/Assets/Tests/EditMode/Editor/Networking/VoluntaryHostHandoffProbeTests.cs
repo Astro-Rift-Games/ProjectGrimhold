@@ -17,6 +17,8 @@ public sealed class VoluntaryHostHandoffProbeTests
         public bool IsRunning { get; set; } = true;
         public bool IsServer { get; set; } = true;
         public bool RaidInProgress { get; set; } = true;
+        public bool IsHostExitResolved { get; set; } = true;
+        public int ConnectedRaidingRemoteParticipants { get; set; } = 1;
         public bool PushResult { get; set; } = true;
 
         public Task<bool> PushSnapshotAsync()

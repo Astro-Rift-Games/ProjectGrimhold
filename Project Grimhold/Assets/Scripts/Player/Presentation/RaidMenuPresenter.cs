@@ -430,7 +430,8 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
 
         _returnRequested = true;
-        if (TryResolveOperationalLocalRole(out bool isHost) && isHost)
+        if (TryResolveOperationalLocalRole(out bool isHost) && isHost &&
+            !ShouldRouteHostReturnThroughParticipant())
         {
             SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
             if (coordinator == null || !coordinator.RequestHostResultsReturn())
@@ -781,6 +782,18 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         return true;
     }
 
+    private bool ShouldRouteHostReturnThroughParticipant()
+    {
+        NetworkMatchController matchController = GetMatchController();
+        NetworkSpawnManager spawnManager = _runner != null
+            ? _runner.GetComponent<NetworkSpawnManager>()
+            : null;
+        return matchController != null && spawnManager != null &&
+            HostHandoffPolicy.ShouldRouteHostReturnThroughParticipant(
+                matchController.Phase == NetworkMatchController.MatchPhase.InProgress,
+                spawnManager.CountConnectedRaidingRemoteParticipants());
+    }
+
     private bool CanIssueReturnRequest()
     {
         if (_participant == null ||
@@ -807,6 +820,21 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
 
         NetworkSpawnManager spawnManager = _runner.GetComponent<NetworkSpawnManager>();
+        LogHostReturnGateOnChange(phase, spawnManager);
+        if (spawnManager != null &&
+            RaidResultsReturnPolicy.CanRequestHostHandoffReturn(
+                _participant.State,
+                _participant.FinalizationCause,
+                _participant.IsExtractionProgressionComplete,
+                _hasProgressionResultSnapshot,
+                isServer: true,
+                isMatchInProgress: phase == NetworkMatchController.MatchPhase.InProgress,
+                connectedRaidingRemoteParticipants:
+                    spawnManager.CountConnectedRaidingRemoteParticipants()))
+        {
+            return true;
+        }
+
         return RaidResultsReturnPolicy.CanRequestHostReturn(
             _participant.State,
             _participant.FinalizationCause,
@@ -815,6 +843,29 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             isServer: true,
             hasRaidingParticipants: spawnManager == null || spawnManager.HasRaidingParticipants,
             isMatchFinished: phase == NetworkMatchController.MatchPhase.Finished);
+    }
+
+    private string _lastHostReturnGate;
+
+    /// <summary>Logs the Host Return gate inputs once per change, never per frame.</summary>
+    private void LogHostReturnGateOnChange(
+        NetworkMatchController.MatchPhase phase,
+        NetworkSpawnManager spawnManager)
+    {
+        int raidingPeers = spawnManager != null
+            ? spawnManager.CountConnectedRaidingRemoteParticipants()
+            : -1;
+        string gate = $"State={_participant.State}, Phase={phase}, " +
+            $"HasSnapshot={_hasProgressionResultSnapshot}, " +
+            $"ExtractionComplete={_participant.IsExtractionProgressionComplete}, " +
+            $"ConnectedRaidingPeers={raidingPeers}";
+        if (gate == _lastHostReturnGate)
+        {
+            return;
+        }
+
+        _lastHostReturnGate = gate;
+        Debug.Log($"[HM-MULTI] FIX-50 Host Return gate: {gate}.", this);
     }
 
     internal static bool CanIssueReturnRequest(

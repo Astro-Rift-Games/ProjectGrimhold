@@ -222,4 +222,58 @@ public sealed class RaidResultsReturnPolicyTests
             hasRaidingParticipants: false,
             hasConnectedRemoteParticipants);
     }
+
+    [TestCase(true, true, 1, true, true)]
+    [TestCase(false, true, 1, true, false)]
+    [TestCase(true, false, 1, true, false)]
+    [TestCase(true, true, 0, true, false)]
+    [TestCase(true, true, 1, false, false)]
+    public void HostReturn_DuringActiveRaid_IsAllowedOnlyForResolvedHostWithRaidingPeers(
+        bool isServer,
+        bool isMatchInProgress,
+        int connectedRaiding,
+        bool hasSnapshot,
+        bool expected)
+    {
+        Assert.That(
+            RaidResultsReturnPolicy.CanRequestHostHandoffReturn(
+                RaidParticipantState.Defeated,
+                ExpeditionProgressionFinalizationCause.DefeatConfirmed,
+                isExtractionProgressionComplete: true,
+                hasProgressionResultSnapshot: hasSnapshot,
+                isServer: isServer,
+                isMatchInProgress: isMatchInProgress,
+                connectedRaidingRemoteParticipants: connectedRaiding),
+            Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void HostReturn_DuringActiveRaid_RejectsRaidingHost()
+    {
+        Assert.That(
+            RaidResultsReturnPolicy.CanRequestHostHandoffReturn(
+                RaidParticipantState.Raiding,
+                ExpeditionProgressionFinalizationCause.None,
+                isExtractionProgressionComplete: false,
+                hasProgressionResultSnapshot: true,
+                isServer: true,
+                isMatchInProgress: true,
+                connectedRaidingRemoteParticipants: 1),
+            Is.False);
+    }
+
+    [Test]
+    public void HostReturn_DuringActiveRaid_RejectsExtractedHostWithIncompleteExtractionProgression()
+    {
+        Assert.That(
+            RaidResultsReturnPolicy.CanRequestHostHandoffReturn(
+                RaidParticipantState.Extracted,
+                ExpeditionProgressionFinalizationCause.ExtractionConfirmed,
+                isExtractionProgressionComplete: false,
+                hasProgressionResultSnapshot: true,
+                isServer: true,
+                isMatchInProgress: true,
+                connectedRaidingRemoteParticipants: 1),
+            Is.False);
+    }
 }
