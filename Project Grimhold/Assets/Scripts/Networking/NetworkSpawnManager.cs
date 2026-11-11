@@ -80,6 +80,50 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private NetworkPrefabRef[] _enemyPrefabs;
 
     [SerializeField]
+    private string _dungeonEnvironment;
+
+    private Spawning.EnemySpawnCandidate<NetworkPrefabRef>[] _enemyCandidates;
+
+    public string DungeonEnvironment
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(_dungeonEnvironment))
+            {
+                return _dungeonEnvironment;
+            }
+
+            if (_runner != null && _runner.SimulationUnityScene.IsValid())
+            {
+                return Spawning.DungeonEnvironmentResolver.ResolveEnvironment(_runner.SimulationUnityScene.name);
+            }
+
+            return Spawning.DungeonEnvironmentResolver.ResolveEnvironment(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+        }
+        set => _dungeonEnvironment = value;
+    }
+
+    public void RefreshEnemyCandidates()
+    {
+        if (_enemyPrefabs == null || _enemyPrefabs.Length == 0)
+        {
+            _enemyCandidates = System.Array.Empty<Spawning.EnemySpawnCandidate<NetworkPrefabRef>>();
+            return;
+        }
+
+        _enemyCandidates = new Spawning.EnemySpawnCandidate<NetworkPrefabRef>[_enemyPrefabs.Length];
+        for (int i = 0; i < _enemyPrefabs.Length; i++)
+        {
+            _enemyCandidates[i] = Spawning.EnemySpawnCandidateResolver.ResolveCandidate(_runner, _enemyPrefabs[i]);
+        }
+    }
+
+    public void SetEnemyCandidates(Spawning.EnemySpawnCandidate<NetworkPrefabRef>[] candidates)
+    {
+        _enemyCandidates = candidates;
+    }
+
+    [SerializeField]
     private NetworkPrefabRef _lootContainerPrefab;
 
     [SerializeField]
@@ -518,6 +562,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _raidPlayerPrefab = raidPlayerPrefab;
         _raidParticipantPrefab = raidParticipantPrefab;
         _enemyPrefabs = enemyPrefab;
+        RefreshEnemyCandidates();
         _startupContext = startupContext;
         _launchContext = launchContext;
 
@@ -1025,14 +1070,27 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 switch (InitialSpawnGroupPolicy.Resolve(group.Group))
                 {
                     case InitialSpawnGroupPolicy.SpawnKind.Enemies:
+                        int remainingBudget = group.ThreatBudget > 0 ? group.ThreatBudget : int.MaxValue;
                         for (int index = 0; index < group.Amount; index++)
                         {
-                            if (!SpawnEnemy(_runner, group.Group))
+                            if (remainingBudget <= 0)
                             {
+                                break;
+                            }
+
+                            if (!SpawnEnemy(_runner, group.Group, Spawning.EnemyPopulationOrigin.Bootstrap, remainingBudget, out int spawnedCost))
+                            {
+                                if (group.ThreatBudget > 0 && remainingBudget < EnemyThreatCost.DefaultCost)
+                                {
+                                    break;
+                                }
+
                                 failure = $"Enemy bootstrap failed for group '{group.Group}'.";
                                 _initialRaidBootstrapState = InitialRaidBootstrapState.Failed;
                                 return false;
                             }
+
+                            remainingBudget -= spawnedCost;
                         }
                         break;
                     case InitialSpawnGroupPolicy.SpawnKind.LootContainers:
@@ -3413,17 +3471,51 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return false;
     }
 
-    internal bool TrySpawnReinforcement(NetworkRunner runner, Transform spawnPoint, bool disableLoot = false)
+    internal bool TrySpawnReinforcement(NetworkRunner runner, Transform spawnPoint, bool disableLoot = false, int remainingThreatBudget = int.MaxValue)
     {
+        return TrySpawnReinforcement(runner, spawnPoint, disableLoot, remainingThreatBudget, out _);
+    }
+
+    internal bool TrySpawnReinforcement(NetworkRunner runner, Transform spawnPoint, bool disableLoot, int remainingThreatBudget, out int spawnedCost)
+    {
+        spawnedCost = 0;
         if (spawnPoint == null) return false;
-        return SpawnEnemyAtTransform(runner, spawnPoint, Spawning.EnemyPopulationOrigin.Reinforcement, disableLoot);
+        return SpawnEnemyAtTransform(runner, spawnPoint, Spawning.EnemyPopulationOrigin.Reinforcement, disableLoot, remainingThreatBudget, out spawnedCost);
     }
 
     private bool SpawnEnemyAtTransform(NetworkRunner runner, Transform spawnPoint, Spawning.EnemyPopulationOrigin origin, bool disableLoot = false)
     {
+        return SpawnEnemyAtTransform(runner, spawnPoint, origin, disableLoot, int.MaxValue, out _);
+    }
+
+    private bool SpawnEnemyAtTransform(
+        NetworkRunner runner,
+        Transform spawnPoint,
+        Spawning.EnemyPopulationOrigin origin,
+        bool disableLoot,
+        int remainingThreatBudget,
+        out int spawnedThreatCost)
+    {
+        spawnedThreatCost = 0;
         if (_enemyPrefabs == null || _enemyPrefabs.Length <= 0)
         {
             Debug.LogError("Cannot spawn enemy: Enemy prefab reference is missing.");
+            return false;
+        }
+
+        if (_enemyCandidates == null || _enemyCandidates.Length != _enemyPrefabs.Length)
+        {
+            RefreshEnemyCandidates();
+        }
+
+        if (!Spawning.WeightedEnemySelector.TrySelect(
+                _enemyCandidates,
+                DungeonEnvironment,
+                remainingThreatBudget,
+                null,
+                out var selectedCandidate))
+        {
+            Debug.LogWarning($"[NetworkSpawnManager] No eligible enemy candidate for environment '{DungeonEnvironment}' with remaining threat budget {remainingThreatBudget}.");
             return false;
         }
 
@@ -3474,7 +3566,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         string lootError = null;
 
         NetworkObject enemyObject = runner.Spawn(
-            _enemyPrefabs[UnityEngine.Random.Range(0, _enemyPrefabs.Length)],
+            selectedCandidate.Prefab,
             position,
             rotation,
             inputAuthority: null,
@@ -3558,6 +3650,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         _spawnedEnemies.Add(enemyObject);
+        spawnedThreatCost = selectedCandidate.ThreatCost;
         return true;
     }
 
@@ -3648,6 +3741,17 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
     private bool SpawnEnemy(NetworkRunner runner, SpawnGroupType groupType, Spawning.EnemyPopulationOrigin origin = Spawning.EnemyPopulationOrigin.Bootstrap)
     {
+        return SpawnEnemy(runner, groupType, origin, int.MaxValue, out _);
+    }
+
+    private bool SpawnEnemy(
+        NetworkRunner runner,
+        SpawnGroupType groupType,
+        Spawning.EnemyPopulationOrigin origin,
+        int remainingThreatBudget,
+        out int spawnedCost)
+    {
+        spawnedCost = 0;
         if (!_spawnPointLookup.TryGetValue(groupType, out Transform[] spawnPoints) || spawnPoints == null || spawnPoints.Length == 0)
         {
             Debug.LogError($"Cannot spawn enemy: No spawn points found for {groupType}.");
@@ -3670,12 +3774,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         int selectedIndex = availableIndices[UnityEngine.Random.Range(0, availableIndices.Count)];
-        _usedEnemySpawnPoints.Add(spawnPoints[selectedIndex]);
-
         Transform spawnPoint = spawnPoints[selectedIndex];
 
-        if (SpawnEnemyAtTransform(runner, spawnPoint, origin))
+        if (SpawnEnemyAtTransform(runner, spawnPoint, origin, disableLoot: false, remainingThreatBudget, out spawnedCost))
         {
+            _usedEnemySpawnPoints.Add(spawnPoint);
             Debug.Log($"Spawned enemy at {spawnPoint.position}.");
             return true;
         }

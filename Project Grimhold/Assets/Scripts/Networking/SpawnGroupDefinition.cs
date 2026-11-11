@@ -10,6 +10,9 @@ namespace Spawning
         public Transform[] SpawnPoints;
         public int Amount;
 
+        [Tooltip("Optional threat budget limit for encounter groups (§10.3). If <= 0, Amount is spawned directly.")]
+        public int ThreatBudget;
+
         public bool IsValid()
         {
             if (Amount < 0) return false;
