@@ -26,38 +26,18 @@ public static class HostHandoffPolicy
     }
 
     /// <summary>
-    /// Whether the outgoing Host already closed its own participation with a persisted result:
-    /// an authorized Return (after Defeat Results or a completed extraction), or a confirmed
-    /// Abandon whose corpse and progression result exist.
+    /// Whether a Return request may be accepted. After a voluntary Abandon the operational Host
+    /// returns like a client, but only once its progression result is durably committed, so the
+    /// handoff (triggered by the replicated IsReturnAuthorized) never precedes the save.
     /// </summary>
-    public static bool IsHostExitResolved(
-        RaidParticipantState state,
+    public static bool CanAuthorizeReturn(
+        bool requesterIsHost,
         ExpeditionProgressionFinalizationCause finalizationCause,
-        bool isReturnAuthorized,
-        bool hasProgressionResultSnapshot)
-    {
-        if (isReturnAuthorized)
-        {
-            return true;
-        }
-
-        return state == RaidParticipantState.Aborted &&
-               finalizationCause ==
-                   ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed &&
-               hasProgressionResultSnapshot;
-    }
-
-    /// <summary>
-    /// Whether a completed Abandon also authorizes Return. Only the operational Host does, and only
-    /// once its progression result is durably committed, so the handoff never precedes the save:
-    /// IsReturnAuthorized is the replicated proof the replacement Host can observe, because the
-    /// progression result itself is local to the outgoing Host. Clients keep their own Return request.
-    /// </summary>
-    public static bool AuthorizesReturnOnResolvedAbandon(
-        bool requestedByOperationalHost,
         bool isDurablyCommitted)
     {
-        return requestedByOperationalHost && isDurablyCommitted;
+        bool hostAbandon = requesterIsHost &&
+            finalizationCause == ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed;
+        return !hostAbandon || isDurablyCommitted;
     }
 
     /// <summary>

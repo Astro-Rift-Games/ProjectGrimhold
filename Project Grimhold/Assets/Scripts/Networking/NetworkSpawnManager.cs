@@ -345,7 +345,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return string.Empty;
     }
 
-    /// <summary>Whether the local Host participant already resolved its own exit with a result.</summary>
+    /// <summary>Whether the local Host participant already resolved its own exit with an accepted Return.</summary>
     public bool IsLocalHostExitResolved()
     {
         if (_runner == null ||
@@ -356,11 +356,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
-        return HostHandoffPolicy.IsHostExitResolved(
-            participant.State,
-            participant.FinalizationCause,
-            participant.IsReturnAuthorized,
-            participant.HasProgressionResultSnapshot);
+        // FIX-49: the handoff starts only after the Host's accepted Return, never on Abandon alone.
+        return participant.IsReturnAuthorized;
     }
 
     /// <summary>

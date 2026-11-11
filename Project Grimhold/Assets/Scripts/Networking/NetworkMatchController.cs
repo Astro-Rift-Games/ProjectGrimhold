@@ -94,27 +94,6 @@ public sealed class NetworkMatchController : NetworkBehaviour
     }
 
     /// <summary>
-    /// Requests a global raid cancellation. Only the Host/State Authority may invoke it.
-    /// </summary>
-    public bool TryCancelRaid()
-    {
-        if (!HasStateAuthority || Phase != MatchPhase.InProgress)
-        {
-            return false;
-        }
-
-        NetworkSpawnManager spawnManager = Runner.GetComponent<NetworkSpawnManager>();
-        if (spawnManager == null)
-        {
-            return false;
-        }
-
-        spawnManager.AbortRaidingParticipantsForClosure();
-        BeginClosure(RaidClosureReason.HostCancellation);
-        return true;
-    }
-
-    /// <summary>
     /// Configures a raid whose gameplay scene was loaded as part of StartGame.
     /// It closes admission only after the complete frozen manifest cohort has connected.
     /// </summary>
@@ -445,6 +424,6 @@ public enum RaidClosureState : byte
 public enum RaidClosureReason : byte
 {
     NaturalCompletion = 0,
-    HostCancellation = 1,
+    // 1 was the removed Host cancellation; the value stays reserved so [Networked] bytes keep meaning.
     BootstrapFailure = 2
 }

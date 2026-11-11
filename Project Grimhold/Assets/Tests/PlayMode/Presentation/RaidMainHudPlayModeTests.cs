@@ -397,7 +397,6 @@ namespace Tests.PlayMode.Presentation
             Assert.That(menuView.AbandonButton.gameObject.activeSelf, Is.True);
             Assert.That(menuView.AbandonButton.interactable, Is.False);
             Assert.That(menuView.AbandonButtonText.text, Is.EqualTo("Volver al pueblo"));
-            Assert.That(menuView.CancelRaidButton.gameObject.activeSelf, Is.False);
             Assert.That(menuView.SpectatorTargetText.text, Does.Contain("client-profile"));
             Assert.That(_runner.GetPlayerObject(_runner.LocalPlayer), Is.SameAs(localParticipantObject));
             Assert.That(_localParticipant.HasInputAuthority, Is.True);
@@ -723,7 +722,6 @@ namespace Tests.PlayMode.Presentation
             Assert.That(menuView.AbandonButton.gameObject.activeSelf, Is.True);
             Assert.That(menuView.AbandonButton.interactable, Is.False);
             Assert.That(menuView.AbandonButtonText.text, Is.EqualTo("Volver al pueblo"));
-            Assert.That(menuView.CancelRaidButton.gameObject.activeSelf, Is.False);
             menuPresenter.CloseMenu();
             yield return null;
             Assert.That((bool)_localParticipant.IsReturnAuthorized, Is.False);

@@ -295,7 +295,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         {
             _view.ResumeRequested += OnResumeRequested;
             _view.AbandonRequested += OnAbandonRequested;
-            _view.CancelRaidRequested += OnCancelRaidRequested;
             _view.PreviousTargetRequested += OnPreviousTargetRequested;
             _view.NextTargetRequested += OnNextTargetRequested;
         }
@@ -317,7 +316,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         {
             _view.ResumeRequested -= OnResumeRequested;
             _view.AbandonRequested -= OnAbandonRequested;
-            _view.CancelRaidRequested -= OnCancelRaidRequested;
             _view.PreviousTargetRequested -= OnPreviousTargetRequested;
             _view.NextTargetRequested -= OnNextTargetRequested;
         }
@@ -378,15 +376,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         if (_participant.State == RaidParticipantState.Extracted)
         {
             RequestTerminalReturnOnce();
-            return;
-        }
-
-        // An operational Host cannot abandon its participant while sustaining
-        // the raid. Cancel Raid is the authoritative action for that role.
-        if (TryResolveOperationalLocalRole(out bool isHost) && isHost)
-        {
-            _awaitingAbandonConfirmation = false;
-            RefreshViewContent();
             return;
         }
 
@@ -497,15 +486,8 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
         else
         {
-            bool canAbandon = !TryResolveOperationalLocalRole(out bool isHost) || !isHost;
-            _view.PresentAliveState(canAbandon);
+            _view.PresentAliveState();
         }
-
-        NetworkMatchController matchController = GetMatchController();
-        bool canCancelRaid = _runner != null && _runner.IsServer && matchController != null &&
-            matchController.Phase == NetworkMatchController.MatchPhase.InProgress &&
-            !_awaitingAbandonConfirmation && !IsLocalDefeated();
-        _view.SetCancelRaidVisible(canCancelRaid);
     }
 
     /// <summary>
@@ -535,16 +517,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             _levelUpCelebrated);
         _levelUpCelebrated = true;
         _view.PresentLevelUp(_progressionResultSnapshot.ResultingLevel, animate);
-    }
-
-    private void OnCancelRaidRequested()
-    {
-        NetworkMatchController matchController = GetMatchController();
-        if (_runner == null || !_runner.IsServer || matchController == null || IsLocalDefeated())
-        {
-            return;
-        }
-        matchController.TryCancelRaid();
     }
 
     private void ObserveParticipantState()

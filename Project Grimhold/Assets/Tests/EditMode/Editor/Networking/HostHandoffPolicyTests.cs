@@ -79,69 +79,6 @@ public sealed class HostHandoffPolicyTests
             Is.False);
     }
 
-    [Test]
-    public void ReturnAuthorizedHost_ExitIsResolved()
-    {
-        // S4 (b)/(c): Return after Defeat or a completed extraction is authorized.
-        Assert.That(
-            HostHandoffPolicy.IsHostExitResolved(
-                RaidParticipantState.Extracted,
-                ExpeditionProgressionFinalizationCause.ExtractionConfirmed,
-                isReturnAuthorized: true,
-                hasProgressionResultSnapshot: true),
-            Is.True);
-    }
-
-    [Test]
-    public void ConfirmedAbandonWithResult_ExitIsResolved()
-    {
-        // S4 (a): the corpse exists and the abandon result was finalized.
-        Assert.That(
-            HostHandoffPolicy.IsHostExitResolved(
-                RaidParticipantState.Aborted,
-                ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed,
-                isReturnAuthorized: false,
-                hasProgressionResultSnapshot: true),
-            Is.True);
-    }
-
-    [Test]
-    public void ConfirmedAbandonWithoutResult_ExitIsNotResolvedYet()
-    {
-        Assert.That(
-            HostHandoffPolicy.IsHostExitResolved(
-                RaidParticipantState.Aborted,
-                ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed,
-                isReturnAuthorized: false,
-                hasProgressionResultSnapshot: false),
-            Is.False);
-    }
-
-    [Test]
-    public void RaidingHost_ExitIsNotResolved()
-    {
-        Assert.That(
-            HostHandoffPolicy.IsHostExitResolved(
-                RaidParticipantState.Raiding,
-                default,
-                isReturnAuthorized: false,
-                hasProgressionResultSnapshot: false),
-            Is.False);
-    }
-
-    [Test]
-    public void DefeatedHostBeforeReturn_ExitIsNotResolved()
-    {
-        // A Defeated Host still watches Results until it requests Return.
-        Assert.That(
-            HostHandoffPolicy.IsHostExitResolved(
-                RaidParticipantState.Defeated,
-                ExpeditionProgressionFinalizationCause.DefeatConfirmed,
-                isReturnAuthorized: false,
-                hasProgressionResultSnapshot: true),
-            Is.False);
-    }
-
     [TestCase(true)]
     [TestCase(false)]
     public void Client_ExitRequest_IsAlwaysAcceptedByThisRule(bool isRaidInProgress)
@@ -152,29 +89,42 @@ public sealed class HostHandoffPolicyTests
     }
 
     [Test]
-    public void DurablyCommittedAbandon_FromOperationalHost_AuthorizesReturn()
+    public void HostReturnAfterAbandon_WithDurableCommit_IsAuthorized()
     {
-        Assert.IsTrue(HostHandoffPolicy.AuthorizesReturnOnResolvedAbandon(
-            requestedByOperationalHost: true,
+        // FIX-49: the Host presses Volver on the loss Results; the handoff may start only then.
+        Assert.IsTrue(HostHandoffPolicy.CanAuthorizeReturn(
+            requesterIsHost: true,
+            ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed,
             isDurablyCommitted: true));
     }
 
     [Test]
-    public void ResolvedButNotDurablyCommittedAbandon_FromOperationalHost_DoesNotAuthorizeReturn()
+    public void HostReturnAfterAbandon_WithoutDurableCommit_IsNotAuthorized()
     {
-        Assert.IsFalse(HostHandoffPolicy.AuthorizesReturnOnResolvedAbandon(
-            requestedByOperationalHost: true,
+        // The handoff must never precede the save of the abandon result.
+        Assert.IsFalse(HostHandoffPolicy.CanAuthorizeReturn(
+            requesterIsHost: true,
+            ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed,
             isDurablyCommitted: false));
     }
 
     [Test]
-    public void ClientAbandon_NeverAuthorizesReturn()
+    public void ClientAbandonReturn_IsNotGatedByTheHostCommitRule()
     {
-        Assert.IsFalse(HostHandoffPolicy.AuthorizesReturnOnResolvedAbandon(
-            requestedByOperationalHost: false,
-            isDurablyCommitted: true));
-        Assert.IsFalse(HostHandoffPolicy.AuthorizesReturnOnResolvedAbandon(
-            requestedByOperationalHost: false,
+        Assert.IsTrue(HostHandoffPolicy.CanAuthorizeReturn(
+            requesterIsHost: false,
+            ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed,
+            isDurablyCommitted: false));
+    }
+
+    [TestCase(ExpeditionProgressionFinalizationCause.DefeatConfirmed)]
+    [TestCase(ExpeditionProgressionFinalizationCause.ExtractionConfirmed)]
+    public void HostDefeatOrExtractionReturn_KeepsItsExistingGate(
+        ExpeditionProgressionFinalizationCause cause)
+    {
+        Assert.IsTrue(HostHandoffPolicy.CanAuthorizeReturn(
+            requesterIsHost: true,
+            cause,
             isDurablyCommitted: false));
     }
 

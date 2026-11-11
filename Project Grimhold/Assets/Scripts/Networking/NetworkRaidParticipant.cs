@@ -68,8 +68,6 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     [Networked]
     public NetworkBool IsReturnAuthorized { get; private set; }
 
-    private bool _abandonRequestedByOperationalHost;
-
     public bool HasProgressionResultSnapshot =>
         _progressionResolver != null &&
         _progressionResolver.TryGetProgressionResult(out ExpeditionProgressionResult _);
@@ -759,7 +757,6 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             return;
         }
 
-        _abandonRequestedByOperationalHost = requesterIsHost;
         FinalizationCause =
             ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed;
         TryAdvanceVoluntaryAbandon();
@@ -820,6 +817,17 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
                 $"HasSnapshot={hasProgressionResultSnapshot}, " +
                 $"PhaseCompatible={spawnManager.IsResultsReturnPhaseCompatible}, " +
                 $"RequesterIsHost={requesterIsHost}.",
+                this);
+            return;
+        }
+
+        if (!HostHandoffPolicy.CanAuthorizeReturn(
+                requesterIsHost,
+                FinalizationCause,
+                _progressionResolver != null && _progressionResolver.Committed))
+        {
+            Debug.LogWarning(
+                "[HM-MULTI] FIX-49 Host Return after Abandon deferred: progression not durably committed.",
                 this);
             return;
         }
@@ -891,14 +899,7 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
                 ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed);
         }
 
-        // FixedUpdateNetwork re-enters this method every tick until Return is authorized, so a
-        // commit that is not durable yet is re-evaluated without a separate retry path.
-        if (HostHandoffPolicy.AuthorizesReturnOnResolvedAbandon(
-                _abandonRequestedByOperationalHost,
-                isDurablyCommitted: _progressionResolver.Committed))
-        {
-            IsReturnAuthorized = true;
-        }
+        // Return stays an explicit request for every participant, the Host included (FIX-49).
     }
 
     private bool TryTransitionToAborted(

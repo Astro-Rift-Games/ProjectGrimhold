@@ -11,20 +11,19 @@ public enum HistoricHostRosterClass
 public static class HostMigrationRosterPolicy
 {
     /// <summary>
-    /// Classifies the historical Host from replicated participant state only. The progression
-    /// resolver is local to the outgoing Host and is not restored, so the result snapshot cannot
-    /// be observed here; the outgoing Host replicates the resolution as <c>IsReturnAuthorized</c>.
+    /// Classifies the historical Host from replicated participant state only. A Host that confirmed
+    /// a voluntary Abandon already generated its corpse (Aborted), so it is terminal even if it
+    /// dropped before pressing Return; otherwise the outgoing Host replicates its resolution as
+    /// <c>IsReturnAuthorized</c>. The progression resolver is local to the outgoing Host.
     /// </summary>
     public static HistoricHostRosterClass ClassifyHistoricHost(
         RaidParticipantState state,
         ExpeditionProgressionFinalizationCause finalizationCause,
         bool isReturnAuthorized)
     {
-        return HostHandoffPolicy.IsHostExitResolved(
-            state,
-            finalizationCause,
-            isReturnAuthorized,
-            hasProgressionResultSnapshot: false)
+        bool abandoned = state == RaidParticipantState.Aborted &&
+            finalizationCause == ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed;
+        return isReturnAuthorized || abandoned
             ? HistoricHostRosterClass.DepartedTerminal
             : HistoricHostRosterClass.Unresolved;
     }

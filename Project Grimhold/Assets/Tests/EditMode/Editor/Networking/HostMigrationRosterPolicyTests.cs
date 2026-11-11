@@ -42,15 +42,26 @@ public sealed class HostMigrationRosterPolicyTests
     }
 
     [Test]
-    public void AbandonWithoutReturnAuthorization_StaysUnresolved()
+    public void AbandonWithoutReturnAuthorization_IsDepartedTerminal()
     {
-        // A replicated Aborted state alone does not prove the progression result exists
-        // (the resolver is local to the outgoing Host), so an abrupt cut keeps the old path.
+        // FIX-49: the Host abandoned (corpse generated) and may drop before pressing Volver;
+        // the replacement must not re-finalize it as Aborted.
         Assert.AreEqual(
-            HistoricHostRosterClass.Unresolved,
+            HistoricHostRosterClass.DepartedTerminal,
             HostMigrationRosterPolicy.ClassifyHistoricHost(
                 RaidParticipantState.Aborted,
                 ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed,
+                isReturnAuthorized: false));
+    }
+
+    [Test]
+    public void DefeatedWithoutReturnAuthorization_StaysUnresolved()
+    {
+        Assert.AreEqual(
+            HistoricHostRosterClass.Unresolved,
+            HostMigrationRosterPolicy.ClassifyHistoricHost(
+                RaidParticipantState.Defeated,
+                ExpeditionProgressionFinalizationCause.DefeatConfirmed,
                 isReturnAuthorized: false));
     }
 

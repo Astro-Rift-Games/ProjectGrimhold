@@ -92,25 +92,6 @@ public sealed class RaidResultsLifecycleSourceTests
     }
 
     [Test]
-    public void HostCancellationObserver_ArmsOnlyTheAuthoritativeCancellationClosure()
-    {
-        string observer = ReadMethod(
-            File.ReadAllText(CoordinatorPath),
-            "private void ObserveHostCancellationClosure");
-
-        Assert.That(observer, Does.Contain("ShouldArmHostCancellationReturn"));
-        Assert.That(observer, Does.Contain("_hostCancellationReturnArmed = true"));
-        Assert.That(observer, Does.Contain("_hostResultsReturnRequested = true"));
-        Assert.That(observer, Does.Not.Contain("ReturnParticipantToTownAsync"));
-
-        string armingRule = ReadMethod(
-            File.ReadAllText(CoordinatorPath),
-            "internal static bool ShouldArmHostCancellationReturn");
-        Assert.That(armingRule, Does.Contain("RaidClosureReason.HostCancellation"));
-        Assert.That(armingRule, Does.Contain("SessionConnectionState.Raid"));
-    }
-
-    [Test]
     public void ParticipantReturnObserver_ExcludesTheOperationalHost()
     {
         string observer = ReadMethod(
