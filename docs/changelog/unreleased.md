@@ -4,32 +4,91 @@
 
 Release: Unreleased
 
-135 original commits; 135 canonical entries.
+136 original commits; 136 canonical entries.
 
 ## Canonical classification
 
-62 features; 38 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 13 tests; 9 maintenance; 2 other changes
+62 features; 38 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 14 tests; 9 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Abilities | 7 | 6 | 1 | 0 | 8 | 1 |
-| Art & Animation | 7 | 9 | 1 | 0 | 6 | 0 |
+| Abilities | 7 | 6 | 1 | 0 | 9 | 1 |
+| Art & Animation | 7 | 9 | 1 | 0 | 7 | 0 |
 | Audio | 3 | 1 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 37 | 24 | 1 | 1 | 14 | 2 |
-| Combat | 34 | 7 | 0 | 0 | 10 | 0 |
+| Build & Tooling | 37 | 24 | 1 | 1 | 15 | 2 |
+| Combat | 34 | 7 | 0 | 0 | 11 | 0 |
 | Documentation | 26 | 10 | 0 | 0 | 4 | 0 |
 | Extraction | 9 | 2 | 0 | 0 | 5 | 0 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 51 | 26 | 1 | 1 | 16 | 1 |
+| Inventory & Loot | 51 | 26 | 1 | 1 | 17 | 1 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 16 | 10 | 0 | 0 | 7 | 0 |
 | Persistence & Backend | 25 | 12 | 0 | 1 | 8 | 0 |
-| Tests | 59 | 32 | 1 | 1 | 22 | 0 |
+| Tests | 59 | 32 | 1 | 1 | 23 | 0 |
 | UI | 22 | 8 | 1 | 0 | 8 | 0 |
 | Unassigned | 0 | 1 | 0 | 0 | 2 | 0 |
 | World & Visibility | 16 | 6 | 0 | 0 | 2 | 0 |
 
 ## Original commit records
+
+### b655db6546eb3886c64ddebc87bf77d55df55fdc
+
+[b655db6546eb3886c64ddebc87bf77d55df55fdc](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b655db6546eb3886c64ddebc87bf77d55df55fdc)
+
+Date: 2026-11-11T01:28:52-03:00 · Classification: Tests (explicit) · Systems: Combat, Abilities, Inventory & Loot, Art & Animation, Build & Tooling, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+test: compare remaining sprite assertions by native identity
+```
+
+#### Original body
+
+```text
+Unity 6000.6 can surface the same native Sprite through different
+managed wrappers (serialized reference vs AssetDatabase load), so
+Is.SameAs failed with identical names on both sides. 09c85bd3 fixed
+most sites; four sprite assertions it did not cover kept 27 EditMode
+tests red. Is.EqualTo still compares instance ids, so a different
+Sprite with the same name still fails. ScriptableObject definition
+assertions keep Is.SameAs.
+
+Tests: ArmorSetCatalogTests 6/6, ConsumableUtilitySpriteAssetsTests
+10/10, WeaponAttackSpriteAnimationTests 30/30.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs
+```
+
+#### Classification evidence
+
+- type → Tests: test
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs
+- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Art &amp; Animation: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Art &amp; Animation: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs
+- message-term → Art &amp; Animation: sprite
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 1f2a69d5ee0a0d67911d351b7225b3c04ace0784
 

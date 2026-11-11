@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1012,
-  "canonicalEntries": 1009,
+  "rawCommits": 1013,
+  "canonicalEntries": 1010,
   "before": {
+    "Tests": 38,
     "Bug Fixes": 116,
     "Architecture & Infrastructure": 22,
     "Other Changes": 356,
-    "Tests": 37,
     "Features": 384,
     "Documentation": 83,
     "Refactoring": 14
   },
   "after": {
+    "Tests": 43,
     "Bug Fixes": 132,
     "Maintenance": 20,
     "Features": 522,
-    "Tests": 42,
     "Architecture & Infrastructure": 6,
     "Documentation": 99,
     "Other Changes": 164,
@@ -23,49 +23,49 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Inventory & Loot": 412,
+    "Combat": 368,
+    "Abilities": 128,
+    "Inventory & Loot": 413,
+    "Art & Animation": 234,
+    "Build & Tooling": 521,
+    "Tests": 637,
     "Networking & Sessions": 289,
     "Persistence & Backend": 231,
-    "Build & Tooling": 520,
     "Documentation": 383,
-    "Tests": 636,
-    "Combat": 367,
     "UI": 308,
     "World & Visibility": 134,
-    "Abilities": 127,
     "Extraction": 135,
     "Unassigned": 21,
     "Audio": 34,
-    "Art & Animation": 233,
     "Input": 30,
     "Movement": 94
   },
   "canonical": {
     "sections": {
+      "Tests": 43,
       "Bug Fixes": 131,
       "Maintenance": 20,
       "Features": 521,
-      "Tests": 42,
       "Architecture & Infrastructure": 6,
       "Documentation": 99,
       "Other Changes": 163,
       "Refactoring": 27
     },
     "systems": {
-      "Inventory & Loot": 412,
+      "Combat": 366,
+      "Abilities": 126,
+      "Inventory & Loot": 413,
+      "Art & Animation": 231,
+      "Build & Tooling": 519,
+      "Tests": 635,
       "Networking & Sessions": 289,
       "Persistence & Backend": 231,
-      "Build & Tooling": 518,
       "Documentation": 381,
-      "Tests": 634,
-      "Combat": 365,
       "UI": 307,
       "World & Visibility": 132,
-      "Abilities": 125,
       "Extraction": 135,
       "Unassigned": 21,
       "Audio": 34,
-      "Art & Animation": 230,
       "Input": 30,
       "Movement": 94
     }
@@ -34055,8 +34055,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 135,
-      "canonicalEntries": 135
+      "originalCommits": 136,
+      "canonicalEntries": 136
     },
     {
       "key": "v0.5.0",
@@ -34100,6 +34100,113 @@
     }
   ],
   "commits": [
+    {
+      "sha": "b655db6546eb3886c64ddebc87bf77d55df55fdc",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b655db6546eb3886c64ddebc87bf77d55df55fdc",
+      "subject": "test: compare remaining sprite assertions by native identity",
+      "body": "Unity 6000.6 can surface the same native Sprite through different\nmanaged wrappers (serialized reference vs AssetDatabase load), so\nIs.SameAs failed with identical names on both sides. 09c85bd3 fixed\nmost sites; four sprite assertions it did not cover kept 27 EditMode\ntests red. Is.EqualTo still compares instance ids, so a different\nSprite with the same name still fails. ScriptableObject definition\nassertions keep Is.SameAs.\n\nTests: ArmorSetCatalogTests 6/6, ConsumableUtilitySpriteAssetsTests\n10/10, WeaponAttackSpriteAnimationTests 30/30.\n",
+      "date": "2026-11-11T01:28:52-03:00",
+      "files": [
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs"
+      ],
+      "originalType": "test",
+      "originalScope": null,
+      "originalSection": "Tests",
+      "breaking": false,
+      "reverts": null,
+      "section": "Tests",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Abilities",
+        "Inventory & Loot",
+        "Art & Animation",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "test",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "message-term",
+          "value": "sprite",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
     {
       "sha": "1f2a69d5ee0a0d67911d351b7225b3c04ace0784",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1f2a69d5ee0a0d67911d351b7225b3c04ace0784",
