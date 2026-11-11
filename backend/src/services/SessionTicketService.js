@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const Character = require('../models/Character');
 const env = require('../config/env');
+const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
 const { normalizeItems } = require('./InventoryLootIdNormalizer');
 const { inventoryVersion, requireMigratedInventory, serializeItems, copyEntry } = require('./InventoryEntries');
 
@@ -199,8 +200,9 @@ class SessionTicketService {
           ? normalizeItems(reservation.items)
           : (reservation.items || []).map(i => ({ lootId: i.lootId, amount: i.amount })),
       preparedEquipment: inventoryVersion(character) === 3
-        ? Object.fromEntries(Object.entries(reservation.preparedEquipment).map(([slot, item]) =>
-          [slot, admissionEquipment(item)]))
+        // Read named slots: Object.entries on a Mongoose subdocument yields its internals.
+        ? Object.fromEntries(EQUIPMENT_SLOTS.map(slot =>
+          [slot, admissionEquipment(reservation.preparedEquipment?.[slot])]))
         : {
         weaponSlot1: reservation.preparedEquipment?.weaponSlot1 || '',
         weaponSlot2: reservation.preparedEquipment?.weaponSlot2 || '',
