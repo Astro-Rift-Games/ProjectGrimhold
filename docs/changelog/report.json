@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1009,
-  "canonicalEntries": 1006,
+  "rawCommits": 1010,
+  "canonicalEntries": 1007,
   "before": {
+    "Other Changes": 356,
     "Bug Fixes": 115,
     "Tests": 37,
     "Features": 384,
     "Architecture & Infrastructure": 21,
-    "Other Changes": 355,
     "Documentation": 83,
     "Refactoring": 14
   },
   "after": {
+    "Features": 522,
     "Bug Fixes": 131,
     "Tests": 42,
-    "Features": 521,
     "Maintenance": 19,
     "Architecture & Infrastructure": 6,
     "Documentation": 99,
@@ -23,10 +23,10 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Build & Tooling": 518,
     "Inventory & Loot": 411,
     "Networking & Sessions": 288,
     "Persistence & Backend": 229,
-    "Build & Tooling": 517,
     "Tests": 634,
     "Combat": 367,
     "UI": 308,
@@ -42,9 +42,9 @@
   },
   "canonical": {
     "sections": {
+      "Features": 521,
       "Bug Fixes": 130,
       "Tests": 42,
-      "Features": 520,
       "Maintenance": 19,
       "Architecture & Infrastructure": 6,
       "Documentation": 99,
@@ -52,10 +52,10 @@
       "Refactoring": 27
     },
     "systems": {
+      "Build & Tooling": 516,
       "Inventory & Loot": 411,
       "Networking & Sessions": 288,
       "Persistence & Backend": 229,
-      "Build & Tooling": 515,
       "Tests": 632,
       "Combat": 365,
       "UI": 307,
@@ -31501,6 +31501,48 @@
   ],
   "examples": [
     {
+      "sha": "d39a56acee9e44cbd169c96893e05e203fdb6257",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d39a56acee9e44cbd169c96893e05e203fdb6257",
+      "subject": "Add multiplayer playmode package",
+      "body": "Enables Unity Multiplayer Play Mode 3.0.0 and adds the corresponding virtual projects configuration.\n",
+      "date": "2026-11-10T23:02:38-03:00",
+      "files": [
+        "Project Grimhold/Packages/manifest.json",
+        "Project Grimhold/Packages/packages-lock.json",
+        "Project Grimhold/ProjectSettings/VirtualProjectsConfig.json"
+      ],
+      "originalType": null,
+      "originalScope": null,
+      "originalSection": "Other Changes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "inferred",
+      "systems": [
+        "Build & Tooling"
+      ],
+      "evidence": [
+        {
+          "source": "subject-action",
+          "value": "Add multiplayer playmode package",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Packages/manifest.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Packages/packages-lock.json",
+          "supports": "Build & Tooling"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
       "sha": "9509f3b4842b9f6d1b936665435ae49f75904a3b",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9509f3b4842b9f6d1b936665435ae49f75904a3b",
       "subject": "Enforce strict TDD in project workflows",
@@ -34005,76 +34047,6 @@
       "diagnostics": [],
       "generic": false,
       "secondary": false
-    },
-    {
-      "sha": "8ab041de6a86016264ce0d6f65aef4ab60ad3baa",
-      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8ab041de6a86016264ce0d6f65aef4ab60ad3baa",
-      "subject": "Fix ability stop and equip guard during casts",
-      "body": "Makes ability stop callbacks resilient to transient slot unbinding by building stop context from the cached execution behaviour instead of live slot binding. Also tightens weapon equip authority checks to reject replacing an active main-hand weapon whenever an ability execution is in progress. Adds play mode coverage for both regressions: active-set equip rejection during execution and guaranteed Stop delivery after participation ends even after a temporary unresolve.\n",
-      "date": "2026-10-04T04:33:19-03:00",
-      "files": [
-        "Project Grimhold/Assets/Scripts/Abilities/Runtime/PlayerAbilityRuntimeNetworkController.cs",
-        "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
-        "Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs"
-      ],
-      "originalType": null,
-      "originalScope": null,
-      "originalSection": "Other Changes",
-      "breaking": false,
-      "reverts": null,
-      "section": "Bug Fixes",
-      "confidence": "inferred",
-      "systems": [
-        "Combat",
-        "Abilities",
-        "Inventory & Loot",
-        "Tests"
-      ],
-      "evidence": [
-        {
-          "source": "subject-action",
-          "value": "Fix ability stop and equip guard during casts",
-          "supports": "Bug Fixes"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
-          "supports": "Combat"
-        },
-        {
-          "source": "message-term",
-          "value": "weapon",
-          "supports": "Combat"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Abilities/Runtime/PlayerAbilityRuntimeNetworkController.cs",
-          "supports": "Abilities"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs",
-          "supports": "Abilities"
-        },
-        {
-          "source": "message-term",
-          "value": "ability",
-          "supports": "Abilities"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
-          "supports": "Inventory & Loot"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs",
-          "supports": "Tests"
-        }
-      ],
-      "diagnostics": [],
-      "generic": false,
-      "secondary": false
     }
   ],
   "periods": [
@@ -34083,8 +34055,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 132,
-      "canonicalEntries": 132
+      "originalCommits": 133,
+      "canonicalEntries": 133
     },
     {
       "key": "v0.5.0",
@@ -34128,6 +34100,48 @@
     }
   ],
   "commits": [
+    {
+      "sha": "d39a56acee9e44cbd169c96893e05e203fdb6257",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d39a56acee9e44cbd169c96893e05e203fdb6257",
+      "subject": "Add multiplayer playmode package",
+      "body": "Enables Unity Multiplayer Play Mode 3.0.0 and adds the corresponding virtual projects configuration.\n",
+      "date": "2026-11-10T23:02:38-03:00",
+      "files": [
+        "Project Grimhold/Packages/manifest.json",
+        "Project Grimhold/Packages/packages-lock.json",
+        "Project Grimhold/ProjectSettings/VirtualProjectsConfig.json"
+      ],
+      "originalType": null,
+      "originalScope": null,
+      "originalSection": "Other Changes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "inferred",
+      "systems": [
+        "Build & Tooling"
+      ],
+      "evidence": [
+        {
+          "source": "subject-action",
+          "value": "Add multiplayer playmode package",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Packages/manifest.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Packages/packages-lock.json",
+          "supports": "Build & Tooling"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "e3f247b5822ddfe84cc1b25efa716a8835d17246",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e3f247b5822ddfe84cc1b25efa716a8835d17246",

@@ -4,18 +4,18 @@
 
 Release: Unreleased
 
-132 original commits; 132 canonical entries.
+133 original commits; 133 canonical entries.
 
 ## Canonical classification
 
-61 features; 37 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 13 tests; 8 maintenance; 2 other changes
+62 features; 37 bug fixes; 1 refactoring; 1 architecture & infrastructure; 9 documentation; 13 tests; 8 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 7 | 6 | 1 | 0 | 8 | 1 |
 | Art & Animation | 7 | 9 | 1 | 0 | 6 | 0 |
 | Audio | 3 | 1 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 36 | 23 | 1 | 1 | 13 | 2 |
+| Build & Tooling | 37 | 23 | 1 | 1 | 13 | 2 |
 | Combat | 34 | 7 | 0 | 0 | 10 | 0 |
 | Documentation | 26 | 9 | 0 | 0 | 4 | 0 |
 | Extraction | 9 | 2 | 0 | 0 | 5 | 0 |
@@ -30,6 +30,44 @@ Release: Unreleased
 | World & Visibility | 16 | 6 | 0 | 0 | 2 | 0 |
 
 ## Original commit records
+
+### d39a56acee9e44cbd169c96893e05e203fdb6257
+
+[d39a56acee9e44cbd169c96893e05e203fdb6257](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d39a56acee9e44cbd169c96893e05e203fdb6257)
+
+Date: 2026-11-10T23:02:38-03:00 · Classification: Features (inferred) · Systems: Build & Tooling
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+Add multiplayer playmode package
+```
+
+#### Original body
+
+```text
+Enables Unity Multiplayer Play Mode 3.0.0 and adds the corresponding virtual projects configuration.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Packages/manifest.json
+Project Grimhold/Packages/packages-lock.json
+Project Grimhold/ProjectSettings/VirtualProjectsConfig.json
+```
+
+#### Classification evidence
+
+- subject-action → Features: Add multiplayer playmode package
+- path → Build &amp; Tooling: Project Grimhold/Packages/manifest.json
+- path → Build &amp; Tooling: Project Grimhold/Packages/packages-lock.json
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### e3f247b5822ddfe84cc1b25efa716a8835d17246
 
