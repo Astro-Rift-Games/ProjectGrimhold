@@ -27,7 +27,7 @@ namespace Tests.EditMode.Loot
             Sprite icon = AssertSprite($"{directory}/{id}-Icon.png");
             AssertSprite($"{directory}/{id}-Interactable.png");
             Assert.That(definition.WorldSprite, Is.EqualTo(world), id);
-            Assert.That(definition.Icon, Is.SameAs(icon), id);
+            Assert.That(definition.Icon, Is.EqualTo(icon), id);
             Assert.That(definition.TryValidate(out string error), Is.True, error);
 
             var catalog = AssetDatabase.LoadAssetAtPath<LootDefinitionCatalog>(

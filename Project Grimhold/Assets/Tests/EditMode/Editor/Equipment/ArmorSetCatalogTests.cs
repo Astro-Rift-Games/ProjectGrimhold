@@ -110,7 +110,7 @@ namespace Tests.EditMode.Equipment
                 Assert.That(expectedIcon, Is.Not.Null, $"{spec.AssetName} inventory icon");
                 Assert.That(definition.Icon, Is.EqualTo(expectedIcon), $"{spec.AssetName} icon");
                 Assert.That(definition.WorldSprite,
-                    Is.SameAs(LoadEquipmentSprite(spec, "Idle", "S", spec.IconPart, 0)),
+                    Is.EqualTo(LoadEquipmentSprite(spec, "Idle", "S", spec.IconPart, 0)),
                     $"{spec.AssetName} world sprite");
                 Assert.That(definition.Icon, Is.Not.SameAs(definition.WorldSprite),
                     $"{spec.AssetName} keeps inventory art separate from equipped art");
