@@ -109,7 +109,7 @@ public class EnemyCharacter : CharacterBase, IAbilityEnemyTarget
             var spawnManager = Runner.GetComponent<NetworkSpawnManager>();
             if (spawnManager != null)
             {
-                spawnManager.PopulationTracker.Register(Object.Id.Raw, PopulationOrigin, EnemyThreatCost.GetCost());
+                spawnManager.PopulationTracker.Register(Object.Id.Raw, PopulationOrigin, EnemyThreatCost.GetCost(this));
             }
         }
     }

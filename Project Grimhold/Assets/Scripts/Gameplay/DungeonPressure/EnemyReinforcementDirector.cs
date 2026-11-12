@@ -121,17 +121,24 @@ public sealed class EnemyReinforcementDirector : NetworkBehaviour
         if (plan.Count > 0)
         {
             int spawnedCount = 0;
+            int remainingThreatBudget = capacityBudget;
             for (int i = 0; i < plan.Count; i++)
             {
+                if (remainingThreatBudget <= 0)
+                {
+                    break;
+                }
+
                 Transform spawnPoint = SelectSpawnPoint(policy.MinDistanceToPlayer);
                 if (spawnPoint != null)
                 {
                     bool disableLoot = DungeonPhaseResolver.GeneratesWithoutLoot(_pressureController.Phase);
-                    if (_spawnManager.TrySpawnReinforcement(Runner, spawnPoint, disableLoot))
+                    if (_spawnManager.TrySpawnReinforcement(Runner, spawnPoint, disableLoot, remainingThreatBudget, out int spawnedCost))
                     {
                         spawnedCount++;
                         TotalSpawnsGenerated++;
-                        Debug.Log($"[EnemyReinforcementDirector] Spawned reinforcement at {spawnPoint.name}.");
+                        remainingThreatBudget -= spawnedCost;
+                        Debug.Log($"[EnemyReinforcementDirector] Spawned reinforcement at {spawnPoint.name} (cost {spawnedCost}).");
                     }
                     else
                     {
