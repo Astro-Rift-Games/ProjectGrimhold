@@ -37,6 +37,7 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - Training weapons now appear dimmed when a chest is open and can no longer be stored in chests or other containers.
 - When the host dies and returns to town, the raid keeps going for everyone else and another player becomes the host.
 - Abandoning a raid now clearly warns that you lose all your equipment.
+- When the Host cannot start a raid because a player's group is still loading in Town, the Host now sees a message asking to wait a few seconds and try again.
 
 ### Fixed
 
@@ -68,11 +69,11 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - If a raid fails to start or the connection drops, you return to town and see which equipment was lost instead of losing it silently.
 - Prevent game freezes in the Guild when closing menus, track in-raid container loot towards missions, and ensure extracted loot saves reliably without progression errors.
 - Prevent game errors and transition freezes when returning to Town after extraction.
+- Extraction now completes when a Duo and other players share a raid launched from Town, and Solo players no longer see another team's quota as their own.
 - Players already inside an objective zone when receiving a contract get instant credit without exiting and re-entering.
 - Extraction transitions no longer throw unspawned pressure exceptions.
 - Passive treasure bonuses and minimap restrictions now stop immediately once extraction is completed.
 - Depositing and withdrawing utilities into chests or corpses properly respects the single-unit carry limit.
-- Extraction now completes when a Duo and other players share a raid launched from Town, and Solo players no longer see another team's quota as their own.
 
 
 ## [0.5.0](https://github.com/Astro-Rift-Games/ProjectGrimhold/releases/tag/v0.5.0) - 2026-11-08
