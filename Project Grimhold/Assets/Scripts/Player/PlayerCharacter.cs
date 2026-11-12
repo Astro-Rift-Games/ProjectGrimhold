@@ -54,6 +54,8 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
     public int VoidBellChimeSequence { get; private set; }
 
     public PlayerInventoryPassiveEffectsController PassiveEffectsController => _passiveEffectsController;
+    public PlayerExtractionController ExtractionController => _extractionController;
+    public bool IsExtracted => _extractionController != null && _extractionController.State == ExtractionState.Extracted;
     public float VisionRadiusMultiplier => _passiveEffectsController != null ? _passiveEffectsController.VisionRadiusMultiplier : 1f;
 
     public bool IsConsuming => _consumableController != null && _consumableController.IsConsuming;

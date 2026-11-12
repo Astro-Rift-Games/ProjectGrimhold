@@ -220,6 +220,48 @@ namespace Tests.EditMode.Loot
         }
 
         [Test]
+        public void Receive_WithMaxTransportable_WithinLimit_IsAccepted()
+        {
+            LootTransferFailureReason result = LootInventoryRules.ValidateReceive(
+                alreadyHeld: false,
+                currentAmount: 0,
+                occupiedSlotCount: 0,
+                slotCapacity: 5,
+                requestedAmount: 1,
+                maxTransportable: 1);
+
+            Assert.That(result, Is.EqualTo(LootTransferFailureReason.None));
+        }
+
+        [Test]
+        public void Receive_WithMaxTransportable_ExceedingLimit_IsMaxTransportableExceeded()
+        {
+            LootTransferFailureReason result = LootInventoryRules.ValidateReceive(
+                alreadyHeld: true,
+                currentAmount: 1,
+                occupiedSlotCount: 1,
+                slotCapacity: 5,
+                requestedAmount: 1,
+                maxTransportable: 1);
+
+            Assert.That(result, Is.EqualTo(LootTransferFailureReason.MaxTransportableExceeded));
+        }
+
+        [Test]
+        public void Receive_WithMaxTransportable_InitialAmountExceedingLimit_IsMaxTransportableExceeded()
+        {
+            LootTransferFailureReason result = LootInventoryRules.ValidateReceive(
+                alreadyHeld: false,
+                currentAmount: 0,
+                occupiedSlotCount: 0,
+                slotCapacity: 5,
+                requestedAmount: 2,
+                maxTransportable: 1);
+
+            Assert.That(result, Is.EqualTo(LootTransferFailureReason.MaxTransportableExceeded));
+        }
+
+        [Test]
         public void Extraction_PartialAmount_IsAccepted()
         {
             LootTransferFailureReason result = LootInventoryRules.ValidateExtraction(

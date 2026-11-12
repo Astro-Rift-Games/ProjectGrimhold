@@ -113,6 +113,86 @@ namespace Tests.EditMode.Editor.Loot
         }
 
         [Test]
+        public void PassiveTreasures_DeactivateImmediately_UponExtraction()
+        {
+            var go = new GameObject("TestPlayer");
+            try
+            {
+                var passiveController = go.AddComponent<PlayerInventoryPassiveEffectsController>();
+                go.AddComponent<PlayerCharacter>();
+                var stamina = go.AddComponent<PlayerStaminaNetworkController>();
+
+                // Configure active passives
+                SetProperty(passiveController, "HasChaosCoin", true);
+                SetProperty(passiveController, "HasPilgrimLight", true);
+                SetProperty(passiveController, "HasSanctuaryHeart", true);
+                SetProperty(passiveController, "HasVoidBell", true);
+                SetProperty(passiveController, "HasFamineIdol", true);
+                SetProperty(passiveController, "HasWandererEye", true);
+
+                Assert.That(passiveController.HasPilgrimLight, Is.True);
+                Assert.That(passiveController.HasVoidBell, Is.True);
+                Assert.That(passiveController.HasWandererEye, Is.True);
+                Assert.That(passiveController.IsMinimapBlocked, Is.True);
+                Assert.That(stamina.EffectiveRegenerationPerSecond, Is.EqualTo(20.25f).Within(0.001f));
+
+                // Immediate revocation upon extraction
+                passiveController.ExtractedOverrideForTesting = true;
+                passiveController.UpdatePassivesIfNeeded();
+
+                Assert.That(passiveController.HasChaosCoin, Is.False, "Chaos Coin must deactivate upon extraction.");
+                Assert.That(passiveController.HasPilgrimLight, Is.False, "Pilgrim Light must deactivate upon extraction.");
+                Assert.That(passiveController.HasSanctuaryHeart, Is.False, "Sanctuary Heart must deactivate upon extraction.");
+                Assert.That(passiveController.HasVoidBell, Is.False, "Void Bell must deactivate upon extraction.");
+                Assert.That(passiveController.HasFamineIdol, Is.False, "Famine Idol must deactivate upon extraction.");
+                Assert.That(passiveController.HasWandererEye, Is.False, "Wanderer Eye must deactivate upon extraction.");
+
+                Assert.That(passiveController.MaxHealthMultiplier, Is.EqualTo(1f));
+                Assert.That(passiveController.StaminaRegenMultiplier, Is.EqualTo(1f));
+                Assert.That(passiveController.DamageTakenMultiplier, Is.EqualTo(1f));
+                Assert.That(passiveController.SprintSpeedMultiplier, Is.EqualTo(1f));
+                Assert.That(passiveController.AggroRangeMultiplier, Is.EqualTo(1f));
+                Assert.That(passiveController.VisionRadiusMultiplier, Is.EqualTo(1f));
+                Assert.That(passiveController.IsMinimapBlocked, Is.False);
+                Assert.That(stamina.EffectiveRegenerationPerSecond, Is.EqualTo(15f).Within(0.001f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void PlayerExtractionController_CompleteExtraction_DeactivatesPassiveEffectsImmediately()
+        {
+            var go = new GameObject("TestPlayer");
+            try
+            {
+                var extraction = go.AddComponent<PlayerExtractionController>();
+                var passiveController = go.AddComponent<PlayerInventoryPassiveEffectsController>();
+                var character = go.AddComponent<PlayerCharacter>();
+
+                SetProperty(passiveController, "HasPilgrimLight", true);
+                SetProperty(passiveController, "HasVoidBell", true);
+                Assert.That(passiveController.HasPilgrimLight, Is.True);
+                Assert.That(passiveController.HasVoidBell, Is.True);
+
+                extraction.CompleteExtraction();
+
+                Assert.That(extraction.State, Is.EqualTo(ExtractionState.Extracted));
+                Assert.That(character.IsExtracted, Is.True);
+                Assert.That(passiveController.HasPilgrimLight, Is.False);
+                Assert.That(passiveController.HasVoidBell, Is.False);
+                Assert.That(passiveController.SprintSpeedMultiplier, Is.EqualTo(1f));
+                Assert.That(passiveController.StaminaRegenMultiplier, Is.EqualTo(1f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
         public void SprintSpeedWithVoidBell_Applies15PercentBonus()
         {
             float normalSprintSpeed = PlayerMovementNetworkController.ResolveVoluntarySpeed(
