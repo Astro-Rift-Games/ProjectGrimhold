@@ -39,14 +39,28 @@ public sealed class DungeonPressureController : NetworkBehaviour, IDungeonInstab
     private NetworkSpawnManager _spawnManager;
     private EntityRegistry _registry;
 
+    public bool HasReadableState => Object != null && Object.IsValid;
+
+    public bool TryGetPhase(out DungeonPressurePhase phase)
+    {
+        if (Object != null && Object.IsValid)
+        {
+            phase = Phase;
+            return true;
+        }
+
+        phase = DungeonPressurePhase.Normal;
+        return false;
+    }
+
     public bool IsRunning => State == DungeonPressureState.Running;
     
-    public int RemainingSeconds => Runner != null 
+    public int RemainingSeconds => Runner != null && Object != null && Object.IsValid
         ? Mathf.CeilToInt((Phase == DungeonPressurePhase.Collapse ? CollapseRemainingTicks : RemainingTicks) * Runner.DeltaTime) 
         : 0;
 
-    public int InstabilityThreshold => _config != null ? _config.GetInstabilityThreshold(Phase) : int.MaxValue;
-    public int MinIntervalSeconds => _config != null ? _config.GetMinIntervalSeconds(Phase) : 0;
+    public int InstabilityThreshold => _config != null && Object != null && Object.IsValid ? _config.GetInstabilityThreshold(Phase) : int.MaxValue;
+    public int MinIntervalSeconds => _config != null && Object != null && Object.IsValid ? _config.GetMinIntervalSeconds(Phase) : 0;
     public float InstabilityProgress => InstabilityThreshold > 0 && InstabilityThreshold < int.MaxValue
         ? Mathf.Clamp01((float)CurrentInstability / InstabilityThreshold)
         : 0f;
