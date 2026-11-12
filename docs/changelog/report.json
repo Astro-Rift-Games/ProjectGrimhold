@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1033,
-  "canonicalEntries": 1030,
+  "rawCommits": 1035,
+  "canonicalEntries": 1032,
   "before": {
-    "Documentation": 90,
+    "Documentation": 92,
     "Features": 391,
     "Bug Fixes": 120,
     "Tests": 40,
@@ -12,7 +12,7 @@
     "Refactoring": 14
   },
   "after": {
-    "Documentation": 106,
+    "Documentation": 108,
     "Features": 529,
     "Bug Fixes": 136,
     "Tests": 45,
@@ -23,14 +23,14 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Extraction": 142,
+    "Extraction": 143,
+    "Networking & Sessions": 305,
+    "Build & Tooling": 534,
+    "UI": 318,
+    "Documentation": 390,
     "Inventory & Loot": 419,
-    "Networking & Sessions": 303,
-    "UI": 317,
     "Persistence & Backend": 235,
-    "Documentation": 389,
     "World & Visibility": 136,
-    "Build & Tooling": 533,
     "Tests": 650,
     "Art & Animation": 237,
     "Unassigned": 24,
@@ -42,7 +42,7 @@
   },
   "canonical": {
     "sections": {
-      "Documentation": 106,
+      "Documentation": 108,
       "Features": 528,
       "Bug Fixes": 135,
       "Tests": 45,
@@ -52,14 +52,14 @@
       "Refactoring": 27
     },
     "systems": {
-      "Extraction": 142,
+      "Extraction": 143,
+      "Networking & Sessions": 305,
+      "Build & Tooling": 532,
+      "UI": 317,
+      "Documentation": 388,
       "Inventory & Loot": 419,
-      "Networking & Sessions": 303,
-      "UI": 316,
       "Persistence & Backend": 235,
-      "Documentation": 387,
       "World & Visibility": 134,
-      "Build & Tooling": 531,
       "Tests": 648,
       "Art & Animation": 234,
       "Unassigned": 24,
@@ -34055,8 +34055,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 156,
-      "canonicalEntries": 156
+      "originalCommits": 158,
+      "canonicalEntries": 158
     },
     {
       "key": "v0.5.0",
@@ -34100,6 +34100,174 @@
     }
   ],
   "commits": [
+    {
+      "sha": "21d3d0df3d7ed976ec0442f79b094bfb763cad07",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/21d3d0df3d7ed976ec0442f79b094bfb763cad07",
+      "subject": "docs(agents): state the Host handoff rule for Host Migration",
+      "body": "Project Grimhold/AGENTS.md said Host Migration only recovers abrupt Host loss, never Return, Abandon, Extraction or cancellation. It now covers the voluntary Host exit handoff and the removal of Cancel Raid, matching HostMigrationRecoveryArchitecture.\n\nRefs: HacknPlan FIX-52 (732)\n",
+      "date": "2026-11-12T15:26:53-03:00",
+      "files": [
+        "Project Grimhold/AGENTS.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "agents",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Networking & Sessions",
+        "Build & Tooling"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "message-term",
+          "value": "Extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "Host Migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/AGENTS.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "scope",
+          "value": "agents",
+          "supports": "Build & Tooling"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "1b790b0fd42cb7c5fdd850b6e57fd75d6abe7cb6",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1b790b0fd42cb7c5fdd850b6e57fd75d6abe7cb6",
+      "subject": "docs(network): align architecture with the Host handoff rule",
+      "body": "The approved architecture now matches FIX-US-08: a Host exit, voluntary\nor not, hands the Host role to a connected Raiding participant, and\nCancel Raid no longer exists (FIX-52).\n\n- HostMigrationRecoveryArchitecture: Host Migration has two triggers\n  (abrupt loss and voluntary exit with a resolved result); new\n  \"Voluntary Host exit (handoff)\" section (HostHandoffPolicy,\n  HostHandoffService, ObserveHostHandoff, CloseNormally,\n  SnapshotRejected, ClassifyHistoricHost, HostHandoffAnnouncement);\n  unresolved historic Host only is finalized as Aborted; FIX-51\n  retention, session gate and reconnect proof replace the placeholder;\n  known limitation: HostProfileId is not rebuilt for a chained migration.\n- LobbyAndSessionTransition, RaidDefeatAndSpectator, RaidParticipant,\n  RaidGenerationLifecycle, SessionLifecycleAndSpawning, RaidMainHud:\n  the Host returns or abandons like any participant; no \"Host cannot\n  Return/leave\", no Host cancellation.\n- RaidConnectivityContinuity FU-3 and DownedAndRevive §16 updated to\n  the FIX-51 re-retention; Host Migration marked as an MVP requirement\n  pending Game Design confirmation.\n- docs/fix-52_solicitud_game_design_game_flow_13.md: request to the\n  Game Design owner for Game Flow §13, with the 2026-11-01 decision\n  quoted verbatim and open questions. The current §13 text could not be\n  read from this session and is not transcribed.\n\nValidation: Markdown and cross-reference check (classes, methods,\nrelative links and anchors resolve); no Cancel Raid / HostCancellation /\n\"Host cannot leave\" statement remains except notes that deny it.\nArchitecture owner approval is pending.\n\nRefs: HacknPlan FIX-52 (732)\n",
+      "date": "2026-11-12T15:26:53-03:00",
+      "files": [
+        "Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md",
+        "Project Grimhold/Docs/Architecture/HostMigrationRecoveryArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidConnectivityContinuityArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidDefeatAndSpectatorArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidGenerationLifecycleArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidParticipantArchitecture.md",
+        "Project Grimhold/Docs/Architecture/SessionLifecycleAndSpawning.md",
+        "docs/fix-52_solicitud_game_design_game_flow_13.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "network",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "UI",
+        "Documentation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/SessionLifecycleAndSpawning.md",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "Host Migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/HostMigrationRecoveryArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidConnectivityContinuityArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidDefeatAndSpectatorArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidGenerationLifecycleArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidParticipantArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/SessionLifecycleAndSpawning.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/fix-52_solicitud_game_design_game_flow_13.md",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
     {
       "sha": "f2fc7539bd0bd9b6d96e4c2bd036637bc80b2a68",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f2fc7539bd0bd9b6d96e4c2bd036637bc80b2a68",

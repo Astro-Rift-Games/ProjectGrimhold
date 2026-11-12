@@ -4,32 +4,159 @@
 
 Release: Unreleased
 
-156 original commits; 156 canonical entries.
+158 original commits; 158 canonical entries.
 
 ## Canonical classification
 
-69 features; 42 bug fixes; 1 refactoring; 1 architecture & infrastructure; 16 documentation; 16 tests; 9 maintenance; 2 other changes
+69 features; 42 bug fixes; 1 refactoring; 1 architecture & infrastructure; 18 documentation; 16 tests; 9 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 7 | 6 | 1 | 0 | 9 | 1 |
 | Art & Animation | 10 | 9 | 1 | 0 | 7 | 0 |
 | Audio | 3 | 1 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 43 | 28 | 1 | 1 | 17 | 2 |
+| Build & Tooling | 43 | 28 | 1 | 1 | 18 | 2 |
 | Combat | 34 | 7 | 0 | 0 | 11 | 0 |
-| Documentation | 26 | 12 | 0 | 0 | 8 | 0 |
-| Extraction | 11 | 5 | 0 | 0 | 7 | 0 |
+| Documentation | 26 | 12 | 0 | 0 | 9 | 0 |
+| Extraction | 11 | 5 | 0 | 0 | 8 | 0 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
 | Inventory & Loot | 53 | 28 | 1 | 1 | 19 | 1 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 20 | 14 | 0 | 0 | 13 | 0 |
+| Networking & Sessions | 20 | 14 | 0 | 0 | 15 | 0 |
 | Persistence & Backend | 26 | 13 | 0 | 1 | 10 | 0 |
 | Tests | 66 | 36 | 1 | 1 | 25 | 0 |
-| UI | 26 | 10 | 1 | 0 | 11 | 0 |
+| UI | 26 | 10 | 1 | 0 | 12 | 0 |
 | Unassigned | 0 | 1 | 0 | 0 | 5 | 0 |
 | World & Visibility | 17 | 6 | 0 | 0 | 3 | 0 |
 
 ## Original commit records
+
+### 21d3d0df3d7ed976ec0442f79b094bfb763cad07
+
+[21d3d0df3d7ed976ec0442f79b094bfb763cad07](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/21d3d0df3d7ed976ec0442f79b094bfb763cad07)
+
+Date: 2026-11-12T15:26:53-03:00 · Classification: Documentation (explicit) · Systems: Extraction, Networking & Sessions, Build & Tooling
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(agents): state the Host handoff rule for Host Migration
+```
+
+#### Original body
+
+```text
+Project Grimhold/AGENTS.md said Host Migration only recovers abrupt Host loss, never Return, Abandon, Extraction or cancellation. It now covers the voluntary Host exit handoff and the removal of Cancel Raid, matching HostMigrationRecoveryArchitecture.
+
+Refs: HacknPlan FIX-52 (732)
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/AGENTS.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+- message-term → Extraction: Extraction
+- message-term → Networking &amp; Sessions: Host Migration
+- path → Build &amp; Tooling: Project Grimhold/AGENTS.md
+- scope → Build &amp; Tooling: agents
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 1b790b0fd42cb7c5fdd850b6e57fd75d6abe7cb6
+
+[1b790b0fd42cb7c5fdd850b6e57fd75d6abe7cb6](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1b790b0fd42cb7c5fdd850b6e57fd75d6abe7cb6)
+
+Date: 2026-11-12T15:26:53-03:00 · Classification: Documentation (explicit) · Systems: Networking & Sessions, UI, Documentation
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(network): align architecture with the Host handoff rule
+```
+
+#### Original body
+
+```text
+The approved architecture now matches FIX-US-08: a Host exit, voluntary
+or not, hands the Host role to a connected Raiding participant, and
+Cancel Raid no longer exists (FIX-52).
+
+- HostMigrationRecoveryArchitecture: Host Migration has two triggers
+  (abrupt loss and voluntary exit with a resolved result); new
+  "Voluntary Host exit (handoff)" section (HostHandoffPolicy,
+  HostHandoffService, ObserveHostHandoff, CloseNormally,
+  SnapshotRejected, ClassifyHistoricHost, HostHandoffAnnouncement);
+  unresolved historic Host only is finalized as Aborted; FIX-51
+  retention, session gate and reconnect proof replace the placeholder;
+  known limitation: HostProfileId is not rebuilt for a chained migration.
+- LobbyAndSessionTransition, RaidDefeatAndSpectator, RaidParticipant,
+  RaidGenerationLifecycle, SessionLifecycleAndSpawning, RaidMainHud:
+  the Host returns or abandons like any participant; no "Host cannot
+  Return/leave", no Host cancellation.
+- RaidConnectivityContinuity FU-3 and DownedAndRevive §16 updated to
+  the FIX-51 re-retention; Host Migration marked as an MVP requirement
+  pending Game Design confirmation.
+- docs/fix-52_solicitud_game_design_game_flow_13.md: request to the
+  Game Design owner for Game Flow §13, with the 2026-11-01 decision
+  quoted verbatim and open questions. The current §13 text could not be
+  read from this session and is not transcribed.
+
+Validation: Markdown and cross-reference check (classes, methods,
+relative links and anchors resolve); no Cancel Raid / HostCancellation /
+"Host cannot leave" statement remains except notes that deny it.
+Architecture owner approval is pending.
+
+Refs: HacknPlan FIX-52 (732)
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md
+Project Grimhold/Docs/Architecture/HostMigrationRecoveryArchitecture.md
+Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+Project Grimhold/Docs/Architecture/RaidConnectivityContinuityArchitecture.md
+Project Grimhold/Docs/Architecture/RaidDefeatAndSpectatorArchitecture.md
+Project Grimhold/Docs/Architecture/RaidGenerationLifecycleArchitecture.md
+Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md
+Project Grimhold/Docs/Architecture/RaidParticipantArchitecture.md
+Project Grimhold/Docs/Architecture/SessionLifecycleAndSpawning.md
+docs/fix-52_solicitud_game_design_game_flow_13.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+- path → Networking &amp; Sessions: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- path → Networking &amp; Sessions: Project Grimhold/Docs/Architecture/SessionLifecycleAndSpawning.md
+- scope → Networking &amp; Sessions: network
+- message-term → Networking &amp; Sessions: Host Migration
+- path → UI: Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/HostMigrationRecoveryArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidConnectivityContinuityArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidDefeatAndSpectatorArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidGenerationLifecycleArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidParticipantArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/SessionLifecycleAndSpawning.md
+- path → Documentation: docs/fix-52\_solicitud\_game\_design\_game\_flow\_13.md
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### f2fc7539bd0bd9b6d96e4c2bd036637bc80b2a68
 
