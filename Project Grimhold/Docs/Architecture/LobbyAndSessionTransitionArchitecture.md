@@ -132,8 +132,13 @@ companion, enters through Join by code; joining never changes Party. The replica
 six-digit code, one through sixteen ProfileId members, Ready flags and Host Start boundary.
 Start freezes the cohort and the coordinator copies a runner-independent launch
 context before Town shutdown. Its canonical members are immutable
-`RaidLaunchParticipant(ProfileId, RaidTeamId)` values; the current Town flow assigns
-Team 1 explicitly to the complete cohort. Team identity supports equality only and
+`RaidLaunchParticipant(ProfileId, RaidTeamId)` values. Teams follow Town Party membership
+captured at Start: the State Authority reads each member's Party once while freezing, members
+sharing a Party form one team and a member without a Party is its own team. Team ordinals are
+numbered 1..N by first appearance in the frozen cohort order and replicated per member; peers
+never derive teams from their local Party state. Freeze and launch-context creation fail closed
+for a Party grouping larger than a Duo or for missing, gapped or out-of-range ordinals, so every
+team satisfies the Solo (1) / Duo (2) roster rule. Team identity supports equality only and
 defines no order or priority. `ParticipantProfileIds` is a derived compatibility
 projection, not a second roster. Gameplay `WaitingForPlayers` is only the technical
 connecting phase; it has no Ready or player-facing Start UI. The existing bootstrap

@@ -165,7 +165,8 @@ public sealed class TownRaidPreparationRulesTests
         };
         var waiting = new TownRaidPreparationSnapshot(
             code, host, TownRaidPreparationState.Waiting, members, 1);
-        Assert.That(TownRaidPreparationRules.TryFreeze(waiting, host, 3, out TownRaidPreparationSnapshot frozen), Is.True);
+        // The two members form one Town party, so the frozen cohort is a single Duo team (Team 1).
+        Assert.That(TownRaidPreparationRules.TryFreeze(waiting, host, 3, new[] { 4, 4 }, out TownRaidPreparationSnapshot frozen), Is.True);
 
         Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(frozen, members[1].ProfileId, out RaidLaunchContext first), Is.True);
         Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(frozen, members[1].ProfileId, out RaidLaunchContext second), Is.True);
@@ -176,6 +177,145 @@ public sealed class TownRaidPreparationRulesTests
             participant => participant.TeamId.IsValid && participant.TeamId.Value == 1));
         Assert.That(first.LaunchRevision, Is.EqualTo(3));
         Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(frozen, new ProfileId("absent"), out _), Is.False);
+    }
+
+    [Test]
+    public void Freeze_DuoPartyAndSolo_AssignsDuoOneTeamAndSoloItsOwn()
+    {
+        TownRaidPreparationSnapshot waiting = CreateWaiting("100001", 3, true);
+
+        Assert.That(TownRaidPreparationRules.TryFreeze(waiting, waiting.HostProfileId, 5, new[] { 42, 42, 0 }, out var frozen), Is.True);
+        Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(frozen, frozen.Members[2].ProfileId, out RaidLaunchContext context), Is.True);
+
+        Assert.That(context.Participants[0].TeamId.Value, Is.EqualTo(1));
+        Assert.That(context.Participants[1].TeamId.Value, Is.EqualTo(1));
+        Assert.That(context.Participants[2].TeamId.Value, Is.EqualTo(2));
+        Assert.That(RaidTeamRoster.TryCreate(context.Participants, out RaidTeamRoster roster), Is.True);
+        Assert.That(roster.TeamCount, Is.EqualTo(2));
+        Assert.That(roster.GetInitialTeamSize(context.Participants[0].TeamId), Is.EqualTo(2));
+        Assert.That(roster.GetInitialTeamSize(context.Participants[2].TeamId), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Freeze_NumbersTeamsByFirstAppearanceEvenWhenPartyMembersAreNotAdjacent()
+    {
+        TownRaidPreparationSnapshot waiting = CreateWaiting("100001", 4, true);
+
+        Assert.That(TownRaidPreparationRules.TryFreeze(waiting, waiting.HostProfileId, 5, new[] { 9, 0, 9, 3 }, out var frozen), Is.True);
+        Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(frozen, frozen.HostProfileId, out RaidLaunchContext context), Is.True);
+
+        Assert.That(TeamValues(context), Is.EqualTo(new[] { 1, 2, 1, 3 }));
+        Assert.That(RaidTeamRoster.TryCreate(context.Participants, out _), Is.True);
+    }
+
+    [Test]
+    public void Freeze_AllSoloCohort_AssignsEachMemberItsOwnTeam()
+    {
+        TownRaidPreparationSnapshot waiting = CreateWaiting("100001", 3, true);
+
+        Assert.That(TownRaidPreparationRules.TryFreeze(waiting, waiting.HostProfileId, 5, new[] { 0, 0, 0 }, out var frozen), Is.True);
+        Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(frozen, frozen.HostProfileId, out RaidLaunchContext context), Is.True);
+
+        Assert.That(TeamValues(context), Is.EqualTo(new[] { 1, 2, 3 }));
+        Assert.That(RaidTeamRoster.TryCreate(context.Participants, out RaidTeamRoster roster), Is.True);
+        Assert.That(roster.TeamCount, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void Freeze_SingleDuoParty_IsOneTeamOfTwo()
+    {
+        TownRaidPreparationSnapshot waiting = CreateWaiting("100001", 2, true);
+
+        Assert.That(TownRaidPreparationRules.TryFreeze(waiting, waiting.HostProfileId, 5, new[] { 11, 11 }, out var frozen), Is.True);
+        Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(frozen, frozen.HostProfileId, out RaidLaunchContext context), Is.True);
+
+        Assert.That(TeamValues(context), Is.EqualTo(new[] { 1, 1 }));
+        Assert.That(RaidTeamRoster.TryCreate(context.Participants, out RaidTeamRoster roster), Is.True);
+        Assert.That(roster.TeamCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Freeze_TwoDistinctDuosAndSolo_ProduceThreeTeams()
+    {
+        TownRaidPreparationSnapshot waiting = CreateWaiting("100001", 5, true);
+
+        Assert.That(TownRaidPreparationRules.TryFreeze(waiting, waiting.HostProfileId, 5, new[] { 8, 3, 0, 3, 8 }, out var frozen), Is.True);
+        Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(frozen, frozen.HostProfileId, out RaidLaunchContext context), Is.True);
+
+        Assert.That(TeamValues(context), Is.EqualTo(new[] { 1, 2, 3, 2, 1 }));
+        Assert.That(RaidTeamRoster.TryCreate(context.Participants, out RaidTeamRoster roster), Is.True);
+        Assert.That(roster.TeamCount, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void Freeze_SixteenSolos_BuildsValidSixteenTeamRoster()
+    {
+        TownRaidPreparationSnapshot waiting = CreateWaiting("100001", 16, true);
+
+        Assert.That(TownRaidPreparationRules.TryFreeze(waiting, waiting.HostProfileId, 5, new int[16], out var frozen), Is.True);
+        Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(frozen, frozen.HostProfileId, out RaidLaunchContext context), Is.True);
+
+        Assert.That(RaidTeamRoster.TryCreate(context.Participants, out RaidTeamRoster roster), Is.True);
+        Assert.That(roster.TeamCount, Is.EqualTo(16));
+    }
+
+    [Test]
+    public void Freeze_WithoutPartyInformation_TreatsEveryMemberAsSolo()
+    {
+        TownRaidPreparationSnapshot waiting = CreateWaiting("100001", 2, true);
+
+        Assert.That(TownRaidPreparationRules.TryFreeze(waiting, waiting.HostProfileId, 5, out var frozen), Is.True);
+        Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(frozen, frozen.HostProfileId, out RaidLaunchContext context), Is.True);
+
+        Assert.That(TeamValues(context), Is.EqualTo(new[] { 1, 2 }));
+    }
+
+    [Test]
+    public void Freeze_FailsClosedForPartyOverTwoMembersMismatchedKeysOrNegativeKeys()
+    {
+        TownRaidPreparationSnapshot waiting = CreateWaiting("100001", 3, true);
+
+        Assert.That(TownRaidPreparationRules.TryFreeze(waiting, waiting.HostProfileId, 5, new[] { 7, 7, 7 }, out _), Is.False);
+        Assert.That(TownRaidPreparationRules.TryFreeze(waiting, waiting.HostProfileId, 5, new[] { 7, 7 }, out _), Is.False);
+        Assert.That(TownRaidPreparationRules.TryFreeze(waiting, waiting.HostProfileId, 5, new[] { 7, -1, 0 }, out _), Is.False);
+        Assert.That(TownRaidPreparationRules.TryFreeze(waiting, waiting.HostProfileId, 5, null, out _), Is.False);
+    }
+
+    [Test]
+    public void Freeze_StoresTeamOrdinalOnEveryMemberAndSurvivesAcknowledgement()
+    {
+        TownRaidPreparationSnapshot waiting = CreateWaiting("100001", 3, true);
+        TownRaidPreparationRules.TryFreeze(waiting, waiting.HostProfileId, 5, new[] { 42, 42, 0 }, out var frozen);
+
+        Assert.That(frozen.Members[0].TeamOrdinal, Is.EqualTo(1));
+        Assert.That(frozen.Members[1].TeamOrdinal, Is.EqualTo(1));
+        Assert.That(frozen.Members[2].TeamOrdinal, Is.EqualTo(2));
+        Assert.That(TownRaidPreparationRules.TryAcknowledgeLaunch(frozen, frozen.Members[2].ProfileId, 5, out var acknowledged), Is.True);
+        Assert.That(acknowledged.Members[2].TeamOrdinal, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void LaunchContext_FailsClosedWhenFrozenSnapshotLacksValidTeamKeys()
+    {
+        TownRaidPreparationSnapshot waiting = CreateWaiting("100001", 3, true);
+        TownRaidPreparationRules.TryFreeze(waiting, waiting.HostProfileId, 5, new[] { 42, 42, 0 }, out var frozen);
+        ProfileId local = frozen.HostProfileId;
+
+        TownRaidPreparationSnapshot missing = WithTeamOrdinals(frozen, 0, 0, 0);
+        TownRaidPreparationSnapshot partiallyMissing = WithTeamOrdinals(frozen, 1, 1, 0);
+        TownRaidPreparationSnapshot oversizedTeam = WithTeamOrdinals(frozen, 1, 1, 1);
+        TownRaidPreparationSnapshot gap = WithTeamOrdinals(frozen, 1, 1, 3);
+        TownRaidPreparationSnapshot notFirstAppearance = WithTeamOrdinals(frozen, 2, 2, 1);
+        TownRaidPreparationSnapshot overCapacity = WithTeamOrdinals(frozen, 1, 1, RaidSessionRules.MaxParticipants + 1);
+
+        Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(frozen, local, out _), Is.True);
+        Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(missing, local, out RaidLaunchContext none), Is.False);
+        Assert.That(none, Is.Null);
+        Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(partiallyMissing, local, out _), Is.False);
+        Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(oversizedTeam, local, out _), Is.False);
+        Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(gap, local, out _), Is.False);
+        Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(notFirstAppearance, local, out _), Is.False);
+        Assert.That(TownRaidPreparationRules.TryCreateLaunchContext(overCapacity, local, out _), Is.False);
     }
 
     [Test]
@@ -300,6 +440,30 @@ public sealed class TownRaidPreparationRulesTests
         TownRaidPreparationSnapshot allReady = CreateWaiting("100001", 2, true);
         Assert.That(TownRaidPreparationRules.TryFreeze(allReady, allReady.HostProfileId, 1, out var frozen), Is.True);
         Assert.That(TownRaidPreparationRules.CanMutateTownBuild(frozen, frozen.HostProfileId), Is.False);
+    }
+
+    private static int[] TeamValues(RaidLaunchContext context)
+    {
+        var values = new int[context.Participants.Count];
+        for (int index = 0; index < values.Length; index++)
+        {
+            values[index] = context.Participants[index].TeamId.Value;
+        }
+
+        return values;
+    }
+
+    private static TownRaidPreparationSnapshot WithTeamOrdinals(
+        in TownRaidPreparationSnapshot source,
+        params int[] ordinals)
+    {
+        var members = new TownRaidPreparationMember[source.Members.Count];
+        for (int index = 0; index < members.Length; index++)
+        {
+            members[index] = source.Members[index].WithTeamOrdinal(ordinals[index]);
+        }
+
+        return CreateFrozen(source, members, source.FrozenMemberCount);
     }
 
     private static TownRaidPreparationSnapshot CreateWaiting(string codeValue, int count, bool ready)

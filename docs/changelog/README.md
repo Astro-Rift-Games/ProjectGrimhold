@@ -8,7 +8,7 @@ The initial history is partitioned by UTC author month; subsequent releases reta
 
 | Release / period | Original commits | Canonical entries |
 | --- | ---: | ---: |
-| [Unreleased](unreleased.md) | 158 | 158 |
+| [Unreleased](unreleased.md) | 163 | 163 |
 | [v0.5.0 — 2026-11-08](v0.5.0.md) | 341 | 339 |
 | [v0.4.0 — 2026-11-08](v0.4.0.md) | 252 | 251 |
 | [v0.3.0 — 2026-11-08](v0.3.0.md) | 158 | 158 |

@@ -225,7 +225,8 @@ public static class TownRaidPreparationRules
     }
 
     /// <summary>
-    /// Freezes the current authoritative roster order under one new launch revision.
+    /// Freezes the current authoritative roster order under one new launch revision, treating every
+    /// member as Solo (its own team) because no Town party information is supplied.
     /// </summary>
     public static bool TryFreeze(
         in TownRaidPreparationSnapshot snapshot,
@@ -233,9 +234,32 @@ public static class TownRaidPreparationRules
         int launchRevision,
         out TownRaidPreparationSnapshot frozen)
     {
+        return TryFreeze(
+            snapshot,
+            requesterProfileId,
+            launchRevision,
+            new int[snapshot.Members.Count],
+            out frozen);
+    }
+
+    /// <summary>
+    /// Freezes the current authoritative roster order under one new launch revision and captures each
+    /// member's initial Raid team. <paramref name="partyIds"/> is parallel to the roster: members
+    /// sharing a positive Town party id form one team, zero means no party (Solo, its own team).
+    /// Team ordinals are numbered 1..N by first appearance. A party id repeated more than
+    /// <see cref="TownPartyRules.MaxMembers"/> times, a negative id or a length mismatch fails closed.
+    /// </summary>
+    public static bool TryFreeze(
+        in TownRaidPreparationSnapshot snapshot,
+        ProfileId requesterProfileId,
+        int launchRevision,
+        IReadOnlyList<int> partyIds,
+        out TownRaidPreparationSnapshot frozen)
+    {
         if (!CanStart(snapshot, requesterProfileId) ||
             !RaidSessionRules.IsValidLaunchRevision(launchRevision) ||
-            launchRevision <= snapshot.LaunchRevision || snapshot.SnapshotRevision == int.MaxValue)
+            launchRevision <= snapshot.LaunchRevision || snapshot.SnapshotRevision == int.MaxValue ||
+            !TryAssignTeamOrdinals(partyIds, snapshot.Members.Count, out int[] teamOrdinals))
         {
             frozen = default;
             return false;
@@ -244,7 +268,9 @@ public static class TownRaidPreparationRules
         var members = new TownRaidPreparationMember[snapshot.Members.Count];
         for (int index = 0; index < snapshot.Members.Count; index++)
         {
-            members[index] = snapshot.Members[index].WithLaunchRevision(launchRevision);
+            members[index] = snapshot.Members[index]
+                .WithLaunchRevision(launchRevision)
+                .WithTeamOrdinal(teamOrdinals[index]);
         }
 
         frozen = new TownRaidPreparationSnapshot(
@@ -319,13 +345,18 @@ public static class TownRaidPreparationRules
             return false;
         }
 
-        RaidTeamId.TryCreate(1, out RaidTeamId currentCohortTeamId);
+        if (!TryReadTeams(snapshot.Members, out RaidTeamId[] teams))
+        {
+            launchContext = null;
+            return false;
+        }
+
         var participants = new RaidLaunchParticipant[snapshot.Members.Count];
         for (int index = 0; index < snapshot.Members.Count; index++)
         {
             participants[index] = new RaidLaunchParticipant(
                 snapshot.Members[index].ProfileId,
-                currentCohortTeamId);
+                teams[index]);
         }
 
         return RaidLaunchContext.TryCreate(
@@ -443,6 +474,84 @@ public static class TownRaidPreparationRules
             }
         }
 
+        return true;
+    }
+
+    private static bool TryAssignTeamOrdinals(
+        IReadOnlyList<int> partyIds,
+        int memberCount,
+        out int[] teamOrdinals)
+    {
+        teamOrdinals = null;
+        if (partyIds == null || partyIds.Count != memberCount)
+        {
+            return false;
+        }
+
+        var ordinals = new int[memberCount];
+        var teamSizes = new int[memberCount + 1];
+        int teamCount = 0;
+        for (int index = 0; index < memberCount; index++)
+        {
+            int partyId = partyIds[index];
+            if (partyId < 0)
+            {
+                return false;
+            }
+
+            int ordinal = 0;
+            for (int earlier = 0; partyId > 0 && earlier < index; earlier++)
+            {
+                if (partyIds[earlier] == partyId)
+                {
+                    ordinal = ordinals[earlier];
+                    break;
+                }
+            }
+
+            if (ordinal == 0)
+            {
+                ordinal = ++teamCount;
+            }
+
+            if (++teamSizes[ordinal] > TownPartyRules.MaxMembers)
+            {
+                return false;
+            }
+
+            ordinals[index] = ordinal;
+        }
+
+        teamOrdinals = ordinals;
+        return true;
+    }
+
+    /// <summary>
+    /// Reads the replicated team ordinals and fails closed unless they are numbered 1..N by first
+    /// appearance and every team has one or two members.
+    /// </summary>
+    private static bool TryReadTeams(
+        IReadOnlyList<TownRaidPreparationMember> members,
+        out RaidTeamId[] teams)
+    {
+        teams = null;
+        var result = new RaidTeamId[members.Count];
+        var teamSizes = new int[members.Count + 1];
+        int teamCount = 0;
+        for (int index = 0; index < members.Count; index++)
+        {
+            int ordinal = members[index].TeamOrdinal;
+            if (ordinal < 1 || ordinal > teamCount + 1 ||
+                ++teamSizes[ordinal] > TownPartyRules.MaxMembers ||
+                !RaidTeamId.TryCreate(ordinal, out result[index]))
+            {
+                return false;
+            }
+
+            teamCount = System.Math.Max(teamCount, ordinal);
+        }
+
+        teams = result;
         return true;
     }
 
