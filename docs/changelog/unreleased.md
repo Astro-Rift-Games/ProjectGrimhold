@@ -4,32 +4,678 @@
 
 Release: Unreleased
 
-140 original commits; 140 canonical entries.
+148 original commits; 148 canonical entries.
 
 ## Canonical classification
 
-62 features; 38 bug fixes; 1 refactoring; 1 architecture & infrastructure; 11 documentation; 16 tests; 9 maintenance; 2 other changes
+67 features; 39 bug fixes; 1 refactoring; 1 architecture & infrastructure; 13 documentation; 16 tests; 9 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 7 | 6 | 1 | 0 | 9 | 1 |
-| Art & Animation | 7 | 9 | 1 | 0 | 7 | 0 |
+| Art & Animation | 9 | 9 | 1 | 0 | 7 | 0 |
 | Audio | 3 | 1 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 37 | 24 | 1 | 1 | 17 | 2 |
+| Build & Tooling | 41 | 25 | 1 | 1 | 17 | 2 |
 | Combat | 34 | 7 | 0 | 0 | 11 | 0 |
-| Documentation | 26 | 10 | 0 | 0 | 6 | 0 |
-| Extraction | 9 | 2 | 0 | 0 | 5 | 0 |
+| Documentation | 26 | 11 | 0 | 0 | 6 | 0 |
+| Extraction | 10 | 3 | 0 | 0 | 5 | 0 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
 | Inventory & Loot | 51 | 26 | 1 | 1 | 17 | 1 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 16 | 10 | 0 | 0 | 11 | 0 |
-| Persistence & Backend | 25 | 12 | 0 | 1 | 8 | 0 |
-| Tests | 59 | 32 | 1 | 1 | 25 | 0 |
-| UI | 22 | 8 | 1 | 0 | 9 | 0 |
-| Unassigned | 0 | 1 | 0 | 0 | 2 | 0 |
-| World & Visibility | 16 | 6 | 0 | 0 | 2 | 0 |
+| Networking & Sessions | 19 | 11 | 0 | 0 | 11 | 0 |
+| Persistence & Backend | 26 | 13 | 0 | 1 | 8 | 0 |
+| Tests | 64 | 33 | 1 | 1 | 25 | 0 |
+| UI | 25 | 9 | 1 | 0 | 9 | 0 |
+| Unassigned | 0 | 1 | 0 | 0 | 4 | 0 |
+| World & Visibility | 17 | 6 | 0 | 0 | 2 | 0 |
 
 ## Original commit records
+
+### d0de8c3bd0ff81131df48ce7332ae0b2e8a689e8
+
+[d0de8c3bd0ff81131df48ce7332ae0b2e8a689e8](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d0de8c3bd0ff81131df48ce7332ae0b2e8a689e8)
+
+Date: 2026-11-11T16:46:08-03:00 · Classification: Features (explicit) · Systems: UI, World & Visibility, Art & Animation, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(art): animate dungeon wall torch flames
+```
+
+#### Original body
+
+```text
+Replace the static wall torch flame with a looping 10-frame S-wave
+flame animation seated cleanly on a dedicated flameless sconce base,
+keeping original Torch-Lit and Torch-Unlit artwork and sibling lighting
+props untouched.
+
+- Add Torch-Lit-Base.png (16 PPU, Point, Uncompressed, Tight, aligned
+  origin at (64.0, 64.5)) and Torch-Flame-Sheet.png (1280x128, ten
+  128x128 frames using the 5 original torch fire colors with rising
+  detached embers).
+- Add Torch_Flame_Flicker.anim (7 fps, ~1.43 s loop) and
+  TorchFlame.controller wired onto FlameVisual in Torch.prefab
+  (Sorting Layer Traps, Order 2).
+- Remove stale static root and FlameVisual overrides on all 17 Torch
+  instances in Gameplay.unity so they inherit the variant animation,
+  and regenerate DungeonGrayboxMinimapLayout.asset for the updated
+  scene source hash.
+
+Tests: TorchFlameAnimationTests (8/8), DungeonLightPropTests (4/4),
+MinimapSceneSourceTests (3/3), RaidSceneMinimapTests (9/9) and
+MinimapTileArtTests (11/11) pass in Unity EditMode.
+
+Player-Added: Dungeon wall torches now burn with an animated flickering flame.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Animations/Props.meta
+Project Grimhold/Assets/Animations/Props/TorchFlame.controller
+Project Grimhold/Assets/Animations/Props/TorchFlame.controller.meta
+Project Grimhold/Assets/Animations/Props/Torch_Flame_Flicker.anim
+Project Grimhold/Assets/Animations/Props/Torch_Flame_Flicker.anim.meta
+Project Grimhold/Assets/Art/Props/Torch-Flame-Sheet.png
+Project Grimhold/Assets/Art/Props/Torch-Flame-Sheet.png.meta
+Project Grimhold/Assets/Art/Props/Torch-Lit-Base.png
+Project Grimhold/Assets/Art/Props/Torch-Lit-Base.png.meta
+Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset
+Project Grimhold/Assets/Prefabs/Lighting Props/Torch.prefab
+Project Grimhold/Assets/Scenes/Gameplay.unity
+Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TorchFlameAnimationTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TorchFlameAnimationTests.cs.meta
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → UI: Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset
+- path → World &amp; Visibility: Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset
+- message-term → World &amp; Visibility: dungeon
+- path → Art &amp; Animation: Project Grimhold/Assets/Animations/Props.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Animations/Props/TorchFlame.controller
+- path → Art &amp; Animation: Project Grimhold/Assets/Animations/Props/TorchFlame.controller.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Animations/Props/Torch\_Flame\_Flicker.anim
+- path → Art &amp; Animation: Project Grimhold/Assets/Animations/Props/Torch\_Flame\_Flicker.anim.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Torch-Flame-Sheet.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Torch-Flame-Sheet.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Torch-Lit-Base.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Torch-Lit-Base.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TorchFlameAnimationTests.cs
+- path → Art &amp; Animation: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TorchFlameAnimationTests.cs.meta
+- scope → Art &amp; Animation: art
+- message-term → Art &amp; Animation: animation
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TorchFlameAnimationTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TorchFlameAnimationTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TorchFlameAnimationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TorchFlameAnimationTests.cs.meta
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### f4945af769f07f959fd44e105c3cabdf63966116
+
+[f4945af769f07f959fd44e105c3cabdf63966116](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f4945af769f07f959fd44e105c3cabdf63966116)
+
+Date: 2026-11-11T15:48:39-03:00 · Classification: Features (explicit) · Systems: Art & Animation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(art): add chest opening animation sprite sheets
+```
+
+#### Original body
+
+```text
+Add 4-frame horizontal opening sprite sheets and Unity import metadata
+for both standard and locked chests, keeping all original chest artwork
+intact while leaving Aseprite source files untracked locally.
+
+Both sheets are configured in Unity at PPU 16, Point filtering,
+uncompressed default platform format, and Multiple sprite mode sliced
+into four frames:
+- Chest-Open-Sheet.png (256x64): four 64x64 frames starting from
+  Chest-Close and ending on Chest-Open.
+- LockedChest-Open-Sheet.png (512x128): four 128x128 frames starting
+  from LockedChest.
+
+These assets are standalone artwork deliverables and are not yet wired
+into chest prefabs, animation clips, or runtime controllers. No
+executable C# code or gameplay tests were modified.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Art/Props/Chest-Open-Sheet.png
+Project Grimhold/Assets/Art/Props/Chest-Open-Sheet.png.meta
+Project Grimhold/Assets/Art/Props/LockedChest-Open-Sheet.png
+Project Grimhold/Assets/Art/Props/LockedChest-Open-Sheet.png.meta
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Chest-Open-Sheet.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Chest-Open-Sheet.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/LockedChest-Open-Sheet.png
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/LockedChest-Open-Sheet.png.meta
+- scope → Art &amp; Animation: art
+- message-term → Art &amp; Animation: animation
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 319a3855fa05d02006b79131a6f8f45d989f1f7d
+
+[319a3855fa05d02006b79131a6f8f45d989f1f7d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/319a3855fa05d02006b79131a6f8f45d989f1f7d)
+
+Date: 2026-11-11T15:35:56-03:00 · Classification: Documentation (explicit) · Systems: Unassigned
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(odd): record FIX-49 commit in the tracker
+```
+
+#### Original body
+
+```text
+Refs: HacknPlan FIX-49 (729)
+```
+
+#### Changed paths
+
+```text
+odd/tasks/fix-49-remove-cancel-raid.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+
+#### Diagnostics
+
+- **unassigned-system:** No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system.
+
+### 71fe7864bc2b270ebbadedc64ad31ac7af27f577
+
+[71fe7864bc2b270ebbadedc64ad31ac7af27f577](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/71fe7864bc2b270ebbadedc64ad31ac7af27f577)
+
+Date: 2026-11-11T15:33:36-03:00 · Classification: Bug Fixes (explicit) · Systems: Extraction, Networking & Sessions, UI, Persistence & Backend, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(raid): remove Cancel Raid and give the Host the standard Abandon
+```
+
+#### Original body
+
+```text
+No Host action can end the Raid for the other participants anymore
+(FIX-49, FIX-US-08). The Host menu shows Abandon with the same two-step
+confirmation as everyone else, and "Cancelar raid" is gone from the
+menu, the match controller and the session coordinator.
+
+- A Host Abandon behaves like a client's: the corpse is generated, the
+  loss Results open, and Return stays an explicit request. The FIX-50
+  handoff now starts only once the Host's Return is accepted, and
+  HostHandoffPolicy.CanAuthorizeReturn defers a Host Return after
+  Abandon until the progression is durably committed.
+- The replacement Host still classifies a historic Host that abandoned
+  (Aborted + VoluntaryAbandonConfirmed) as departed-terminal even if it
+  left before pressing Return, so it is never re-finalized as Aborted.
+- Removed NetworkMatchController.TryCancelRaid,
+  RaidClosureReason.HostCancellation and the cancellation Town return.
+  RaidClosureReason is a networked byte: NaturalCompletion = 0 and
+  BootstrapFailure = 2 keep their values and 1 stays reserved.
+- CancelRaidButton removed from RaidMenuPanel.prefab and its stale
+  overrides from LocalGameplayHud.prefab through the Editor; that save
+  also re-serialized TMP fields (m_ActiveFontFeatures, m_MaxWidth/Height)
+  with no visual change. The UI migration manifest entry for the removed
+  button image is dropped.
+
+Tests: HostHandoffPolicyTests, HostMigrationRosterPolicyTests and
+RaidMenuPresenterTests rewritten to the new rules; RaidClosureStateTests
+pins the networked byte values; cancellation tests removed from
+RaidResultsReturnPolicyTests and RaidResultsLifecycleSourceTests.
+
+Docs: cancellation wording updated in RaidMainHud, LobbyAndSession
+Transition, Progression, RaidGenerationLifecycle and LocalPlayer
+Persistence architecture; the Host Migration rule rewrite is FIX-52.
+
+Player-Fixed: The host can no longer end the raid for everyone; the host now abandons or returns like any other player.
+Refs: HacknPlan FIX-49 (729)
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Editor/CharcoalUiMigrationManifest.json
+Project Grimhold/Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab
+Project Grimhold/Assets/Prefabs/UI/PlayerUI/RaidMenuPanel.prefab
+Project Grimhold/Assets/Scripts/Networking/HostHandoffPolicy.cs
+Project Grimhold/Assets/Scripts/Networking/HostMigrationRosterPolicy.cs
+Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs
+Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs
+Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuView.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidClosureStateTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsLifecycleSourceTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMenuPresenterTests.cs
+Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidMainHudPlayModeTests.cs
+Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+Project Grimhold/Docs/Architecture/ProgressionArchitecture.md
+Project Grimhold/Docs/Architecture/RaidGenerationLifecycleArchitecture.md
+Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md
+odd/evidence/fix-50/offsets-fix49.txt
+odd/tasks/fix-49-remove-cancel-raid.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Extraction: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/HostHandoffPolicy.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/HostMigrationRosterPolicy.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidClosureStateTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsLifecycleSourceTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- message-term → Networking &amp; Sessions: Host Migration
+- path → UI: Project Grimhold/Assets/Editor/CharcoalUiMigrationManifest.json
+- path → UI: Project Grimhold/Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab
+- path → UI: Project Grimhold/Assets/Prefabs/UI/PlayerUI/RaidMenuPanel.prefab
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuView.cs
+- path → UI: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMenuPresenterTests.cs
+- path → UI: Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidMainHudPlayModeTests.cs
+- path → UI: Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md
+- message-term → UI: menu
+- path → Persistence &amp; Backend: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+- message-term → Persistence &amp; Backend: Persistence
+- path → Build &amp; Tooling: Project Grimhold/Assets/Editor/CharcoalUiMigrationManifest.json
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidClosureStateTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsLifecycleSourceTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMenuPresenterTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/ProgressionArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidGenerationLifecycleArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidClosureStateTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsLifecycleSourceTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMenuPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidMainHudPlayModeTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 9685baff0776058a87f94b21d4cb6a2653de7b86
+
+[9685baff0776058a87f94b21d4cb6a2653de7b86](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9685baff0776058a87f94b21d4cb6a2653de7b86)
+
+Date: 2026-11-11T15:33:21-03:00 · Classification: Documentation (explicit) · Systems: Unassigned
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(odd): record FIX-50 work-unit commits in the tracker
+```
+
+#### Original body
+
+```text
+Refs: HacknPlan FIX-50 (730)
+```
+
+#### Changed paths
+
+```text
+odd/tasks/fix-50-host-handoff.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+
+#### Diagnostics
+
+- **unassigned-system:** No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system.
+
+### 85e7549dde4dfea36fec56b3edaecd8c71dce902
+
+[85e7549dde4dfea36fec56b3edaecd8c71dce902](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/85e7549dde4dfea36fec56b3edaecd8c71dce902)
+
+Date: 2026-11-11T14:43:21-03:00 · Classification: Features (explicit) · Systems: Networking & Sessions, UI, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(hud): announce the new Raid Host after a Host handoff
+```
+
+#### Original body
+
+```text
+Remaining players are told who left and who now hosts the Raid
+(FIX-50 S3), after any completed Host Migration during an active Raid,
+including an abrupt Host loss.
+
+- HostHandoffAnnouncement.Format builds "{Nombre} salió. {Nuevo} es el
+  nuevo Host." with neutral fallbacks only when a name is unavailable.
+- HostHandoffNoticeSlot: runner-scoped one-shot mailbox published by
+  HostMigrationLifecycleController after adoption. The departed Host
+  name is captured from replicated participant state in
+  OnHostMigration, before the old runner is gone.
+- RaidDownedHudPresenter shows it through the existing
+  RaidDownedHudView.ShowMessage for 5 s; no serialized wiring changed.
+
+Tests: HostHandoffAnnouncementTests. Visual check confirmed in a live
+3-process run. Adds the FIX-50 ODD execution tracker and the evidence
+log offsets.
+
+Player-Added: Players are told on screen when the host leaves and who the new host is.
+Refs: HacknPlan FIX-50 (730)
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/HostHandoffAnnouncement.cs
+Project Grimhold/Assets/Scripts/Networking/HostHandoffAnnouncement.cs.meta
+Project Grimhold/Assets/Scripts/Networking/HostMigrationLifecycleController.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidDownedHudPresenter.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffAnnouncementTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffAnnouncementTests.cs.meta
+odd/evidence/fix-50/offsets.txt
+odd/tasks/fix-50-host-handoff.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/HostHandoffAnnouncement.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/HostHandoffAnnouncement.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/HostMigrationLifecycleController.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffAnnouncementTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffAnnouncementTests.cs.meta
+- message-term → Networking &amp; Sessions: Host Migration
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidDownedHudPresenter.cs
+- scope → UI: hud
+- message-term → UI: hud
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffAnnouncementTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffAnnouncementTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffAnnouncementTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffAnnouncementTests.cs.meta
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### c707a1169bc226993d53284b85f0653ddbd7b831
+
+[c707a1169bc226993d53284b85f0653ddbd7b831](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c707a1169bc226993d53284b85f0653ddbd7b831)
+
+Date: 2026-11-11T14:43:07-03:00 · Classification: Features (explicit) · Systems: Extraction, Networking & Sessions, UI, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(network): hand the Raid Host role over when the Host leaves
+```
+
+#### Original body
+
+```text
+The Raid no longer depends on the Host staying connected (FIX-US-08).
+When the Host resolves its own participation during an active Raid
+(Return after Defeat or a completed extraction, or a confirmed abandon)
+and at least one connected participant is still Raiding, the Host
+pushes a Host Migration snapshot and shuts down with
+ShutdownReason.HostMigration; Photon promotes a remaining peer and the
+outgoing Host returns to Town without waiting for anybody.
+
+- HostHandoffPolicy: Stay / HandOff / CloseNormally decision, Host
+  exit admission only while InProgress, resolved-exit rule.
+- HostHandoffService + production IHostHandoffRunner and
+  FusionHostHandoffRunner (moved out of the FIX-48 dev probe). A
+  rejected snapshot keeps the Host and retries every 3 s; the room is
+  never closed for the others. No Raiding peer left keeps the normal
+  closure path, which waits for pending commits.
+- Host Return/Abandon RPCs use RpcHostMode.SourceIsHostPlayer: with
+  the default SourceIsServer a Host-invoked call arrived with
+  Source = None and was rejected, leaving the Host stuck spectating.
+- A Host abandon replicates IsReturnAuthorized once the progression is
+  durably committed, so the new Host can see the exit was resolved.
+- HostMigrationRosterPolicy: on the replacement Host a historic Host
+  with a resolved exit is released as departed-terminal (corpse stays
+  lootable) instead of being finalized as Aborted. An abrupt Host loss
+  keeps the existing unrecovered path.
+- SessionConnectionCoordinator recovers to Town only for the outgoing
+  Host on a HostMigration shutdown; clients keep waiting for the
+  replacement runner. RaidMenuPresenter routes the Host Return through
+  the participant RPC while Raiding peers remain.
+- [HM-MULTI] FIX-50 logs for the Host Return gate, handoff outcome and
+  outgoing Town return.
+
+Reviewers: this changes the approved HostMigrationRecoveryArchitecture
+rule that voluntary exits never start a migration; the document rewrite
+is FIX-52. NetworkMatchController natural closure has no pure seam and
+was only checked live.
+
+Tests: HostHandoffPolicyTests, HostHandoffServiceTests,
+HostMigrationRosterPolicyTests, RaidResultsReturnPolicyTests,
+SessionConnectionStateMachineTests, VoluntaryHostHandoffProbeTests.
+Live 3-process runs: Host Defeat + Return handoff, abrupt Host kill
+(odd/tasks/fix-50-host-handoff.md L18, L21).
+
+Player-Improved: When the host dies and returns to town, the raid keeps going for everyone else and another player becomes the host.
+Refs: HacknPlan FIX-50 (730)
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/HostHandoffPolicy.cs
+Project Grimhold/Assets/Scripts/Networking/HostHandoffPolicy.cs.meta
+Project Grimhold/Assets/Scripts/Networking/HostHandoffService.cs
+Project Grimhold/Assets/Scripts/Networking/HostHandoffService.cs.meta
+Project Grimhold/Assets/Scripts/Networking/HostMigrationRosterPolicy.cs
+Project Grimhold/Assets/Scripts/Networking/HostMigrationRosterPolicy.cs.meta
+Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs
+Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+Project Grimhold/Assets/Scripts/Networking/RaidResultsReturnPolicy.cs
+Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+Project Grimhold/Assets/Scripts/Networking/VoluntaryHostHandoffProbe.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffServiceTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffServiceTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Extraction: Project Grimhold/Assets/Scripts/Networking/RaidResultsReturnPolicy.cs
+- path → Extraction: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs
+- message-term → Extraction: extraction
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/HostHandoffPolicy.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/HostHandoffPolicy.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/HostHandoffService.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/HostHandoffService.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/HostMigrationRosterPolicy.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/HostMigrationRosterPolicy.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidResultsReturnPolicy.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/VoluntaryHostHandoffProbe.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffServiceTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffServiceTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs
+- scope → Networking &amp; Sessions: network
+- message-term → Networking &amp; Sessions: Host Migration
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffServiceTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffServiceTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffServiceTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffServiceTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### b75245b19df5c0c41bf0a3bb19bad90a6ea66e02
+
+[b75245b19df5c0c41bf0a3bb19bad90a6ea66e02](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b75245b19df5c0c41bf0a3bb19bad90a6ea66e02)
+
+Date: 2026-11-11T14:42:44-03:00 · Classification: Features (explicit) · Systems: Networking & Sessions, Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(network): carry the character name through Raid admission
+```
+
+#### Original body
+
+```text
+Raid peers only knew each other's ProfileId, so presentation could not
+name the departing or new Host (FIX-50 S3). The backend-signed admission
+ticket already carries a characterName claim; the Unity codec now
+decodes it as optional display data and admission data can hold a
+sanitized display name.
+
+- AuthoritativeRaidAdmissionTicket.CharacterName is display-only:
+  missing or non-string claims decode to empty, never reject the
+  ticket, and are excluded from ticket equality.
+- RaidDisplayNamePolicy.Sanitize strips control, format, private-use
+  and unassigned characters, trims, and clamps to 24 chars without
+  splitting surrogate pairs.
+- RaidAdmissionData.WithDisplayName; the name is not serialized by
+  RaidAdmissionDataCodec.
+
+Tests: RaidDisplayNamePolicyTests, RaidAdmissionTicketCodecTests
+(name present, absent, non-string).
+
+Refs: HacknPlan FIX-50 (730)
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/AuthoritativeRaidAdmissionTicket.cs
+Project Grimhold/Assets/Scripts/Networking/AuthoritativeRaidAdmissionTicketCodec.cs
+Project Grimhold/Assets/Scripts/Networking/RaidAdmissionData.cs
+Project Grimhold/Assets/Scripts/Networking/RaidDisplayNamePolicy.cs
+Project Grimhold/Assets/Scripts/Networking/RaidDisplayNamePolicy.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionTicketCodecTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDisplayNamePolicyTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDisplayNamePolicyTests.cs.meta
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/AuthoritativeRaidAdmissionTicket.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/AuthoritativeRaidAdmissionTicketCodec.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidAdmissionData.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidDisplayNamePolicy.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidDisplayNamePolicy.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionTicketCodecTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDisplayNamePolicyTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDisplayNamePolicyTests.cs.meta
+- scope → Networking &amp; Sessions: network
+- message-term → Persistence &amp; Backend: backend
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionTicketCodecTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDisplayNamePolicyTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDisplayNamePolicyTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionTicketCodecTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDisplayNamePolicyTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDisplayNamePolicyTests.cs.meta
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 83702f1e1b6d23ffe64f963ccb2716280902cbc6
 
