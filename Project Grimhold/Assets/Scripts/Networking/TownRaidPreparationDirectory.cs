@@ -16,12 +16,15 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerLeft
     private readonly List<TownRaidPreparationNetworkController> _preparations = new();
     private readonly TownRaidPreparationDirectoryCache<TownRaidPreparationNetworkController> _cache = new();
     private readonly Dictionary<PlayerRef, ProfileId> _profileByPlayer = new();
+    private readonly Queue<TownRaidStartResult> _startResults = new();
     private bool _interactionRequested;
     private bool _indexReady;
     private bool _conflictLogged;
     private int _rebuildTicksRemaining;
 
     public event Action PreparationInteractionRequested;
+    /// <summary>Raised on the requesting Host when the State Authority refuses its Start request.</summary>
+    public event Action<TownRaidStartResult> StartResultReceived;
     public bool IsIndexReady => _indexReady;
     public int PreparationCount => _preparations.Count;
 
@@ -41,6 +44,13 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerLeft
 
     public override void Render()
     {
+        // Dequeue first: `?.` skips argument evaluation when nothing is subscribed.
+        while (_startResults.Count > 0)
+        {
+            TownRaidStartResult result = _startResults.Dequeue();
+            StartResultReceived?.Invoke(result);
+        }
+
         if (!_interactionRequested) return;
         _interactionRequested = false;
         PreparationInteractionRequested?.Invoke();
@@ -58,6 +68,7 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerLeft
         runner.GetComponent<TownRaidPreparationDirectoryContext>()?.Unregister(this);
         runner.GetComponent<TownSenderIdentityContext>()?.UnregisterAuthorityObject(Object);
         _interactionRequested = false;
+        _startResults.Clear();
         _indexReady = false;
         _preparations.Clear();
         _profileByPlayer.Clear();
@@ -200,9 +211,13 @@ public sealed class TownRaidPreparationDirectory : NetworkBehaviour, IPlayerLeft
             !_cache.TryResolve(profile, out TownRaidPreparationNetworkController preparation) || !preparation.HasStateAuthority) return default;
         _profileByPlayer[info.Source] = profile;
         if (IsAwaitingPartyCompletion(info.Source)) return default;
-        preparation.AuthorityTryStart(profile);
+        TownRaidStartResult result = preparation.AuthorityTryStart(profile);
+        if (result != TownRaidStartResult.Started) RPC_ReceiveStartResult(info.Source, result);
         return default;
     }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+    private void RPC_ReceiveStartResult([RpcTarget] PlayerRef target, TownRaidStartResult result) => _startResults.Enqueue(result);
 
     private bool IsAwaitingPartyCompletion(PlayerRef player)
     {

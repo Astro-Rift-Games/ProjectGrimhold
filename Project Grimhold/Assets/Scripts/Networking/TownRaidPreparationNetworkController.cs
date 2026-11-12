@@ -333,21 +333,37 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         return true;
     }
 
-    public bool AuthorityTryStart(ProfileId requester)
+    public TownRaidStartResult AuthorityTryStart(ProfileId requester)
     {
-        TownRaidPreparationSnapshot snapshot = Snapshot;
-        if (!HasStateAuthority || !TownRaidPreparationRules.CanStart(snapshot, requester))
+        if (!HasStateAuthority)
         {
-            return false;
+            return TownRaidStartResult.Rejected;
         }
 
         int nextRevision = LaunchRevision + 1;
         // Party membership is observed here, once, by the State Authority; peers only read the
         // replicated per-member team ordinal and never consult their local party state.
-        if (!TryCollectPartyIds(snapshot, out int[] partyIds) ||
-            !TownRaidPreparationRules.TryFreeze(snapshot, HostProfileId, nextRevision, partyIds, out TownRaidPreparationSnapshot frozen))
+        TownPartyDirectory parties = Runner != null ? Runner.GetComponent<TownPartyDirectoryContext>()?.Directory : null;
+        TownRaidPreparationRules.PartyIdResolver resolver = parties != null ? ResolvePartyId : null;
+        TownRaidStartResult result = TownRaidPreparationRules.TryStart(
+            Snapshot, requester, nextRevision, resolver,
+            out TownRaidPreparationSnapshot frozen, out ProfileId unresolved);
+        if (result == TownRaidStartResult.PartyUnavailable)
         {
-            return false;
+            // One log per refused Start request; never per tick.
+            Debug.LogError(
+                $"[{nameof(TownRaidPreparationNetworkController)}] Cannot start: " +
+                (parties == null
+                    ? "the Town party directory is unavailable"
+                    : $"no valid Town party for profile '{unresolved}'") +
+                "; teams cannot be derived.",
+                this);
+            return result;
+        }
+
+        if (result != TownRaidStartResult.Started)
+        {
+            return result;
         }
 
         LaunchRevision = nextRevision;
@@ -365,38 +381,14 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         ArmAcknowledgeDeadline();
         MarkSnapshotChanged();
         TryMaterializeLocalLaunchContext();
-        return true;
-    }
+        return TownRaidStartResult.Started;
 
-    /// <summary>
-    /// Resolves each roster member's Town party id from the authoritative party directory.
-    /// Fails closed when the directory is unavailable or a member has no valid party, since teams cannot be derived.
-    /// </summary>
-    private bool TryCollectPartyIds(in TownRaidPreparationSnapshot snapshot, out int[] partyIds)
-    {
-        partyIds = null;
-        TownPartyDirectory parties = Runner != null ? Runner.GetComponent<TownPartyDirectoryContext>()?.Directory : null;
-        if (parties == null)
+        bool ResolvePartyId(ProfileId profile, out int partyId)
         {
-            return false;
+            bool found = parties.TryGetParty(profile, out TownPartySnapshot party);
+            partyId = found ? party.PartyId : 0;
+            return found;
         }
-
-        var ids = new int[snapshot.Members.Count];
-        for (int index = 0; index < ids.Length; index++)
-        {
-            if (!parties.TryGetParty(snapshot.Members[index].ProfileId, out TownPartySnapshot party))
-            {
-                Debug.LogError(
-                    $"[{nameof(TownRaidPreparationNetworkController)}] Cannot start: no valid Town party for profile '{snapshot.Members[index].ProfileId}'; teams cannot be derived.",
-                    this);
-                return false;
-            }
-
-            ids[index] = party.PartyId;
-        }
-
-        partyIds = ids;
-        return true;
     }
 
     private void ArmAcknowledgeDeadline()

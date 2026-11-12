@@ -285,6 +285,52 @@ public static class TownRaidPreparationRules
         return true;
     }
 
+    /// <summary>Resolves a member's authoritative Town party id; false when the member has no valid party.</summary>
+    public delegate bool PartyIdResolver(ProfileId profileId, out int partyId);
+
+    /// <summary>
+    /// Decides one Start request: the Host requester and a complete Ready cohort in Waiting
+    /// (otherwise <see cref="TownRaidStartResult.Rejected"/>), then every member's party through
+    /// <paramref name="partyResolver"/>. A null resolver (party directory unavailable) or a member
+    /// without a party fails closed as <see cref="TownRaidStartResult.PartyUnavailable"/>, since teams
+    /// cannot be derived; <paramref name="unresolvedProfile"/> names that member when known.
+    /// </summary>
+    public static TownRaidStartResult TryStart(
+        in TownRaidPreparationSnapshot snapshot,
+        ProfileId requesterProfileId,
+        int launchRevision,
+        PartyIdResolver partyResolver,
+        out TownRaidPreparationSnapshot frozen,
+        out ProfileId unresolvedProfile)
+    {
+        frozen = default;
+        unresolvedProfile = default;
+        if (!CanStart(snapshot, requesterProfileId))
+        {
+            return TownRaidStartResult.Rejected;
+        }
+
+        if (partyResolver == null)
+        {
+            return TownRaidStartResult.PartyUnavailable;
+        }
+
+        var partyIds = new int[snapshot.Members.Count];
+        for (int index = 0; index < partyIds.Length; index++)
+        {
+            ProfileId member = snapshot.Members[index].ProfileId;
+            if (!partyResolver(member, out partyIds[index]))
+            {
+                unresolvedProfile = member;
+                return TownRaidStartResult.PartyUnavailable;
+            }
+        }
+
+        return TryFreeze(snapshot, requesterProfileId, launchRevision, partyIds, out frozen)
+            ? TownRaidStartResult.Started
+            : TownRaidStartResult.Rejected;
+    }
+
     /// <summary>
     /// Validates that every expected frozen member belongs to the same launch revision.
     /// </summary>

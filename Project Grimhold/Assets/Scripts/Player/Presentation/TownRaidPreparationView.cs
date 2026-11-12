@@ -42,6 +42,8 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     private bool _awaitingPartyCompletion;
     private bool _busy;
     private string _rejectionNotice;
+    private string _startNotice;
+    private string _statusBody;
 
     public event Action<ProfileId> MemberSelected;
     public event Action<string> CreateRequested;
@@ -188,6 +190,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         UiPanelVisibility.SetVisible(_panelRoot, true);
 
         _rejectionNotice = null;
+        _startNotice = null;
         ShowStatus("Creá una raid o ingresá el código de una sesión existente.");
         SetBusy(false);
     }
@@ -198,6 +201,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     public void PresentNoPreparation(bool awaitingPartyCompletion = false)
     {
         _lastPresentation = default;
+        _startNotice = null;
         HideInspection();
         HideMemberCards();
         _localReady = false;
@@ -311,6 +315,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     public void PresentPreparation(in TownRaidPreparationPresentation presentation, bool awaitingPartyCompletion = false)
     {
         _lastPresentation = presentation;
+        _startNotice = null;
         _awaitingPartyCompletion = awaitingPartyCompletion;
         if (_inspectionView != null && _inspectionView.IsOpen)
         {
@@ -438,6 +443,7 @@ public sealed class TownRaidPreparationView : MonoBehaviour
     public void PresentReconnectOpportunity(in RaidReconnectTicket ticket)
     {
         _lastPresentation = default;
+        _startNotice = null;
         HideInspection();
         HideMemberCards();
         _localReady = false;
@@ -489,6 +495,21 @@ public sealed class TownRaidPreparationView : MonoBehaviour
         SetBusy(false);
         _rejectionNotice = Describe(reason);
         ShowStatus(_rejectionNotice);
+    }
+
+    /// <summary>
+    /// Tells the requesting Host why Start was refused, above the current preparation status.
+    /// The notice lasts until the next preparation snapshot, the end of the preparation or a reopen.
+    /// </summary>
+    public void ShowStartRejected(TownRaidStartResult result)
+    {
+        if (!TownRaidStartRejectionText.TryGetMessage(result, out string message))
+        {
+            return;
+        }
+
+        _startNotice = message;
+        ShowStatus(_statusBody ?? string.Empty);
     }
 
     private static string Describe(ExpeditionPreparationResult reason) => reason switch
@@ -587,9 +608,11 @@ public sealed class TownRaidPreparationView : MonoBehaviour
             return;
         }
 
-        _statusText.text = string.IsNullOrEmpty(_rejectionNotice) || status == _rejectionNotice
+        _statusBody = status;
+        string text = string.IsNullOrEmpty(_rejectionNotice) || status == _rejectionNotice
             ? status
             : $"{_rejectionNotice}\n{status}";
+        _statusText.text = string.IsNullOrEmpty(_startNotice) ? text : $"{_startNotice}\n{text}";
         if (_statusScroll != null)
         {
             Canvas.ForceUpdateCanvases();

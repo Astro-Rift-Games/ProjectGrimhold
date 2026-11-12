@@ -180,7 +180,7 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
 
     private void OpenForTarget(NetworkObject target, TownRaidNpcInteractable npc)
     {
-        _directory = npc.PreparationDirectory;
+        BindDirectory(npc.PreparationDirectory);
         _partyDirectory = Runner.GetComponent<TownPartyDirectoryContext>()?.Directory;
         _openNpc = target;
         _view.Open();
@@ -193,6 +193,30 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
         target.GetComponentInChildren<TownNpcDirectionalView>()?.FaceTarget(transform.position);
         RefreshPreparationPresentation(true);
         AcquireInputSuppression();
+    }
+
+    private void BindDirectory(TownRaidPreparationDirectory directory)
+    {
+        if (_directory == directory)
+        {
+            return;
+        }
+
+        if (_directory != null)
+        {
+            _directory.StartResultReceived -= OnStartResultReceived;
+        }
+
+        _directory = directory;
+        if (_directory != null)
+        {
+            _directory.StartResultReceived += OnStartResultReceived;
+        }
+    }
+
+    private void OnStartResultReceived(TownRaidStartResult result)
+    {
+        _view?.ShowStartRejected(result);
     }
 
     private void RefreshPreparationPresentation(bool force)
@@ -463,7 +487,7 @@ public sealed class TownRaidPreparationPresenter : NetworkBehaviour
             _view = null;
         }
 
-        _directory = null;
+        BindDirectory(null);
         _partyDirectory = null;
         _presentedPreparation = null;
         _presentedPresentation = default;
