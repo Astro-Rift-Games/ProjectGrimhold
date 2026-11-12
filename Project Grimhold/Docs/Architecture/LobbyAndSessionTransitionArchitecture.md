@@ -184,7 +184,13 @@ After the complete frozen cohort is prepared, State Authority changes the phase 
 `Starting`, closes the session, invokes the existing spawn manager's one-time
 initial bootstrap and enters `InProgress` only after that bootstrap succeeds. A
 bootstrap failure starts normal closure with `BootstrapFailure`; it never reloads
-Gameplay or represents failure as `InProgress`. 
+Gameplay or represents failure as `InProgress`. A `BootstrapFailure` closure (including the
+expected-admission deadline) aborts every participant without a result, so there is no Results screen
+to Return from. The Host therefore returns to Town automatically
+(`RaidLossNoticePolicy.ShouldReturnHostAfterTechnicalClosure`, observed by
+`SessionConnectionCoordinator.ObserveTechnicalClosure` while the phase is `Closing` or `Finished`),
+through the ordinary Host Return that still waits for remote peers, and Town shows the loss notice
+captured before the reservation clear (FIX-53; see [Local Player Persistence](LocalPlayerPersistenceArchitecture.md)).
 
 Normal code admission is accepted only in `WaitingForPlayers`. However, during `InProgress`, the session may be temporarily reopened (`IsOpen = true`) if there is at least one retained, disconnected participant who is eligible for reconnection (as defined in `RaidConnectivityContinuityArchitecture.md`). This reopening path validates by `ProfileId` + `RaidGenerationId` and strictly rejects unauthorized fresh joiners. Host Migration reconnect/rebind remains a separate path.
 
@@ -222,7 +228,7 @@ Therefore `Finished` alone can remain in Results indefinitely, and a pending Hos
 cannot shut down the runner while a remote Client still belongs to it.
 
 The pending operational-Host return lifecycle has one entry point: an explicit Results return after an
-accepted terminal result. There is no Host-initiated cancellation of the Raid (FIX-49): the Host
+accepted terminal result; the only exception is the automatic technical-closure return described above (FIX-53). There is no Host-initiated cancellation of the Raid (FIX-49): the Host
 abandons like any participant, sees the loss Results, and leaves with `Volver`, which hands the Host
 role off per FIX-50 while other participants remain (FIX-52 owns the full Host Migration rewrite).
 The Host still waits for `MatchPhase.Finished`, no remaining `Raiding` participants and no connected

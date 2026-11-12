@@ -82,6 +82,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private string _reservationParticipationRaidId;
     private NetworkRunner _hostMigrationSourceRunner;
     private Task _participationOutcomeTask = Task.CompletedTask;
+    private readonly RaidLossNoticeSlot _lossNotice = new();
     private bool _hostResultsReturnRequested;
     private bool _hostResultsReturnStarted;
     private SessionTransitionResult? _pendingTransitionFailure;
@@ -539,6 +540,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
     private void Update()
     {
+        ObserveTechnicalClosure();
         ObservePendingHostResultsReturn();
         ObserveHostHandoff();
         if (_loadoutConfirmationPending)
@@ -593,6 +595,51 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// FIX-53: a bootstrap or admission-deadline closure aborts the participants without a result, so
+    /// there is no Results screen to Return from. The Host leaves through the ordinary Host Return,
+    /// which still waits for remote peers and reports the loss in Town.
+    /// </summary>
+    private float _technicalClosureNotBefore;
+
+    private void ObserveTechnicalClosure()
+    {
+        // A failed Return resets the request flags; the delay keeps its retry from running every frame.
+        if (_hostResultsReturnRequested || _hostResultsReturnStarted || _operationActive ||
+            State != SessionConnectionState.Raid || Time.unscaledTime < _technicalClosureNotBefore)
+        {
+            return;
+        }
+
+        NetworkRunner runner = _raidLauncher != null ? _raidLauncher.Runner : null;
+        if (runner == null || !runner.IsRunning || !TryResolveMatchController(runner, out NetworkMatchController match) ||
+            !RaidLossNoticePolicy.ShouldReturnHostAfterTechnicalClosure(
+                runner.IsServer, true, match.Phase, match.ClosureReason))
+        {
+            return;
+        }
+
+        _hostResultsReturnRequested = true;
+        _technicalClosureNotBefore = Time.unscaledTime + HostHandoffRetrySeconds;
+        Debug.Log(
+            $"[FIX-53] Technical raid closure ({match.ClosureReason}, Phase={match.Phase}) routed to Town; " +
+            "the Host returns once no remote peer remains.",
+            this);
+    }
+
+    // Clients only learn the controller through the spawn manager; both read the replicated closure.
+    private bool TryResolveMatchController(NetworkRunner runner, out NetworkMatchController match)
+    {
+        match = _raidLauncher.MatchController;
+        if (match == null)
+        {
+            NetworkSpawnManager spawnManager = runner.GetComponent<NetworkSpawnManager>();
+            match = spawnManager != null ? spawnManager.MatchController : null;
+        }
+
+        return match != null && match.Object != null && match.Object.IsValid;
+    }
+
     private void ObservePendingHostResultsReturn()
     {
         if (!_hostResultsReturnRequested)
@@ -631,7 +678,26 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
 
         _hostResultsReturnStarted = true;
+        LogHostResultsReturnStarted();
         _ = CompletePendingHostResultsReturnAsync();
+    }
+
+    private void LogHostResultsReturnStarted()
+    {
+        string participantState = "Unresolved";
+        if (TryResolveHostResultsContext(
+                out _,
+                out _,
+                out _,
+                out NetworkRaidParticipant participant,
+                out bool hasProgressionResultSnapshot))
+        {
+            participantState =
+                $"{participant.State}/{participant.FinalizationCause}, " +
+                $"HasSnapshot={hasProgressionResultSnapshot}";
+        }
+
+        Debug.Log($"[FIX-53] Solo Host Return started. Participant={participantState}.", this);
     }
 
     private bool TryResolveHostResultsContext(
@@ -1443,6 +1509,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
             // A local extraction receipt survives both backend ACK and runner destruction.
             // Every other explicit Return is a loss, including defeat, abandon and closure.
+            CaptureTechnicalClosureLossNotice();
             ClearLostParticipationReservation();
             NetworkRunner raidRunner = _raidLauncher.Runner;
             Debug.Log(
@@ -1946,10 +2013,9 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         // Consume the local departure guard before starting asynchronous work. Repeated Return,
         // Failed-state recovery and reconnect-ticket disposal cannot issue a second loss clear.
         _reservationParticipationRaidId = null;
-        ApplicationStashContext context = ResolveRecoveryStashContext();
-        if (context?.Store != null && context.Store.ProfileId == _currentProfileId &&
-            context.Store.HasCommittedExtraction(raidId)) return;
+        if (HasCommittedLocalExtraction(raidId)) return;
 
+        ApplicationStashContext context = ResolveRecoveryStashContext();
         RemoteInventoryService service = context != null ? context.GetComponent<RemoteInventoryService>() : null;
         if (service == null || context.Store == null || context.Store.ProfileId != _currentProfileId)
         {
@@ -1957,6 +2023,61 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             return;
         }
         _participationOutcomeTask = ClearLostParticipationReservationAsync(service);
+    }
+
+    private bool HasCommittedLocalExtraction(string raidId)
+    {
+        ApplicationStashContext context = ResolveRecoveryStashContext();
+        return context?.Store != null && context.Store.ProfileId == _currentProfileId &&
+               context.Store.HasCommittedExtraction(raidId);
+    }
+
+    /// <summary>Consumes the pending Town loss notice once; the caller owns presenting it.</summary>
+    public bool TryConsumePendingLossNotice(out RaidLossNotice notice) => _lossNotice.TryConsume(out notice);
+
+    private void CaptureTechnicalClosureLossNotice()
+    {
+        NetworkRunner runner = _raidLauncher != null ? _raidLauncher.Runner : null;
+        if (runner == null || !runner.IsRunning || !TryResolveMatchController(runner, out NetworkMatchController match))
+        {
+            return;
+        }
+
+        RaidLossNoticeReason? reason = RaidLossNoticePolicy.ReasonForClosure(match.ClosureReason);
+        if (reason.HasValue)
+        {
+            CaptureLossNotice(reason.Value);
+        }
+    }
+
+    /// <summary>
+    /// Records what the departure is about to consume. It reads the application-owned reservation, so it
+    /// must run before the loss clear and works after the runner is gone.
+    /// </summary>
+    private void CaptureLossNotice(RaidLossNoticeReason reason)
+    {
+        string raidId = _reservationParticipationRaidId;
+        if (string.IsNullOrEmpty(raidId) || State != SessionConnectionState.Raid ||
+            HasCommittedLocalExtraction(raidId))
+        {
+            return;
+        }
+
+        RaidLossNotice notice = null;
+        string error = "No reservation snapshot.";
+        if (!_activeTicket.HasValue || !_activeTicket.Value.HasLoadoutReservation ||
+            !RaidLossNotice.TryCreate(reason, _activeTicket.Value.LoadoutReservation, out notice, out error))
+        {
+            Debug.LogWarning($"[FIX-53] Loss notice not captured. Reason={reason}, Error={error}", this);
+            return;
+        }
+
+        if (_lossNotice.Capture(notice))
+        {
+            Debug.Log(
+                $"[FIX-53] Loss notice captured. Reason={reason}, Items={notice.Lost.Entries.Count}.",
+                this);
+        }
     }
 
     private async Task ClearLostParticipationReservationAsync(RemoteInventoryService service)
@@ -2024,10 +2145,13 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
         RecoverFromUnexpectedShutdown(
             preserveReconnect: !outgoingHandoff && !migrationFailed &&
-                !IsTerminalReconnectShutdownReason(shutdownReason));
+                !IsTerminalReconnectShutdownReason(shutdownReason),
+            outgoingHandoff: outgoingHandoff);
     }
 
-    private async void RecoverFromUnexpectedShutdown(bool preserveReconnect = true)
+    private async void RecoverFromUnexpectedShutdown(
+        bool preserveReconnect = true,
+        bool outgoingHandoff = false)
     {
         if (_isQuitting)
         {
@@ -2046,6 +2170,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         {
             if (!preserveReconnect)
             {
+                ReportConnectionLoss(outgoingHandoff, participationRetained: false);
                 ClearLostParticipationReservation();
                 DiscardActiveReconnectTicket();
             }
@@ -2089,6 +2214,12 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                     ReconnectTicketChanged?.Invoke(_activeReconnectTicket);
                     Debug.Log($"[{nameof(SessionConnectionCoordinator)}] Reconnect ticket preserved for {_currentProfileId.Value} in session {_currentSessionName}.", this);
                 }
+            }
+
+            if (preserveReconnect)
+            {
+                // Leaving Raid without a retained ticket clears the reservation as a loss below.
+                ReportConnectionLoss(outgoingHandoff, _activeReconnectTicket.HasValue);
             }
 
             TransitionTo(SessionConnectionState.ReturningTown);
@@ -2146,6 +2277,14 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         {
             EndTransitionCancellation();
             _operationActive = false;
+        }
+    }
+
+    private void ReportConnectionLoss(bool isOutgoingHostHandoff, bool participationRetained)
+    {
+        if (RaidLossNoticePolicy.ShouldReportConnectionLoss(isOutgoingHostHandoff, participationRetained))
+        {
+            CaptureLossNotice(RaidLossNoticeReason.ConnectionLost);
         }
     }
 
