@@ -83,11 +83,14 @@ MonoBehaviour:
   _lootCatalog: {fileID: 11400000, guid: f11f98d3ce1283d47adcf8bc420f88a2, type: 2}
   _slotCapacity: 6
   _startsAvailable: 1
+  _startsLocked: 0
   _supportsFullPlayerInventory: 0
   _initialContent: []
   _IsInitialized:
     RawValue: 0
   _IsAvailable:
+    RawValue: 0
+  _IsLocked:
     RawValue: 0
   _LootChangeSequence: 0
   _GenerationState: 0
@@ -126,7 +129,7 @@ BoxCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0, y: 0}
+  m_Offset: {x: 0.0054400414, y: 0.000000059604645}
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0, y: 0}
@@ -136,7 +139,7 @@ BoxCollider2D:
     drawMode: 0
     adaptiveTiling: 0
   m_AutoTiling: 0
-  m_Size: {x: 1.1, y: 0.8}
+  m_Size: {x: 0.99482524, y: 1.0103496}
   m_EdgeRadius: 0
 --- !u!114 &3300000000000000006
 MonoBehaviour:
@@ -159,7 +162,7 @@ MonoBehaviour:
   _FirstOpenExperienceOwnerProfileId:
     _length: 0
     _data:
-      Data: 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+      Data: 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000u
 --- !u!114 &3300000000000000007
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -286,11 +289,10 @@ MonoBehaviour:
   _interactable: {fileID: 3300000000000000006}
   _renderer: {fileID: 3300000000000000012}
   _openingFrames:
-  - {fileID: -8343260098957696759, guid: b85add6714acbc045bd89fc86ac5190a, type: 3}
-  - {fileID: 5208121298799929476, guid: b85add6714acbc045bd89fc86ac5190a, type: 3}
-  - {fileID: -8105139302663682802, guid: b85add6714acbc045bd89fc86ac5190a, type: 3}
-  - {fileID: -9152817268265574178, guid: b85add6714acbc045bd89fc86ac5190a, type: 3}
-  - {fileID: 342969731396908109, guid: b85add6714acbc045bd89fc86ac5190a, type: 3}
+  - {fileID: -6010837258525414445, guid: 2f6ed1f13aa6dfd41929dfd381f7b66d, type: 3}
+  - {fileID: -2423754641051803954, guid: 2f6ed1f13aa6dfd41929dfd381f7b66d, type: 3}
+  - {fileID: 7445419711567178469, guid: 2f6ed1f13aa6dfd41929dfd381f7b66d, type: 3}
+  - {fileID: -9113791646804267065, guid: 2f6ed1f13aa6dfd41929dfd381f7b66d, type: 3}
   _framesPerSecond: 12
   _openingSound:
     _clips:
@@ -325,8 +327,8 @@ Transform:
   m_GameObject: {fileID: 3300000000000000010}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.026785715, z: 0}
-  m_LocalScale: {x: 1.7142857, y: 1.7142857, z: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 3300000000000000002}
@@ -380,7 +382,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 2
   m_MaskInteraction: 0
-  m_Sprite: {fileID: -8343260098957696759, guid: b85add6714acbc045bd89fc86ac5190a, type: 3}
+  m_Sprite: {fileID: -6010837258525414445, guid: 2f6ed1f13aa6dfd41929dfd381f7b66d, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0

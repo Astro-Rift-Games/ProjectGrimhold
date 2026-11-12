@@ -114,12 +114,12 @@ TextureImporter:
       name: Chest-Open-Sheet_0
       rect:
         serializedVersion: 2
-        x: 23
-        y: 23
-        width: 18
-        height: 18
+        x: 24
+        y: 24
+        width: 16
+        height: 16
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -136,12 +136,12 @@ TextureImporter:
       name: Chest-Open-Sheet_1
       rect:
         serializedVersion: 2
-        x: 87
-        y: 23
-        width: 18
-        height: 20
+        x: 88
+        y: 24
+        width: 16
+        height: 18
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -158,12 +158,12 @@ TextureImporter:
       name: Chest-Open-Sheet_2
       rect:
         serializedVersion: 2
-        x: 151
-        y: 23
-        width: 18
-        height: 21
+        x: 152
+        y: 24
+        width: 16
+        height: 19
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -180,12 +180,12 @@ TextureImporter:
       name: Chest-Open-Sheet_3
       rect:
         serializedVersion: 2
-        x: 215
-        y: 23
-        width: 18
-        height: 22
+        x: 216
+        y: 24
+        width: 16
+        height: 20
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -202,7 +202,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 4159f7d9fb124b847a5db703b5b8fcb4
     internalID: 0
     vertices: []
     indices: 

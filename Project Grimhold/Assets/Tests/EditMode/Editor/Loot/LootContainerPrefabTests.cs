@@ -13,7 +13,7 @@ namespace Tests.EditMode.Loot
     public sealed class LootContainerPrefabTests
     {
         [Test]
-        public void LockedChest_UsesStaticSpriteAndExistingLootPipeline()
+        public void LockedChest_UsesAnimatedSpriteSheetAt16PpuAndExistingLootPipeline()
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/LockedChest.prefab");
             Assert.That(prefab, Is.Not.Null);
@@ -24,17 +24,39 @@ namespace Tests.EditMode.Loot
             GameObject normal = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/LootContainer.prefab");
             Assert.That(prefab.GetComponent<LootContainerRandomContentConfig>().Table,
                 Is.SameAs(normal.GetComponent<LootContainerRandomContentConfig>().Table));
-            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Art/Props/LockedChest.png");
-            Assert.That(sprite, Is.Not.Null);
-            Assert.That(prefab.GetComponentInChildren<SpriteRenderer>(true).sprite, Is.SameAs(sprite));
-            var presentation = new SerializedObject(prefab.GetComponent<ChestOpeningPresenter>());
+            const string sheetPath = "Assets/Art/Props/LockedChest-Open-Sheet.png";
+            Sprite[] sheetSprites = AssetDatabase.LoadAllAssetsAtPath(sheetPath).OfType<Sprite>().ToArray();
+            Assert.That(sheetSprites.Length, Is.EqualTo(4));
+            SpriteRenderer renderer = prefab.GetComponentInChildren<SpriteRenderer>(true);
+            Assert.That(renderer, Is.Not.Null);
+            Assert.That(renderer.sprite, Is.Not.Null);
+            Assert.That(renderer.sprite.name, Is.EqualTo("LockedChest-Open-Sheet_0"));
+            Assert.That(AssetDatabase.GetAssetPath(renderer.sprite), Is.EqualTo(sheetPath));
+            BoxCollider2D interactionCollider = prefab.GetComponent<BoxCollider2D>();
+            Assert.That(interactionCollider, Is.Not.Null);
+            Assert.That(interactionCollider.isTrigger, Is.True);
+            Assert.That(renderer.sprite.bounds.size.x * renderer.transform.localScale.x,
+                Is.EqualTo(1.1222f).Within(0.002f));
+            Assert.That(renderer.sprite.bounds.size.y * renderer.transform.localScale.y,
+                Is.EqualTo(0.6663f).Within(0.002f));
+            ChestOpeningPresenter presenter = prefab.GetComponent<ChestOpeningPresenter>();
+            Assert.That(presenter, Is.Not.Null);
+            Assert.That(prefab.GetComponent<NetworkObject>().NetworkedBehaviours, Does.Contain(presenter));
+            var presentation = new SerializedObject(presenter);
             SerializedProperty frames = presentation.FindProperty("_openingFrames");
-            Assert.That(frames.arraySize, Is.EqualTo(1));
-            Assert.That(frames.GetArrayElementAtIndex(0).objectReferenceValue, Is.SameAs(sprite));
-            var importer = (TextureImporter)AssetImporter.GetAtPath(AssetDatabase.GetAssetPath(sprite));
+            Assert.That(frames.arraySize, Is.EqualTo(4));
+            for (int index = 0; index < 4; index++)
+            {
+                Sprite frame = frames.GetArrayElementAtIndex(index).objectReferenceValue as Sprite;
+                Assert.That(frame, Is.Not.Null);
+                Assert.That(frame.name, Is.EqualTo($"LockedChest-Open-Sheet_{index}"));
+                Assert.That(sheetSprites, Does.Contain(frame));
+            }
+            Assert.That(presentation.FindProperty("_framesPerSecond").floatValue, Is.EqualTo(12f));
+            var importer = (TextureImporter)AssetImporter.GetAtPath(sheetPath);
             Assert.That(importer.filterMode, Is.EqualTo(FilterMode.Point));
             Assert.That(importer.mipmapEnabled, Is.False);
-            Assert.That(importer.spritePixelsPerUnit, Is.EqualTo(32));
+            Assert.That(importer.spritePixelsPerUnit, Is.EqualTo(16));
             Assert.That(AssetDatabase.GetLabels(prefab), Does.Contain("FusionPrefab"));
         }
 
@@ -77,6 +99,9 @@ namespace Tests.EditMode.Loot
 
             Assert.That(prefab, Is.Not.Null);
             Assert.That(prefab.layer, Is.EqualTo(8));
+            BoxCollider2D interactionCollider = prefab.GetComponent<BoxCollider2D>();
+            Assert.That(interactionCollider, Is.Not.Null);
+            Assert.That(interactionCollider.isTrigger, Is.True);
             Assert.That(prefab.GetComponent<NetworkObject>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<NetworkTransform>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<NetworkLootContainer>(), Is.Not.Null);
