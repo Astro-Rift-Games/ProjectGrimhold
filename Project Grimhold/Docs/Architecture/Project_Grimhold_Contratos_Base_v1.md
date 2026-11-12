@@ -3,7 +3,7 @@
 > [!NOTE]
 > **Status:** Current
 >
-> **Last updated:** 2026-07-21
+> **Last updated:** 2026-11-12
 >
 > **Scope:** Shared identity, combat, damage, interaction, loot, and presentation contracts.
 
@@ -57,15 +57,15 @@ All entity capabilities derive from `IEntity` when their operation is associated
 
 Registration does not grant network authority. The authoritative caller must still validate State Authority before changing gameplay state.
 
-### Individual extraction progress contracts
+### Extraction progress contracts
 
 - `ExtractionProgressContribution` is immutable and contains source type, valid source `EntityId`, `long` amount and authoritative `SimulationTick`. Tick is metadata, not deduplication.
-- `ExtractionProgressSnapshot` contains current individual progress, configured quota, percentage, quota completion and pending assignment. It is distinct from `ExtractionCountdownSnapshot`, the renamed zone-timer projection.
-- `IExtractionProgressReceiver : IEntity` accepts direct State Authority contributions. It owns saturation and player lifecycle validation, not producer deduplication.
+- `ExtractionProgressSnapshot` is a player's projection of its team's progress: current team progress, team quota, percentage, quota completion and pending assignment. It is distinct from `ExtractionCountdownSnapshot`, the renamed zone-timer projection.
+- `IExtractionProgressReceiver : IEntity` accepts direct State Authority contributions on a player and forwards them to its team's shared progress. It owns player lifecycle validation, not producer deduplication; saturation at the team quota belongs to the team progress.
 - `IExtractionProgressDefeatSource : IEntity` exposes the non-negative configured reward associated with defeating that entity.
 - `ILootFirstAcquisitionSource` exposes one side-effect-free query for a source-validated `LootTransferRequest`. `LootFirstAcquisitionResult` returns an eligible amount in the closed range from zero to requested amount. There is no provenance commit contract.
 
-These capabilities are independently registered per runner and per `EntityId`. The MVP has individual progress only and no team progress, shared quota or global progress service.
+These capabilities are independently registered per runner and per `EntityId`. Progress and quota are owned per team (`RaidTeamId`) by `ITeamExtractionProgress`; there is no global progress service. Team ownership, quota and the launch-time team roster are defined in [`ExtractionArchitecture.md`](ExtractionArchitecture.md).
 
 ## 4. Combat contracts
 
