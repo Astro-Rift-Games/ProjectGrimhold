@@ -200,8 +200,9 @@ public sealed class ExpeditionWeaponRequirementTests
     {
         var (launch, party, save) = PendingSave(isHost);
         var controller = _root.AddComponent<TownRaidPreparationNetworkController>();
-        var members = launch.ParticipantProfileIds.Select(
-            profile => new TownRaidPreparationMember(profile, true, launch.LaunchRevision)).ToArray();
+        var members = launch.Participants.Select(
+            participant => new TownRaidPreparationMember(
+                participant.ProfileId, true, launch.LaunchRevision, false, participant.TeamId.Value)).ToArray();
         var snapshot = new TownRaidPreparationSnapshot(launch.RaidCode, launch.HostProfileId,
             TownRaidPreparationState.Launching, members, 1, launch.LaunchRevision, members.Length);
         int acks = 0;
@@ -223,8 +224,9 @@ public sealed class ExpeditionWeaponRequirementTests
     {
         var (launch, party, save) = PendingSave(isHost);
         var controller = _root.AddComponent<TownRaidPreparationNetworkController>();
-        var members = launch.ParticipantProfileIds.Select(
-            profile => new TownRaidPreparationMember(profile, true, launch.LaunchRevision)).ToArray();
+        var members = launch.Participants.Select(
+            participant => new TownRaidPreparationMember(
+                participant.ProfileId, true, launch.LaunchRevision, false, participant.TeamId.Value)).ToArray();
         var launching = new TownRaidPreparationSnapshot(launch.RaidCode, launch.HostProfileId,
             TownRaidPreparationState.Launching, members, 1, launch.LaunchRevision, members.Length);
         int acks = 0;
