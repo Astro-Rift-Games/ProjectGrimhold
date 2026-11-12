@@ -4,32 +4,156 @@
 
 Release: Unreleased
 
-161 original commits; 161 canonical entries.
+163 original commits; 163 canonical entries.
 
 ## Canonical classification
 
-70 features; 44 bug fixes; 1 refactoring; 1 architecture & infrastructure; 18 documentation; 16 tests; 9 maintenance; 2 other changes
+70 features; 45 bug fixes; 1 refactoring; 1 architecture & infrastructure; 19 documentation; 16 tests; 9 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 7 | 6 | 1 | 0 | 9 | 1 |
 | Art & Animation | 10 | 9 | 1 | 0 | 7 | 0 |
 | Audio | 3 | 2 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 44 | 30 | 1 | 1 | 18 | 2 |
-| Combat | 34 | 7 | 0 | 0 | 11 | 0 |
-| Documentation | 26 | 12 | 0 | 0 | 9 | 0 |
-| Extraction | 11 | 7 | 0 | 0 | 8 | 0 |
+| Build & Tooling | 44 | 31 | 1 | 1 | 18 | 2 |
+| Combat | 34 | 8 | 0 | 0 | 11 | 0 |
+| Documentation | 26 | 13 | 0 | 0 | 9 | 0 |
+| Extraction | 11 | 8 | 0 | 0 | 8 | 0 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
 | Inventory & Loot | 53 | 29 | 1 | 1 | 19 | 1 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 21 | 16 | 0 | 0 | 15 | 0 |
+| Networking & Sessions | 21 | 17 | 0 | 0 | 15 | 0 |
 | Persistence & Backend | 26 | 14 | 0 | 1 | 10 | 0 |
-| Tests | 67 | 38 | 1 | 1 | 25 | 0 |
-| UI | 26 | 10 | 1 | 0 | 12 | 0 |
-| Unassigned | 0 | 1 | 0 | 0 | 5 | 0 |
+| Tests | 67 | 39 | 1 | 1 | 25 | 0 |
+| UI | 26 | 11 | 1 | 0 | 12 | 0 |
+| Unassigned | 0 | 1 | 0 | 0 | 6 | 0 |
 | World & Visibility | 18 | 7 | 0 | 0 | 3 | 0 |
 
 ## Original commit records
+
+### eaf73be9104a2bfa542e02513f730c5929647709
+
+[eaf73be9104a2bfa542e02513f730c5929647709](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/eaf73be9104a2bfa542e02513f730c5929647709)
+
+Date: 2026-11-12T17:59:58-03:00 · Classification: Documentation (explicit) · Systems: Unassigned
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(odd): add FIX-97 execution tracker and evidence
+```
+
+#### Original body
+
+```text
+
+```
+
+#### Changed paths
+
+```text
+odd/tasks/fix-97-town-team-assignment.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+
+#### Diagnostics
+
+- **unassigned-system:** No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system.
+
+### 2d24273d6234fc0c6fe41b9950dce4b482cbd108
+
+[2d24273d6234fc0c6fe41b9950dce4b482cbd108](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2d24273d6234fc0c6fe41b9950dce4b482cbd108)
+
+Date: 2026-11-12T17:59:58-03:00 · Classification: Bug Fixes (explicit) · Systems: Combat, Extraction, Networking & Sessions, UI, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(town): assign Raid teams from Town parties at launch
+```
+
+#### Original body
+
+```text
+A Town launch put the whole cohort on Team 1, so any cohort above two
+players (e.g. a Duo plus a Solo) produced an invalid RaidTeamRoster.
+TeamExtractionCoordinator then never initialized: team extraction never
+started, quota and HUD fell back to Team 1 (a Solo saw the Duo quota as
+its own) and the countdown stalled at 0 without extracting anyone.
+
+The Town preparation State Authority now reads each member's Town party
+once at Start and freezes a per-member team ordinal: members sharing a
+party form one team, a Solo party is its own team, numbered 1..N by
+first appearance in the frozen cohort order. The ordinal is replicated
+in the preparation member state; peers never derive teams from their
+local party state.
+
+Contracts to review:
+- TownRaidPreparationMember gains TeamOrdinal (0 = unassigned) and the
+  replicated MemberNetwork gains a byte TeamOrdinal; Host and Clients
+  must run the same build.
+- TryFreeze gains a partyIds overload; it fails closed for a party
+  larger than a Duo, negative ids or a roster/id length mismatch.
+- TryCreateLaunchContext fails closed for missing, gapped, out-of-order
+  or oversized teams instead of defaulting to Team 1.
+- Start fails closed (error log) when the party directory is missing or
+  a member has no valid Town party.
+
+Tests:
+- TownRaidPreparationRulesTests: Duo + Solo, all Solo, single Duo,
+  non-adjacent party members, two Duos + Solo, sixteen Solos, freeze and
+  launch-context fail-closed cases, ordinal surviving acknowledgement;
+  the Team 1 order test now asserts the party rule.
+- ExpeditionWeaponRequirementTests: launching snapshots carry the team
+  ordinals of their launch participants.
+
+Docs: LobbyAndSessionTransitionArchitecture.md describes the party team
+rule in place of "Team 1 for the complete cohort".
+
+Refs: FIX-97
+Player-Fixed: Extraction now completes when a Duo and other players share a raid launched from Town, and Solo players no longer see another team's quota as their own.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationMember.cs
+Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs
+Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationRules.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidPreparationRulesTests.cs
+Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- message-term → Extraction: extraction
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationMember.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationRules.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidPreparationRulesTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- message-term → UI: HUD
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidPreparationRulesTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidPreparationRulesTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 195c4605ea25d665f714e0e6896b6d5b6daa158c
 

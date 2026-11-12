@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1038,
-  "canonicalEntries": 1035,
+  "rawCommits": 1040,
+  "canonicalEntries": 1037,
   "before": {
-    "Bug Fixes": 122,
+    "Documentation": 93,
+    "Bug Fixes": 123,
     "Features": 392,
-    "Documentation": 92,
     "Tests": 40,
     "Architecture & Infrastructure": 22,
     "Other Changes": 356,
     "Refactoring": 14
   },
   "after": {
-    "Bug Fixes": 138,
+    "Documentation": 109,
+    "Bug Fixes": 139,
     "Features": 530,
-    "Documentation": 108,
     "Tests": 45,
     "Maintenance": 20,
     "Architecture & Infrastructure": 6,
@@ -23,28 +23,28 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Extraction": 145,
-    "Networking & Sessions": 308,
+    "Unassigned": 25,
+    "Combat": 369,
+    "Extraction": 146,
+    "Networking & Sessions": 309,
+    "UI": 319,
+    "Build & Tooling": 538,
+    "Documentation": 391,
+    "Tests": 654,
     "World & Visibility": 138,
     "Audio": 35,
-    "Build & Tooling": 537,
-    "Tests": 653,
     "Inventory & Loot": 420,
     "Persistence & Backend": 236,
-    "UI": 318,
-    "Documentation": 390,
     "Art & Animation": 237,
-    "Unassigned": 24,
-    "Combat": 368,
     "Abilities": 128,
     "Input": 30,
     "Movement": 94
   },
   "canonical": {
     "sections": {
-      "Bug Fixes": 137,
+      "Documentation": 109,
+      "Bug Fixes": 138,
       "Features": 529,
-      "Documentation": 108,
       "Tests": 45,
       "Maintenance": 20,
       "Architecture & Infrastructure": 6,
@@ -52,19 +52,19 @@
       "Refactoring": 27
     },
     "systems": {
-      "Extraction": 145,
-      "Networking & Sessions": 308,
+      "Unassigned": 25,
+      "Combat": 367,
+      "Extraction": 146,
+      "Networking & Sessions": 309,
+      "UI": 318,
+      "Build & Tooling": 536,
+      "Documentation": 389,
+      "Tests": 652,
       "World & Visibility": 136,
       "Audio": 35,
-      "Build & Tooling": 535,
-      "Tests": 651,
       "Inventory & Loot": 420,
       "Persistence & Backend": 236,
-      "UI": 317,
-      "Documentation": 388,
       "Art & Animation": 234,
-      "Unassigned": 24,
-      "Combat": 366,
       "Abilities": 126,
       "Input": 30,
       "Movement": 94
@@ -34055,8 +34055,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 161,
-      "canonicalEntries": 161
+      "originalCommits": 163,
+      "canonicalEntries": 163
     },
     {
       "key": "v0.5.0",
@@ -34100,6 +34100,155 @@
     }
   ],
   "commits": [
+    {
+      "sha": "eaf73be9104a2bfa542e02513f730c5929647709",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/eaf73be9104a2bfa542e02513f730c5929647709",
+      "subject": "docs(odd): add FIX-97 execution tracker and evidence",
+      "body": "",
+      "date": "2026-11-12T17:59:58-03:00",
+      "files": [
+        "odd/tasks/fix-97-town-team-assignment.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "odd",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "unassigned-system",
+          "message": "No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system."
+        }
+      ],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "2d24273d6234fc0c6fe41b9950dce4b482cbd108",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2d24273d6234fc0c6fe41b9950dce4b482cbd108",
+      "subject": "fix(town): assign Raid teams from Town parties at launch",
+      "body": "A Town launch put the whole cohort on Team 1, so any cohort above two\nplayers (e.g. a Duo plus a Solo) produced an invalid RaidTeamRoster.\nTeamExtractionCoordinator then never initialized: team extraction never\nstarted, quota and HUD fell back to Team 1 (a Solo saw the Duo quota as\nits own) and the countdown stalled at 0 without extracting anyone.\n\nThe Town preparation State Authority now reads each member's Town party\nonce at Start and freezes a per-member team ordinal: members sharing a\nparty form one team, a Solo party is its own team, numbered 1..N by\nfirst appearance in the frozen cohort order. The ordinal is replicated\nin the preparation member state; peers never derive teams from their\nlocal party state.\n\nContracts to review:\n- TownRaidPreparationMember gains TeamOrdinal (0 = unassigned) and the\n  replicated MemberNetwork gains a byte TeamOrdinal; Host and Clients\n  must run the same build.\n- TryFreeze gains a partyIds overload; it fails closed for a party\n  larger than a Duo, negative ids or a roster/id length mismatch.\n- TryCreateLaunchContext fails closed for missing, gapped, out-of-order\n  or oversized teams instead of defaulting to Team 1.\n- Start fails closed (error log) when the party directory is missing or\n  a member has no valid Town party.\n\nTests:\n- TownRaidPreparationRulesTests: Duo + Solo, all Solo, single Duo,\n  non-adjacent party members, two Duos + Solo, sixteen Solos, freeze and\n  launch-context fail-closed cases, ordinal surviving acknowledgement;\n  the Team 1 order test now asserts the party rule.\n- ExpeditionWeaponRequirementTests: launching snapshots carry the team\n  ordinals of their launch participants.\n\nDocs: LobbyAndSessionTransitionArchitecture.md describes the party team\nrule in place of \"Team 1 for the complete cohort\".\n\nRefs: FIX-97\nPlayer-Fixed: Extraction now completes when a Duo and other players share a raid launched from Town, and Solo players no longer see another team's quota as their own.\n",
+      "date": "2026-11-12T17:59:58-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationMember.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationRules.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidPreparationRulesTests.cs",
+        "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "town",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Extraction",
+        "Networking & Sessions",
+        "UI",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationMember.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationRules.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidPreparationRulesTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "HUD",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidPreparationRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidPreparationRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "195c4605ea25d665f714e0e6896b6d5b6daa158c",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/195c4605ea25d665f714e0e6896b6d5b6daa158c",
