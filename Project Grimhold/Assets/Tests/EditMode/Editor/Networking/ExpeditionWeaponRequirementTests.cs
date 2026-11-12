@@ -207,14 +207,14 @@ public sealed class ExpeditionWeaponRequirementTests
             TownRaidPreparationState.Launching, members, 1, launch.LaunchRevision, members.Length);
         int acks = 0;
         void Ack(int revision) { Assert.That(revision, Is.EqualTo(launch.LaunchRevision)); acks++; }
-        Assert.That(controller.AdvanceLocalLaunch(snapshot, Profile, _coordinator, party, Ack),
+        Assert.That(controller.AdvanceLocalLaunch(snapshot, Profile, _coordinator, party, Ack, 0f),
             Is.EqualTo(RaidLaunchPreparationResult.NotReady));
         Assert.That(acks, Is.Zero);
         save.SetResult((true, default));
-        Assert.That(controller.AdvanceLocalLaunch(snapshot, Profile, _coordinator, party, Ack),
+        Assert.That(controller.AdvanceLocalLaunch(snapshot, Profile, _coordinator, party, Ack, RetryInterval),
             Is.EqualTo(RaidLaunchPreparationResult.Success));
         Assert.That(acks, Is.EqualTo(1));
-        controller.AdvanceLocalLaunch(snapshot, Profile, _coordinator, party, Ack);
+        controller.AdvanceLocalLaunch(snapshot, Profile, _coordinator, party, Ack, RetryInterval * 2f);
         Assert.That(acks, Is.EqualTo(1), "The same snapshot/revision must never ACK twice.");
     }
 
@@ -230,25 +230,175 @@ public sealed class ExpeditionWeaponRequirementTests
         var launching = new TownRaidPreparationSnapshot(launch.RaidCode, launch.HostProfileId,
             TownRaidPreparationState.Launching, members, 1, launch.LaunchRevision, members.Length);
         int acks = 0;
-        Assert.That(controller.AdvanceLocalLaunch(launching, Profile, _coordinator, party, _ => acks++),
+        Assert.That(controller.AdvanceLocalLaunch(launching, Profile, _coordinator, party, _ => acks++, 0f),
             Is.EqualTo(RaidLaunchPreparationResult.NotReady));
         _coordinator.CancelPendingRaidLaunch(launch.RaidCode.Value, launch.LaunchRevision);
         var waiting = new TownRaidPreparationSnapshot(launch.RaidCode, launch.HostProfileId,
             TownRaidPreparationState.Waiting, members, 2);
-        controller.AdvanceLocalLaunch(waiting, Profile, _coordinator, party, _ => acks++);
+        controller.AdvanceLocalLaunch(waiting, Profile, _coordinator, party, _ => acks++, RetryInterval);
         save.SetResult((true, default));
-        controller.AdvanceLocalLaunch(waiting, Profile, _coordinator, party, _ => acks++);
+        controller.AdvanceLocalLaunch(waiting, Profile, _coordinator, party, _ => acks++, RetryInterval * 2f);
         Assert.That(acks, Is.Zero);
         Assert.That(_coordinator.ActiveTicket, Is.Null);
         Assert.That(_store.PendingReservation, Is.Null);
     }
 
-    private (RaidLaunchContext, TownPartyContinuationContext,
-        TaskCompletionSource<(bool success, BackendError error)>) PendingSave(bool isHost)
+    // FIX-01 (HacknPlan #668): transient NotReady is classified and retried with spacing inside the
+    // local ACK window; a permanent rejection is still reported once per launch revision.
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void NotReadyReason_PendingReservationSave_ClearsOnSuccess(bool isHost)
+    {
+        var (launch, party, save) = PendingSave(isHost);
+        Assert.That(_coordinator.TryStoreRaidLaunchContext(launch, party), Is.EqualTo(RaidLaunchPreparationResult.NotReady));
+        Assert.That(_coordinator.LastLaunchNotReadyReason, Is.EqualTo(RaidLaunchNotReadyReason.ReservationSavePending));
+        save.SetResult((true, default));
+        Assert.That(_coordinator.TryStoreRaidLaunchContext(launch, party), Is.EqualTo(RaidLaunchPreparationResult.Success));
+        Assert.That(_coordinator.LastLaunchNotReadyReason, Is.EqualTo(RaidLaunchNotReadyReason.None));
+    }
+
+    [Test]
+    public void NotReadyReason_TicketOfAnotherRevision_IsTicketMismatch()
+    {
+        EquipWeapon();
+        var (launch, party) = Launch();
+        Assert.That(_coordinator.TryStoreRaidLaunchContext(launch, party), Is.EqualTo(RaidLaunchPreparationResult.Success));
+        var (nextRevision, _) = Launch(revision: 2);
+        Assert.That(_coordinator.TryStoreRaidLaunchContext(nextRevision, party), Is.EqualTo(RaidLaunchPreparationResult.NotReady));
+        Assert.That(_coordinator.LastLaunchNotReadyReason, Is.EqualTo(RaidLaunchNotReadyReason.TicketMismatch));
+        Assert.That(_coordinator.ActiveTicket.Value.LaunchContext.LaunchRevision, Is.EqualTo(1),
+            "Classifying the mismatch must not touch the stored ticket (stale ticket release is FIX-02).");
+    }
+
+    [Test]
+    public void NotReadyReason_MissingPartyContinuation_IsClassifiedWithoutReservation()
+    {
+        EquipWeapon();
+        var (launch, _) = Launch();
+        var otherHost = new ProfileId("90909090909090909090909090909090");
+        Assert.That(TownPartyContinuationContext.TryCreate(otherHost,
+            new[] { otherHost, new ProfileId("91919191919191919191919191919191") }, out var otherParty), Is.True);
+        foreach (var party in new[] { null, otherParty })
+        {
+            Assert.That(_coordinator.TryStoreRaidLaunchContext(launch, party), Is.EqualTo(RaidLaunchPreparationResult.NotReady));
+            Assert.That(_coordinator.LastLaunchNotReadyReason, Is.EqualTo(RaidLaunchNotReadyReason.PartyContinuationMissing));
+        }
+
+        Assert.That(_coordinator.ActiveTicket, Is.Null);
+        Assert.That(_store.PendingReservation, Is.Null);
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void LocalLaunchRetry_IsSpacedUntilTheConditionResolves_ThenAcksOnce(bool isHost)
+    {
+        var (launch, party, save) = PendingSave(isHost);
+        var controller = _root.AddComponent<TownRaidPreparationNetworkController>();
+        var snapshot = LaunchingSnapshot(launch);
+        int acks = 0;
+        Assert.That(controller.AdvanceLocalLaunch(snapshot, Profile, _coordinator, party, _ => acks++, 0f),
+            Is.EqualTo(RaidLaunchPreparationResult.NotReady));
+        Assert.That(controller.LocalLaunchWaitReason, Is.EqualTo(RaidLaunchNotReadyReason.ReservationSavePending));
+        save.SetResult((true, default));
+        Assert.That(controller.AdvanceLocalLaunch(snapshot, Profile, _coordinator, party, _ => acks++, RetryInterval * 0.5f),
+            Is.EqualTo(RaidLaunchPreparationResult.NotReady), "A retry before the spacing interval must not run.");
+        Assert.That(acks, Is.Zero);
+        Assert.That(controller.AdvanceLocalLaunch(snapshot, Profile, _coordinator, party, _ => acks++, RetryInterval),
+            Is.EqualTo(RaidLaunchPreparationResult.Success));
+        Assert.That(acks, Is.EqualTo(1));
+        Assert.That(controller.LocalLaunchWaitReason, Is.EqualTo(RaidLaunchNotReadyReason.None));
+        for (int i = 2; i < 6; i++)
+            controller.AdvanceLocalLaunch(snapshot, Profile, _coordinator, party, _ => acks++, RetryInterval * i);
+        Assert.That(acks, Is.EqualTo(1), "An acknowledged revision never sends a second ACK.");
+    }
+
+    [Test]
+    public void LocalLaunchRetry_UnresolvedConditionStopsAtTheAckWindowAndKeepsItsReason()
+    {
+        var (launch, party, save) = PendingSave(isHost: false);
+        var controller = _root.AddComponent<TownRaidPreparationNetworkController>();
+        var snapshot = LaunchingSnapshot(launch);
+        int acks = 0;
+        for (float now = 0f; now < AckWindow; now += RetryInterval)
+        {
+            Assert.That(controller.AdvanceLocalLaunch(snapshot, Profile, _coordinator, party, _ => acks++, now),
+                Is.EqualTo(RaidLaunchPreparationResult.NotReady));
+            Assert.That(controller.IsLocalLaunchWaitExpired, Is.False);
+        }
+
+        Assert.That(controller.AdvanceLocalLaunch(snapshot, Profile, _coordinator, party, _ => acks++, AckWindow),
+            Is.EqualTo(RaidLaunchPreparationResult.NotReady));
+        Assert.That(controller.IsLocalLaunchWaitExpired, Is.True);
+        Assert.That(controller.LocalLaunchWaitReason, Is.EqualTo(RaidLaunchNotReadyReason.ReservationSavePending),
+            "The expired wait keeps its transient cause for the cancellation feedback.");
+        save.SetResult((true, default));
+        controller.AdvanceLocalLaunch(snapshot, Profile, _coordinator, party, _ => acks++, AckWindow + RetryInterval);
+        Assert.That(acks, Is.Zero, "No ACK may leave after the local ACK window expired.");
+    }
+
+    [Test]
+    public void LocalLaunchRetry_MissingPartyContinuationIsRetriedWhenItArrives()
+    {
+        EquipWeapon();
+        var (launch, party) = Launch(isHost: false);
+        var controller = _root.AddComponent<TownRaidPreparationNetworkController>();
+        var snapshot = LaunchingSnapshot(launch);
+        int acks = 0;
+        Assert.That(controller.AdvanceLocalLaunch(snapshot, Profile, _coordinator, null, _ => acks++, 0f),
+            Is.EqualTo(RaidLaunchPreparationResult.NotReady));
+        Assert.That(controller.LocalLaunchWaitReason, Is.EqualTo(RaidLaunchNotReadyReason.PartyContinuationMissing));
+        Assert.That(controller.AdvanceLocalLaunch(snapshot, Profile, _coordinator, party, _ => acks++, RetryInterval),
+            Is.EqualTo(RaidLaunchPreparationResult.Success));
+        Assert.That(acks, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void LocalLaunchRetry_PermanentRejectionIsReportedExactlyOnce()
+    {
+        var (launch, party, save) = PendingSave(isHost: false);
+        var controller = _root.AddComponent<TownRaidPreparationNetworkController>();
+        var snapshot = LaunchingSnapshot(launch);
+        int acks = 0, rejections = 0;
+        Assert.That(controller.AdvanceLocalLaunch(snapshot, Profile, _coordinator, party, _ => acks++, 0f),
+            Is.EqualTo(RaidLaunchPreparationResult.NotReady));
+        save.SetResult((false, new BackendError { error = "PREPARED_WEAPON_REQUIRED" }));
+        for (int i = 1; i < 6; i++)
+        {
+            if (controller.AdvanceLocalLaunch(snapshot, Profile, _coordinator, party, _ => acks++, RetryInterval * i) ==
+                RaidLaunchPreparationResult.Rejected)
+                rejections++;
+        }
+
+        Assert.That(rejections, Is.EqualTo(1));
+        Assert.That(acks, Is.Zero);
+        Assert.That(_coordinator.TryConsumeLastLaunchRejection(out var reason), Is.True);
+        Assert.That(reason, Is.EqualTo(ExpeditionPreparationResult.PreparedWeaponRequired));
+    }
+
+    private const float RetryInterval = 0.25f;
+    private const float AckWindow = 15f;
+
+    private static TownRaidPreparationSnapshot LaunchingSnapshot(RaidLaunchContext launch)
+    {
+        var members = launch.Participants.Select(
+            participant => new TownRaidPreparationMember(
+                participant.ProfileId, true, launch.LaunchRevision, false, participant.TeamId.Value)).ToArray();
+        return new TownRaidPreparationSnapshot(launch.RaidCode, launch.HostProfileId,
+            TownRaidPreparationState.Launching, members, 1, launch.LaunchRevision, members.Length);
+    }
+
+    private void EquipWeapon()
     {
         var id = new LootId("training_short_sword");
         Assert.That(_store.TryImportItems(new[] { new StashItem(id, 1) }), Is.EqualTo(StashOperationResult.Success));
         Assert.That(_store.TryAssignPreparedEquipment(EquipmentSlot.WeaponSetAMainHand, id), Is.EqualTo(StashOperationResult.Success));
+    }
+
+    private (RaidLaunchContext, TownPartyContinuationContext,
+        TaskCompletionSource<(bool success, BackendError error)>) PendingSave(bool isHost)
+    {
+        EquipWeapon();
         var (launch, party) = Launch(isHost);
         Assert.That(_coordinator.TryStoreRaidLaunchContext(launch, party), Is.EqualTo(RaidLaunchPreparationResult.Success));
         // Substitute only the transport completion at the coordinator's existing task boundary.
@@ -259,14 +409,14 @@ public sealed class ExpeditionWeaponRequirementTests
         return (launch, party, save);
     }
 
-    private static (RaidLaunchContext launch, TownPartyContinuationContext party) Launch(bool isHost = true)
+    private static (RaidLaunchContext launch, TownPartyContinuationContext party) Launch(bool isHost = true, int revision = 1)
     {
         Assert.That(RaidCode.TryParse("123456", out var code), Is.True);
         Assert.That(RaidTeamId.TryCreate(1, out var team), Is.True);
         var host = isHost ? Profile : new ProfileId("78787878787878787878787878787878");
         var profiles = isHost ? new[] { Profile } : new[] { host, Profile };
         var participants = Array.ConvertAll(profiles, profile => new RaidLaunchParticipant(profile, team));
-        Assert.That(RaidLaunchContext.TryCreate(code, host, participants, Profile, 1, out var launch), Is.True);
+        Assert.That(RaidLaunchContext.TryCreate(code, host, participants, Profile, revision, out var launch), Is.True);
         Assert.That(TownPartyContinuationContext.TryCreate(host, profiles, out var party), Is.True);
         return (launch, party);
     }
