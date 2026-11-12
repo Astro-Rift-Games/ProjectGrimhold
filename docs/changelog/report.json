@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1035,
-  "canonicalEntries": 1032,
+  "rawCommits": 1038,
+  "canonicalEntries": 1035,
   "before": {
+    "Bug Fixes": 122,
+    "Features": 392,
     "Documentation": 92,
-    "Features": 391,
-    "Bug Fixes": 120,
     "Tests": 40,
     "Architecture & Infrastructure": 22,
     "Other Changes": 356,
     "Refactoring": 14
   },
   "after": {
+    "Bug Fixes": 138,
+    "Features": 530,
     "Documentation": 108,
-    "Features": 529,
-    "Bug Fixes": 136,
     "Tests": 45,
     "Maintenance": 20,
     "Architecture & Infrastructure": 6,
@@ -23,28 +23,28 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Extraction": 143,
-    "Networking & Sessions": 305,
-    "Build & Tooling": 534,
+    "Extraction": 145,
+    "Networking & Sessions": 308,
+    "World & Visibility": 138,
+    "Audio": 35,
+    "Build & Tooling": 537,
+    "Tests": 653,
+    "Inventory & Loot": 420,
+    "Persistence & Backend": 236,
     "UI": 318,
     "Documentation": 390,
-    "Inventory & Loot": 419,
-    "Persistence & Backend": 235,
-    "World & Visibility": 136,
-    "Tests": 650,
     "Art & Animation": 237,
     "Unassigned": 24,
     "Combat": 368,
     "Abilities": 128,
-    "Audio": 34,
     "Input": 30,
     "Movement": 94
   },
   "canonical": {
     "sections": {
+      "Bug Fixes": 137,
+      "Features": 529,
       "Documentation": 108,
-      "Features": 528,
-      "Bug Fixes": 135,
       "Tests": 45,
       "Maintenance": 20,
       "Architecture & Infrastructure": 6,
@@ -52,20 +52,20 @@
       "Refactoring": 27
     },
     "systems": {
-      "Extraction": 143,
-      "Networking & Sessions": 305,
-      "Build & Tooling": 532,
+      "Extraction": 145,
+      "Networking & Sessions": 308,
+      "World & Visibility": 136,
+      "Audio": 35,
+      "Build & Tooling": 535,
+      "Tests": 651,
+      "Inventory & Loot": 420,
+      "Persistence & Backend": 236,
       "UI": 317,
       "Documentation": 388,
-      "Inventory & Loot": 419,
-      "Persistence & Backend": 235,
-      "World & Visibility": 134,
-      "Tests": 648,
       "Art & Animation": 234,
       "Unassigned": 24,
       "Combat": 366,
       "Abilities": 126,
-      "Audio": 34,
       "Input": 30,
       "Movement": 94
     }
@@ -34055,8 +34055,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 158,
-      "canonicalEntries": 158
+      "originalCommits": 161,
+      "canonicalEntries": 161
     },
     {
       "key": "v0.5.0",
@@ -34100,6 +34100,553 @@
     }
   ],
   "commits": [
+    {
+      "sha": "195c4605ea25d665f714e0e6896b6d5b6daa158c",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/195c4605ea25d665f714e0e6896b6d5b6daa158c",
+      "subject": "fix(dungeon-pressure): protect presenter and audio lifecycle during raid teardown",
+      "body": "Guard networked phase and timer property access in DungeonPressureController using Object != null && Object.IsValid to prevent InvalidOperationException when presenters evaluate during scene teardown or unspawned states.\n\nPlayer-Fixed: Prevent game errors and transition freezes when returning to Town after extraction.\n",
+      "date": "2026-11-12T16:28:28-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs.meta"
+      ],
+      "originalType": "fix",
+      "originalScope": "dungeon-pressure",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Networking & Sessions",
+        "World & Visibility",
+        "Audio",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "scope",
+          "value": "dungeon-pressure",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs",
+          "supports": "Audio"
+        },
+        {
+          "source": "message-term",
+          "value": "audio",
+          "supports": "Audio"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs.meta",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "bbe7065450036982599f95878443c056adb30282",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/bbe7065450036982599f95878443c056adb30282",
+      "subject": "fix(missions): resolve presenter lifecycle, deduplicate events, and sync loot progression",
+      "body": "Fix lifecycle desubscription in TownMissionGuildPresenter to prevent MissingReferenceException after view destruction, enforce authoritative event deduplication using EventId in LocalProfileStore, and dispatch in-raid container resource looting to objective trackers. Enforce monotonic progression receipt sequencing and watermark propagation to prevent persistence commit failures during extraction.\n\nPlayer-Fixed: Prevent game freezes in the Guild when closing menus, track in-raid container loot towards missions, and ensure extracted loot saves reliably without progression errors.\n",
+      "date": "2026-11-12T16:27:52-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scriptable Objects/Missions/Mission_RankE_02.asset",
+        "Project Grimhold/Assets/Scripts/Missions/Debugging/MissionPlayModeDebugger.cs",
+        "Project Grimhold/Assets/Scripts/Missions/Engine/MissionContributionEvent.cs",
+        "Project Grimhold/Assets/Scripts/Missions/Engine/PlayerMissionContributionLedger.cs",
+        "Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootTransferNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMissionTrackerPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownMissionGuildPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDeduplicationTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDeduplicationTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDefinitionCatalogTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionLifecycleRulesTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionPersistenceTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionProgressEngineTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/TownMissionGuildPresenterTests.cs",
+        "odd/tasks/task-290-us75-fixes-event-dedup-test-relocation.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "missions",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootTransferNetworkController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionPersistenceTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "persistence",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDeduplicationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDeduplicationTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDefinitionCatalogTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionLifecycleRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionPersistenceTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionProgressEngineTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/TownMissionGuildPresenterTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDeduplicationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDeduplicationTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDefinitionCatalogTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionLifecycleRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionPersistenceTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionProgressEngineTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/TownMissionGuildPresenterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/task-290-us75-fixes-event-dedup-test-relocation.md",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "b566914440e365648939f58d07456326e74a27b6",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b566914440e365648939f58d07456326e74a27b6",
+      "subject": "feat(spawning): implement weighted enemy selection, dungeon filtering, and threat budget",
+      "body": "Implement probabilistic enemy spawn weighting and threat budgeting for dungeon encounters and reinforcements:\n- Introduce WeightedEnemySelector with deterministic weighted random sampling across eligible pools.\n- Add EnemySpawnCandidate, EnemySpawnMetadata, and EnemySpawnCandidateResolver for archetype configuration and inference.\n- Restrict Catacombs Specter to the 'catacombs' dungeon environment via DungeonEnvironmentResolver.\n- Configure Specter threat cost (2) vs common enemies (1) and enforce room/encounter ThreatBudget in NetworkSpawnManager and EnemyReinforcementDirector.\n- Add comprehensive EditMode test suites (WeightedEnemySelectorTests and EnemySpawnIntegrationTests) verifying statistical distribution, environmental exclusion, and threat budget limits.\n\nRefs: TASK-289 (#796)\n",
+      "date": "2026-11-11T00:29:34-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Character/EnemyCharacter.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyReinforcementDirector.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyThreatCost.cs",
+        "Project Grimhold/Assets/Scripts/Networking/DungeonEnvironmentResolver.cs",
+        "Project Grimhold/Assets/Scripts/Networking/DungeonEnvironmentResolver.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/EnemySpawnCandidate.cs",
+        "Project Grimhold/Assets/Scripts/Networking/EnemySpawnCandidate.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/EnemySpawnCandidateResolver.cs",
+        "Project Grimhold/Assets/Scripts/Networking/EnemySpawnCandidateResolver.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/EnemySpawnMetadata.cs",
+        "Project Grimhold/Assets/Scripts/Networking/EnemySpawnMetadata.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+        "Project Grimhold/Assets/Scripts/Networking/SpawnGroupDefinition.cs",
+        "Project Grimhold/Assets/Scripts/Networking/WeightedEnemySelector.cs",
+        "Project Grimhold/Assets/Scripts/Networking/WeightedEnemySelector.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/EnemySpawnIntegrationTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/EnemySpawnIntegrationTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/WeightedEnemySelectorTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/WeightedEnemySelectorTests.cs.meta",
+        "odd/tasks/task-289-enemy-spawn-weights-threat-budget.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "spawning",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "World & Visibility",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/DungeonEnvironmentResolver.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/DungeonEnvironmentResolver.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/EnemySpawnCandidate.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/EnemySpawnCandidate.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/EnemySpawnCandidateResolver.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/EnemySpawnCandidateResolver.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/EnemySpawnMetadata.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/EnemySpawnMetadata.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SpawnGroupDefinition.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/WeightedEnemySelector.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/WeightedEnemySelector.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/EnemySpawnIntegrationTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/EnemySpawnIntegrationTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/WeightedEnemySelectorTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/WeightedEnemySelectorTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyReinforcementDirector.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyThreatCost.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/DungeonEnvironmentResolver.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/DungeonEnvironmentResolver.cs.meta",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/EnemySpawnIntegrationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/EnemySpawnIntegrationTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/WeightedEnemySelectorTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/WeightedEnemySelectorTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/EnemySpawnIntegrationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/EnemySpawnIntegrationTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/WeightedEnemySelectorTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/WeightedEnemySelectorTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "21d3d0df3d7ed976ec0442f79b094bfb763cad07",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/21d3d0df3d7ed976ec0442f79b094bfb763cad07",

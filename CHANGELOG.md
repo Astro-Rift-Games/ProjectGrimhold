@@ -66,6 +66,8 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - Reconnecting to a raid from town after losing connection works again.
 - If abandoning fails, you get a message and can try again instead of being stuck.
 - If a raid fails to start or the connection drops, you return to town and see which equipment was lost instead of losing it silently.
+- Prevent game freezes in the Guild when closing menus, track in-raid container loot towards missions, and ensure extracted loot saves reliably without progression errors.
+- Prevent game errors and transition freezes when returning to Town after extraction.
 
 
 ## [0.5.0](https://github.com/Astro-Rift-Games/ProjectGrimhold/releases/tag/v0.5.0) - 2026-11-08

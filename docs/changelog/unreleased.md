@@ -4,32 +4,269 @@
 
 Release: Unreleased
 
-158 original commits; 158 canonical entries.
+161 original commits; 161 canonical entries.
 
 ## Canonical classification
 
-69 features; 42 bug fixes; 1 refactoring; 1 architecture & infrastructure; 18 documentation; 16 tests; 9 maintenance; 2 other changes
+70 features; 44 bug fixes; 1 refactoring; 1 architecture & infrastructure; 18 documentation; 16 tests; 9 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 7 | 6 | 1 | 0 | 9 | 1 |
 | Art & Animation | 10 | 9 | 1 | 0 | 7 | 0 |
-| Audio | 3 | 1 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 43 | 28 | 1 | 1 | 18 | 2 |
+| Audio | 3 | 2 | 0 | 0 | 0 | 0 |
+| Build & Tooling | 44 | 30 | 1 | 1 | 18 | 2 |
 | Combat | 34 | 7 | 0 | 0 | 11 | 0 |
 | Documentation | 26 | 12 | 0 | 0 | 9 | 0 |
-| Extraction | 11 | 5 | 0 | 0 | 8 | 0 |
+| Extraction | 11 | 7 | 0 | 0 | 8 | 0 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 53 | 28 | 1 | 1 | 19 | 1 |
+| Inventory & Loot | 53 | 29 | 1 | 1 | 19 | 1 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 20 | 14 | 0 | 0 | 15 | 0 |
-| Persistence & Backend | 26 | 13 | 0 | 1 | 10 | 0 |
-| Tests | 66 | 36 | 1 | 1 | 25 | 0 |
+| Networking & Sessions | 21 | 16 | 0 | 0 | 15 | 0 |
+| Persistence & Backend | 26 | 14 | 0 | 1 | 10 | 0 |
+| Tests | 67 | 38 | 1 | 1 | 25 | 0 |
 | UI | 26 | 10 | 1 | 0 | 12 | 0 |
 | Unassigned | 0 | 1 | 0 | 0 | 5 | 0 |
-| World & Visibility | 17 | 6 | 0 | 0 | 3 | 0 |
+| World & Visibility | 18 | 7 | 0 | 0 | 3 | 0 |
 
 ## Original commit records
+
+### 195c4605ea25d665f714e0e6896b6d5b6daa158c
+
+[195c4605ea25d665f714e0e6896b6d5b6daa158c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/195c4605ea25d665f714e0e6896b6d5b6daa158c)
+
+Date: 2026-11-12T16:28:28-03:00 · Classification: Bug Fixes (explicit) · Systems: Extraction, Networking & Sessions, World & Visibility, Audio, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(dungeon-pressure): protect presenter and audio lifecycle during raid teardown
+```
+
+#### Original body
+
+```text
+Guard networked phase and timer property access in DungeonPressureController using Object != null && Object.IsValid to prevent InvalidOperationException when presenters evaluate during scene teardown or unspawned states.
+
+Player-Fixed: Prevent game errors and transition freezes when returning to Town after extraction.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs.meta
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- message-term → Extraction: extraction
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs.meta
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs.meta
+- scope → World &amp; Visibility: dungeon-pressure
+- message-term → World &amp; Visibility: dungeon
+- path → Audio: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs
+- message-term → Audio: audio
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureControllerLifecycleTests.cs.meta
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### bbe7065450036982599f95878443c056adb30282
+
+[bbe7065450036982599f95878443c056adb30282](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/bbe7065450036982599f95878443c056adb30282)
+
+Date: 2026-11-12T16:27:52-03:00 · Classification: Bug Fixes (explicit) · Systems: Extraction, Inventory & Loot, Networking & Sessions, Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(missions): resolve presenter lifecycle, deduplicate events, and sync loot progression
+```
+
+#### Original body
+
+```text
+Fix lifecycle desubscription in TownMissionGuildPresenter to prevent MissingReferenceException after view destruction, enforce authoritative event deduplication using EventId in LocalProfileStore, and dispatch in-raid container resource looting to objective trackers. Enforce monotonic progression receipt sequencing and watermark propagation to prevent persistence commit failures during extraction.
+
+Player-Fixed: Prevent game freezes in the Guild when closing menus, track in-raid container loot towards missions, and ensure extracted loot saves reliably without progression errors.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scriptable Objects/Missions/Mission_RankE_02.asset
+Project Grimhold/Assets/Scripts/Missions/Debugging/MissionPlayModeDebugger.cs
+Project Grimhold/Assets/Scripts/Missions/Engine/MissionContributionEvent.cs
+Project Grimhold/Assets/Scripts/Missions/Engine/PlayerMissionContributionLedger.cs
+Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs
+Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootTransferNetworkController.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidMissionTrackerPresenter.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownMissionGuildPresenter.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDeduplicationTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDeduplicationTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDefinitionCatalogTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionLifecycleRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionPersistenceTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionProgressEngineTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/TownMissionGuildPresenterTests.cs
+odd/tasks/task-290-us75-fixes-event-dedup-test-relocation.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- message-term → Extraction: extraction
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerLootTransferNetworkController.cs
+- message-term → Inventory &amp; Loot: loot
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionPersistenceTests.cs
+- message-term → Persistence &amp; Backend: persistence
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDeduplicationTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDeduplicationTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDefinitionCatalogTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionLifecycleRulesTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionPersistenceTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionProgressEngineTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/TownMissionGuildPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDeduplicationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDeduplicationTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionDefinitionCatalogTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionLifecycleRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionPersistenceTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/MissionProgressEngineTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/TownMissionGuildPresenterTests.cs
+- path → Tests: odd/tasks/task-290-us75-fixes-event-dedup-test-relocation.md
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### b566914440e365648939f58d07456326e74a27b6
+
+[b566914440e365648939f58d07456326e74a27b6](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b566914440e365648939f58d07456326e74a27b6)
+
+Date: 2026-11-11T00:29:34-03:00 · Classification: Features (explicit) · Systems: Networking & Sessions, World & Visibility, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(spawning): implement weighted enemy selection, dungeon filtering, and threat budget
+```
+
+#### Original body
+
+```text
+Implement probabilistic enemy spawn weighting and threat budgeting for dungeon encounters and reinforcements:
+- Introduce WeightedEnemySelector with deterministic weighted random sampling across eligible pools.
+- Add EnemySpawnCandidate, EnemySpawnMetadata, and EnemySpawnCandidateResolver for archetype configuration and inference.
+- Restrict Catacombs Specter to the 'catacombs' dungeon environment via DungeonEnvironmentResolver.
+- Configure Specter threat cost (2) vs common enemies (1) and enforce room/encounter ThreatBudget in NetworkSpawnManager and EnemyReinforcementDirector.
+- Add comprehensive EditMode test suites (WeightedEnemySelectorTests and EnemySpawnIntegrationTests) verifying statistical distribution, environmental exclusion, and threat budget limits.
+
+Refs: TASK-289 (#796)
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Character/EnemyCharacter.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyReinforcementDirector.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyThreatCost.cs
+Project Grimhold/Assets/Scripts/Networking/DungeonEnvironmentResolver.cs
+Project Grimhold/Assets/Scripts/Networking/DungeonEnvironmentResolver.cs.meta
+Project Grimhold/Assets/Scripts/Networking/EnemySpawnCandidate.cs
+Project Grimhold/Assets/Scripts/Networking/EnemySpawnCandidate.cs.meta
+Project Grimhold/Assets/Scripts/Networking/EnemySpawnCandidateResolver.cs
+Project Grimhold/Assets/Scripts/Networking/EnemySpawnCandidateResolver.cs.meta
+Project Grimhold/Assets/Scripts/Networking/EnemySpawnMetadata.cs
+Project Grimhold/Assets/Scripts/Networking/EnemySpawnMetadata.cs.meta
+Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+Project Grimhold/Assets/Scripts/Networking/SpawnGroupDefinition.cs
+Project Grimhold/Assets/Scripts/Networking/WeightedEnemySelector.cs
+Project Grimhold/Assets/Scripts/Networking/WeightedEnemySelector.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/EnemySpawnIntegrationTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/EnemySpawnIntegrationTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/WeightedEnemySelectorTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/WeightedEnemySelectorTests.cs.meta
+odd/tasks/task-289-enemy-spawn-weights-threat-budget.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/DungeonEnvironmentResolver.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/DungeonEnvironmentResolver.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/EnemySpawnCandidate.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/EnemySpawnCandidate.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/EnemySpawnCandidateResolver.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/EnemySpawnCandidateResolver.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/EnemySpawnMetadata.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/EnemySpawnMetadata.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/SpawnGroupDefinition.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/WeightedEnemySelector.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/WeightedEnemySelector.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/EnemySpawnIntegrationTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/EnemySpawnIntegrationTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/WeightedEnemySelectorTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/WeightedEnemySelectorTests.cs.meta
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyReinforcementDirector.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/EnemyThreatCost.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Networking/DungeonEnvironmentResolver.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Networking/DungeonEnvironmentResolver.cs.meta
+- message-term → World &amp; Visibility: dungeon
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/EnemySpawnIntegrationTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/EnemySpawnIntegrationTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/WeightedEnemySelectorTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/WeightedEnemySelectorTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/EnemySpawnIntegrationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/EnemySpawnIntegrationTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/WeightedEnemySelectorTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/WeightedEnemySelectorTests.cs.meta
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 21d3d0df3d7ed976ec0442f79b094bfb763cad07
 
