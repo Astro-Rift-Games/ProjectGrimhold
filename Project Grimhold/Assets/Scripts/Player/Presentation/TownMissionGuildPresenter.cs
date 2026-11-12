@@ -167,8 +167,8 @@ public sealed class TownMissionGuildPresenter : NetworkBehaviour
             _dialoguePresenter.DialogueCompletedNormally -= OnDialogueCompletedNormally;
         }
 
-        ClosePanel();
         UnbindViewEvents();
+        ClosePanel();
 
         if (_view != null && _viewPrefab != null)
         {
@@ -286,7 +286,10 @@ public sealed class TownMissionGuildPresenter : NetworkBehaviour
     public void ClosePanel()
     {
         StopListening();
-        _view?.Close();
+        if (_view != null)
+        {
+            _view.Close();
+        }
 
         if (_openNpc != null)
         {
@@ -415,20 +418,24 @@ public sealed class TownMissionGuildPresenter : NetworkBehaviour
         _view.PresentMissionDetails(_selectedMission, instance, canAccept, canAbandon, canClaim, claimWarning);
     }
 
-    private void OnTabChanged(GuildViewTab tab)
+    internal void OnTabChanged(GuildViewTab tab)
     {
-        _view?.ClearFeedback();
+        if (_view != null)
+        {
+            _view.ClearFeedback();
+        }
         _selectedMission = null;
         Refresh();
     }
 
-    private void OnMissionSelected(MissionDefinition def)
+    internal void OnMissionSelected(MissionDefinition def)
     {
-        if (_selectedMission != def)
+        if (_selectedMission != def && _view != null)
         {
-            _view?.ClearFeedback();
+            _view.ClearFeedback();
         }
         _selectedMission = def;
+        if (_store == null || _view == null) return;
         var activeMissions = _store.GetActiveMissions();
         int activeCount = activeMissions.Count(m => m.State == MissionState.Activa || m.State == MissionState.PendienteDeReclamar);
         PresentSelectedDetails(activeMissions, activeCount);

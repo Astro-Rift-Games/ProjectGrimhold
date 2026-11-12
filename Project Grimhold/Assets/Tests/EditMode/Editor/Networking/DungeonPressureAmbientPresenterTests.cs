@@ -298,4 +298,24 @@ public sealed class DungeonPressureAmbientPresenterTests
         Object.DestroyImmediate(wallGo);
         Object.DestroyImmediate(dustGo);
     }
+
+    [Test]
+    public void UnspawnedOrDespawnedController_DoesNotThrowInvalidOperationException()
+    {
+        var controllerGo = new GameObject("UnspawnedController");
+        var controller = controllerGo.AddComponent<DungeonPressureController>();
+
+        try
+        {
+            Assert.DoesNotThrow(() =>
+            {
+                _presenter.Configure(controller, _config, _globalLight, _volume);
+                _presenter.EvaluatePresentation(0.1f);
+            });
+        }
+        finally
+        {
+            Object.DestroyImmediate(controllerGo);
+        }
+    }
 }

@@ -3,8 +3,10 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Reflection;
 
-public class MissionDefinitionCatalogTests
+namespace Tests.EditMode.Missions
 {
+    public class MissionDefinitionCatalogTests
+    {
     private MissionDefinitionCatalog _catalog;
     private MissionDefinition _validMission;
 
@@ -99,4 +101,5 @@ public class MissionDefinitionCatalogTests
         var field = obj.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
         field.SetValue(obj, value);
     }
+}
 }

@@ -752,7 +752,7 @@ public sealed class LocalProfilePersistenceEditModeTests
             application.Result.ResultingLevel);
     }
 
-    private sealed class MemoryFileStore : ILocalProfileFileStore
+    internal sealed class MemoryFileStore : ILocalProfileFileStore
     {
         public readonly Dictionary<string, string> Files = new(StringComparer.Ordinal);
         public bool FailWrites;
@@ -926,6 +926,48 @@ public sealed class ExtractionProgressionReceiptTests
         Assert.That(status, Is.EqualTo(LocalProfilePersistenceStatus.Ready));
         Assert.That(restored.Level, Is.EqualTo(2));
         Assert.That(restored.CurrentExperience, Is.Zero);
+    }
+
+    [Test]
+    public void TryCommitExtraction_WhenReceiptSequenceIsLowerThanLocalWatermark_PreservesMonotonicityAndSucceeds()
+    {
+        var files = new LocalProfilePersistenceEditModeTests.MemoryFileStore();
+        var profileId = new ProfileId("test_profile_monotonic_extraction");
+        var repository = new LocalProfileRepository(files, ".");
+        Assert.That(repository.Initialize(profileId, _catalog), Is.True);
+
+        var snapshot = repository.Snapshot.Clone();
+        snapshot.Level = 10;
+        snapshot.CurrentExperience = 30;
+        snapshot.LastAppliedProgressionResultSequence = 6;
+        var r4 = new ProgressionReceipt("backend-sync", profileId, 4, 74, 9);
+        var r5 = new ProgressionReceipt("mission-claim", profileId, 5, 124, 9);
+        var r6 = new ProgressionReceipt("mission-claim", profileId, 6, 30, 10);
+        snapshot.AppliedProgressionReceipts.Add(r4);
+        snapshot.AppliedProgressionReceipts.Add(r5);
+        snapshot.AppliedProgressionReceipts.Add(r6);
+        snapshot.LastProgressionReceipt = r6;
+        Assert.That(repository.TrySave(snapshot, out string initError), Is.True, initError);
+
+        var store = new LocalProfileStore(repository, profileId, _catalog);
+
+        // Raid started with stale backend sequence 4, so participant extracted with sequence 5 (<= watermark 6)
+        var receipt = new ExtractionReceipt("raid_stale", profileId, 5);
+        var result = store.TryCommitExtraction(
+            receipt,
+            new System.Collections.Generic.List<StashItem>(),
+            default,
+            consolidatedExperience: 50,
+            resultingLevel: 10,
+            resultingExperience: 80);
+
+        Assert.That(result, Is.EqualTo(StashOperationResult.Success));
+        var saved = repository.Snapshot;
+        Assert.That(saved.LastAppliedProgressionResultSequence, Is.GreaterThanOrEqualTo(7));
+        Assert.That(saved.LastProgressionReceipt.HasValue, Is.True);
+        Assert.That(saved.LastProgressionReceipt.Value.ResultSequence, Is.EqualTo(saved.LastAppliedProgressionResultSequence));
+        Assert.That(saved.AppliedProgressionReceipts.Count, Is.EqualTo(4));
+        Assert.That(saved.AppliedProgressionReceipts[3], Is.EqualTo(saved.LastProgressionReceipt.Value));
     }
 }
 #endif

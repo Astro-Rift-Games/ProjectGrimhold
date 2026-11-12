@@ -22,7 +22,7 @@ MonoBehaviour:
     - Family: 1
       Condition:
         TargetId: skeleton
-        ZoneId: 
+        ZoneId: Catacombs_Main
         RequiredAmount: 2
   Rewards:
   - Type: 0

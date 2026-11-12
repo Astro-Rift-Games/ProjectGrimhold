@@ -25,16 +25,23 @@ public sealed class PlayerMissionContributionLedger : NetworkBehaviour
         int amount,
         string targetId,
         string zoneId,
-        bool isCompanionContribution = false)
+        bool isCompanionContribution = false,
+        string eventId = null)
     {
         if (!HasStateAuthority) return;
+
+        if (string.IsNullOrEmpty(eventId))
+        {
+            eventId = System.Guid.NewGuid().ToString("N");
+        }
 
         Rpc_ReplicateContribution(
             (int)family,
             amount,
             targetId ?? string.Empty,
             zoneId ?? string.Empty,
-            isCompanionContribution);
+            isCompanionContribution,
+            eventId);
     }
 
     [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]
@@ -43,7 +50,8 @@ public sealed class PlayerMissionContributionLedger : NetworkBehaviour
         int amount,
         NetworkString<_32> targetId,
         NetworkString<_32> zoneId,
-        NetworkBool isCompanion)
+        NetworkBool isCompanion,
+        NetworkString<_32> eventId)
     {
         if (_participant == null || string.IsNullOrEmpty(_participant.ProfileId.Value)) return;
 
@@ -54,7 +62,8 @@ public sealed class PlayerMissionContributionLedger : NetworkBehaviour
             profileId,
             targetId.Value,
             zoneId.Value,
-            isCompanion);
+            isCompanion,
+            eventId.Value);
 
         var context = FindAnyObjectByType<ApplicationStashContext>();
         if (context != null && context.Store != null && context.Store.ProfileId == profileId)

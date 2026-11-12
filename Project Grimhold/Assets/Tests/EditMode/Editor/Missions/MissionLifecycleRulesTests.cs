@@ -1,8 +1,10 @@
 using NUnit.Framework;
 using System.Collections.Generic;
 
-public class MissionLifecycleRulesTests
+namespace Tests.EditMode.Missions
 {
+    public class MissionLifecycleRulesTests
+    {
     [TestCase(MissionState.Disponible, MissionState.Activa, ExpectedResult = true)]
     [TestCase(MissionState.Activa, MissionState.Completada, ExpectedResult = true)]
     [TestCase(MissionState.Activa, MissionState.Abandonada, ExpectedResult = true)]
@@ -51,4 +53,5 @@ public class MissionLifecycleRulesTests
         var activeTypes = new List<MissionType> { MissionType.Normal, MissionType.Normal, MissionType.Semanal };
         Assert.IsTrue(MissionLifecycleRules.CanAcceptMission(MissionType.Normal, activeTypes));
     }
+}
 }

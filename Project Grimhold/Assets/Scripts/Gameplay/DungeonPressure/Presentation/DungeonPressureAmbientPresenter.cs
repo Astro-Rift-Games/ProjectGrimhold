@@ -93,6 +93,20 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
     public DungeonAmbientConfig Config => _config;
     public DungeonPressureController PressureController => _pressureController;
 
+    private bool HasValidController => _pressureController != null && _pressureController.Object != null && _pressureController.Object.IsValid;
+
+    private bool TryGetControllerPhase(out DungeonPressurePhase phase)
+    {
+        if (HasValidController)
+        {
+            phase = _pressureController.Phase;
+            return true;
+        }
+
+        phase = _lastPhase;
+        return false;
+    }
+
     public Color CurrentVignetteColor => _currentVignetteColor;
     public float CurrentVignetteIntensity => _currentVignetteIntensity;
     public float CurrentVignetteSmoothness => _currentVignetteSmoothness;
@@ -108,7 +122,7 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         InitializeComponents();
         if (!_hasResolvedInitialPhase)
         {
-            DungeonPressurePhase initialPhase = _pressureController != null ? _pressureController.Phase : _lastPhase;
+            DungeonPressurePhase initialPhase = TryGetControllerPhase(out var phase) ? phase : _lastPhase;
             ApplyInitialPhase(initialPhase);
         }
     }
@@ -117,7 +131,7 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
     {
         if (!_hasResolvedInitialPhase)
         {
-            DungeonPressurePhase initialPhase = _pressureController != null ? _pressureController.Phase : _lastPhase;
+            DungeonPressurePhase initialPhase = TryGetControllerPhase(out var phase) ? phase : _lastPhase;
             ApplyInitialPhase(initialPhase);
         }
     }
@@ -160,7 +174,7 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
         }
 
         InitializeComponents();
-        DungeonPressurePhase initialPhase = _pressureController != null ? _pressureController.Phase : _lastPhase;
+        DungeonPressurePhase initialPhase = TryGetControllerPhase(out var phase) ? phase : _lastPhase;
         ApplyInitialPhase(initialPhase);
     }
 
@@ -763,7 +777,11 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
 
         if (!_hasResolvedInitialPhase)
         {
-            ApplyInitialPhase(_pressureController.Phase);
+            if (TryGetControllerPhase(out var initialPhase))
+            {
+                ApplyInitialPhase(initialPhase);
+                _hasResolvedInitialPhase = true;
+            }
         }
 
         EvaluatePresentation(Time.deltaTime);
@@ -782,10 +800,8 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
 
     public void EvaluatePresentation(float deltaTime)
     {
-        if (_pressureController != null)
+        if (TryGetControllerPhase(out DungeonPressurePhase newPhase))
         {
-            DungeonPressurePhase newPhase = _pressureController.Phase;
-
             if (newPhase != _lastPhase)
             {
                 OnPhaseChanged(newPhase);

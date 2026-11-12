@@ -14,6 +14,9 @@ public sealed class LocalProfileStore : IMissionClaimService
     private readonly LootDefinitionCatalog _lootCatalog;
     private readonly MissionDefinitionCatalog _missionCatalog;
     private readonly AbilityDefinitionCatalog _abilityCatalog;
+    private readonly HashSet<string> _processedMissionEventIds = new();
+    private readonly Queue<string> _processedMissionEventQueue = new();
+    private const int MaxTrackedMissionEvents = 2000;
 
     public event Action<ProfileId> ProfileCommitted;
     public event Action<ProfileId, ExperienceApplicationResult> ProgressionCommitted;
@@ -856,44 +859,64 @@ public sealed class LocalProfileStore : IMissionClaimService
 
     public StashOperationResult TryApplyMissionProgress(MissionContributionEvent contribution)
     {
-        var current = _repository.Snapshot;
-        if (!IsAvailable || current == null) return StashOperationResult.InvalidInventory;
-        if (_missionCatalog == null) return StashOperationResult.PersistenceFailed;
-
-        var next = current.Clone();
-        bool changed = false;
-        List<(MissionId id, MissionState state)> changedMissions = null;
-
-        for (int i = 0; i < next.ActiveMissions.Count; i++)
+        lock (_sync)
         {
-            var instance = next.ActiveMissions[i];
-            if (instance.State != MissionState.Activa) continue;
+            var current = _repository.Snapshot;
+            if (!IsAvailable || current == null) return StashOperationResult.InvalidInventory;
+            if (_missionCatalog == null) return StashOperationResult.PersistenceFailed;
 
-            if (_missionCatalog.TryGet(instance.MissionId.Value, out var definition))
+            if (!string.IsNullOrEmpty(contribution.EventId))
             {
-                if (MissionProgressEngine.TryApplyProgress(instance, definition, contribution))
+                if (_processedMissionEventIds.Contains(contribution.EventId))
                 {
-                    changed = true;
-                    if (changedMissions == null) changedMissions = new List<(MissionId, MissionState)>();
-                    changedMissions.Add((instance.MissionId, instance.State));
+                    // Idempotent discard of duplicate event
+                    return StashOperationResult.Success;
+                }
+
+                _processedMissionEventIds.Add(contribution.EventId);
+                _processedMissionEventQueue.Enqueue(contribution.EventId);
+                if (_processedMissionEventQueue.Count > MaxTrackedMissionEvents)
+                {
+                    var oldest = _processedMissionEventQueue.Dequeue();
+                    _processedMissionEventIds.Remove(oldest);
                 }
             }
-        }
 
-        if (changed)
-        {
-            var commitResult = Commit(next);
-            if (commitResult == StashOperationResult.Success && changedMissions != null)
+            var next = current.Clone();
+            bool changed = false;
+            List<(MissionId id, MissionState state)> changedMissions = null;
+
+            for (int i = 0; i < next.ActiveMissions.Count; i++)
             {
-                for (int m = 0; m < changedMissions.Count; m++)
+                var instance = next.ActiveMissions[i];
+                if (instance.State != MissionState.Activa) continue;
+
+                if (_missionCatalog.TryGet(instance.MissionId.Value, out var definition))
                 {
-                    MissionProgressChanged?.Invoke(changedMissions[m].id, changedMissions[m].state);
+                    if (MissionProgressEngine.TryApplyProgress(instance, definition, contribution))
+                    {
+                        changed = true;
+                        if (changedMissions == null) changedMissions = new List<(MissionId, MissionState)>();
+                        changedMissions.Add((instance.MissionId, instance.State));
+                    }
                 }
             }
-            return commitResult;
-        }
 
-        return StashOperationResult.Success;
+            if (changed)
+            {
+                var commitResult = Commit(next);
+                if (commitResult == StashOperationResult.Success && changedMissions != null)
+                {
+                    for (int m = 0; m < changedMissions.Count; m++)
+                    {
+                        MissionProgressChanged?.Invoke(changedMissions[m].id, changedMissions[m].state);
+                    }
+                }
+                return commitResult;
+            }
+
+            return StashOperationResult.Success;
+        }
     }
 
     public bool TryGetCharacterAttributeState(out CharacterAttributeState state)
@@ -2053,14 +2076,18 @@ public sealed class LocalProfileStore : IMissionClaimService
         while (next.AppliedExtractionReceipts.Count > LocalProfileSnapshot.MaxAppliedExtractionReceipts)
             next.AppliedExtractionReceipts.RemoveAt(0);
 
+        int effectiveProgressionSequence = receipt.ResultSequence > current.LastAppliedProgressionResultSequence
+            ? receipt.ResultSequence
+            : current.LastAppliedProgressionResultSequence + 1;
+
         next.Level = resultingLevel;
         next.CurrentExperience = resultingExperience;
-        next.LastAppliedProgressionResultSequence = receipt.ResultSequence;
+        next.LastAppliedProgressionResultSequence = effectiveProgressionSequence;
 
         var progressionReceipt = new ProgressionReceipt(
             receipt.RaidId,
             _profileId,
-            receipt.ResultSequence,
+            effectiveProgressionSequence,
             resultingExperience,
             resultingLevel);
 

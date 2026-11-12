@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-public class MissionPersistenceTests
+namespace Tests.EditMode.Missions
 {
+    public class MissionPersistenceTests
+    {
     private MissionDefinitionCatalog _catalog;
     private MissionDefinition _testMission;
 
@@ -253,4 +255,5 @@ public class MissionPersistenceTests
         var active = store.GetActiveMissions();
         Assert.AreEqual(1, active.Count(m => m.State == MissionState.Activa));
     }
+}
 }

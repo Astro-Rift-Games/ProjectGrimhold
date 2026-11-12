@@ -205,5 +205,19 @@ namespace Tests.EditMode.Missions
             _view.ClearFeedback();
             Assert.That(_view.FeedbackText, Is.Empty);
         }
+
+        [Test]
+        public void Presenter_WhenViewIsDestroyed_OperationsDoNotThrowMissingReferenceException()
+        {
+            Assert.That(_catalog.TryGet("CON_E_001", out var m1), Is.True);
+
+            // Destroy the view GameObject simulating Unity lifecycle destruction
+            Object.DestroyImmediate(_viewGo);
+
+            Assert.DoesNotThrow(() => _presenter.ClosePanel());
+            Assert.DoesNotThrow(() => _presenter.UnbindProfile());
+            Assert.DoesNotThrow(() => _presenter.OnMissionSelected(m1));
+            Assert.DoesNotThrow(() => _presenter.OnTabChanged(GuildViewTab.Active));
+        }
     }
 }

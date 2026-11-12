@@ -323,7 +323,31 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                          decodedAuthTicket.TryToRaidAdmissionData(out RaidAdmissionData canonicalAdmissionData, preparedAbilities, profileContext.Store.LootCatalog))
                 {
                     authoritativeAdmissionTicket = decodedAuthTicket;
-                    admissionData = canonicalAdmissionData;
+                    int localWatermark = profileContext.Store.GetLastAppliedProgressionResultSequence();
+                    int localLevel = profileContext.Store.GetLevel();
+                    long localExp = profileContext.Store.GetCurrentExperience();
+
+                    if (localWatermark > canonicalAdmissionData.LastAppliedProgressionResultSequence ||
+                        localLevel > canonicalAdmissionData.Level ||
+                        (localLevel == canonicalAdmissionData.Level && localExp > canonicalAdmissionData.CurrentExperience))
+                    {
+                        admissionData = new RaidAdmissionData(
+                            canonicalAdmissionData.RaidCode,
+                            canonicalAdmissionData.ProfileId,
+                            canonicalAdmissionData.ReservationId,
+                            canonicalAdmissionData.ReservedLoadout,
+                            canonicalAdmissionData.CharacterAttributes,
+                            canonicalAdmissionData.EntryIndicesPlusOne,
+                            Math.Max(canonicalAdmissionData.Level, localLevel),
+                            localLevel > canonicalAdmissionData.Level ? localExp : Math.Max(canonicalAdmissionData.CurrentExperience, localExp),
+                            Math.Max(canonicalAdmissionData.LastAppliedProgressionResultSequence, localWatermark),
+                            canonicalAdmissionData.ActiveWeaponSet,
+                            canonicalAdmissionData.PreparedAbilities);
+                    }
+                    else
+                    {
+                        admissionData = canonicalAdmissionData;
+                    }
                     if (authContext.RaidAdmissionVerifier != null)
                     {
                         _ = authContext.RaidAdmissionVerifier.VerifyRaidAdmissionTicketAsync(

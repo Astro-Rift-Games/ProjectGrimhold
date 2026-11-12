@@ -149,7 +149,7 @@ public sealed class RaidMissionTrackerPresenter : MonoBehaviour
         {
             if (previousSnapshot == null || previousSnapshot.State != MissionState.PendienteDeReclamar)
             {
-                _view?.ShowProgressPopup("¡CONTRATO COMPLETADO!", title, "¡Objetivos completados! Reclama en la Guild de Incursiones.", true);
+                _view?.ShowProgressPopup("¡CONTRATO COMPLETADO!", title, "¡Objetivos completados! Reclama en la Guild de Misiones.", true);
             }
         }
         else if (state == MissionState.Activa && foundInstance && def != null && def.Phases != null)

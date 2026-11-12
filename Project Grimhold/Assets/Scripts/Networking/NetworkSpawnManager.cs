@@ -3477,6 +3477,17 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             (r, obj) => {
                 if (obj.TryGetBehaviour(out NetworkRaidParticipant participant))
                 {
+                    int baselineSequence = admission.LastAppliedProgressionResultSequence;
+                    if (player == runner.LocalPlayer)
+                    {
+                        var localContext = runner.GetComponent<LocalPlayerJoinContext>();
+                        if (localContext != null && localContext.HasRaidAdmission &&
+                            localContext.RaidAdmission.LastAppliedProgressionResultSequence > baselineSequence)
+                        {
+                            baselineSequence = localContext.RaidAdmission.LastAppliedProgressionResultSequence;
+                        }
+                    }
+
                     participant.Initialize(
                         joinData.ProfileId.Value,
                         raidParticipantId,
@@ -3485,7 +3496,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                         admission.CurrentExperience,
                         _matchController != null ? _matchController.RaidGenerationId.ToString() : null,
                         hasAdmission ? admission.ReservationId : null,
-                        admission.LastAppliedProgressionResultSequence,
+                        baselineSequence,
                         admission.PreparedAbilities,
                         admission.DisplayName);
                 }

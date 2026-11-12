@@ -39,7 +39,7 @@ public sealed class DungeonPressureAudioPresenter : NetworkBehaviour
             _pressureController = GetComponent<DungeonPressureController>();
         }
         
-        if (_pressureController != null)
+        if (_pressureController != null && _pressureController.Object != null && _pressureController.Object.IsValid)
         {
             _lastPhase = _pressureController.Phase;
             if (_lastPhase == DungeonPressurePhase.Collapse && _collapseMusic.IsValid && AudioManager.Instance != null)
@@ -51,7 +51,7 @@ public sealed class DungeonPressureAudioPresenter : NetworkBehaviour
 
     public override void Render()
     {
-        if (_pressureController == null) return;
+        if (_pressureController == null || _pressureController.Object == null || !_pressureController.Object.IsValid) return;
 
         // Detect phase changes on the client side for audio/visuals
         if (_pressureController.Phase != _lastPhase)

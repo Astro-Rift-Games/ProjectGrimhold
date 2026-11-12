@@ -11,6 +11,7 @@ public readonly struct MissionContributionEvent : IEquatable<MissionContribution
     public readonly string ZoneId;
     public readonly ProfileId OwnerId;
     public readonly bool IsCompanionContribution;
+    public readonly string EventId;
 
     public MissionContributionEvent(
         ObjectiveFamily family,
@@ -18,7 +19,8 @@ public readonly struct MissionContributionEvent : IEquatable<MissionContribution
         ProfileId ownerId,
         string targetId = null,
         string zoneId = null,
-        bool isCompanionContribution = false)
+        bool isCompanionContribution = false,
+        string eventId = null)
     {
         Family = family;
         Amount = Math.Max(0, amount);
@@ -26,6 +28,7 @@ public readonly struct MissionContributionEvent : IEquatable<MissionContribution
         TargetId = string.IsNullOrWhiteSpace(targetId) ? null : targetId;
         ZoneId = string.IsNullOrWhiteSpace(zoneId) ? null : zoneId;
         IsCompanionContribution = isCompanionContribution;
+        EventId = string.IsNullOrWhiteSpace(eventId) ? null : eventId;
     }
 
     public bool Equals(MissionContributionEvent other)
@@ -35,9 +38,10 @@ public readonly struct MissionContributionEvent : IEquatable<MissionContribution
                string.Equals(TargetId, other.TargetId, StringComparison.OrdinalIgnoreCase) &&
                string.Equals(ZoneId, other.ZoneId, StringComparison.OrdinalIgnoreCase) &&
                OwnerId.Equals(other.OwnerId) &&
-               IsCompanionContribution == other.IsCompanionContribution;
+               IsCompanionContribution == other.IsCompanionContribution &&
+               string.Equals(EventId, other.EventId, StringComparison.Ordinal);
     }
 
     public override bool Equals(object obj) => obj is MissionContributionEvent other && Equals(other);
-    public override int GetHashCode() => HashCode.Combine((int)Family, Amount, TargetId?.ToLowerInvariant(), ZoneId?.ToLowerInvariant(), OwnerId, IsCompanionContribution);
+    public override int GetHashCode() => HashCode.Combine((int)Family, Amount, TargetId?.ToLowerInvariant(), ZoneId?.ToLowerInvariant(), OwnerId, IsCompanionContribution, EventId);
 }
