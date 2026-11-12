@@ -1,7 +1,7 @@
 {
   "model_profiles": {
     "unity-operator": {
-      "model": "openai/gpt-6.1-sol",
+      "model": "claude-bridge/claude-sonnet-5-5",
       "effort": "high"
     }
   }
