@@ -338,7 +338,8 @@ public static class LootInventoryRules
         int currentAmount,
         int occupiedSlotCount,
         int slotCapacity,
-        int requestedAmount)
+        int requestedAmount,
+        int maxTransportable = 0)
     {
         if (requestedAmount <= 0)
         {
@@ -348,6 +349,11 @@ public static class LootInventoryRules
         if (slotCapacity <= 0 || occupiedSlotCount < 0 || occupiedSlotCount > slotCapacity)
         {
             return LootTransferFailureReason.ContainerUnavailable;
+        }
+
+        if (maxTransportable > 0 && requestedAmount > maxTransportable - currentAmount)
+        {
+            return LootTransferFailureReason.MaxTransportableExceeded;
         }
 
         if (alreadyHeld)

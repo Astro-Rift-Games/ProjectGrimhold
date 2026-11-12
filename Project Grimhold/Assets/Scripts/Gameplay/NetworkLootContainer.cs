@@ -779,7 +779,8 @@ public sealed class NetworkLootContainer : NetworkBehaviour,
                 currentAmount,
                 CountOccupiedEntries(),
                 _slotCapacity,
-                request.RequestedAmount);
+                request.RequestedAmount,
+                definition.MaxTransportable);
         }
 
         if (failure != LootTransferFailureReason.None)

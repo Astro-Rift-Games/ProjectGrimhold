@@ -64,6 +64,8 @@ public static class LocalProfileSaveCodec
         public string lootId;
         public int amount;
         public EquipmentInstanceData instance;
+        public string expeditionId;
+        public string origin;
     }
 
     [Serializable]
@@ -690,7 +692,7 @@ public static class LocalProfileSaveCodec
             }
             else
             {
-                items[index] = new StashItem(lootId, item.Amount - 1, item.Slot);
+                items[index] = new StashItem(lootId, item.Amount - 1, item.Slot, item.Instance, item.ExpeditionId, item.Origin);
             }
 
             return true;
@@ -822,8 +824,15 @@ public static class LocalProfileSaveCodec
         var result = new ItemData[items?.Count ?? 0];
         for (int i = 0; i < result.Length; i++)
         {
-            result[i] = new ItemData { slot = items[i].Slot, lootId = items[i].LootId.Value, amount = items[i].Amount,
-                instance = EquipmentInstanceData.FromInstance(items[i].Instance) };
+            result[i] = new ItemData
+            {
+                slot = items[i].Slot,
+                lootId = items[i].LootId.Value,
+                amount = items[i].Amount,
+                instance = EquipmentInstanceData.FromInstance(items[i].Instance),
+                expeditionId = items[i].ExpeditionId ?? string.Empty,
+                origin = items[i].Origin ?? string.Empty
+            };
         }
         return result;
     }
@@ -1081,7 +1090,7 @@ public static class LocalProfileSaveCodec
             if (item.instance != null &&
                 (item.amount != 1 || !catalog.TryGet(lootId.Value, out var definition) ||
                  !item.instance.TryToInstance(definition, false, out instance, out error, catalog))) return false;
-            destination.Add(new StashItem(lootId, item.amount, aggregate ? -1 : slot, instance));
+            destination.Add(new StashItem(lootId, item.amount, aggregate ? -1 : slot, instance, item.expeditionId ?? string.Empty, item.origin ?? string.Empty));
             index++;
         }
         return true;
@@ -1115,8 +1124,8 @@ public static class LocalProfileSaveCodec
             var item = items[i];
             if (!catalog.TryGet(item.LootId.Value, out var definition) || !EquipmentInstance.IsEquipment(definition)) continue;
             var plain = EquipmentInstance.PlainCache(definition);
-            items[i] = new StashItem(item.LootId, 1, item.Slot, plain);
-            for (int unit = 1; unit < item.Amount; unit++) extras.Add(new StashItem(item.LootId, 1, -1, plain));
+            items[i] = new StashItem(item.LootId, 1, item.Slot, plain, item.ExpeditionId, item.Origin);
+            for (int unit = 1; unit < item.Amount; unit++) extras.Add(new StashItem(item.LootId, 1, -1, plain, item.ExpeditionId, item.Origin));
         }
         foreach (var item in extras) items.Add(item.AtSlot(ProfileInventoryRules.LowestFreeSlot(items)));
         items.Sort((a, b) => a.Slot.CompareTo(b.Slot));

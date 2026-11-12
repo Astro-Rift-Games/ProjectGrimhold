@@ -201,5 +201,34 @@ namespace Tests.EditMode.Missions
 
             Object.DestroyImmediate(go);
         }
+
+        [Test]
+        public void RaidZoneTrigger_StaticSpatialDetection_DetectsPlayerAlreadyInside()
+        {
+            var zoneGo = new GameObject("Zone_Catacombs_Main");
+            var col = zoneGo.AddComponent<BoxCollider2D>();
+            col.size = new Vector2(10f, 10f);
+            var trigger = zoneGo.AddComponent<RaidZoneTrigger>();
+            trigger.ZoneId = "Catacombs_Main";
+
+            var playerInsideGo = new GameObject("PlayerInside");
+            playerInsideGo.transform.position = new Vector3(2f, 2f, 0f);
+            var playerInside = playerInsideGo.AddComponent<PlayerCharacter>();
+
+            var playerOutsideGo = new GameObject("PlayerOutside");
+            playerOutsideGo.transform.position = new Vector3(50f, 50f, 0f);
+            var playerOutside = playerOutsideGo.AddComponent<PlayerCharacter>();
+
+            Assert.That(trigger.IsPlayerInside(playerInside), Is.True, "Player positioned at (2,2) must be detected inside (10x10) trigger volume.");
+            Assert.That(trigger.IsPlayerInside(playerOutside), Is.False, "Player positioned at (50,50) must NOT be detected inside trigger volume.");
+            Assert.That(trigger.IsPlayerInside(null), Is.False);
+
+            // Null link/participant fails gracefully without exception
+            Assert.That(trigger.TryTriggerExplorationIfInside(playerInside), Is.False);
+
+            Object.DestroyImmediate(playerInsideGo);
+            Object.DestroyImmediate(playerOutsideGo);
+            Object.DestroyImmediate(zoneGo);
+        }
     }
 }

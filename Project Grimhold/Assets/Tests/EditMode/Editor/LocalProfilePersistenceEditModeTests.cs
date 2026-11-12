@@ -176,7 +176,7 @@ public sealed class LocalProfilePersistenceEditModeTests
         store.ProfileCommitted += _ => eventCount++;
         var receipt = new ExtractionReceipt("raid-1", profile, 1);
         var items = new[] { new StashItem(new LootId("coins"), 3) };
-        var expectedLoadout = new[] { new StashItem(new LootId("coins"), 3, 0) };
+        var expectedLoadout = new[] { new StashItem(new LootId("coins"), 3, 0, null, "raid-1", "Dungeon") };
 
         Assert.That(store.TryCommitExtraction(receipt, items, new PreparedEquipmentLoadout(), 0, 1, 0), Is.EqualTo(StashOperationResult.Success));
         CollectionAssert.AreEqual(expectedLoadout, store.GetLoadout());
@@ -202,7 +202,7 @@ public sealed class LocalProfilePersistenceEditModeTests
         Assert.That(repository.TrySave(initial, out string initialError), Is.True, initialError);
         var receipt = new ExtractionReceipt("raid-failure", profile, 1);
         var items = new[] { new StashItem(new LootId("coins"), 5) };
-        var expectedLoadout = new[] { new StashItem(new LootId("coins"), 5, 0) };
+        var expectedLoadout = new[] { new StashItem(new LootId("coins"), 5, 0, null, "raid-failure", "Dungeon") };
 
         files.FailWrites = true;
         LogAssert.Expect(UnityEngine.LogType.Error,
@@ -305,7 +305,7 @@ public sealed class LocalProfilePersistenceEditModeTests
             store.TryCreateLoadoutReservation("next-raid", out PendingLoadoutReservation reservation),
             Is.EqualTo(StashOperationResult.Success));
         CollectionAssert.AreEqual(
-            new[] { new StashItem(new LootId("bone"), 2, 1) },
+            new[] { new StashItem(new LootId("bone"), 2, 1, null, "raid-next", "Dungeon") },
             reservation.Items);
         Assert.That(reservation.PreparedEquipment.WeaponSetAMainHand, Is.EqualTo(new LootId("rapier")));
         Assert.That(store.GetLoadout(), Is.Empty);
@@ -663,6 +663,80 @@ public sealed class LocalProfilePersistenceEditModeTests
         Assert.That(migrated.LastAppliedProgressionResultSequence, Is.Zero);
         Assert.That(migrated.LastProgressionReceipt, Is.Null);
         Assert.That(migrated.AppliedProgressionReceipts, Is.Empty);
+    }
+
+    [Test]
+    public void Codec_MigratesVersionElevenToTwelve_PreservingInventoryAndAssigningDefaults()
+    {
+        var profile = new ProfileId("52525252525252525252525252525252");
+        // v11 JSON without expeditionId or origin fields
+        string json = $@"{{
+            ""schemaVersion"": 11,
+            ""profileId"": ""{profile.Value}"",
+            ""currency"": 100,
+            ""level"": 1,
+            ""inventorySchemaVersion"": 3,
+            ""stash"": [
+                {{ ""slot"": 0, ""lootId"": ""healthpotion"", ""amount"": 5 }}
+            ],
+            ""loadout"": [
+                {{ ""slot"": 0, ""lootId"": ""bone"", ""amount"": 2 }}
+            ]
+        }}";
+
+        Assert.That(LocalProfileSaveCodec.TryDecode(
+            json,
+            profile,
+            _catalog,
+            out LocalProfileSnapshot migrated,
+            out _,
+            out string error), Is.True, error);
+
+        Assert.That(LocalProfileSnapshot.CurrentSchemaVersion, Is.EqualTo(12));
+        Assert.That(migrated.SchemaVersion, Is.EqualTo(12));
+        Assert.That(migrated.Stash.Count, Is.EqualTo(1));
+        Assert.That(migrated.Stash[0].LootId.Value, Is.EqualTo("healthpotion"));
+        Assert.That(migrated.Stash[0].Amount, Is.EqualTo(5));
+        Assert.That(migrated.Stash[0].ExpeditionId, Is.EqualTo(string.Empty));
+        Assert.That(migrated.Stash[0].Origin, Is.EqualTo(string.Empty));
+
+        Assert.That(migrated.Loadout.Count, Is.EqualTo(1));
+        Assert.That(migrated.Loadout[0].LootId.Value, Is.EqualTo("bone"));
+        Assert.That(migrated.Loadout[0].Amount, Is.EqualTo(2));
+        Assert.That(migrated.Loadout[0].ExpeditionId, Is.EqualTo(string.Empty));
+        Assert.That(migrated.Loadout[0].Origin, Is.EqualTo(string.Empty));
+    }
+
+    [Test]
+    public void Codec_EncodesAndDecodesVersionTwelve_PreservingExpeditionIdAndOrigin()
+    {
+        var profile = new ProfileId("53535353535353535353535353535353");
+        var snapshot = new LocalProfileSnapshot
+        {
+            ProfileId = profile,
+            Currency = 50,
+            InventorySchemaVersion = 3
+        };
+        snapshot.Stash.Add(new StashItem(new LootId("healthpotion"), 3, 0, null, "exp-alpha", "Town"));
+        snapshot.Loadout.Add(new StashItem(new LootId("bone"), 1, 0, null, "exp-beta", "Dungeon"));
+
+        string json = LocalProfileSaveCodec.Encode(snapshot);
+        Assert.That(json, Does.Contain("\"expeditionId\": \"exp-alpha\"").Or.Contain("\"expeditionId\":\"exp-alpha\""));
+        Assert.That(json, Does.Contain("\"origin\": \"Town\"").Or.Contain("\"origin\":\"Town\""));
+
+        Assert.That(LocalProfileSaveCodec.TryDecode(
+            json,
+            profile,
+            _catalog,
+            out LocalProfileSnapshot decoded,
+            out _,
+            out string error), Is.True, error);
+
+        Assert.That(decoded.SchemaVersion, Is.EqualTo(12));
+        Assert.That(decoded.Stash[0].ExpeditionId, Is.EqualTo("exp-alpha"));
+        Assert.That(decoded.Stash[0].Origin, Is.EqualTo("Town"));
+        Assert.That(decoded.Loadout[0].ExpeditionId, Is.EqualTo("exp-beta"));
+        Assert.That(decoded.Loadout[0].Origin, Is.EqualTo("Dungeon"));
     }
 
 

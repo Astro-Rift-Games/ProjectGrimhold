@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1040,
-  "canonicalEntries": 1037,
+  "rawCommits": 1042,
+  "canonicalEntries": 1039,
   "before": {
     "Documentation": 93,
     "Bug Fixes": 123,
-    "Features": 392,
+    "Features": 394,
     "Tests": 40,
     "Architecture & Infrastructure": 22,
     "Other Changes": 356,
@@ -14,7 +14,7 @@
   "after": {
     "Documentation": 109,
     "Bug Fixes": 139,
-    "Features": 530,
+    "Features": 532,
     "Tests": 45,
     "Maintenance": 20,
     "Architecture & Infrastructure": 6,
@@ -25,18 +25,18 @@
   "systems": {
     "Unassigned": 25,
     "Combat": 369,
-    "Extraction": 146,
-    "Networking & Sessions": 309,
-    "UI": 319,
-    "Build & Tooling": 538,
+    "Extraction": 148,
+    "Networking & Sessions": 310,
+    "UI": 321,
+    "Build & Tooling": 540,
     "Documentation": 391,
-    "Tests": 654,
-    "World & Visibility": 138,
-    "Audio": 35,
-    "Inventory & Loot": 420,
-    "Persistence & Backend": 236,
+    "Tests": 656,
+    "Abilities": 129,
+    "Inventory & Loot": 422,
+    "World & Visibility": 139,
+    "Persistence & Backend": 237,
+    "Audio": 36,
     "Art & Animation": 237,
-    "Abilities": 128,
     "Input": 30,
     "Movement": 94
   },
@@ -44,7 +44,7 @@
     "sections": {
       "Documentation": 109,
       "Bug Fixes": 138,
-      "Features": 529,
+      "Features": 531,
       "Tests": 45,
       "Maintenance": 20,
       "Architecture & Infrastructure": 6,
@@ -54,18 +54,18 @@
     "systems": {
       "Unassigned": 25,
       "Combat": 367,
-      "Extraction": 146,
-      "Networking & Sessions": 309,
-      "UI": 318,
-      "Build & Tooling": 536,
+      "Extraction": 148,
+      "Networking & Sessions": 310,
+      "UI": 320,
+      "Build & Tooling": 538,
       "Documentation": 389,
-      "Tests": 652,
-      "World & Visibility": 136,
-      "Audio": 35,
-      "Inventory & Loot": 420,
-      "Persistence & Backend": 236,
+      "Tests": 654,
+      "Abilities": 127,
+      "Inventory & Loot": 422,
+      "World & Visibility": 137,
+      "Persistence & Backend": 237,
+      "Audio": 36,
       "Art & Animation": 234,
-      "Abilities": 126,
       "Input": 30,
       "Movement": 94
     }
@@ -34055,8 +34055,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 163,
-      "canonicalEntries": 163
+      "originalCommits": 165,
+      "canonicalEntries": 165
     },
     {
       "key": "v0.5.0",
@@ -34242,6 +34242,349 @@
         {
           "source": "message-term",
           "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "8f76fa1a09aa032bd1d3adeddde9f8ec45223083",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8f76fa1a09aa032bd1d3adeddde9f8ec45223083",
+      "subject": "feat(loot): container utility cooldowns and passive extraction cycle",
+      "body": "Enforce MaxTransportable validation on container transfers to prevent\nhoarding unit-restricted utilities, preserve active utility cooldowns\nacross container deposits and withdrawals, and deactivate all passive\ntreasure modifiers immediately upon extraction completion.\n\n- PlayerInventoryPassiveEffectsController: deactivates all passive\n  effects upon extraction completion and resets modifiers to default.\n- NetworkLootContainer & LootInventoryRules: validates MaxTransportable\n  when receiving items into containers.\n- PlayerCharacter: exposes IsExtracted and ExtractionController.\n\nPlayer-Fixed: Passive treasure bonuses and minimap restrictions now stop immediately once extraction is completed.\nPlayer-Fixed: Depositing and withdrawing utilities into chests or corpses properly respects the single-unit carry limit.\n",
+      "date": "2026-11-12T18:14:03-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+        "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs",
+        "odd/tasks/task-291-utility-cooldown-container-passives.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "loot",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Abilities",
+        "Extraction",
+        "Inventory & Loot",
+        "UI",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/task-291-utility-cooldown-container-passives.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "scope",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "minimap",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "758c3c02198fdd8e8da90f586255e229d71118c6",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/758c3c02198fdd8e8da90f586255e229d71118c6",
+      "subject": "feat(missions): add static zone detection, claim check, persistence v12",
+      "body": "Add static zone detection for players spawning within raid zones,\nrevalidate item possession and expedition ID upon mission claim,\nand migrate local profile persistence from schema v11 to v12 with\nExpeditionId and Origin fields on StashItem. Enforce stack separation\nrules per Game Design Doc 14 §6.1 so batches of different origin\nor expedition remain unmerged.\n\nAlso protect DungeonPressureController against unspawned access\nduring extraction and scene transitions in presenters and audio.\n\n- LocalProfileSnapshot: schema bumped to 12 with backward compatibility.\n- StashItem & ProfileInventoryRules: Origin and ExpeditionId isolation.\n- RaidZoneTrigger & PlayerCharacter: static area registry and detection.\n- LocalProfileStore: claim revalidation for expedition items.\n- DungeonPressureController: guarded HasReadableState lifecycle.\n\nPlayer-Fixed: Players already inside an objective zone when receiving a contract get instant credit without exiting and re-entering.\nPlayer-Fixed: Extraction transitions no longer throw unspawned pressure exceptions.\n",
+      "date": "2026-11-12T17:50:34-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Debug/DungeonPressureDebugOverlay.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureHudPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Missions/Engine/RaidZoneTrigger.cs",
+        "Project Grimhold/Assets/Scripts/Player/Extraction/ExtractionPayloadBuilder.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+        "Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs",
+        "Project Grimhold/Assets/Scripts/Stash/StashItem.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs",
+        "odd/tasks/task-288-zone-detection-persistence-v12.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "missions",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "World & Visibility",
+        "Persistence & Backend",
+        "Audio",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Extraction/ExtractionPayloadBuilder.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureHudPresenter.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Debug/DungeonPressureDebugOverlay.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureHudPresenter.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/task-288-zone-detection-persistence-v12.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "persistence",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs",
+          "supports": "Audio"
+        },
+        {
+          "source": "message-term",
+          "value": "audio",
+          "supports": "Audio"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs",
           "supports": "Tests"
         }
       ],

@@ -93,13 +93,12 @@ public sealed class DungeonPressureAmbientPresenter : MonoBehaviour
     public DungeonAmbientConfig Config => _config;
     public DungeonPressureController PressureController => _pressureController;
 
-    private bool HasValidController => _pressureController != null && _pressureController.Object != null && _pressureController.Object.IsValid;
+    private bool HasValidController => _pressureController != null && _pressureController.HasReadableState;
 
     private bool TryGetControllerPhase(out DungeonPressurePhase phase)
     {
-        if (HasValidController)
+        if (_pressureController != null && _pressureController.TryGetPhase(out phase))
         {
-            phase = _pressureController.Phase;
             return true;
         }
 

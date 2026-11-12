@@ -4,30 +4,30 @@
 
 Release: Unreleased
 
-163 original commits; 163 canonical entries.
+165 original commits; 165 canonical entries.
 
 ## Canonical classification
 
-70 features; 45 bug fixes; 1 refactoring; 1 architecture & infrastructure; 19 documentation; 16 tests; 9 maintenance; 2 other changes
+72 features; 45 bug fixes; 1 refactoring; 1 architecture & infrastructure; 19 documentation; 16 tests; 9 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Abilities | 7 | 6 | 1 | 0 | 9 | 1 |
+| Abilities | 8 | 6 | 1 | 0 | 9 | 1 |
 | Art & Animation | 10 | 9 | 1 | 0 | 7 | 0 |
-| Audio | 3 | 2 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 44 | 31 | 1 | 1 | 18 | 2 |
+| Audio | 4 | 2 | 0 | 0 | 0 | 0 |
+| Build & Tooling | 46 | 31 | 1 | 1 | 18 | 2 |
 | Combat | 34 | 8 | 0 | 0 | 11 | 0 |
 | Documentation | 26 | 13 | 0 | 0 | 9 | 0 |
-| Extraction | 11 | 8 | 0 | 0 | 8 | 0 |
+| Extraction | 13 | 8 | 0 | 0 | 8 | 0 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 53 | 29 | 1 | 1 | 19 | 1 |
+| Inventory & Loot | 55 | 29 | 1 | 1 | 19 | 1 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 21 | 17 | 0 | 0 | 15 | 0 |
-| Persistence & Backend | 26 | 14 | 0 | 1 | 10 | 0 |
-| Tests | 67 | 39 | 1 | 1 | 25 | 0 |
-| UI | 26 | 11 | 1 | 0 | 12 | 0 |
+| Networking & Sessions | 22 | 17 | 0 | 0 | 15 | 0 |
+| Persistence & Backend | 27 | 14 | 0 | 1 | 10 | 0 |
+| Tests | 69 | 39 | 1 | 1 | 25 | 0 |
+| UI | 28 | 11 | 1 | 0 | 12 | 0 |
 | Unassigned | 0 | 1 | 0 | 0 | 6 | 0 |
-| World & Visibility | 18 | 7 | 0 | 0 | 3 | 0 |
+| World & Visibility | 19 | 7 | 0 | 0 | 3 | 0 |
 
 ## Original commit records
 
@@ -150,6 +150,177 @@ Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
 - path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
 - path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidPreparationRulesTests.cs
 - message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 8f76fa1a09aa032bd1d3adeddde9f8ec45223083
+
+[8f76fa1a09aa032bd1d3adeddde9f8ec45223083](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8f76fa1a09aa032bd1d3adeddde9f8ec45223083)
+
+Date: 2026-11-12T18:14:03-03:00 · Classification: Features (explicit) · Systems: Abilities, Extraction, Inventory & Loot, UI, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(loot): container utility cooldowns and passive extraction cycle
+```
+
+#### Original body
+
+```text
+Enforce MaxTransportable validation on container transfers to prevent
+hoarding unit-restricted utilities, preserve active utility cooldowns
+across container deposits and withdrawals, and deactivate all passive
+treasure modifiers immediately upon extraction completion.
+
+- PlayerInventoryPassiveEffectsController: deactivates all passive
+  effects upon extraction completion and resets modifiers to default.
+- NetworkLootContainer & LootInventoryRules: validates MaxTransportable
+  when receiving items into containers.
+- PlayerCharacter: exposes IsExtracted and ExtractionController.
+
+Player-Fixed: Passive treasure bonuses and minimap restrictions now stop immediately once extraction is completed.
+Player-Fixed: Depositing and withdrawing utilities into chests or corpses properly respects the single-unit carry limit.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs
+Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs
+Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs
+Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs
+odd/tasks/task-291-utility-cooldown-container-passives.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs
+- path → Abilities: odd/tasks/task-291-utility-cooldown-container-passives.md
+- message-term → Extraction: extraction
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/LootInventoryRules.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/NetworkLootContainer.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Interaction/PlayerInventoryPassiveEffectsController.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs
+- scope → Inventory &amp; Loot: loot
+- message-term → Inventory &amp; Loot: loot
+- message-term → UI: minimap
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/InventoryPassiveEffectsTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootInventoryRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Utilities/UtilityExpeditionRulesTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 758c3c02198fdd8e8da90f586255e229d71118c6
+
+[758c3c02198fdd8e8da90f586255e229d71118c6](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/758c3c02198fdd8e8da90f586255e229d71118c6)
+
+Date: 2026-11-12T17:50:34-03:00 · Classification: Features (explicit) · Systems: Extraction, Inventory & Loot, Networking & Sessions, UI, World & Visibility, Persistence & Backend, Audio, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(missions): add static zone detection, claim check, persistence v12
+```
+
+#### Original body
+
+```text
+Add static zone detection for players spawning within raid zones,
+revalidate item possession and expedition ID upon mission claim,
+and migrate local profile persistence from schema v11 to v12 with
+ExpeditionId and Origin fields on StashItem. Enforce stack separation
+rules per Game Design Doc 14 §6.1 so batches of different origin
+or expedition remain unmerged.
+
+Also protect DungeonPressureController against unspawned access
+during extraction and scene transitions in presenters and audio.
+
+- LocalProfileSnapshot: schema bumped to 12 with backward compatibility.
+- StashItem & ProfileInventoryRules: Origin and ExpeditionId isolation.
+- RaidZoneTrigger & PlayerCharacter: static area registry and detection.
+- LocalProfileStore: claim revalidation for expedition items.
+- DungeonPressureController: guarded HasReadableState lifecycle.
+
+Player-Fixed: Players already inside an objective zone when receiving a contract get instant credit without exiting and re-entering.
+Player-Fixed: Extraction transitions no longer throw unspawned pressure exceptions.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Debug/DungeonPressureDebugOverlay.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureHudPresenter.cs
+Project Grimhold/Assets/Scripts/Missions/Engine/RaidZoneTrigger.cs
+Project Grimhold/Assets/Scripts/Player/Extraction/ExtractionPayloadBuilder.cs
+Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs
+Project Grimhold/Assets/Scripts/Stash/StashItem.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs
+odd/tasks/task-288-zone-detection-persistence-v12.md
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Extraction: Project Grimhold/Assets/Scripts/Player/Extraction/ExtractionPayloadBuilder.cs
+- message-term → Extraction: extraction
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → UI: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureHudPresenter.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Debug/DungeonPressureDebugOverlay.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureAmbientPresenter.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/Presentation/DungeonPressureHudPresenter.cs
+- path → World &amp; Visibility: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileSnapshot.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/ProfileInventoryRules.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs
+- path → Persistence &amp; Backend: odd/tasks/task-288-zone-detection-persistence-v12.md
+- message-term → Persistence &amp; Backend: persistence
+- path → Audio: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureAudioPresenter.cs
+- message-term → Audio: audio
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/LocalProfilePersistenceEditModeTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RaidMissionEventProducersTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Missions/RankEContractsAndGuildReputationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/DungeonPressureAmbientPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/ProfileInventoryRulesTests.cs
 
 #### Diagnostics
 

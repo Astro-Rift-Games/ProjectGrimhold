@@ -39,9 +39,9 @@ public sealed class DungeonPressureAudioPresenter : NetworkBehaviour
             _pressureController = GetComponent<DungeonPressureController>();
         }
         
-        if (_pressureController != null && _pressureController.Object != null && _pressureController.Object.IsValid)
+        if (_pressureController != null && _pressureController.TryGetPhase(out var initialPhase))
         {
-            _lastPhase = _pressureController.Phase;
+            _lastPhase = initialPhase;
             if (_lastPhase == DungeonPressurePhase.Collapse && _collapseMusic.IsValid && AudioManager.Instance != null)
             {
                 AudioManager.Instance.PlayMusic(_collapseMusic, _collapseMusicCrossfade);
@@ -51,13 +51,11 @@ public sealed class DungeonPressureAudioPresenter : NetworkBehaviour
 
     public override void Render()
     {
-        if (_pressureController == null || _pressureController.Object == null || !_pressureController.Object.IsValid) return;
+        if (_pressureController == null || !_pressureController.TryGetPhase(out var newPhase)) return;
 
         // Detect phase changes on the client side for audio/visuals
-        if (_pressureController.Phase != _lastPhase)
+        if (newPhase != _lastPhase)
         {
-            DungeonPressurePhase newPhase = _pressureController.Phase;
-            
             // Only play sound if the pressure is escalating (ignore resets or backward rollbacks)
             if (newPhase > _lastPhase)
             {
