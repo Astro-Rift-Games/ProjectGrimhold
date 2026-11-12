@@ -160,7 +160,13 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
             if (!await WaitForLocalReconnectAdmissionAsync(profileId, cancellationToken))
             {
-                Debug.LogError("[FusionSessionLauncher] Local raid reconnect admission did not complete.", this);
+                // FIX-51: a runner that ended before the deadline was disconnected by the Host
+                // (admission rejected); report it as terminal instead of looking like "no error".
+                LastStartShutdownReason = RaidReconnectPolicy.ClassifyAdmissionFailure(_lastReconnectRunnerEnded);
+                Debug.LogError(
+                    $"[HM-MULTI] FIX-51 reconnect admission rejected by Host or timed out. " +
+                    $"ProfileId={profileId.Value}, Reason={LastStartShutdownReason}.",
+                    this);
                 await ShutdownAndDestroyRunnerAsync();
                 return false;
             }
@@ -565,6 +571,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
         }
 
         ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
+        _lastReconnectRunnerEnded = false;
         float deadline = Time.realtimeSinceStartup + LocalAdmissionTimeoutSeconds;
         while (_runner != null && _runner.IsRunning && Time.realtimeSinceStartup < deadline)
         {
@@ -608,6 +615,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             return false;
         }
 
+        _lastReconnectRunnerEnded = false;
         float deadline = Time.realtimeSinceStartup + LocalAdmissionTimeoutSeconds;
         while (_runner != null && _runner.IsRunning && Time.realtimeSinceStartup < deadline)
         {
@@ -626,8 +634,11 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
             await Task.Delay(50, cancellationToken);
         }
 
+        _lastReconnectRunnerEnded = _runner == null || !_runner.IsRunning;
         return false;
     }
+
+    private bool _lastReconnectRunnerEnded;
 
     public async Task<bool> ShutdownAndDestroyRunnerAsync()
     {

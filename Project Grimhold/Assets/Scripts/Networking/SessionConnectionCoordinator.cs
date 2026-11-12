@@ -1229,7 +1229,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 ShutdownReason lastReason = attemptShutdownReason;
                 float remainingSeconds = deadline - Time.realtimeSinceStartup;
                 // For reconnect, GameNotFound and GameClosed are immediately terminal because the raid was cancelled or closed (e.g. host continued without teammate).
-                if (lastReason == ShutdownReason.GameNotFound || lastReason == ShutdownReason.GameClosed || remainingSeconds <= 0f || _isQuitting)
+                // FIX-51: a Host-rejected admission (ConnectionRefused) is terminal too; retrying cannot succeed.
+                if (!RaidReconnectPolicy.ShouldRetryAttempt(lastReason, remainingSeconds) || _isQuitting)
                 {
                     break;
                 }
@@ -1249,6 +1250,10 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
                 if (ShouldDiscardReconnectTicket(reason, attemptThrew))
                 {
+                    Debug.LogWarning(
+                        $"[HM-MULTI] FIX-51 reconnect rejected: ProfileId={ticket.ProfileId.Value}, Reason={reason}; " +
+                        "ticket discarded, returning to Town.",
+                        this);
                     DiscardActiveReconnectTicket();
                 }
 
@@ -2060,11 +2065,26 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 if (_currentRaidCode.IsValid && _currentProfileId.IsValid &&
                     !string.IsNullOrEmpty(genId) && !string.IsNullOrEmpty(_currentSessionName))
                 {
-                    _activeReconnectTicket = new RaidReconnectTicket(
+                    string activeReservationId =
+                        _activeTicket.HasValue && _activeTicket.Value.LoadoutReservation != null
+                            ? _activeTicket.Value.LoadoutReservation.ReservationId
+                            : null;
+                    string persistedReservationId =
+                        RaidReconnectTicketStore.TryLoad(_currentProfileId, out RaidReconnectTicket persisted) &&
+                        persisted.RaidCode == _currentRaidCode
+                            ? persisted.ReservationId
+                            : null;
+                    _activeReconnectTicket = RaidReconnectPolicy.BuildTicketAtUnexpectedShutdown(
                         _currentRaidCode,
                         _currentProfileId,
                         genId,
-                        _currentSessionName);
+                        _currentSessionName,
+                        activeReservationId,
+                        persistedReservationId);
+                    Debug.Log(
+                        $"[HM-MULTI] FIX-51 reconnect proof: ticket preserved. ProfileId={_currentProfileId.Value}, " +
+                        $"HasReservationId={RaidReconnectPolicy.DescribeProof(_activeReconnectTicket.Value.ReservationId)}.",
+                        this);
                     RaidReconnectTicketStore.Save(_activeReconnectTicket.Value);
                     ReconnectTicketChanged?.Invoke(_activeReconnectTicket);
                     Debug.Log($"[{nameof(SessionConnectionCoordinator)}] Reconnect ticket preserved for {_currentProfileId.Value} in session {_currentSessionName}.", this);
