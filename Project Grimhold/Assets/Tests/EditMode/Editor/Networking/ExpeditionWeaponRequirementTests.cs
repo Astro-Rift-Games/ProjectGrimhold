@@ -338,6 +338,24 @@ public sealed class ExpeditionWeaponRequirementTests
     }
 
     [Test]
+    public void LocalLaunchRetry_NewSnapshotRevisionRetriesWithoutWaitingForTheSpacing()
+    {
+        var (launch, party, save) = PendingSave(isHost: false);
+        var controller = _root.AddComponent<TownRaidPreparationNetworkController>();
+        var first = LaunchingSnapshot(launch);
+        int acks = 0;
+        Assert.That(controller.AdvanceLocalLaunch(first, Profile, _coordinator, party, _ => acks++, 0f),
+            Is.EqualTo(RaidLaunchPreparationResult.NotReady));
+        save.SetResult((true, default));
+        var members = first.Members.ToArray();
+        var next = new TownRaidPreparationSnapshot(launch.RaidCode, launch.HostProfileId,
+            TownRaidPreparationState.Launching, members, 2, launch.LaunchRevision, members.Length);
+        Assert.That(controller.AdvanceLocalLaunch(next, Profile, _coordinator, party, _ => acks++, RetryInterval * 0.1f),
+            Is.EqualTo(RaidLaunchPreparationResult.Success));
+        Assert.That(acks, Is.EqualTo(1));
+    }
+
+    [Test]
     public void LocalLaunchRetry_MissingPartyContinuationIsRetriedWhenItArrives()
     {
         EquipWeapon();

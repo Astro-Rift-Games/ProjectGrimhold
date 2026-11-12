@@ -200,19 +200,19 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     }
 
     /// <summary>
-    /// Stores the canonical context observed from a complete replicated frozen preparation.
-    /// The method is idempotent for the same RaidCode and LaunchRevision. A returned
-    /// <see cref="RaidLaunchPreparationResult.NotReady"/> is transient and may be retried; every
-    /// other failure is permanent for this launch revision and exposes a player-facing reason
-    /// through <see cref="TryConsumeLastLaunchRejection"/>.
-    /// </summary>
-    /// <summary>
     /// Transient cause of the latest <see cref="RaidLaunchPreparationResult.NotReady"/> returned by
     /// <see cref="TryStoreRaidLaunchContext"/>; <see cref="RaidLaunchNotReadyReason.None"/> after any
     /// other result.
     /// </summary>
     public RaidLaunchNotReadyReason LastLaunchNotReadyReason { get; private set; }
 
+    /// <summary>
+    /// Stores the canonical context observed from a complete replicated frozen preparation.
+    /// The method is idempotent for the same RaidCode and LaunchRevision. A returned
+    /// <see cref="RaidLaunchPreparationResult.NotReady"/> is transient and may be retried; every
+    /// other failure is permanent for this launch revision and exposes a player-facing reason
+    /// through <see cref="TryConsumeLastLaunchRejection"/>.
+    /// </summary>
     public RaidLaunchPreparationResult TryStoreRaidLaunchContext(
         RaidLaunchContext launchContext,
         TownPartyContinuationContext partyContinuation)
