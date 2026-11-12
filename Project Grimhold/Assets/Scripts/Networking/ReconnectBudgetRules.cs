@@ -20,11 +20,16 @@ public static class ReconnectBudgetRules
 
     /// <summary>
     /// Consumes a budget tick if the participant is disconnected and still Raiding.
-    /// The budget is sticky at zero and does not reset.
+    /// The budget is sticky at zero and does not reset, and is frozen while paused (Host Migration
+    /// recovery window, FIX-51).
     /// </summary>
-    public static int ConsumeTick(int remainingTicks, bool isDisconnected, RaidParticipantState state)
+    public static int ConsumeTick(
+        int remainingTicks,
+        bool isDisconnected,
+        RaidParticipantState state,
+        bool isBudgetPaused = false)
     {
-        if (!isDisconnected || state != RaidParticipantState.Raiding || remainingTicks <= 0)
+        if (isBudgetPaused || !isDisconnected || state != RaidParticipantState.Raiding || remainingTicks <= 0)
         {
             return remainingTicks;
         }

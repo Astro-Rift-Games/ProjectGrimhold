@@ -60,9 +60,16 @@ its `PlayerObject`. No recovery fallback executes fresh bootstrap.
 ## Recovery eligibility
 
 Eligible survivors are frozen-cohort profiles whose restored participant is
-non-terminal `Raiding` or `Defeated`. The historical Host, Controlled Return,
-`Extracted`, `Aborted`, Return-authorized, and known terminal profiles are never
-eligible. The promoted Host's own local profile uses the same rebind path as any
+non-terminal `Raiding` or `Defeated`, plus `Extracted` participants whose extraction
+commit is still pending (`ExtractionExperiencePhase` is not `Complete`, FIX-51). The historical
+Host, Controlled Return, `Extracted` with a completed commit, `Aborted`, Return-authorized, and
+known terminal profiles are never eligible. A recovered `Extracted` participant gets its avatar
+Input Authority back so `RPC_CommitExtractionOnInputAuthority` and the ACK complete on the
+replacement Host; the republish is idempotent through the `(raidGenerationId, profileId,
+resultSequence)` receipt (backend `alreadyPublished`/`alreadySecured`, local `AlreadySecured`).
+Once complete it follows the normal terminal path. If it does not rebind before sealing, its
+participant and avatar are kept (authority cleared, terminal/no-rejoin, never despawned), the same
+as a non-migration disconnect with a pending commit. The promoted Host's own local profile uses the same rebind path as any
 other survivor.
 
 During `Open`, an unexpected `PlayerLeft` invalidates the recovered mapping,
@@ -199,7 +206,17 @@ confirmed elapsed phase, through a presentation-only resume event without repeat
 audio. Animator state and mutable shared executor config are neither copied nor required for release.
 Real multi-process migration during wind-up and immediately after consumption remains unvalidated.
 
-Known limitation: a `Raiding` player (Active or Downed) who is disconnected and retained during migration is not fully covered. The disconnect-retention path (`RaidConnectivityContinuityArchitecture.md`) and variables like `RemainingBudgetTicks` may rely on Host-runtime-only state or may not seamlessly restore on the new Host. This is an accepted limitation and recovery eligibility for that participant might not guarantee retention or budget persistence. Not validated.
+Disconnected retained participants (FIX-51): a `Raiding` participant (Active or Downed) that is
+`IsDisconnected` with `RemainingBudgetTicks > 0` and no confirmed absence is re-registered in the
+replacement Host's disconnected registry from the replicated `RaidParticipantConnectivity` state
+(`HostMigrationRetentionPolicy.Classify`). It is not part of the eligible/unresolved set, so it is
+neither awaited by the recovery window nor finalized at sealing. The reconnect budget is paused
+while the recovery window is unsealed (`IsReconnectBudgetPaused`) and resumes after sealing. At
+sealing the room stays joinable while a retained participant exists (`UpdateMatchSessionGate`)
+instead of unconditionally closing. The participant can rebind during the window through the
+recovery rebind, or after sealing through the normal reconnect path; both clear `IsDisconnected`.
+An exhausted budget or confirmed absence keeps the existing finalization. The full rewrite of the
+recovery rules remains FIX-52; real multi-process validation is pending.
 
 *Note: For Dungeon Pressure (PvE timers, phases, and active population) recovery rules, see `DungeonPressureArchitecture.md`.*
 

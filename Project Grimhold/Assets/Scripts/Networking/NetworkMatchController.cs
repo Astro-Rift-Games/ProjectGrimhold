@@ -150,20 +150,28 @@ public sealed class NetworkMatchController : NetworkBehaviour
 
     /// <summary>
     /// Reopens or closes the session gate while the match is in progress,
-    /// allowing or denying reconnections.
+    /// allowing or denying reconnections. Returns the policy decision so callers can
+    /// re-apply it later when the controller is not ready yet.
     /// </summary>
-    public void SetSessionReopenState(bool isOpen)
+    public RaidSessionGateDecision SetSessionReopenState(bool isOpen, RaidSessionGateTracker tracker)
     {
-        if (!HasStateAuthority || Phase != MatchPhase.InProgress)
+        RaidSessionGateDecision decision = RaidSessionGatePolicy.Evaluate(
+            isOpen, HasStateAuthority, Phase);
+        if (!decision.IsApplicable)
         {
-            return;
+            return decision;
         }
 
-        if (Runner.SessionInfo.IsOpen != isOpen)
+        // FIX-51: decide from the last value requested, not the observed SessionInfo.IsOpen,
+        // which can still report the previous value right after a write.
+        if (tracker.ShouldWrite(decision.TargetIsOpen))
         {
-            Runner.SessionInfo.IsOpen = isOpen;
-            Debug.Log($"[NetworkMatchController] Session IsOpen set to {isOpen}.", this);
+            Runner.SessionInfo.IsOpen = decision.TargetIsOpen;
+            tracker.MarkRequested(decision.TargetIsOpen);
+            Debug.Log($"[NetworkMatchController] Session IsOpen set to {decision.TargetIsOpen}.", this);
         }
+
+        return decision;
     }
 
     public override void FixedUpdateNetwork()
@@ -180,6 +188,7 @@ public sealed class NetworkMatchController : NetworkBehaviour
         if (Phase == MatchPhase.InProgress)
         {
             NetworkSpawnManager activeSpawnManager = Runner.GetComponent<NetworkSpawnManager>();
+            activeSpawnManager?.ReapplyDeferredSessionGate();
             if (activeSpawnManager != null &&
                 activeSpawnManager.IsHostMigrationRecoveryInProgress)
             {

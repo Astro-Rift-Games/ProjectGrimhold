@@ -114,7 +114,7 @@ The Host enforces single-writer ordering:
 * `AbortRaidingParticipantsForClosure` ensures they are cleanly aborted if the match closes (e.g. Host shutdown) without leaks.
 
 ### Host Migration
-* Retained disconnected participants face a known limitation: since `_retainedDownedParticipants` and retention status are Host-runtime-only state (not networked), a participant who is disconnected during Host Migration might not be correctly retained on the new Host. This is an accepted limitation and is not redesigned here. 
+* FIX-51: a disconnected Raiding participant with budget left is re-retained on the replacement Host from the replicated connectivity state, with its budget paused during the recovery window; see `HostMigrationRecoveryArchitecture.md`.
 
 ## 8. Resolved Decisions and Operational Values
 

@@ -62,6 +62,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
     private bool _localCommitAttempted;
     private int _authorityResultPublishedSequence;
     private bool _authorityPublishInFlight;
+    private bool _restoredByHostMigration;
 
     [Networked]
     private TickTimer RetryTimer { get; set; }
@@ -85,6 +86,7 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
     {
         _extractionController.ExtractionCompleted += HandleExtractionCompleted;
         _participantLink?.TryResolveParticipant(out _participant);
+        _restoredByHostMigration = HostMigrationRestoreUtility.IsRestoreSpawn(this);
 
         if (HasStateAuthority && TryResolvePendingParticipant() &&
             _participant.State == RaidParticipantState.Extracted &&
@@ -790,6 +792,16 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         {
             Debug.LogError($"{nameof(PlayerExtractionLootSaver)}: Could not confirm extraction result.", this);
             return;
+        }
+
+        if (_restoredByHostMigration)
+        {
+            // FIX-51: the commit started before a Host handoff completed on the replacement Host.
+            _restoredByHostMigration = false;
+            Debug.Log(
+                $"[HM-MULTI] FIX-51 pending extraction commit completed after migration. " +
+                $"ProfileId={_participant.ProfileId}, ResultSequence={resultSequence}.",
+                this);
         }
 
         TryAdvanceConfirmedExperienceTransaction();
