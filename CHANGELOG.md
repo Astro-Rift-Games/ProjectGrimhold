@@ -68,6 +68,10 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - If a raid fails to start or the connection drops, you return to town and see which equipment was lost instead of losing it silently.
 - Prevent game freezes in the Guild when closing menus, track in-raid container loot towards missions, and ensure extracted loot saves reliably without progression errors.
 - Prevent game errors and transition freezes when returning to Town after extraction.
+- Players already inside an objective zone when receiving a contract get instant credit without exiting and re-entering.
+- Extraction transitions no longer throw unspawned pressure exceptions.
+- Passive treasure bonuses and minimap restrictions now stop immediately once extraction is completed.
+- Depositing and withdrawing utilities into chests or corpses properly respects the single-unit carry limit.
 - Extraction now completes when a Duo and other players share a raid launched from Town, and Solo players no longer see another team's quota as their own.
 
 
