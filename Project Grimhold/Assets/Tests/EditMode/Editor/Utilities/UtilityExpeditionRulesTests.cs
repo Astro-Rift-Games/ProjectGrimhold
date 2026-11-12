@@ -20,6 +20,7 @@ namespace Tests.EditMode.Utilities
         {
             private readonly Dictionary<LootId, int> _quantities = new();
             private readonly Dictionary<LootId, TickTimer> _cooldowns = new();
+            private readonly Dictionary<LootId, int> _maxTransportable = new();
 
             public EntityId Id { get; }
 
@@ -27,6 +28,8 @@ namespace Tests.EditMode.Utilities
             {
                 Id = new EntityId(id);
             }
+
+            public void SetMaxTransportable(LootId lootId, int max) => _maxTransportable[lootId] = max;
 
             public void Seed(LootId lootId, int amount, TickTimer cooldown)
             {
@@ -52,10 +55,17 @@ namespace Tests.EditMode.Utilities
                 else _quantities[request.LootId] = remaining;
             }
 
-            public LootTransferFailureReason ValidateReceive(in LootTransferRequest request) =>
-                request.DestinationId == Id && request.RequestedAmount > 0
-                    ? LootTransferFailureReason.None
-                    : LootTransferFailureReason.DestinationNotFound;
+            public LootTransferFailureReason ValidateReceive(in LootTransferRequest request)
+            {
+                if (request.DestinationId != Id) return LootTransferFailureReason.DestinationNotFound;
+                if (request.RequestedAmount <= 0) return LootTransferFailureReason.InvalidAmount;
+                if (_maxTransportable.TryGetValue(request.LootId, out int max) && max > 0 &&
+                    request.RequestedAmount > max - GetLootAmount(request.LootId))
+                {
+                    return LootTransferFailureReason.MaxTransportableExceeded;
+                }
+                return LootTransferFailureReason.None;
+            }
 
             public void CommitReceive(in LootTransferRequest request) =>
                 _quantities[request.LootId] = GetLootAmount(request.LootId) + request.RequestedAmount;
@@ -186,6 +196,44 @@ namespace Tests.EditMode.Utilities
                 "Withdrawing the utility must clear the stored cooldown from the empty container.");
             Assert.That(playerB.GetUtilityCooldown(compassId).TargetTick, Is.EqualTo(1850),
                 "Withdrawing player must inherit the remaining cooldown target tick.");
+        }
+
+        [Test]
+        public void LootTransferTransaction_RejectsDepositOrWithdrawal_WhenDestinationExceedsMaxTransportable()
+        {
+            LootId compassId = PlayerConsumableNetworkController.RuneCompassId;
+            var playerA = new MockCooldownEndpoint(1);
+            var container = new MockCooldownEndpoint(100);
+            var playerB = new MockCooldownEndpoint(2);
+
+            playerA.SetMaxTransportable(compassId, 1);
+            container.SetMaxTransportable(compassId, 1);
+            playerB.SetMaxTransportable(compassId, 1);
+
+            // Container already holds 1 compass
+            container.Seed(compassId, 1, default);
+
+            // Player A carries 1 compass and attempts to deposit into container
+            playerA.Seed(compassId, 1, default);
+            var depositReq = new LootTransferRequest(playerA.Id, container.Id, compassId, 1, 100);
+            LootTransferResult depositResult = LootTransferTransaction.Execute(playerA, container, depositReq);
+
+            Assert.That(depositResult.Success, Is.False);
+            Assert.That(depositResult.FailureReason, Is.EqualTo(LootTransferFailureReason.MaxTransportableExceeded),
+                "Depositing into a container that already reached MaxTransportable must reject with MaxTransportableExceeded.");
+            Assert.That(playerA.GetLootAmount(compassId), Is.EqualTo(1));
+            Assert.That(container.GetLootAmount(compassId), Is.EqualTo(1));
+
+            // Player B carries 1 compass and attempts to withdraw from container
+            playerB.Seed(compassId, 1, default);
+            var withdrawReq = new LootTransferRequest(container.Id, playerB.Id, compassId, 1, 101);
+            LootTransferResult withdrawResult = LootTransferTransaction.Execute(container, playerB, withdrawReq);
+
+            Assert.That(withdrawResult.Success, Is.False);
+            Assert.That(withdrawResult.FailureReason, Is.EqualTo(LootTransferFailureReason.MaxTransportableExceeded),
+                "Withdrawing into an inventory that already reached MaxTransportable must reject with MaxTransportableExceeded.");
+            Assert.That(playerB.GetLootAmount(compassId), Is.EqualTo(1));
+            Assert.That(container.GetLootAmount(compassId), Is.EqualTo(1));
         }
 
         private static TickTimer CreateSyntheticRunningTimer(int targetTick)

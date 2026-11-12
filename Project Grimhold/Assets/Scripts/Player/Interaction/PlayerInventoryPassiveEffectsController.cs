@@ -103,10 +103,13 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
     private PlayerLootReceiver _lootReceiver;
     private PlayerCharacter _playerCharacter;
     private PlayerMovementNetworkController _movementController;
+    private PlayerExtractionController _extractionController;
     private int _lastObservedLootSequence = -1;
     private bool _lastObservedAliveState = true;
+    private bool _lastObservedExtractedState = false;
 
     internal bool? AliveOverrideForTesting { get; set; }
+    internal bool? ExtractedOverrideForTesting { get; set; }
     internal static Transform ObserverTransformOverrideForTesting { get; set; }
 
     public int PresentedVoidBellChimeCount { get; private set; }
@@ -124,12 +127,18 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
     public bool IsSprintingWithVoidBell =>
         HasVoidBell &&
         IsOwnerAlive &&
+        !IsOwnerExtracted &&
         (_playerCharacter == null || !_playerCharacter.IsDowned) &&
         _movementController != null &&
         _movementController.IsSprinting &&
         _movementController.IsMoving;
 
     private bool IsOwnerAlive => AliveOverrideForTesting ?? (_playerCharacter == null || _playerCharacter.IsAlive);
+
+    private bool IsOwnerExtracted =>
+        ExtractedOverrideForTesting ??
+        ((_extractionController != null && _extractionController.State == ExtractionState.Extracted) ||
+         (_playerCharacter != null && _playerCharacter.IsExtracted));
 
     private bool HasSpawnedLootReceiver =>
         _lootReceiver != null && _lootReceiver.Object != null && _lootReceiver.Object.IsValid;
@@ -144,9 +153,38 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
         EvaluatePassiveTreasures();
     }
 
+    private void OnEnable()
+    {
+        HookExtractionEvents();
+    }
+
     private void OnDisable()
     {
+        UnhookExtractionEvents();
         StopPulseRingImmediate();
+    }
+
+    private void HookExtractionEvents()
+    {
+        if (_extractionController != null)
+        {
+            _extractionController.ExtractionCompleted -= OnExtractionCompleted;
+            _extractionController.ExtractionCompleted += OnExtractionCompleted;
+        }
+    }
+
+    private void UnhookExtractionEvents()
+    {
+        if (_extractionController != null)
+        {
+            _extractionController.ExtractionCompleted -= OnExtractionCompleted;
+        }
+    }
+
+    private void OnExtractionCompleted(PlayerExtractionController controller)
+    {
+        _lastObservedExtractedState = true;
+        EvaluatePassiveTreasures();
     }
 
     private void Update()
@@ -163,28 +201,32 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
 
     public void UpdatePassivesIfNeeded()
     {
-        if (_lootReceiver == null || _playerCharacter == null || _movementController == null)
+        if (_lootReceiver == null || _playerCharacter == null || _movementController == null || _extractionController == null)
         {
             CacheDependencies();
         }
 
         bool currentAlive = IsOwnerAlive;
+        bool currentExtracted = IsOwnerExtracted;
         int currentSequence = HasSpawnedLootReceiver ? _lootReceiver.LootChangeSequence : -1;
-        if (currentSequence != _lastObservedLootSequence || currentAlive != _lastObservedAliveState)
+        if (currentSequence != _lastObservedLootSequence ||
+            currentAlive != _lastObservedAliveState ||
+            currentExtracted != _lastObservedExtractedState)
         {
             _lastObservedLootSequence = currentSequence;
             _lastObservedAliveState = currentAlive;
+            _lastObservedExtractedState = currentExtracted;
             EvaluatePassiveTreasures();
         }
     }
 
     /// <summary>
     /// Evalúa la presencia de cada tesoro pasivo en el inventario.
-    /// No acumula efectos duplicados (presencia binaria > 0) y revoca inmediatamente al morir.
+    /// No acumula efectos duplicados (presencia binaria > 0) y revoca inmediatamente al morir o extraer.
     /// </summary>
     public void EvaluatePassiveTreasures()
     {
-        if (!HasSpawnedLootReceiver || !IsOwnerAlive)
+        if (!HasSpawnedLootReceiver || !IsOwnerAlive || IsOwnerExtracted)
         {
             _hasChaosCoin = false;
             _hasPilgrimLight = false;
@@ -524,6 +566,15 @@ public sealed class PlayerInventoryPassiveEffectsController : MonoBehaviour
         if (_lootReceiver == null) _lootReceiver = GetComponent<PlayerLootReceiver>();
         if (_playerCharacter == null) _playerCharacter = GetComponent<PlayerCharacter>();
         if (_movementController == null) _movementController = GetComponent<PlayerMovementNetworkController>();
+        if (_extractionController == null)
+        {
+            _extractionController = GetComponent<PlayerExtractionController>();
+            if (_extractionController == null && _playerCharacter != null)
+            {
+                _extractionController = _playerCharacter.ExtractionController;
+            }
+            HookExtractionEvents();
+        }
     }
 
 #if UNITY_EDITOR
