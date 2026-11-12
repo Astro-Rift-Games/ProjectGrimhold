@@ -78,7 +78,7 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
             if (_lootReceiver == null || _lootReceiver.LootCatalog == null || _weaponEquipment == null || _lootContainer == null || Runner == null ||
                 (!Runner.IsSimulationUpdating && !Runner.IsServer))
             {
-                FailAndCompensate(contentLoaded, null, null, null, simulationTick, "Dependencies or runner are invalid.");
+                FailAndCompensate(ownershipSnapshot, contentLoaded, null, null, null, simulationTick, "Dependencies or runner are invalid.");
                 return false;
             }
 
@@ -89,13 +89,13 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
                     out ownershipSnapshot,
                     out snapshotError))
             {
-                FailAndCompensate(contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, $"Cannot capture expedition loot. {snapshotError}");
+                FailAndCompensate(ownershipSnapshot, contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, $"Cannot capture expedition loot. {snapshotError}");
                 return false;
             }
 
             if (!TryValidateSnapshot(ownershipSnapshot.Combined, out snapshotError))
             {
-                FailAndCompensate(contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, $"Cannot capture a valid inventory snapshot. {snapshotError}");
+                FailAndCompensate(ownershipSnapshot, contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, $"Cannot capture a valid inventory snapshot. {snapshotError}");
                 return false;
             }
 
@@ -111,13 +111,13 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
 
             if (!_lootContainer.IsInitialized || _lootContainer.IsAvailable || !_lootContainer.IsEmpty)
             {
-                FailAndCompensate(contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, "The co-located container is not empty and unavailable.");
+                FailAndCompensate(ownershipSnapshot, contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, "The co-located container is not empty and unavailable.");
                 return false;
             }
 
             if (!_lootContainer.TryLoadExactContent(snapshot, originSnapshot, modifiedUnits, out string loadError))
             {
-                FailAndCompensate(contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, $"Cannot load the container. {loadError}");
+                FailAndCompensate(ownershipSnapshot, contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, $"Cannot load the container. {loadError}");
                 return false;
             }
             contentLoaded = true;
@@ -126,28 +126,28 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
             if (!_lootContainer.HasExactContent(snapshot, originSnapshot, modifiedUnits) ||
                 !ownershipSnapshot.MatchesCurrent(_lootReceiver, _weaponEquipment, out inventoryError))
             {
-                FailAndCompensate(contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, $"Snapshot verification failed. {inventoryError}");
+                FailAndCompensate(ownershipSnapshot, contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, $"Snapshot verification failed. {inventoryError}");
                 return false;
             }
 
 #if UNITY_INCLUDE_TESTS
             if (TestShouldClearPlayerInventory != null && !TestShouldClearPlayerInventory())
             {
-                FailAndCompensate(contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, "The focused test seam rejected player inventory clearing.");
+                FailAndCompensate(ownershipSnapshot, contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, "The focused test seam rejected player inventory clearing.");
                 return false;
             }
 #endif
 
             if (!ownershipSnapshot.TryClearExact(_lootReceiver, _weaponEquipment, out string clearError))
             {
-                FailAndCompensate(contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, $"Inventory changed before atomic clear. {clearError}");
+                FailAndCompensate(ownershipSnapshot, contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, $"Inventory changed before atomic clear. {clearError}");
                 return false;
             }
 
             if (!_lootReceiver.TryGetLootContent(out IReadOnlyList<LootEntry> clearedInventory) ||
                 clearedInventory.Count != 0 || _weaponEquipment.HasAnyEquipment)
             {
-                FailAndCompensate(contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, "Player inventory did not become empty after the exact clear.");
+                FailAndCompensate(ownershipSnapshot, contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, "Player inventory did not become empty after the exact clear.");
                 return false;
             }
 
@@ -160,7 +160,7 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
         catch (Exception exception)
         {
             Debug.LogException(exception, this);
-            FailAndCompensate(contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, "Unexpected inventory conversion exception.");
+            FailAndCompensate(ownershipSnapshot, contentLoaded, snapshot, originSnapshot, modifiedUnits, simulationTick, "Unexpected inventory conversion exception.");
             return false;
         }
     }
@@ -216,6 +216,7 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
     }
 
     private void FailAndCompensate(
+        PlayerExpeditionLootSnapshot ownershipSnapshot,
         bool contentLoaded,
         IReadOnlyList<LootEntry> snapshot,
         IReadOnlyList<RaidLootOriginEntry> originSnapshot,
@@ -236,10 +237,42 @@ public sealed class PlayerCorpseGenerationController : NetworkBehaviour
             }
         }
 
-        State = GenerationState.Failed;
+        // Recoverable only when compensation left nothing behind (FIX-53 S7): a later Abandon may then
+        // retry. Otherwise the state stays terminal so a retry cannot lose or duplicate items.
+        bool canRetry = PlayerCorpseGenerationRetryRule.CanRetryAfterFailure(
+            IsPlayerInventoryIntact(ownershipSnapshot),
+            IsCorpseContainerClean());
+        State = canRetry ? GenerationState.Waiting : GenerationState.Failed;
         Debug.LogError(
-            $"{nameof(PlayerCorpseGenerationController)} failed for player '{name}' at tick {simulationTick}. {reason}",
+            $"{nameof(PlayerCorpseGenerationController)} failed for player '{name}' at tick {simulationTick}. " +
+            $"{reason} Retry {(canRetry ? "allowed" : "not allowed")}.",
             this);
+    }
+
+    // Nothing is mutated before the snapshot exists, so a missing snapshot means an untouched player.
+    private bool IsPlayerInventoryIntact(PlayerExpeditionLootSnapshot ownershipSnapshot)
+    {
+        if (ownershipSnapshot == null)
+        {
+            return true;
+        }
+
+        try
+        {
+            return _lootReceiver != null && _weaponEquipment != null &&
+                ownershipSnapshot.MatchesCurrent(_lootReceiver, _weaponEquipment, out _);
+        }
+        catch (Exception exception)
+        {
+            // Compensation must always settle the state; an unverifiable inventory stays terminal.
+            Debug.LogException(exception, this);
+            return false;
+        }
+    }
+
+    private bool IsCorpseContainerClean()
+    {
+        return _lootContainer != null && !_lootContainer.IsAvailable && _lootContainer.IsEmpty;
     }
 
     private static bool TryValidateSnapshot(IReadOnlyList<LootEntry> snapshot, out string error)

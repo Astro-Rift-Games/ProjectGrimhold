@@ -130,6 +130,43 @@ public sealed class RaidResultsReturnPolicyTests
     }
 
     [Test]
+    public void SoloHostAfterAbandon_IsEligibleOnlyOnceTheProgressionResultIsCommitted()
+    {
+        // FIX-53 S8: the Solo Host Return is what consumes the reservation, so it must stay
+        // unreachable until the resolver committed (the snapshot only exists after the commit).
+        Assert.That(
+            CanRequestSoloHostAbandonReturn(hasProgressionResultSnapshot: false),
+            Is.False);
+        Assert.That(
+            CanRequestSoloHostAbandonReturn(hasProgressionResultSnapshot: true),
+            Is.True);
+    }
+
+    [Test]
+    public void SoloHostAfterAbandon_IsNotEligibleWhileTheRaidIsNotFinished()
+    {
+        Assert.That(
+            CanRequestSoloHostAbandonReturn(
+                hasProgressionResultSnapshot: true,
+                isMatchFinished: false),
+            Is.False);
+    }
+
+    private static bool CanRequestSoloHostAbandonReturn(
+        bool hasProgressionResultSnapshot,
+        bool isMatchFinished = true)
+    {
+        return RaidResultsReturnPolicy.CanRequestHostReturn(
+            RaidParticipantState.Aborted,
+            ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed,
+            isExtractionProgressionComplete: false,
+            hasProgressionResultSnapshot,
+            isServer: true,
+            hasRaidingParticipants: false,
+            isMatchFinished);
+    }
+
+    [Test]
     public void PendingHostReturn_StartsOnlyAfterTheLastRemotePeerLeaves()
     {
         Assert.That(

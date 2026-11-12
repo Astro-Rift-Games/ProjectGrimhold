@@ -68,6 +68,11 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     [Networked]
     public NetworkBool IsReturnAuthorized { get; private set; }
 
+    // Counts Abandon attempts rejected because the corpse could not be generated (FIX-53 S7).
+    // The requesting player observes it to report the failure; it never drives gameplay.
+    [Networked]
+    public int AbandonFailureSequence { get; private set; }
+
     public bool HasProgressionResultSnapshot =>
         _progressionResolver != null &&
         _progressionResolver.TryGetProgressionResult(out ExpeditionProgressionResult _);
@@ -757,8 +762,18 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             return;
         }
 
+        bool isNewAbandonRequest = FinalizationCause !=
+            ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed;
         FinalizationCause =
             ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed;
+        if (isNewAbandonRequest)
+        {
+            Debug.Log(
+                $"[FIX-53] Abandon accepted. RequesterIsHost={requesterIsHost}, " +
+                $"State={State}.",
+                this);
+        }
+
         TryAdvanceVoluntaryAbandon();
     }
 
@@ -872,10 +887,25 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         NetworkObject avatar = null;
         if (State == RaidParticipantState.Raiding)
         {
-            if (!TryResolveCurrentAvatar(out avatar) || avatar == null ||
-                !avatar.TryGetBehaviour(out PlayerCorpseGenerationController corpseGeneration) ||
-                !corpseGeneration.TryConvertInventoryToCorpseLoot(Runner.Tick))
+            bool avatarResolved = TryResolveCurrentAvatar(out avatar) && avatar != null;
+            bool corpseConverted = avatarResolved &&
+                avatar.TryGetBehaviour(out PlayerCorpseGenerationController corpseGeneration) &&
+                corpseGeneration.TryConvertInventoryToCorpseLoot(Runner.Tick);
+            SoloAbandonCorpseResolution resolution = SoloAbandonCorpseResolution.Resolve(
+                corpseConverted,
+                FinalizationCause,
+                AbandonFailureSequence);
+            if (!resolution.ProceedsToAborted)
             {
+                // The participant keeps raiding with its equipment; the pending abandon is dropped
+                // (no per-tick retry) and the requesting player is told through the counter.
+                FinalizationCause = resolution.FinalizationCause;
+                AbandonFailureSequence = resolution.FailureSequence;
+                Debug.LogWarning(
+                    $"[FIX-53] Abandon rejected: corpse generation failed, participant stays Raiding " +
+                    $"with its equipment. AvatarResolved={avatarResolved}, " +
+                    $"FailureSequence={resolution.FailureSequence}.",
+                    this);
                 return;
             }
 

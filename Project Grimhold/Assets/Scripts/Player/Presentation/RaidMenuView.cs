@@ -217,6 +217,18 @@ public sealed class RaidMenuView : MonoBehaviour
         SetText(_abandonButtonText, "Abandonar Incursión");
     }
 
+    /// <summary>
+    /// Reports that Abandon was rejected because the corpse could not be generated. The player
+    /// is still raiding with their equipment, so the regular menu actions stay available.
+    /// </summary>
+    public void PresentAbandonFailure()
+    {
+        SetText(
+            _statusText,
+            "No se pudo abandonar: no se pudo generar tu cadáver. " +
+            "Seguís en la incursión con tu equipamiento.");
+    }
+
     /// <summary>Presents role-aware actions for a defeated local participant.</summary>
     public void PresentDefeatedState(bool canReturn, bool isSpectating)
     {
@@ -286,7 +298,8 @@ public sealed class RaidMenuView : MonoBehaviour
         SetText(_titleText, "Abandonar incursión");
         SetText(
             _statusText,
-            "Perderás el loot temporal. Pulsa Abandonar otra vez para confirmar o Reanudar para cancelar.");
+            "Perderás todo tu equipamiento e inventario; quedarán en tu cadáver. " +
+            "Pulsá Abandonar otra vez para confirmar o Reanudar para cancelar.");
         SetText(_controlsText, string.Empty);
         SetButtonState(_resumeButton, true, true);
         SetText(_resumeButtonText, "Cancelar");

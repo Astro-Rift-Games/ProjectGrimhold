@@ -140,6 +140,68 @@ namespace Tests.EditMode.Presentation
         }
 
         [Test]
+        public void View_PresentAbandonConfirmation_WarnsThatEquipmentAndInventoryAreLost()
+        {
+            // FIX-53 S4: the confirmation names the equipment loss explicitly, for Solo and Party.
+            _view.PresentAbandonConfirmation();
+
+            Assert.That(_view.TitleText.text, Is.EqualTo("Abandonar incursión"));
+            Assert.That(
+                _view.StatusText.text,
+                Is.EqualTo(
+                    "Perderás todo tu equipamiento e inventario; quedarán en tu cadáver. " +
+                    "Pulsá Abandonar otra vez para confirmar o Reanudar para cancelar."));
+            Assert.That(_view.AbandonButtonText.text, Is.EqualTo("Confirmar abandono"));
+        }
+
+        [Test]
+        public void View_PresentAbandonFailure_ExplainsTheCorpseFailureAndKeepsTheRaidActions()
+        {
+            // FIX-53 S7: a failed corpse generation leaves the player raiding with their equipment.
+            _view.PresentAliveState();
+
+            _view.PresentAbandonFailure();
+
+            Assert.That(
+                _view.StatusText.text,
+                Is.EqualTo(
+                    "No se pudo abandonar: no se pudo generar tu cadáver. " +
+                    "Seguís en la incursión con tu equipamiento."));
+            Assert.That(_view.TitleText.text, Is.EqualTo("Menú de Incursión"));
+            Assert.That(_view.AbandonButton.interactable, Is.True);
+            Assert.That(_view.AbandonButtonText.text, Is.EqualTo("Abandonar Incursión"));
+            Assert.That(_view.ResumeButton.interactable, Is.True);
+        }
+
+        [Test]
+        public void Presenter_ReturnGate_SoloHostAfterAbandon_NeedsFinishedRaidWithoutRaiders()
+        {
+            // FIX-53 S2: the Solo Host leaves the loss Results through the Finished-match return.
+            Assert.That(
+                SoloHostAbandonReturnGate(isMatchFinished: true, hasRaidingParticipants: false),
+                Is.True);
+            Assert.That(
+                SoloHostAbandonReturnGate(isMatchFinished: false, hasRaidingParticipants: false),
+                Is.False);
+            Assert.That(
+                SoloHostAbandonReturnGate(isMatchFinished: true, hasRaidingParticipants: true),
+                Is.False);
+        }
+
+        private static bool SoloHostAbandonReturnGate(bool isMatchFinished, bool hasRaidingParticipants)
+        {
+            return RaidMenuPresenter.CanIssueReturnRequest(
+                hasProgressionResultSnapshot: true,
+                RaidParticipantState.Aborted,
+                ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed,
+                isExtractionProgressionComplete: false,
+                isHost: true,
+                isCompatibleClientPhase: false,
+                isMatchFinished,
+                hasRaidingParticipants);
+        }
+
+        [Test]
         public void View_PresentDefeatedClientState_ShowsSpectateAndReturn()
         {
             _view.PresentDefeatedState(canReturn: true, isSpectating: false);
@@ -398,8 +460,8 @@ namespace Tests.EditMode.Presentation
         [Test]
         public void Presenter_OperationalHost_NeverStartsTheIndividualParticipantReturn()
         {
-            // Cancel Raid authorizes every participant, including the Host's. The Host's
-            // departure belongs to the coordinator's global raid closure.
+            // A Finished raid authorizes every participant, including the Host's. The Host's
+            // departure then belongs to the coordinator's Results return.
             Assert.That(
                 RaidMenuPresenter.ShouldStartParticipantReturn(
                     isReturnAuthorized: true,
