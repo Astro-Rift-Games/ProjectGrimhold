@@ -4,32 +4,343 @@
 
 Release: Unreleased
 
-148 original commits; 148 canonical entries.
+152 original commits; 152 canonical entries.
 
 ## Canonical classification
 
-67 features; 39 bug fixes; 1 refactoring; 1 architecture & infrastructure; 13 documentation; 16 tests; 9 maintenance; 2 other changes
+68 features; 41 bug fixes; 1 refactoring; 1 architecture & infrastructure; 14 documentation; 16 tests; 9 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 7 | 6 | 1 | 0 | 9 | 1 |
-| Art & Animation | 9 | 9 | 1 | 0 | 7 | 0 |
+| Art & Animation | 10 | 9 | 1 | 0 | 7 | 0 |
 | Audio | 3 | 1 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 41 | 25 | 1 | 1 | 17 | 2 |
+| Build & Tooling | 42 | 27 | 1 | 1 | 17 | 2 |
 | Combat | 34 | 7 | 0 | 0 | 11 | 0 |
-| Documentation | 26 | 11 | 0 | 0 | 6 | 0 |
-| Extraction | 10 | 3 | 0 | 0 | 5 | 0 |
+| Documentation | 26 | 12 | 0 | 0 | 6 | 0 |
+| Extraction | 10 | 4 | 0 | 0 | 5 | 0 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 51 | 26 | 1 | 1 | 17 | 1 |
+| Inventory & Loot | 52 | 27 | 1 | 1 | 17 | 1 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 19 | 11 | 0 | 0 | 11 | 0 |
+| Networking & Sessions | 19 | 13 | 0 | 0 | 11 | 0 |
 | Persistence & Backend | 26 | 13 | 0 | 1 | 8 | 0 |
-| Tests | 64 | 33 | 1 | 1 | 25 | 0 |
+| Tests | 65 | 35 | 1 | 1 | 25 | 0 |
 | UI | 25 | 9 | 1 | 0 | 9 | 0 |
-| Unassigned | 0 | 1 | 0 | 0 | 4 | 0 |
+| Unassigned | 0 | 1 | 0 | 0 | 5 | 0 |
 | World & Visibility | 17 | 6 | 0 | 0 | 2 | 0 |
 
 ## Original commit records
+
+### 7ae117a5043c0355db83db5ba4c7a76f3bc5da6f
+
+[7ae117a5043c0355db83db5ba4c7a76f3bc5da6f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7ae117a5043c0355db83db5ba4c7a76f3bc5da6f)
+
+Date: 2026-11-12T02:16:51-03:00 · Classification: Features (explicit) · Systems: Inventory & Loot, Art & Animation, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+feat(art): wire chest opening spritesheets to chest prefabs
+```
+
+#### Original body
+
+```text
+Wire the 4-frame chest opening sprite sheets into LootContainer.prefab
+and LockedChest.prefab via ChestOpeningPresenter at 12 fps, replacing
+the placeholder multi-door chest animation and static locked sprite.
+
+- Trim 1 px transparent padding from each frame with center pivots
+  (Chest-Open-Sheet_0..3: 16x16..20 at 16 PPU;
+  LockedChest-Open-Sheet_0..3: 32x19..25 at 16 PPU).
+- Fit BoxCollider2D interaction trigger bounds on both prefabs while
+  keeping m_IsTrigger enabled on layer 8, and preserve the closed world
+  footprint and -0.5 bottom anchor on LootContainer.prefab and the
+  1.1222 x 0.6663 closed footprint at 0.56109375 child scale on
+  LockedChest.prefab.
+- Update EditMode and PlayMode assertions for the trimmed dimensions,
+  4-frame sheets, 16 PPU point import settings, and isTrigger contract.
+
+Tests: EditMode LootContainerPrefabTests (20/20),
+ChestOpeningPresenterTests (8/8), ChestOpeningPresentationStateTests
+(6/6), LockedLootContainerTests (5/5), VisibilityPrefabCoverageTests
+(24/24), NetworkSpawnManagerLootTests (12/12),
+FirstOpenExperienceConfigurationTests (2/2),
+RaidLootOriginWordCountTests (6/6),
+ExtractionProgressPrefabTests (11/11) and PlayMode
+LootContainerPreSpawnPlayModeTests (12/12),
+LockpickInteractionPlayModeTests (9/9), LockedLootContainerPlayModeTests
+(5/5), DefeatedPlayerLootIntegrationPlayModeTests (18/18), and
+RaidInventoryPresenterInteractionTests (67/67) pass in Unity Editor.
+
+Player-Added: Standard and locked chests now play an opening animation when opened.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Art/Props/Chest-Open-Sheet.png.meta
+Project Grimhold/Assets/Art/Props/LockedChest-Open-Sheet.png.meta
+Project Grimhold/Assets/Prefabs/LockedChest.prefab
+Project Grimhold/Assets/Prefabs/LootContainer.prefab
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresenterTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs
+Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs
+```
+
+#### Classification evidence
+
+- type → Features: feat
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/LootContainer.prefab
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresenterTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs
+- message-term → Inventory &amp; Loot: interaction
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/Chest-Open-Sheet.png.meta
+- path → Art &amp; Animation: Project Grimhold/Assets/Art/Props/LockedChest-Open-Sheet.png.meta
+- scope → Art &amp; Animation: art
+- message-term → Art &amp; Animation: sprite
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresenterTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresenterTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### b72cece0f8aedc6d0649750b84c4d9490d5383c5
+
+[b72cece0f8aedc6d0649750b84c4d9490d5383c5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b72cece0f8aedc6d0649750b84c4d9490d5383c5)
+
+Date: 2026-11-12T02:00:11-03:00 · Classification: Documentation (explicit) · Systems: Unassigned
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(odd): add FIX-51 execution tracker and evidence offsets
+```
+
+#### Original body
+
+```text
+Refs: HacknPlan FIX-51 (731)
+```
+
+#### Changed paths
+
+```text
+odd/evidence/fix-50/offsets-fix51-run2.txt
+odd/evidence/fix-50/offsets-fix51-run3.txt
+odd/evidence/fix-50/offsets-fix51-run4.txt
+odd/evidence/fix-50/offsets-fix51-run5.txt
+odd/evidence/fix-50/offsets-fix51.txt
+odd/tasks/fix-51-handoff-disconnected-pending.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+
+#### Diagnostics
+
+- **unassigned-system:** No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system.
+
+### 06164463c8654c3d2f14b6ecc73b5107bd8ad4b9
+
+[06164463c8654c3d2f14b6ecc73b5107bd8ad4b9](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/06164463c8654c3d2f14b6ecc73b5107bd8ad4b9)
+
+Date: 2026-11-12T02:00:11-03:00 · Classification: Bug Fixes (explicit) · Systems: Networking & Sessions, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(network): send the reservation proof when reconnecting from Town
+```
+
+#### Original body
+
+```text
+An in-app reconnect from Town always failed the Host's SEC-59.4
+reservation proof check, migration or not: on an unexpected raid
+shutdown the client replaced its join-time reconnect ticket with one
+built without ReservationId, so the proof sent was empty
+("ReservationId proof mismatch (expected '…', got '')"). A rejected
+reconnect also kept retrying for the whole admission window, leaving
+the player on the transition screen until Fusion timed out.
+
+- RaidReconnectPolicy.BuildTicketAtUnexpectedShutdown carries the
+  active transition ticket's ReservationId, falling back to the
+  persisted ticket. The Host check is unchanged.
+- ClassifyAdmissionFailure reports ConnectionRefused when the runner
+  ended before the admission deadline (the Host disconnects a rejected
+  arrival) and Error on timeout; ShouldRetryAttempt makes
+  ConnectionRefused terminal, so the client discards the ticket and
+  returns to Town at once per the existing discard policy.
+- [HM-MULTI] FIX-51 logs: ticket preserved (HasReservationId, never the
+  id), rejected admission on Host and client.
+
+Tests: RaidReconnectPolicyTests. Live: a teammate reconnected from Town
+into the raid after a Host Migration with the proof accepted
+(odd/tasks/fix-51-handoff-disconnected-pending.md L22).
+
+Player-Fixed: Reconnecting to a raid from town after losing connection works again.
+Refs: HacknPlan FIX-51 (731)
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs
+Project Grimhold/Assets/Scripts/Networking/RaidReconnectPolicy.cs
+Project Grimhold/Assets/Scripts/Networking/RaidReconnectPolicy.cs.meta
+Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidReconnectPolicyTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidReconnectPolicyTests.cs.meta
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidReconnectPolicy.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidReconnectPolicy.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidReconnectPolicyTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidReconnectPolicyTests.cs.meta
+- scope → Networking &amp; Sessions: network
+- message-term → Networking &amp; Sessions: Host Migration
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidReconnectPolicyTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidReconnectPolicyTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidReconnectPolicyTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidReconnectPolicyTests.cs.meta
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 80409baec33beb02a7701d36323e58bf3aa58637
+
+[80409baec33beb02a7701d36323e58bf3aa58637](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/80409baec33beb02a7701d36323e58bf3aa58637)
+
+Date: 2026-11-12T01:59:56-03:00 · Classification: Bug Fixes (explicit) · Systems: Extraction, Inventory & Loot, Networking & Sessions, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(network): keep disconnected and extracting players across Host Migration
+```
+
+#### Original body
+
+```text
+A Host handoff no longer drops teammates who were disconnected or whose
+extraction commit was still pending (FIX-51, FIX-US-08). Before, the
+replacement Host started with an empty disconnected registry, aborted
+and despawned them at seal, and closed the room, so they could not come
+back and pending extraction loot could be lost.
+
+- HostMigrationRetentionPolicy: a restored Raiding participant that is
+  disconnected with reconnect budget left is re-retained, skipped at
+  seal and never finalized; an Extracted participant whose extraction
+  phase is not Complete is recoverable, and is kept without despawn if
+  it does not return before seal. Budget exhausted or absence confirmed
+  keeps the existing finalization.
+- The reconnect budget is paused while the recovery window is open and
+  resumes after seal (ReconnectBudgetRules.ConsumeTick isBudgetPaused).
+- After seal, reconnect-token holders take the normal reconnect path;
+  everyone else is still refused. Rebind clears IsDisconnected and gives
+  an Extracted-pending avatar its Input Authority back so the commit
+  RPC and ACK can complete.
+- RaidSessionGatePolicy + RaidSessionGateTracker: the room stays open
+  while a retained participant can reconnect. The gate writes from the
+  last value it requested instead of the observed SessionInfo.IsOpen,
+  re-applies a deferred decision once authority and phase are ready,
+  and the seal no longer closes the room unconditionally.
+- [HM-MULTI] FIX-51 logs for re-retain, seal skip, rebind, Extracted
+  recovery and every session gate decision.
+
+Docs: the accepted "Known limitation" in HostMigrationRecoveryArchitecture
+and one RaidConnectivityContinuity sentence now describe these rules;
+the full Host Migration rewrite is FIX-52.
+
+Tests: HostMigrationRetentionPolicyTests, RaidSessionGatePolicyTests.
+Live (Host + 2 Clients): a teammate suspended before the Host was killed
+was re-retained with its budget paused, the room reopened and it
+reconnected from Town (odd/tasks/fix-51-handoff-disconnected-pending.md
+L22). The Extracted-with-pending-commit case is unit-tested only;
+multiplayer extraction is currently broken before this change (L23).
+
+Refs: HacknPlan FIX-51 (731)
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/HostMigrationRetentionPolicy.cs
+Project Grimhold/Assets/Scripts/Networking/HostMigrationRetentionPolicy.cs.meta
+Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs
+Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+Project Grimhold/Assets/Scripts/Networking/RaidParticipantConnectivity.cs
+Project Grimhold/Assets/Scripts/Networking/RaidSessionGatePolicy.cs
+Project Grimhold/Assets/Scripts/Networking/RaidSessionGatePolicy.cs.meta
+Project Grimhold/Assets/Scripts/Networking/ReconnectBudgetRules.cs
+Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRetentionPolicyTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRetentionPolicyTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidSessionGatePolicyTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidSessionGatePolicyTests.cs.meta
+Project Grimhold/Docs/Architecture/HostMigrationRecoveryArchitecture.md
+Project Grimhold/Docs/Architecture/RaidConnectivityContinuityArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Extraction: Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs
+- message-term → Extraction: extracting
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs
+- message-term → Inventory &amp; Loot: loot
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/HostMigrationRetentionPolicy.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/HostMigrationRetentionPolicy.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidParticipantConnectivity.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidSessionGatePolicy.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidSessionGatePolicy.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/ReconnectBudgetRules.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRetentionPolicyTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRetentionPolicyTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidSessionGatePolicyTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidSessionGatePolicyTests.cs.meta
+- scope → Networking &amp; Sessions: network
+- message-term → Networking &amp; Sessions: Host Migration
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRetentionPolicyTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRetentionPolicyTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidSessionGatePolicyTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidSessionGatePolicyTests.cs.meta
+- path → Documentation: Project Grimhold/Docs/Architecture/HostMigrationRecoveryArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/RaidConnectivityContinuityArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRetentionPolicyTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRetentionPolicyTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidSessionGatePolicyTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidSessionGatePolicyTests.cs.meta
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### d0de8c3bd0ff81131df48ce7332ae0b2e8a689e8
 

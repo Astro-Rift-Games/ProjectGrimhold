@@ -21,6 +21,7 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - Ask the Trainer for a free training weapon in Town.
 - Players are told on screen when the host leaves and who the new host is.
 - Dungeon wall torches now burn with an animated flickering flame.
+- Standard and locked chests now play an opening animation when opened.
 
 ### Improved
 
@@ -61,6 +62,7 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - The Catacombs Specter now cleanly avoids damage and projectile collisions during its fade-out, attacks with a visible telegraph build-up, and relocates behind cover.
 - Aiming no longer jitters or drifts when the camera shakes during dungeon pressure and collapse phases.
 - The host can no longer end the raid for everyone; the host now abandons or returns like any other player.
+- Reconnecting to a raid from town after losing connection works again.
 
 
 ## [0.5.0](https://github.com/Astro-Rift-Games/ProjectGrimhold/releases/tag/v0.5.0) - 2026-11-08
