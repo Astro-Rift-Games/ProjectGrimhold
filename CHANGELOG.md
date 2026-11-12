@@ -36,6 +36,7 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - Items that cannot be dropped, such as training weapons, now show their drop options disabled and can no longer be thrown on the ground.
 - Training weapons now appear dimmed when a chest is open and can no longer be stored in chests or other containers.
 - When the host dies and returns to town, the raid keeps going for everyone else and another player becomes the host.
+- Abandoning a raid now clearly warns that you lose all your equipment.
 
 ### Fixed
 
@@ -63,6 +64,8 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - Aiming no longer jitters or drifts when the camera shakes during dungeon pressure and collapse phases.
 - The host can no longer end the raid for everyone; the host now abandons or returns like any other player.
 - Reconnecting to a raid from town after losing connection works again.
+- If abandoning fails, you get a message and can try again instead of being stuck.
+- If a raid fails to start or the connection drops, you return to town and see which equipment was lost instead of losing it silently.
 
 
 ## [0.5.0](https://github.com/Astro-Rift-Games/ProjectGrimhold/releases/tag/v0.5.0) - 2026-11-08

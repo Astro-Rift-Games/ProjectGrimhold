@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1029,
-  "canonicalEntries": 1026,
+  "rawCommits": 1033,
+  "canonicalEntries": 1030,
   "before": {
-    "Features": 390,
-    "Documentation": 88,
-    "Bug Fixes": 119,
+    "Documentation": 90,
+    "Features": 391,
+    "Bug Fixes": 120,
     "Tests": 40,
     "Architecture & Infrastructure": 22,
     "Other Changes": 356,
     "Refactoring": 14
   },
   "after": {
-    "Features": 528,
-    "Documentation": 104,
-    "Bug Fixes": 135,
+    "Documentation": 106,
+    "Features": 529,
+    "Bug Fixes": 136,
     "Tests": 45,
     "Maintenance": 20,
     "Architecture & Infrastructure": 6,
@@ -23,17 +23,17 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Inventory & Loot": 415,
+    "Extraction": 142,
+    "Inventory & Loot": 419,
+    "Networking & Sessions": 303,
+    "UI": 317,
+    "Persistence & Backend": 235,
+    "Documentation": 389,
+    "World & Visibility": 136,
+    "Build & Tooling": 533,
+    "Tests": 650,
     "Art & Animation": 237,
-    "Build & Tooling": 531,
-    "Tests": 648,
     "Unassigned": 24,
-    "Networking & Sessions": 299,
-    "Extraction": 138,
-    "Documentation": 387,
-    "UI": 313,
-    "World & Visibility": 135,
-    "Persistence & Backend": 233,
     "Combat": 368,
     "Abilities": 128,
     "Audio": 34,
@@ -42,9 +42,9 @@
   },
   "canonical": {
     "sections": {
-      "Features": 527,
-      "Documentation": 104,
-      "Bug Fixes": 134,
+      "Documentation": 106,
+      "Features": 528,
+      "Bug Fixes": 135,
       "Tests": 45,
       "Maintenance": 20,
       "Architecture & Infrastructure": 6,
@@ -52,17 +52,17 @@
       "Refactoring": 27
     },
     "systems": {
-      "Inventory & Loot": 415,
+      "Extraction": 142,
+      "Inventory & Loot": 419,
+      "Networking & Sessions": 303,
+      "UI": 316,
+      "Persistence & Backend": 235,
+      "Documentation": 387,
+      "World & Visibility": 134,
+      "Build & Tooling": 531,
+      "Tests": 648,
       "Art & Animation": 234,
-      "Build & Tooling": 529,
-      "Tests": 646,
       "Unassigned": 24,
-      "Networking & Sessions": 299,
-      "Extraction": 138,
-      "Documentation": 385,
-      "UI": 312,
-      "World & Visibility": 133,
-      "Persistence & Backend": 233,
       "Combat": 366,
       "Abilities": 126,
       "Audio": 34,
@@ -34055,8 +34055,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 152,
-      "canonicalEntries": 152
+      "originalCommits": 156,
+      "canonicalEntries": 156
     },
     {
       "key": "v0.5.0",
@@ -34100,6 +34100,709 @@
     }
   ],
   "commits": [
+    {
+      "sha": "f2fc7539bd0bd9b6d96e4c2bd036637bc80b2a68",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f2fc7539bd0bd9b6d96e4c2bd036637bc80b2a68",
+      "subject": "docs(raid): document FIX-53 Solo exit and loss notice rules",
+      "body": "Architecture: loss notice and no pre-start refund (LocalPlayerPersistence), Abandon confirmation and corpse-failure feedback (RaidMainHud), Failed to Waiting corpse retry (LootInteraction), automatic Host return after BootstrapFailure (LobbyAndSessionTransition). Adds the FIX-53 ODD tracker and evidence offsets.\n\nRefs: HacknPlan FIX-53 (733)\n",
+      "date": "2026-11-12T15:11:54-03:00",
+      "files": [
+        "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+        "odd/evidence/fix-53-offsets-step3.txt",
+        "odd/evidence/fix-53-offsets.txt",
+        "odd/tasks/fix-53-solo-abandon.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "raid",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "Persistence & Backend",
+        "Documentation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/fix-53-solo-abandon.md",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "f76890189e580fe6add2b75f7824aaa086caf38a",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f76890189e580fe6add2b75f7824aaa086caf38a",
+      "subject": "docs(raid): document FIX-53 Solo exit and loss notice rules",
+      "body": "Architecture: loss notice and no pre-start refund (LocalPlayerPersistence), Abandon confirmation and corpse-failure feedback (RaidMainHud), Failed to Waiting corpse retry (LootInteraction), automatic Host return after BootstrapFailure (LobbyAndSessionTransition). Adds the FIX-53 ODD tracker and evidence offsets.\n\nRefs: HacknPlan FIX-53 (733)\n",
+      "date": "2026-11-12T15:11:54-03:00",
+      "files": [
+        ".pi/subagents.json",
+        "Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset",
+        "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+        "odd/evidence/fix-53-offsets-step3.txt",
+        "odd/evidence/fix-53-offsets.txt",
+        "odd/tasks/fix-53-solo-abandon.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "raid",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "World & Visibility",
+        "Persistence & Backend",
+        "Documentation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/fix-53-solo-abandon.md",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "261bc7b07e6d2867c8e1a47f0bad3ba55d149126",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/261bc7b07e6d2867c8e1a47f0bad3ba55d149126",
+      "subject": "feat(raid): show a Town loss notice after a technical raid failure",
+      "body": "A Solo player no longer loses the loadout silently, nor stays stuck in\nthe raid scene, when the raid fails for technical reasons (FIX-53).\n\n- After a BootstrapFailure closure (including the expected-admission\n  timeout) the Host returned nowhere: its participant was Aborted with\n  cause None, no Results existed and Abandon was rejected, so it stayed\n  in the raid scene until quitting. RaidLossNoticePolicy.\n  ShouldReturnHostAfterTechnicalClosure and SessionConnectionCoordinator.\n  ObserveTechnicalClosure now route the Host to Town through the\n  ordinary Host Return (3 s retry guard; still waits for remote peers).\n- Before ClearLostParticipationReservation consumes the reservation, the\n  coordinator captures a RaidLossNotice (reserved items + prepared\n  equipment via RaidResultsLootSummaryBuilder.TryBuildLost) into a\n  one-shot RaidLossNoticeSlot. Reasons: RaidStartFailed (BootstrapFailure\n  closure) and ConnectionLost (unexpected own-runner shutdown without a\n  retained reconnect ticket and no outgoing Host handoff).\n- Town shows it once (\"Incursión perdida\", reason text, item list,\n  \"Continuar\") through TownRaidLossNoticePresenter/View and the new\n  TownRaidLossNotice prefab, wired into Lobby-Town through the Editor.\n- Abandon, Defeat and extraction keep their in-raid Results and capture\n  no notice. App quit/crash mid-raid stays a loss without notice.\n  Admitted reservations are still never rolled back; a pre-start refund\n  is a separate follow-up.\n- [FIX-53] logs for capture, show, dismiss, technical-closure routing\n  and Solo Host Return.\n\nTests: RaidLossNoticeTests, RaidLossNoticePolicyTests,\nRaidLossNoticeSlotTests, TownRaidLossNoticePresentationTests,\nSessionCompositionConfigurationTests. Live Solo: forced GameClosed\nshutdown showed the \"Incursión perdida\" notice in Town\n(odd/tasks/fix-53-solo-abandon.md L19-L20). The bootstrap-failure route\nis unit-tested only.\n\nPlayer-Fixed: If a raid fails to start or the connection drops, you return to town and see which equipment was lost instead of losing it silently.\nRefs: HacknPlan FIX-53 (733)\n",
+      "date": "2026-11-12T15:11:40-03:00",
+      "files": [
+        "Project Grimhold/Assets/Prefabs/UI/TownRaidLossNotice.prefab",
+        "Project Grimhold/Assets/Prefabs/UI/TownRaidLossNotice.prefab.meta",
+        "Project Grimhold/Assets/Scenes/Lobby-Town.unity",
+        "Project Grimhold/Assets/Scripts/Networking/RaidLossNotice.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidLossNotice.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticePolicy.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticePolicy.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticeReason.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticeReason.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticeSlot.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticeSlot.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidLossNoticePresentation.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidLossNoticePresentation.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidLossNoticePresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidLossNoticePresenter.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidLossNoticeView.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidLossNoticeView.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticePolicyTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticePolicyTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeSlotTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeSlotTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownRaidLossNoticePresentationTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownRaidLossNoticePresentationTests.cs.meta"
+      ],
+      "originalType": "feat",
+      "originalScope": "raid",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scenes/Lobby-Town.unity",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLossNotice.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLossNotice.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticePolicy.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticePolicy.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticeReason.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticeReason.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticeSlot.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticeSlot.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticePolicyTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticePolicyTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeSlotTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeSlotTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "Lobby",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/TownRaidLossNotice.prefab",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/TownRaidLossNotice.prefab.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticePolicyTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticePolicyTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeSlotTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeSlotTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownRaidLossNoticePresentationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownRaidLossNoticePresentationTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticePolicyTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticePolicyTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeSlotTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeSlotTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownRaidLossNoticePresentationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownRaidLossNoticePresentationTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "487aad8d700b89bc4190b295ccf199540aee087b",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/487aad8d700b89bc4190b295ccf199540aee087b",
+      "subject": "fix(raid): warn about equipment loss and recover a failed Abandon",
+      "body": "Abandon in a Solo raid now warns that the equipment is lost and no\nlonger gets stuck when the corpse cannot be generated (FIX-53).\n\n- The Abandon confirmation names the loss explicitly: \"Perderás todo tu\n  equipamiento e inventario; quedarán en tu cadáver. Pulsá Abandonar\n  otra vez para confirmar o Reanudar para cancelar.\"\n- If corpse generation fails, the participant stays Raiding with its\n  equipment, the pending Abandon is cleared (SoloAbandonCorpseResolution)\n  and a replicated AbandonFailureSequence makes the menu show \"No se pudo\n  abandonar: no se pudo generar tu cadáver. Seguís en la incursión con\n  tu equipamiento.\" once per failure (SoloAbandonFailureNotice).\n  Before, the participant retried silently every tick and never left.\n- PlayerCorpseGenerationController returns from Failed to Waiting only\n  after a full compensation (inventory intact and corpse container clean,\n  PlayerCorpseGenerationRetryRule), so a second Abandon can succeed\n  without losing or duplicating items; otherwise it stays terminal.\n- The Solo Host Return after Abandon already requires the committed\n  progression result before the reservation is consumed; the ordering\n  is now pinned by tests.\n- [FIX-53] logs for Abandon accepted, corpse failure, Results shown.\n\nTests: RaidMenuPresenterTests, RaidResultsReturnPolicyTests,\nSoloAbandonCorpseResolutionTests, SoloAbandonFailureNoticeTests,\nPlayerCorpseGenerationRetryRuleTests. Live Solo: Abandon → loss Results\n→ Volver → Town (odd/tasks/fix-53-solo-abandon.md L19).\n\nPlayer-Improved: Abandoning a raid now clearly warns that you lose all your equipment.\nPlayer-Fixed: If abandoning fails, you get a message and can try again instead of being stuck.\nRefs: HacknPlan FIX-53 (733)\n",
+      "date": "2026-11-12T15:11:24-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs",
+        "Project Grimhold/Assets/Scripts/Networking/SoloAbandonCorpseResolution.cs",
+        "Project Grimhold/Assets/Scripts/Networking/SoloAbandonCorpseResolution.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/SoloAbandonFailureNotice.cs",
+        "Project Grimhold/Assets/Scripts/Networking/SoloAbandonFailureNotice.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCorpseGenerationController.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCorpseGenerationRetryRule.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCorpseGenerationRetryRule.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuView.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseGenerationRetryRuleTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseGenerationRetryRuleTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMenuPresenterTests.cs"
+      ],
+      "originalType": "fix",
+      "originalScope": "raid",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SoloAbandonCorpseResolution.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SoloAbandonCorpseResolution.cs.meta",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SoloAbandonFailureNotice.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SoloAbandonFailureNotice.cs.meta",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs.meta",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs.meta",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SoloAbandonCorpseResolution.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SoloAbandonCorpseResolution.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SoloAbandonFailureNotice.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SoloAbandonFailureNotice.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuView.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMenuPresenterTests.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseGenerationRetryRuleTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseGenerationRetryRuleTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMenuPresenterTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseGenerationRetryRuleTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseGenerationRetryRuleTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMenuPresenterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "7ae117a5043c0355db83db5ba4c7a76f3bc5da6f",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7ae117a5043c0355db83db5ba4c7a76f3bc5da6f",
