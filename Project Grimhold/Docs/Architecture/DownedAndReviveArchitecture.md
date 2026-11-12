@@ -593,7 +593,7 @@ The Accelerated Resolution evaluator treats a disconnected-but-retained Downed m
 
 ## 16. Host Migration
 
-Design intent, not a guaranteed MVP requirement (GD). Contract for everything this document adds:
+Host Migration is an MVP requirement (decision of 2026-11-01, FIX-US-08: the Raid and other players' equipment/loot cannot depend on a single person); the live Game Design documents are pending their update. Contract for everything this document adds:
 
 * All Downed, recovery, accelerated and attribution state is `[Networked]` on the avatar
   (`IsDowned`, `DownedHealth`, `DownedCycle`, recovery session fields, `SelfReviveUsed`, `AcceleratedDrainPerSecond`,
@@ -612,10 +612,13 @@ Design intent, not a guaranteed MVP requirement (GD). Contract for everything th
   remap, so the restored session fails to resolve its reviver on the first authoritative tick and
   is cleared safely (the Downed player keeps the reserve and a reviver can start again). Not
   validated with a real migration.
-* **Known limitation (Implemented, unvalidated):** `_retainedDownedParticipants` is runtime-only
-  Host bookkeeping and is not in the snapshot. A Downed player who is also disconnected during
-  migration is not guaranteed to be re-retained, so reaching Defeat is not guaranteed.
-  Reconnect/recovery policy remains deferred (`RaidDefeatAndSpectatorArchitecture.md`).
+* **Disconnected retention (FIX-51, Implemented, unvalidated for Downed):** the Host's disconnected
+  registry is runtime-only and is not in the snapshot, but the replacement Host re-registers a
+  `Raiding` participant (Active or Downed) that is `IsDisconnected` with budget left from the replicated
+  `RaidParticipantConnectivity` state (`HostMigrationRetentionPolicy.Classify`), pausing its budget
+  during the recovery window (see `HostMigrationRecoveryArchitecture.md`). That a disconnected
+  Downed avatar keeps draining and reaches Defeat exactly once after a real migration has not been
+  exercised with a Downed participant.
 
 ## 17. Open questions
 
@@ -721,7 +724,7 @@ evidence and closure checks without creating another tracker or changing approve
 |---|---|---|
 | Frozen PvP Last Hit / Assist | Implemented by TASK-246 (section 11): entry freezes credit, definitive Defeat confirms it once, revive cancels it. Contribution history remains window-based across cycles. | `PvpCombatCreditPlayModeTests` (31 tests, passing) covers ordered hits, finishers, revive/new cycles, support, terminal recipients, retry and state copy. Real Host/Client sessions and Host Migration remain unverified. |
 | Required-team extraction composition | Section 13: extraction is currently per player; no owning composition path has been identified for required-team re-evaluation. A member's definitive Defeat must update eligibility without treating Downed as terminal. | Identify the existing extraction owner before changing it; verify connected Downed presence/countdown, Defeat interruption and required-team re-evaluation. Do not invent a second coordinator. |
-| Disconnected Downed retention after migration | Section 16: `_retainedDownedParticipants` is Host runtime-only bookkeeping, absent from the snapshot. A disconnected Downed avatar is not guaranteed to remain retained or reach Defeat after migration. | Resolve recovery ownership through the existing migration/departure path; verify retention, drain, damage and exactly-once terminal resolution after a real Host Migration. |
+| Disconnected Downed retention after migration | Section 16: FIX-51 re-retains a disconnected `Raiding` participant (Active or Downed) with budget left on the replacement Host from replicated connectivity state. Drain, damage and exactly-once Defeat of a disconnected Downed avatar after a real migration are unverified. | Verify retention, drain, damage and exactly-once terminal resolution of a disconnected Downed participant across a real Host Migration. |
 | Absolute close: Abort versus definitive Defeat | Sections 14 and 17/Q6: closure currently aborts `Raiding` participants; the documented GD rule requires definitive Defeat for everyone still inside. Ownership between TASK 453 and a Dungeon Session task remains unresolved. | Confirm the owning task/system, then verify authoritative, idempotent forced Defeat for Active and Downed avatars, ignoring reserve/recovery and using existing corpse/Loot/Results owners. |
 | Multiplayer and migration proof | The focused tests reported for the initial slice do not establish Host/Client or migration behavior. Sections 12-16 still require runtime evidence. | Run Host/Client in both roles, damage/drain Defeat, revive and a second Downed cycle, extraction races, real disconnect and Host Migration; check exactly-once corpse, Loot and terminal Results. |
 
