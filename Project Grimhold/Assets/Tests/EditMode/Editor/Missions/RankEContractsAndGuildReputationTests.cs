@@ -37,6 +37,7 @@ namespace Tests.EditMode.Missions
             Assert.That(m2.RankRequired, Is.EqualTo(MissionRank.E));
             Assert.That(m2.Phases[0].Objectives[0].Family, Is.EqualTo(ObjectiveFamily.EliminacionEspecifica));
             Assert.That(m2.Phases[0].Objectives[0].Condition.TargetId, Is.EqualTo("skeleton"));
+            Assert.That(m2.Phases[0].Objectives[0].Condition.ZoneId, Is.EqualTo("Catacombs_Main"));
             Assert.That(m2.Phases[0].Objectives[0].Condition.RequiredAmount, Is.EqualTo(2));
             AssertReward(m2.Rewards, RewardDefinition.RewardType.Experience, 75);
             AssertReward(m2.Rewards, RewardDefinition.RewardType.Gold, 30);

@@ -2,8 +2,10 @@ using NUnit.Framework;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class MissionProgressEngineTests
+namespace Tests.EditMode.Missions
 {
+    public class MissionProgressEngineTests
+    {
     private MissionDefinition _testMission;
     private MissionInstanceState _state;
     private ProfileId _profileId;
@@ -121,4 +123,5 @@ public class MissionProgressEngineTests
 
         Assert.AreEqual(MissionState.PendienteDeReclamar, _state.State);
     }
+}
 }

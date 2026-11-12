@@ -584,17 +584,34 @@ public sealed class PlayerLootTransferNetworkController : NetworkBehaviour
             request,
             out LootFirstAcquisitionResult firstAcquisition);
         if (result.Success && isWithdrawal &&
-            ReferenceEquals(receiver, _lootReceiver) &&
-            firstAcquisition.EligibleAmount > 0 &&
-            definition.ExtractionValuePerUnit > 0)
+            ReferenceEquals(receiver, _lootReceiver))
         {
-            long progressAmount = checked(
-                (long)definition.ExtractionValuePerUnit * firstAcquisition.EligibleAmount);
-            _progressReceiver?.TryApplyContribution(new ExtractionProgressContribution(
-                ExtractionProgressSourceType.LootFirstAcquisition,
-                identity.SourceId,
-                progressAmount,
-                tick));
+            if (firstAcquisition.EligibleAmount > 0 &&
+                definition.ExtractionValuePerUnit > 0)
+            {
+                long progressAmount = checked(
+                    (long)definition.ExtractionValuePerUnit * firstAcquisition.EligibleAmount);
+                _progressReceiver?.TryApplyContribution(new ExtractionProgressContribution(
+                    ExtractionProgressSourceType.LootFirstAcquisition,
+                    identity.SourceId,
+                    progressAmount,
+                    tick));
+            }
+
+            if (TryGetComponent(out RaidAvatarParticipantLink link) &&
+                link.TryResolveParticipant(out NetworkRaidParticipant participant))
+            {
+                var ledger = participant.GetComponent<PlayerMissionContributionLedger>();
+                if (ledger != null && definition != null)
+                {
+                    ledger.RecordContribution(
+                        ObjectiveFamily.Obtencion,
+                        result.TransferredAmount,
+                        definition.LootId.Value,
+                        null,
+                        isCompanionContribution: false);
+                }
+            }
         }
 
         return new LootTransferConfirmation(

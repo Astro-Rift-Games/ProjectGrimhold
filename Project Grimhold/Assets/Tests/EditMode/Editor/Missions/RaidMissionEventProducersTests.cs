@@ -33,10 +33,10 @@ namespace Tests.EditMode.Missions
             var active = store.GetActiveMissions();
             Assert.That(active[0].ObjectiveProgress[0].CurrentAmount, Is.EqualTo(1));
 
-            // 2. Specific Elimination (CON_E_002: skeleton)
+            // 2. Specific Elimination (CON_E_002: skeleton in Catacombs_Main)
             Assert.That(catalog.TryGet("CON_E_002", out var m2), Is.True);
             store.TryAcceptMission(m2);
-            var ev2 = new MissionContributionEvent(ObjectiveFamily.EliminacionEspecifica, 1, profileId, targetId: "skeleton");
+            var ev2 = new MissionContributionEvent(ObjectiveFamily.EliminacionEspecifica, 1, profileId, targetId: "skeleton", zoneId: "Catacombs_Main");
             store.TryApplyMissionProgress(ev2);
             active = store.GetActiveMissions();
             var inst2 = active.FirstOrDefault(m => m.MissionId.Value == "CON_E_002");

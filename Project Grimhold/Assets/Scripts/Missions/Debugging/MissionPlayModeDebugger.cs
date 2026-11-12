@@ -7,6 +7,7 @@ using UnityEngine;
 /// Allows accepting missions, tracking real-time objective progress, claiming rewards,
 /// and simulating contribution events without requiring a full UI frontend.
 /// </summary>
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
 [DisallowMultipleComponent]
 public sealed class MissionPlayModeDebugger : MonoBehaviour
 {
@@ -161,7 +162,6 @@ public sealed class MissionPlayModeDebugger : MonoBehaviour
         return null;
     }
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
     private void OnGUI()
     {
         if (Store == null || !Store.IsAvailable)
@@ -404,5 +404,14 @@ public sealed class MissionPlayModeDebugger : MonoBehaviour
         GUILayout.EndScrollView();
         GUI.DragWindow(new Rect(0, 0, 10000, 20));
     }
-#endif
 }
+#else
+[DisallowMultipleComponent]
+public sealed class MissionPlayModeDebugger : MonoBehaviour
+{
+    private void Awake()
+    {
+        Destroy(this);
+    }
+}
+#endif
