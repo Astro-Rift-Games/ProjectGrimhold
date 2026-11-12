@@ -49,7 +49,7 @@ Read the relevant current sections of `Docs/Architecture/` before changing a cov
 
 Read `Docs/Architecture/HostMigrationRecoveryArchitecture.md` before changing eligibility, snapshots, rebind, deadlines or recovery closure.
 
-Host Migration recovers abrupt Host loss during an active Raid, not normal Return, Abandon, Extraction, cancellation or shutdown. Preserve the fresh-spawn versus restore boundary: `CopyStateFrom` restores network state; `Spawned()` and other initialization paths must not overwrite it. Restore guards alone are not restoration. Follow the document for role-specific recovery and runner-scoped ownership rather than creating a fresh-spawn fallback.
+Host Migration moves the Host role during an active Raid in two cases: abrupt Host loss, and a voluntary Host exit once the Host's own result is resolved (Return after Results or a completed extraction, Abandon followed by Return) while a connected Raiding participant remains. Without a Raiding peer the Raid closes normally; there is no Cancel Raid. Preserve the fresh-spawn versus restore boundary: `CopyStateFrom` restores network state; `Spawned()` and other initialization paths must not overwrite it. Restore guards alone are not restoration. Follow the document for role-specific recovery and runner-scoped ownership rather than creating a fresh-spawn fallback.
 
 ## Input, movement and presentation
 
