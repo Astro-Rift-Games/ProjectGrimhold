@@ -37,9 +37,12 @@ Starting / bootstrap failure
 `RaidClosureReason.BootstrapFailure`; it does not pass through `InProgress` and
 cleanup remains idempotent.
 
-The Host cannot cancel the Raid (removed by FIX-49). An individual
-Host abandonment remains a participant result: if another participant is still
-`Raiding`, the existing Host Migration flow continues the raid.
+No participant, including the Host, can cancel the Raid (Cancel Raid was removed by FIX-49).
+A Host abandonment, Defeat or extraction is an individual participant result. When the Host then
+returns while another participant is still `Raiding`, the Host role is handed to that participant
+through Host Migration and the Raid continues in the same generation
+(`HostMigrationRecoveryArchitecture.md#voluntary-host-exit-handoff`); when none remains, the Raid
+closes normally with `NaturalCompletion`.
 
 ## Ownership and boundaries
 

@@ -86,8 +86,9 @@ terminal ownership is retained for `Aborted` only when its semantic cause is
 HUD ownership remains unchanged. The HUD remains bound without restoring gameplay input.
 `Spectating` is local presentation,
 never a `RaidParticipantState`. A defeated Client may observe or request Return; the
-canonical Host enters spectator automatically and cannot Return while sustaining the
-runner's State Authority. Remote defeated bodies cannot own local HUD. Presentation
+operational Host also enters spectator automatically, and may open the Results and Return like a
+Client once its result is accepted (the Host role then passes to a remaining participant, see
+`HostMigrationRecoveryArchitecture.md`). Remote defeated bodies cannot own local HUD. Presentation
 observes return authorization and delegates the local runner transition to
 `SessionConnectionCoordinator`. No UI component shuts down a runner or loads a scene.
 

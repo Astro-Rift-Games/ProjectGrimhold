@@ -9,8 +9,10 @@ with `Spectating`; spectator mode is local presentation owned by `RaidMenuPresen
 raid closure.
 
 The durable participant identity is `ProfileId`. `PlayerRef` and Input Authority are
-runner-local routing and never decide the Host role. The canonical Host is the frozen
-`RaidLaunchContext.HostProfileId` for that runner.
+runner-local routing and never decide the Host role. The frozen
+`RaidLaunchContext.HostProfileId` identifies the historical Host of the original runner; the
+operational Host is whoever holds State Authority in the current runner and can change through
+Host Migration (see `HostMigrationRecoveryArchitecture.md`).
 
 ## PlayerObject invariant
 
@@ -32,8 +34,12 @@ RpcInfo.Source
   -> RaidLaunchContext.HostProfileId
 ```
 
-Every ambiguous or inconsistent step rejects the request. A defeated canonical Host cannot
-Return while the raid is active. A defeated Client may Return. Immediately before publishing
+Every ambiguous or inconsistent step rejects the request. A defeated Client may Return. A defeated
+operational Host may also Return once its Defeat result is accepted: the request travels through the
+same participant RPC (`RpcHostMode.SourceIsHostPlayer`), and while connected `Raiding` participants
+remain the Host role is handed off to one of them instead of waiting for them
+(`HostMigrationRecoveryArchitecture.md#voluntary-host-exit-handoff`); with none left the Raid closes
+normally and the Host uses the Results Return of `LobbyAndSessionTransitionArchitecture.md`. Immediately before publishing
 `IsReturnAuthorized`, State Authority registers a one-shot
 `ControlledReturnKey(ProfileId, RaidGenerationId)` in the runner-owned
 `ControlledReturnRegistry`. `Extracted` return and living abandonment keep their separate
@@ -113,9 +119,11 @@ replace its captured snapshot.
 
 ## Scope and validation boundary
 
-This stage does not define reconnect/recovery, multi-client Host Migration, extracted-Host
-policy or live-Host abandonment. Automated tests cover generation-key isolation, one-shot
+This stage does not define reconnect/recovery or Host Migration; the Host exit, handoff and
+recovery rules (including a Host that is Defeated, Extracted or has abandoned) are specified in
+`HostMigrationRecoveryArchitecture.md`. Automated tests cover generation-key isolation, one-shot
 consumption, deterministic selection, serialized prefab controls and Single Runner
 PlayerObject/authority preservation. A real Host/Client session is still required to prove
-that after the Host dies and observes the Client, the Client continues moving, attacking,
-damaging enemies, interacting and collecting loot without Host Migration.
+that after the Host's avatar is Defeated and the Host spectates, the Client continues moving,
+attacking, damaging enemies, interacting and collecting loot while the Host remains in the session;
+the Host's own exit is the handoff specified in `HostMigrationRecoveryArchitecture.md`.

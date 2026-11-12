@@ -2,14 +2,99 @@
 
 ## Context and scope
 
-Host Migration is a recovery path for an abrupt Host peer loss during a Raid. It
-is entered only from Fusion's `OnHostMigration` callback while the source
+Host Migration is the single mechanism that moves the Raid Host role to another
+participant while a Raid is active. A Raid never depends on one person: when the
+Host leaves the Dungeon, voluntarily or not, the role passes to a connected
+participant who is still inside it (decision of 2026-11-01, FIX-US-08). It is
+entered only from Fusion's `OnHostMigration` callback while the source
 `NetworkMatchController` is exactly `InProgress`. A crash received while the Raid
 was already `Closing` or `Finished` is intentionally outside this stage.
 
-Return, Abandon, extraction Return, cancellation, and voluntary shutdown never
-start Host Migration. An operational connected Host cannot personally leave the
-Raid through those paths.
+Two triggers share the replacement flow specified below:
+
+- **Abrupt Host loss** (crash, kill, network loss): recovers from Fusion's latest
+  snapshot (automatic every 10 s, `HostMigration.EnableAutoUpdate`).
+- **Voluntary Host exit** (Return after Defeat or Results, Return after a completed
+  extraction, or Abandon followed by Return): the outgoing Host resolves its own
+  participation first, then hands the role off. See
+  [Voluntary Host exit](#voluntary-host-exit-handoff).
+
+There is no Host-only exit and no Cancel Raid: the Host uses the standard Abandon
+and Results Return of any participant. `RaidClosureReason.HostCancellation`,
+`NetworkMatchController.TryCancelRaid` and the Cancel Raid menu action were removed
+(FIX-49); the `RaidClosureReason` byte value `1` stays reserved so networked values
+keep their meaning. A plain runner shutdown that is not a handoff does not migrate the
+Raid: Photon closes the room and the Clients leave (FIX-48 report, section 1).
+
+## Voluntary Host exit (handoff)
+
+The Host resolves its participation through the same server paths as a Client
+(corpse generation, loot settlement, progression result and commit). Only then does
+the role move, so the outgoing Host loses nothing it would not lose as a Client.
+
+1. **Requests.** `NetworkRaidParticipant.RPC_RequestAbandon` and `RPC_RequestReturn`
+   use `RpcHostMode.SourceIsHostPlayer`, so a call made by the Host on its own
+   participant reports the Host player as `RpcInfo.Source` (the default
+   `SourceIsServer` reports `PlayerRef.None` and `TryResolveReturnRequester` would
+   reject it). `HostHandoffPolicy.AcceptsExitRequest` admits the operational Host
+   only while the Raid is `InProgress`; `HostHandoffPolicy.CanAuthorizeReturn`
+   defers a Host Return after a voluntary Abandon until the progression result is
+   committed.
+2. **Routing.** While the Raid is `InProgress` and at least one remote participant is
+   connected and `Raiding` (`NetworkSpawnManager.CountConnectedRaidingRemoteParticipants`),
+   the Host's Results Return goes through the participant Return RPC
+   (`HostHandoffPolicy.ShouldRouteHostReturnThroughParticipant`,
+   `RaidResultsReturnPolicy.CanRequestHostHandoffReturn`). Abandon alone never starts
+   the handoff: the Host sees the loss Results like any participant and the handoff
+   starts when it presses `Volver`.
+3. **Resolved exit.** The Host's exit is resolved when its own participant has
+   `IsReturnAuthorized` (`NetworkSpawnManager.IsLocalHostExitResolved`).
+   `SessionConnectionCoordinator.ObserveHostHandoff` then calls
+   `AttemptHostHandoffAsync` -> `HostHandoffService.TryHandOffAsync`, which asks
+   `HostHandoffPolicy.Decide`:
+   - `HandOff`: at least one connected `Raiding` participant remains. The Host pushes
+     a snapshot (`PushHostMigrationSnapshot`) and, only if Photon accepts it, shuts the
+     runner down with `ShutdownReason.HostMigration`
+     (`FusionHostHandoffRunner`). Fusion promotes a Client and the replacement flow
+     below runs.
+   - `CloseNormally`: no `Raiding` participant remains. There is no handoff; the Raid
+     closes through the normal `NaturalCompletion` path and the Host leaves through
+     the Results Return that waits for `Finished` and for remote peers (see
+     [Lobby and Session Transition](LobbyAndSessionTransitionArchitecture.md)).
+   - `Stay`: not the server, not `InProgress`, or the exit is not resolved yet.
+   A rejected snapshot (`HostHandoffOutcome.SnapshotRejected`) is never a handoff: the
+   Host keeps the role, retries after 3 s, and the room is never closed for the others.
+4. **Outgoing peer.** `SessionConnectionCoordinator.ShouldRecoverRaidShutdown` is told
+   the shutdown is the peer's own handoff (`isOutgoingHostHandoff`), so only the
+   outgoing Host recovers to Town, immediately and without waiting for anyone. Every
+   other peer keeps suppressing Town recovery because the replacement flow owns the
+   runner.
+5. **Roster.** The replacement Host classifies the historical Host with
+   `HostMigrationRosterPolicy.ClassifyHistoricHost`, from replicated state only: a
+   participant with `IsReturnAuthorized`, or `Aborted` with
+   `VoluntaryAbandonConfirmed`, is `DepartedTerminal` (so a Host that confirmed Abandon and
+   dropped before pressing `Volver` is also released); anything else is `Unresolved`.
+   A departed-terminal Host is marked terminal/no-rejoin, never re-finalized as
+   `Aborted` and never persisted again. `ReleaseDepartedTerminalHostMigrationProfiles`
+   despawns only its `NetworkRaidParticipant` and clears the body's Input Authority;
+   its corpse stays lootable.
+6. **Announcement.** After adoption, `HostMigrationLifecycleController` publishes
+   `HostHandoffAnnouncement.Format(...)` through `HostHandoffNoticeSlot`, and
+   `RaidDownedHudPresenter` shows it to the remaining participants:
+   `{Nombre} salió. {Nuevo} es el nuevo Host.`. Names come from the replicated
+   `NetworkRaidParticipant.DisplayName` (set by State Authority at admission from the
+   backend-signed ticket and sanitized by `RaidDisplayNamePolicy`); when unavailable the
+   text falls back to `El Host` / `Otro jugador`. The notice is published for every
+   completed migration, including abrupt loss.
+
+The operational Host is runner-scoped. `NetworkSpawnManager.TryResolveReturnRequester`
+derives it from the State Authority peer; the frozen `RaidLaunchContext.HostProfileId`
+identifies only the historical Host of the original runner.
+
+**Known limitation (chained migration).** `RaidLaunchContext.HostProfileId` is not
+rebuilt after a migration, so a second migration would not recognize the intermediate
+Host as historical. The first migration is classified correctly. Outside the FIX-50
+acceptance; unvalidated.
 
 ## Authority and routing
 
@@ -62,8 +147,9 @@ its `PlayerObject`. No recovery fallback executes fresh bootstrap.
 Eligible survivors are frozen-cohort profiles whose restored participant is
 non-terminal `Raiding` or `Defeated`, plus `Extracted` participants whose extraction
 commit is still pending (`ExtractionExperiencePhase` is not `Complete`, FIX-51). The historical
-Host, Controlled Return, `Extracted` with a completed commit, `Aborted`, Return-authorized, and
-known terminal profiles are never eligible. A recovered `Extracted` participant gets its avatar
+Host (it has left the session; see [Voluntary Host exit](#voluntary-host-exit-handoff) for how a
+resolved exit is released), Controlled Return, `Extracted` with a completed commit, `Aborted`,
+Return-authorized, and known terminal profiles are never eligible. A recovered `Extracted` participant gets its avatar
 Input Authority back so `RPC_CommitExtractionOnInputAuthority` and the ACK complete on the
 replacement Host; the republish is idempotent through the `(raidGenerationId, profileId,
 resultSequence)` receipt (backend `alreadyPublished`/`alreadySecured`, local `AlreadySecured`).
@@ -104,8 +190,11 @@ new Loot policy for that material closure.
 An unrecovered `Defeated` profile loses its participant, `PlayerObject`, routing,
 and Input Authority and becomes terminal/no-rejoin. The independent defeated
 avatar/corpse NetworkObject and its `NetworkLootContainer` remain authoritative;
-only the separate `NetworkRaidParticipant` is despawned. The historical Host is
-finalized by the same state-dependent rules and never blocks sealing.
+only the separate `NetworkRaidParticipant` is despawned. After an abrupt loss the historical
+Host is unresolved and finalized by the same state-dependent rules (`Aborted` when its exit was
+not resolved), and never blocks sealing. A Host whose exit was already resolved is instead
+released as departed-terminal and is not finalized again
+(`HostMigrationRosterPolicy.ClassifyHistoricHost`).
 
 Temporary departures while recovery is `Open` or `Sealing` never resolve Progression. A recovered
 profile keeps the same participant, baseline, ledger, extraction candidate/phase and committed
@@ -212,19 +301,41 @@ replacement Host's disconnected registry from the replicated `RaidParticipantCon
 (`HostMigrationRetentionPolicy.Classify`). It is not part of the eligible/unresolved set, so it is
 neither awaited by the recovery window nor finalized at sealing. The reconnect budget is paused
 while the recovery window is unsealed (`IsReconnectBudgetPaused`) and resumes after sealing. At
-sealing the room stays joinable while a retained participant exists (`UpdateMatchSessionGate`)
-instead of unconditionally closing. The participant can rebind during the window through the
-recovery rebind, or after sealing through the normal reconnect path; both clear `IsDisconnected`.
-An exhausted budget or confirmed absence keeps the existing finalization. The full rewrite of the
-recovery rules remains FIX-52; real multi-process validation is pending.
+sealing the room stays joinable while a retained participant exists: `NetworkSpawnManager.UpdateMatchSessionGate`
+applies `RaidSessionGatePolicy.Evaluate` through `NetworkMatchController.SetSessionReopenState`,
+and `RaidSessionGateTracker` re-applies a decision deferred because State Authority or
+`InProgress` was not ready yet, writing from the last value it requested rather than from the
+observed `SessionInfo.IsOpen`. Sealing no longer closes the room unconditionally. The participant
+can rebind during the window through the recovery rebind, or after sealing through the normal
+reconnect path; both clear `IsDisconnected`. A reconnect ticket presented from Town while the
+window is still open is refused (`TryValidateEarlyHostMigrationToken` accepts only migration
+admission tickets), so that Client reconnects after sealing. `RaidReconnectPolicy` keeps the reservation proof in the in-app reconnect
+ticket and ends a refused admission as `ConnectionRefused` instead of retrying until the window
+expires. An exhausted budget or confirmed absence keeps the existing finalization.
+
+Validation status of these rules: the retained-disconnected reconnect (Host plus two Clients,
+budget paused across the window and consumed afterwards) has recorded multi-process evidence
+(FIX-51). Recoverability of an `Extracted` participant with a pending commit is covered by
+EditMode tests only; its live multi-process run is still pending.
 
 *Note: For Dungeon Pressure (PvE timers, phases, and active population) recovery rules, see `DungeonPressureArchitecture.md`.*
 
 ## Validation boundary
 
-EditMode tests cover role routing, startup suppression, completion semantics, and
-eligibility policy. PlayMode must cover defeated-participant despawn while corpse
-and loot remain registered and interactable. The decisive acceptance test is a
-fresh multi-process Host plus at least two Clients, with one Client promoted to
-Host and the other adopting as Client. Single Runner validation is not evidence
-of real Host Migration behavior.
+EditMode tests cover role routing, startup suppression, completion semantics,
+eligibility policy, and the voluntary-exit rules (`HostHandoffPolicyTests`,
+`HostHandoffServiceTests`, `HostMigrationRosterPolicyTests`, `HostMigrationRetentionPolicyTests`,
+`RaidSessionGatePolicyTests`, `HostHandoffAnnouncementTests`). PlayMode must cover
+defeated-participant despawn while corpse and loot remain registered and interactable. The
+decisive acceptance test is a fresh multi-process Host plus at least two Clients, with one
+Client promoted to Host and the other adopting as Client. Single Runner validation is not
+evidence of real Host Migration behavior.
+
+Recorded multi-process evidence for the voluntary exit: a Host that died, saw Results and
+pressed `Volver` handed off to a remaining participant and returned to Town while the Raid
+continued; abrupt Host loss with two Clients kept the existing recovery path and finalized
+the historical Host as `Aborted`; the handoff notice was seen on the remaining peer. A Host
+Abandon followed by `Volver` was reported working by the user (FIX-49 run; logs not reviewed).
+The handoff after a completed Host extraction has no recorded multi-process run yet. Evidence is
+summarized in the FIX-48 report
+(`docs/fix-48_reporte_traspaso_host_salida_voluntaria.md`).

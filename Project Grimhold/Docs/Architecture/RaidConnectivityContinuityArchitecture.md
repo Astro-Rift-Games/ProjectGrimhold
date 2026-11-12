@@ -126,7 +126,7 @@ The Host enforces single-writer ordering:
 
 * **FU-1**: Reconnecting a participant who is already `Defeated` (entering as a spectator or viewing Results).
 * **FU-2**: Full team extraction mechanics (shared quota, shared Sanctuary, shared countdown as required by GD 06 §15) — **Implemented in US-53 (`TASK-190`, `TASK-191`)**.
-* **FU-3**: Host Migration coverage for retained disconnected participants.
+* **FU-3**: Host Migration coverage for retained disconnected participants — implemented by FIX-51 (re-retention on the replacement Host, budget paused during the recovery window, room kept open while a retained participant may reconnect); multi-process evidence recorded for the reconnect, see `HostMigrationRecoveryArchitecture.md`.
 * **FU-4**: Automatic retry or countdown UI on the client side for reconnection.
 
 ## 10. Report on SessionInfo Mutability in Fusion 2.1.1
