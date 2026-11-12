@@ -4,6 +4,16 @@ using System.Collections.Generic;
 /// <summary>Physical Town slots. Aggregate inputs receive a location only on placement.</summary>
 public static class ProfileInventoryRules
 {
+    /// <summary>Checks whether two non-equipment stash items are compatible to merge into the same stack per Doc 14 §6.1.</summary>
+    public static bool CanMerge(StashItem a, StashItem b)
+    {
+        if (a.LootId != b.LootId) return false;
+        if (a.Instance != null || b.Instance != null) return false;
+        if (!string.Equals(a.Origin, b.Origin, StringComparison.Ordinal)) return false;
+        if (!string.Equals(a.ExpeditionId, b.ExpeditionId, StringComparison.Ordinal)) return false;
+        return true;
+    }
+
     /// <summary>Atomic receive: lowest matching slot, otherwise lowest free slot inside capacity.</summary>
     public static bool TryMerge(List<StashItem> destination, IReadOnlyList<StashItem> incoming,
         int slotCapacity = int.MaxValue)
@@ -13,13 +23,25 @@ public static class ProfileInventoryRules
         foreach (StashItem item in incoming)
         {
             if (!item.IsValid) return false;
-            int index = item.Instance == null ? FindIndex(next, item.LootId) : -1;
-            if (index >= 0 && next[index].Instance != null) index = -1;
+            int index = -1;
+            if (item.Instance == null)
+            {
+                for (int i = 0; i < next.Count; i++)
+                {
+                    if (CanMerge(next[i], item))
+                    {
+                        if (index < 0 || next[i].Slot < next[index].Slot)
+                        {
+                            index = i;
+                        }
+                    }
+                }
+            }
             if (index >= 0)
             {
                 StashItem existing = next[index];
                 if (existing.Slot >= slotCapacity || existing.Amount > int.MaxValue - item.Amount) return false;
-                next[index] = new StashItem(existing.LootId, existing.Amount + item.Amount, existing.Slot);
+                next[index] = new StashItem(existing.LootId, existing.Amount + item.Amount, existing.Slot, existing.Instance, existing.ExpeditionId, existing.Origin);
             }
             else
             {
@@ -36,12 +58,25 @@ public static class ProfileInventoryRules
     }
 
     /// <summary>Definition-wide consumption drains stacks in ascending slot order, atomically.</summary>
-    public static bool TryRemove(List<StashItem> items, LootId lootId, int amount)
+    public static bool TryRemove(List<StashItem> items, LootId lootId, int amount, string expeditionId = null, string origin = null)
     {
-        if (!HasValidSlots(items) || amount <= 0 || FindAmount(items, lootId) < amount) return false;
+        if (!HasValidSlots(items) || amount <= 0 || FindAmount(items, lootId, expeditionId, origin) < amount) return false;
         while (amount > 0)
         {
-            int index = FindIndex(items, lootId);
+            int index = -1;
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (items[i].LootId == lootId &&
+                    (expeditionId == null || string.Equals(items[i].ExpeditionId, expeditionId, StringComparison.Ordinal)) &&
+                    (origin == null || string.Equals(items[i].Origin, origin, StringComparison.Ordinal)))
+                {
+                    if (index < 0 || items[i].Slot < items[index].Slot)
+                    {
+                        index = i;
+                    }
+                }
+            }
+            if (index < 0) return false;
             int removed = Math.Min(amount, items[index].Amount);
             TryRemoveAt(items, items[index].Slot, lootId, removed);
             amount -= removed;
@@ -56,7 +91,7 @@ public static class ProfileInventoryRules
         if (slot < 0 || index < 0 || amount <= 0 || items[index].LootId != lootId || items[index].Amount < amount) return false;
         StashItem item = items[index];
         if (amount == item.Amount) items.RemoveAt(index);
-        else items[index] = new StashItem(lootId, item.Amount - amount, item.Slot);
+        else items[index] = new StashItem(lootId, item.Amount - amount, item.Slot, item.Instance, item.ExpeditionId, item.Origin);
         return true;
     }
 
@@ -84,11 +119,19 @@ public static class ProfileInventoryRules
     }
 
     /// <summary>Saturates only the display count; removal still drains the requested exact quantity.</summary>
-    public static int FindAmount(IReadOnlyList<StashItem> items, LootId lootId)
+    public static int FindAmount(IReadOnlyList<StashItem> items, LootId lootId, string expeditionId = null, string origin = null)
     {
         long total = 0;
         foreach (StashItem item in items)
-            if (item.LootId == lootId) { total += item.Amount; if (total >= int.MaxValue) return int.MaxValue; }
+        {
+            if (item.LootId == lootId &&
+                (expeditionId == null || string.Equals(item.ExpeditionId, expeditionId, StringComparison.Ordinal)) &&
+                (origin == null || string.Equals(item.Origin, origin, StringComparison.Ordinal)))
+            {
+                total += item.Amount;
+                if (total >= int.MaxValue) return int.MaxValue;
+            }
+        }
         return (int)total;
     }
 
@@ -101,10 +144,37 @@ public static class ProfileInventoryRules
 
     public static int CountNewSlots(IReadOnlyList<StashItem> destination, IReadOnlyList<StashItem> incoming)
     {
-        var ids = new HashSet<LootId>();
-        foreach (StashItem item in destination) if (item.Instance == null) ids.Add(item.LootId);
+        var availableSlots = new List<StashItem>(destination);
         int count = 0;
-        foreach (StashItem item in incoming) if (item.Instance != null || ids.Add(item.LootId)) count++;
+        foreach (StashItem item in incoming)
+        {
+            if (item.Instance != null)
+            {
+                count++;
+                availableSlots.Add(item);
+                continue;
+            }
+
+            int match = -1;
+            for (int i = 0; i < availableSlots.Count; i++)
+            {
+                if (CanMerge(availableSlots[i], item))
+                {
+                    match = i;
+                    break;
+                }
+            }
+
+            if (match >= 0)
+            {
+                // Can merge into existing slot
+            }
+            else
+            {
+                count++;
+                availableSlots.Add(item);
+            }
+        }
         return count;
     }
 
@@ -115,8 +185,20 @@ public static class ProfileInventoryRules
         // Capacity and reducing-only overflow rules are the same rules used by receive.
         foreach (StashItem item in incoming)
         {
-            int index = item.Instance == null ? FindIndex(next, item.LootId) : -1;
-            if (index >= 0 && next[index].Instance != null) index = -1;
+            int index = -1;
+            if (item.Instance == null)
+            {
+                for (int i = 0; i < next.Count; i++)
+                {
+                    if (CanMerge(next[i], item))
+                    {
+                        if (index < 0 || next[i].Slot < next[index].Slot)
+                        {
+                            index = i;
+                        }
+                    }
+                }
+            }
             if (index >= 0)
             {
                 if (next[index].Slot >= slotCapacity) return true;
@@ -148,11 +230,11 @@ public static class ProfileInventoryRules
             source.RemoveAt(from);
             target.Add(moving.AtSlot(toSlot));
         }
-        else if (target[to].LootId == guard && moving.Instance == null && target[to].Instance == null)
+        else if (target[to].LootId == guard && moving.Instance == null && target[to].Instance == null && CanMerge(target[to], moving))
         {
             StashItem receiving = target[to];
             if (receiving.Amount > int.MaxValue - moving.Amount) return false;
-            target[to] = new StashItem(receiving.LootId, receiving.Amount + moving.Amount, receiving.Slot);
+            target[to] = new StashItem(receiving.LootId, receiving.Amount + moving.Amount, receiving.Slot, receiving.Instance, receiving.ExpeditionId, receiving.Origin);
             source.RemoveAt(from);
         }
         else

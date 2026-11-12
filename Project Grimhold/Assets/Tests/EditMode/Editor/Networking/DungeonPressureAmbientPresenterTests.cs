@@ -303,10 +303,16 @@ public sealed class DungeonPressureAmbientPresenterTests
     public void UnspawnedOrDespawnedController_DoesNotThrowInvalidOperationException()
     {
         var controllerGo = new GameObject("UnspawnedController");
+        controllerGo.AddComponent<Fusion.NetworkObject>();
         var controller = controllerGo.AddComponent<DungeonPressureController>();
 
         try
         {
+            Assert.That(controller.HasReadableState, Is.False);
+            Assert.That(controller.IsSpawned, Is.False);
+            Assert.That(controller.TryGetPhase(out var fallbackPhase), Is.False);
+            Assert.That(fallbackPhase, Is.EqualTo(DungeonPressurePhase.Normal));
+
             Assert.DoesNotThrow(() =>
             {
                 _presenter.Configure(controller, _config, _globalLight, _volume);

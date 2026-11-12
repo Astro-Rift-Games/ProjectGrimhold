@@ -241,6 +241,70 @@ namespace Tests.EditMode.Missions
             Assert.That(rankDAvailable.Count, Is.EqualTo(2));
         }
 
+        [Test]
+        public void LocalProfileStore_TryClaimMission_RevalidatesSameExpeditionAndPossession()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<MissionDefinitionCatalog>(CatalogAssetPath);
+            Assert.That(catalog.TryGet("CON_E_006", out var m6), Is.True);
+
+            var repository = new InMemoryLocalProfileRepository();
+            var profileId = new ProfileId("test-claim-expedition-player");
+            repository.Initialize(profileId, ScriptableObject.CreateInstance<LootDefinitionCatalog>());
+
+            var initial = new LocalProfileSnapshot
+            {
+                ProfileId = profileId
+            };
+            var missionInstance = new MissionInstanceState(m6.MissionId, MissionState.PendienteDeReclamar);
+            missionInstance.ObjectiveProgress[0] = new ObjectiveProgressState(2, "raid-exp-101");
+            initial.ActiveMissions.Add(missionInstance);
+
+            // Case A: Items were extracted in DIFFERENT expeditions (1 in exp-101, 1 in exp-102)
+            initial.Loadout.Add(new StashItem(new LootId("RES_BLACK_IRON"), 1, 0, null, "raid-exp-101", "Dungeon"));
+            initial.Loadout.Add(new StashItem(new LootId("RES_BLACK_IRON"), 1, 1, null, "raid-exp-102", "Dungeon"));
+            repository.TrySave(initial, out _);
+
+            var store = new LocalProfileStore(repository, profileId);
+            bool canClaimDiffExp = store.CanClaimMission(m6, out string failureReasonDiff);
+            Assert.That(canClaimDiffExp, Is.False);
+            Assert.That(failureReasonDiff, Does.Contain("expedicion").IgnoreCase.Or.Contain("distintas").IgnoreCase);
+            Assert.That(store.TryClaimMission(m6), Is.EqualTo(StashOperationResult.InvalidInventory));
+
+            // Case B: Items are no longer in possession (0 in loadout, 0 in stash)
+            var currentSnapshot = repository.Snapshot.Clone();
+            currentSnapshot.Loadout.Clear();
+            currentSnapshot.Stash.Clear();
+            repository.TrySave(currentSnapshot, out _);
+
+            bool canClaimNoItems = store.CanClaimMission(m6, out string failureReasonNone);
+            Assert.That(canClaimNoItems, Is.False);
+            Assert.That(failureReasonNone, Does.Contain("no se encuentran").IgnoreCase.Or.Contain("insuficientes").IgnoreCase);
+            Assert.That(store.TryClaimMission(m6), Is.EqualTo(StashOperationResult.InvalidInventory));
+
+            // Case C: Valid items (both from raid-exp-101) but located in Stash
+            currentSnapshot = repository.Snapshot.Clone();
+            currentSnapshot.Loadout.Clear();
+            currentSnapshot.Stash.Add(new StashItem(new LootId("RES_BLACK_IRON"), 2, 0, null, "raid-exp-101", "Dungeon"));
+            repository.TrySave(currentSnapshot, out _);
+
+            bool canClaimInStash = store.CanClaimMission(m6, out string failureReasonStash);
+            Assert.That(canClaimInStash, Is.False);
+            Assert.That(failureReasonStash, Does.Contain("Alijo").IgnoreCase);
+
+            // Case D: Valid items (both from raid-exp-101) in Loadout -> Claim succeeds and deducts exactly those items!
+            currentSnapshot = repository.Snapshot.Clone();
+            currentSnapshot.Stash.Clear();
+            currentSnapshot.Loadout.Add(new StashItem(new LootId("RES_BLACK_IRON"), 2, 0, null, "raid-exp-101", "Dungeon"));
+            repository.TrySave(currentSnapshot, out _);
+
+            bool canClaimValid = store.CanClaimMission(m6, out _);
+            Assert.That(canClaimValid, Is.True);
+            var claimResult = store.TryClaimMission(m6);
+            Assert.That(claimResult, Is.EqualTo(StashOperationResult.Success));
+            Assert.That(store.GetLoadout(), Is.Empty, "Claimed mission must deduct the required delivery units.");
+            Assert.That(repository.Snapshot.ActiveMissions[0].State, Is.EqualTo(MissionState.Reclamada));
+        }
+
         private static void AssertReward(List<RewardDefinition> rewards, RewardDefinition.RewardType type, int expectedAmount)
         {
             for (int i = 0; i < rewards.Count; i++)

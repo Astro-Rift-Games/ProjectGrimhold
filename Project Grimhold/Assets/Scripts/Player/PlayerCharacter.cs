@@ -226,6 +226,7 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
         {
             VoidBellChimeTimer = TickTimer.None;
             VoidBellChimeSequence = 0;
+            RaidZoneTrigger.EvaluateAllForPlayer(this);
         }
 
         _lastObservedVoidBellChimeSequence = VoidBellChimeSequence;

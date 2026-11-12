@@ -32,7 +32,9 @@ internal static class ExtractionPayloadBuilder
         int[] amounts,
         int[] modifiedIndices,
         int[] modifiedPacked,
-        out List<StashItem> items)
+        out List<StashItem> items,
+        string expeditionId = null,
+        string origin = null)
     {
         items = new List<StashItem>();
         modifiedIndices ??= System.Array.Empty<int>();
@@ -59,7 +61,7 @@ internal static class ExtractionPayloadBuilder
                     return false;
                 }
 
-                items.Add(new StashItem(definition.LootId, amounts[entry]));
+                items.Add(new StashItem(definition.LootId, amounts[entry], -1, null, expeditionId, origin));
                 continue;
             }
 
@@ -77,13 +79,13 @@ internal static class ExtractionPayloadBuilder
                     return false;
                 }
 
-                items.Add(new StashItem(definition.LootId, 1, -1, new EquipmentInstance(null, modifiers)));
+                items.Add(new StashItem(definition.LootId, 1, -1, new EquipmentInstance(null, modifiers), expeditionId, origin));
             }
 
             consumed += modifiedCount;
             for (int plain = amounts[entry] - modifiedCount; plain > 0; plain--)
             {
-                items.Add(new StashItem(definition.LootId, 1));
+                items.Add(new StashItem(definition.LootId, 1, -1, null, expeditionId, origin));
             }
         }
 

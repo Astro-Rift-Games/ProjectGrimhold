@@ -617,22 +617,88 @@ public sealed class LocalProfileStore : IMissionClaimService
             }
 
             // Check required delivery items from personal inventory (Loadout)
-            var requiredItems = GetRequiredDeliveryItems(mission);
-            foreach (var kvp in requiredItems)
+            var requiredItems = GetRequiredDeliveryItems(mission, instance);
+            foreach (var req in requiredItems)
             {
-                int inLoadout = FindAmount(snapshot.Loadout, kvp.Key);
-                if (inLoadout < kvp.Value)
+                if (req.IsExpeditionItem)
                 {
-                    int inStash = FindAmount(snapshot.Stash, kvp.Key);
-                    if (inStash >= kvp.Value)
+                    // 1. Total in possession across Loadout and Stash
+                    int totalPossessed = FindAmount(snapshot.Loadout, req.LootId) + FindAmount(snapshot.Stash, req.LootId);
+                    if (totalPossessed < req.Amount)
                     {
-                        failureReason = $"Los materiales requeridos ({kvp.Key.Value}) están en el Alijo. Debes transferirlos a tu inventario personal para entregarlos al NPC.";
+                        failureReason = $"Las unidades requeridas de {req.LootId.Value} ya no se encuentran en posesión del jugador (inventario/alijo).";
+                        return false;
                     }
-                    else
+
+                    // 2. Determine target expedition ID
+                    string targetExpeditionId = req.ExpectedExpeditionId;
+                    if (string.IsNullOrEmpty(targetExpeditionId))
                     {
-                        failureReason = $"Materiales insuficientes en inventario personal para {kvp.Key.Value} (Requerido: {kvp.Value}, En inventario: {inLoadout}).";
+                        // Find if any expedition has >= req.Amount in possession
+                        var countsByExp = new Dictionary<string, int>(StringComparer.Ordinal);
+                        foreach (var item in snapshot.Loadout)
+                        {
+                            if (item.LootId == req.LootId && !string.IsNullOrEmpty(item.ExpeditionId))
+                            {
+                                countsByExp.TryGetValue(item.ExpeditionId, out int cur);
+                                countsByExp[item.ExpeditionId] = cur + item.Amount;
+                            }
+                        }
+                        foreach (var item in snapshot.Stash)
+                        {
+                            if (item.LootId == req.LootId && !string.IsNullOrEmpty(item.ExpeditionId))
+                            {
+                                countsByExp.TryGetValue(item.ExpeditionId, out int cur);
+                                countsByExp[item.ExpeditionId] = cur + item.Amount;
+                            }
+                        }
+
+                        foreach (var kvp in countsByExp)
+                        {
+                            if (kvp.Value >= req.Amount)
+                            {
+                                targetExpeditionId = kvp.Key;
+                                break;
+                            }
+                        }
                     }
-                    return false;
+
+                    if (string.IsNullOrEmpty(targetExpeditionId))
+                    {
+                        failureReason = $"Los ítems de {req.LootId.Value} fueron extraídos en expediciones distintas.";
+                        return false;
+                    }
+
+                    int inLoadoutFromExp = FindAmount(snapshot.Loadout, req.LootId, targetExpeditionId);
+                    int inStashFromExp = FindAmount(snapshot.Stash, req.LootId, targetExpeditionId);
+                    if (inLoadoutFromExp + inStashFromExp < req.Amount)
+                    {
+                        failureReason = $"Los ítems de {req.LootId.Value} fueron extraídos en expediciones distintas o no corresponden a la expedición del contrato ({targetExpeditionId}).";
+                        return false;
+                    }
+
+                    if (inLoadoutFromExp < req.Amount)
+                    {
+                        failureReason = $"Los materiales requeridos ({req.LootId.Value}) están en el Alijo. Debes transferirlos a tu inventario personal para entregarlos al NPC.";
+                        return false;
+                    }
+                }
+                else
+                {
+                    int inLoadout = FindAmount(snapshot.Loadout, req.LootId);
+                    if (inLoadout < req.Amount)
+                    {
+                        int inStash = FindAmount(snapshot.Stash, req.LootId);
+                        if (inStash >= req.Amount)
+                        {
+                            failureReason = $"Los materiales requeridos ({req.LootId.Value}) están en el Alijo. Debes transferirlos a tu inventario personal para entregarlos al NPC.";
+                        }
+                        else
+                        {
+                            failureReason = $"Materiales insuficientes en inventario personal para {req.LootId.Value} (Requerido: {req.Amount}, En inventario: {inLoadout}).";
+                        }
+                        return false;
+                    }
                 }
             }
 
@@ -663,31 +729,55 @@ public sealed class LocalProfileStore : IMissionClaimService
         }
     }
 
-    private static Dictionary<LootId, int> GetRequiredDeliveryItems(MissionDefinition mission)
+    private readonly struct RequiredDeliveryItem
     {
-        var required = new Dictionary<LootId, int>();
-        if (mission == null || mission.Phases == null) return required;
+        public LootId LootId { get; }
+        public int Amount { get; }
+        public bool IsExpeditionItem { get; }
+        public string ExpectedExpeditionId { get; }
 
-        foreach (var phase in mission.Phases)
+        public RequiredDeliveryItem(LootId lootId, int amount, bool isExpeditionItem, string expectedExpeditionId)
         {
+            LootId = lootId;
+            Amount = amount;
+            IsExpeditionItem = isExpeditionItem;
+            ExpectedExpeditionId = expectedExpeditionId;
+        }
+    }
+
+    private static List<RequiredDeliveryItem> GetRequiredDeliveryItems(MissionDefinition mission, MissionInstanceState instance)
+    {
+        var result = new List<RequiredDeliveryItem>();
+        if (mission == null || mission.Phases == null) return result;
+
+        for (int p = 0; p < mission.Phases.Count; p++)
+        {
+            var phase = mission.Phases[p];
             if (phase.Objectives == null) continue;
-            foreach (var obj in phase.Objectives)
+            for (int i = 0; i < phase.Objectives.Count; i++)
             {
+                var obj = phase.Objectives[i];
                 if ((obj.Family == ObjectiveFamily.Obtencion || obj.Family == ObjectiveFamily.ExtraccionDeObjetos) &&
                     !string.IsNullOrEmpty(obj.Condition.TargetId) &&
                     obj.Condition.RequiredAmount > 0)
                 {
                     var lootId = new LootId(obj.Condition.TargetId);
-                    if (lootId.IsValid)
-                    {
-                        required.TryGetValue(lootId, out int existing);
-                        required[lootId] = checked(existing + obj.Condition.RequiredAmount);
-                    }
-                }
+                    if (!lootId.IsValid) continue;
 
+                    string expectedExpeditionId = null;
+                    if (obj.Family == ObjectiveFamily.ExtraccionDeObjetos && instance != null)
+                    {
+                        if (instance.ObjectiveProgress.TryGetValue(i, out var progress))
+                        {
+                            expectedExpeditionId = progress.ExpeditionId;
+                        }
+                    }
+
+                    result.Add(new RequiredDeliveryItem(lootId, obj.Condition.RequiredAmount, obj.Family == ObjectiveFamily.ExtraccionDeObjetos, expectedExpeditionId));
+                }
             }
         }
-        return required;
+        return result;
     }
 
     private void SynchronizeActiveResourceMissions(LocalProfileSnapshot snapshot)
@@ -746,13 +836,38 @@ public sealed class LocalProfileStore : IMissionClaimService
             var instance = next.ActiveMissions[index];
 
             // Atomic deduction of delivery items from personal inventory (next.Loadout)
-            var requiredItems = GetRequiredDeliveryItems(mission);
-            foreach (var kvp in requiredItems)
+            var requiredItems = GetRequiredDeliveryItems(mission, instance);
+            foreach (var req in requiredItems)
             {
-                if (!TryRemove(next.Loadout, kvp.Key, kvp.Value))
+                if (req.IsExpeditionItem)
                 {
-                    Debug.LogError($"[MissionBoard] Fallo inesperado al deducir {kvp.Value}x {kvp.Key.Value} del inventario personal.");
-                    return StashOperationResult.InvalidInventory;
+                    string targetExpId = req.ExpectedExpeditionId;
+                    if (string.IsNullOrEmpty(targetExpId))
+                    {
+                        foreach (var item in next.Loadout)
+                        {
+                            if (item.LootId == req.LootId && !string.IsNullOrEmpty(item.ExpeditionId) &&
+                                FindAmount(next.Loadout, req.LootId, item.ExpeditionId) >= req.Amount)
+                            {
+                                targetExpId = item.ExpeditionId;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!TryRemove(next.Loadout, req.LootId, req.Amount, targetExpId))
+                    {
+                        Debug.LogError($"[MissionBoard] Fallo inesperado al deducir {req.Amount}x {req.LootId.Value} (Exp: {targetExpId}) del inventario personal.");
+                        return StashOperationResult.InvalidInventory;
+                    }
+                }
+                else
+                {
+                    if (!TryRemove(next.Loadout, req.LootId, req.Amount))
+                    {
+                        Debug.LogError($"[MissionBoard] Fallo inesperado al deducir {req.Amount}x {req.LootId.Value} del inventario personal.");
+                        return StashOperationResult.InvalidInventory;
+                    }
                 }
             }
 
@@ -1503,7 +1618,7 @@ public sealed class LocalProfileStore : IMissionClaimService
         int index = FindSlotIndex(source, sourceSlot);
         if (index < 0 || source[index].LootId != id) return StashOperationResult.InvalidInventory;
         int actual = Math.Min(amount, source[index].Amount);
-        var incoming = new[] { new StashItem(id, actual, -1, source[index].Instance) };
+        var incoming = new[] { new StashItem(id, actual, -1, source[index].Instance, source[index].ExpeditionId, source[index].Origin) };
         int capacity = fromStash ? LocalProfileSnapshot.MaxLoadoutSlots : StashCapacity;
         if (ExceedsCapacity(destination, incoming, capacity)) return StashOperationResult.InventoryFull;
         if (!TryRemoveAt(source, sourceSlot, id, actual) || !TryMerge(destination, incoming, capacity))
@@ -1553,7 +1668,7 @@ public sealed class LocalProfileStore : IMissionClaimService
         StashItem source = items[index];
         // Use addressed removal, never the receive/merge rule: duplicate IDs stay separate.
         if (!TryRemoveAt(target, sourceSlot, lootId, amount)) return StashOperationResult.InvalidInventory;
-        target.Add(new StashItem(source.LootId, amount, destinationSlot));
+        target.Add(new StashItem(source.LootId, amount, destinationSlot, source.Instance, source.ExpeditionId, source.Origin));
         target.Sort((a, b) => a.Slot.CompareTo(b.Slot));
         next = candidate;
         return StashOperationResult.Success;
@@ -2070,7 +2185,16 @@ public sealed class LocalProfileStore : IMissionClaimService
             }
         }
 
-        if (!TryMerge(next.Loadout, items, LocalProfileSnapshot.MaxLoadoutSlots))
+        var expeditionItems = new List<StashItem>(items.Count);
+        for (int i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            string expId = string.IsNullOrEmpty(item.ExpeditionId) ? receipt.RaidId : item.ExpeditionId;
+            string origin = string.IsNullOrEmpty(item.Origin) ? "Dungeon" : item.Origin;
+            expeditionItems.Add(new StashItem(item.LootId, item.Amount, item.Slot, item.Instance, expId, origin));
+        }
+
+        if (!TryMerge(next.Loadout, expeditionItems, LocalProfileSnapshot.MaxLoadoutSlots))
             return StashOperationResult.PersistenceFailed;
         next.AppliedExtractionReceipts.Add(receipt);
         while (next.AppliedExtractionReceipts.Count > LocalProfileSnapshot.MaxAppliedExtractionReceipts)

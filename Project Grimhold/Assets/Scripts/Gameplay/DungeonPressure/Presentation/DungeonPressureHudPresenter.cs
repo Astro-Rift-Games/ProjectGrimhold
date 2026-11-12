@@ -116,7 +116,7 @@ public sealed class DungeonPressureHudPresenter : MonoBehaviour
     }
 
     private bool IsValidController(DungeonPressureController controller) =>
-        controller != null && controller.Object != null && controller.Object.IsValid &&
+        controller != null && controller.HasReadableState &&
         controller.Runner == _runner;
 
     internal void Present(bool hasSource, int remainingSeconds, DungeonPressurePhase phase)
