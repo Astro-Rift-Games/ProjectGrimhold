@@ -38,12 +38,14 @@ public sealed class DungeonPressureController : NetworkBehaviour, IDungeonInstab
     private NetworkMatchController _matchController;
     private NetworkSpawnManager _spawnManager;
     private EntityRegistry _registry;
+    private bool _isSpawned;
 
-    public bool HasReadableState => Object != null && Object.IsValid;
+    public bool IsSpawned => _isSpawned;
+    public bool HasReadableState => _isSpawned && Object != null && Object.IsValid;
 
     public bool TryGetPhase(out DungeonPressurePhase phase)
     {
-        if (Object != null && Object.IsValid)
+        if (HasReadableState)
         {
             phase = Phase;
             return true;
@@ -53,20 +55,21 @@ public sealed class DungeonPressureController : NetworkBehaviour, IDungeonInstab
         return false;
     }
 
-    public bool IsRunning => State == DungeonPressureState.Running;
+    public bool IsRunning => HasReadableState && State == DungeonPressureState.Running;
     
-    public int RemainingSeconds => Runner != null && Object != null && Object.IsValid
+    public int RemainingSeconds => Runner != null && HasReadableState
         ? Mathf.CeilToInt((Phase == DungeonPressurePhase.Collapse ? CollapseRemainingTicks : RemainingTicks) * Runner.DeltaTime) 
         : 0;
 
-    public int InstabilityThreshold => _config != null && Object != null && Object.IsValid ? _config.GetInstabilityThreshold(Phase) : int.MaxValue;
-    public int MinIntervalSeconds => _config != null && Object != null && Object.IsValid ? _config.GetMinIntervalSeconds(Phase) : 0;
-    public float InstabilityProgress => InstabilityThreshold > 0 && InstabilityThreshold < int.MaxValue
+    public int InstabilityThreshold => _config != null && HasReadableState ? _config.GetInstabilityThreshold(Phase) : int.MaxValue;
+    public int MinIntervalSeconds => _config != null && HasReadableState ? _config.GetMinIntervalSeconds(Phase) : 0;
+    public float InstabilityProgress => InstabilityThreshold > 0 && InstabilityThreshold < int.MaxValue && HasReadableState
         ? Mathf.Clamp01((float)CurrentInstability / InstabilityThreshold)
         : 0f;
 
     public override void Spawned()
     {
+        _isSpawned = true;
         _matchController = GetComponent<NetworkMatchController>();
         _spawnManager = Runner.GetComponent<NetworkSpawnManager>();
         _registry = Runner.GetComponent<EntityRegistry>();
@@ -108,6 +111,7 @@ public sealed class DungeonPressureController : NetworkBehaviour, IDungeonInstab
 
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
+        _isSpawned = false;
         if (_registry != null)
         {
             _registry.TryUnregisterDungeonInstabilitySink(this);

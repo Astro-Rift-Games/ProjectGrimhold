@@ -45,7 +45,7 @@ public class DungeonPressureDebugOverlay : MonoBehaviour
                 _searchTimer = 1f;
             }
         }
-        else if (_controller.Object == null || !_controller.Object.IsValid)
+        else if (!_controller.HasReadableState)
         {
             _controller = null;
             _director = null;
