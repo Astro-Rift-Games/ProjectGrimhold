@@ -17,6 +17,9 @@ public sealed class RaidDownedHudPresenter : MonoBehaviour
     [SerializeField, Min(0f)]
     private float _messageDuration = 2f;
 
+    [SerializeField, Min(0f)]
+    private float _handoffMessageDuration = 5f;
+
     [Header("Audio (optional, 2D)")]
     [SerializeField]
     private CustomClip _enteredDownedSound;
@@ -162,6 +165,22 @@ public sealed class RaidDownedHudPresenter : MonoBehaviour
         RefreshDowned(isDowned);
         RefreshAlly(isDowned);
         RefreshNotices();
+        RefreshHostHandoffNotice();
+    }
+
+    // FIX-50 S3: the runner-scoped Host Migration notice is pulled once after adoption; this HUD is
+    // rebuilt with the replacement runner, so the notice reaches the new avatar's presenter.
+    private void RefreshHostHandoffNotice()
+    {
+        if (_character.Runner == null ||
+            !_character.Runner.TryGetComponent(out HostMigrationLifecycleController migration) ||
+            !migration.TryConsumeHandoffNotice(out string message))
+        {
+            return;
+        }
+
+        _view.ShowMessage(message, true);
+        _messageUntil = Time.unscaledTime + _handoffMessageDuration;
     }
 
     private void RefreshDowned(bool isDowned)

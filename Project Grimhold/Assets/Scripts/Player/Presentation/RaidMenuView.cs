@@ -28,8 +28,6 @@ public sealed class RaidMenuView : MonoBehaviour
     [SerializeField] private TMP_Text _resumeButtonText;
     [SerializeField] private Button _abandonButton;
     [SerializeField] private TMP_Text _abandonButtonText;
-    [SerializeField] private Button _cancelRaidButton;
-    [SerializeField] private TMP_Text _cancelRaidButtonText;
 
     [Header("Progression Results")]
     [SerializeField] private GameObject _progressionResultsRoot;
@@ -78,7 +76,6 @@ public sealed class RaidMenuView : MonoBehaviour
 
     public event Action ResumeRequested;
     public event Action AbandonRequested;
-    public event Action CancelRaidRequested;
     public event Action PreviousTargetRequested;
     public event Action NextTargetRequested;
 
@@ -92,7 +89,6 @@ public sealed class RaidMenuView : MonoBehaviour
     public TMP_Text ResumeButtonText => _resumeButtonText;
     public Button AbandonButton => _abandonButton;
     public TMP_Text AbandonButtonText => _abandonButtonText;
-    public Button CancelRaidButton => _cancelRaidButton;
     public GameObject ProgressionResultsRoot => _progressionResultsRoot;
     public TMP_Text ProgressionActivityText => _progressionActivityText;
     public TMP_Text ProgressionExperienceText => _progressionExperienceText;
@@ -207,7 +203,7 @@ public sealed class RaidMenuView : MonoBehaviour
         UiPanelVisibility.SetVisible(_levelUpBannerRoot, false);
     }
 
-    public void PresentAliveState(bool canAbandon = true)
+    public void PresentAliveState()
     {
         SetButtonState(_settingsButton, true, true);
         SetProgressionResultsVisible(false);
@@ -217,9 +213,8 @@ public sealed class RaidMenuView : MonoBehaviour
         SetText(_controlsText, DefaultControlsText);
         SetButtonState(_resumeButton, true, true);
         SetText(_resumeButtonText, "Reanudar");
-        SetButtonState(_abandonButton, canAbandon, canAbandon);
+        SetButtonState(_abandonButton, true, true);
         SetText(_abandonButtonText, "Abandonar Incursión");
-        SetCancelRaidVisible(false);
     }
 
     /// <summary>Presents role-aware actions for a defeated local participant.</summary>
@@ -239,7 +234,6 @@ public sealed class RaidMenuView : MonoBehaviour
         SetText(_resumeButtonText, isSpectating ? "Continuar observando" : "Observar");
         SetButtonState(_abandonButton, canReturn, canReturn);
         SetText(_abandonButtonText, "Volver al pueblo");
-        SetCancelRaidVisible(false);
     }
 
     public void PresentExtractedState(bool isCommitConfirmed)
@@ -318,7 +312,6 @@ public sealed class RaidMenuView : MonoBehaviour
             canSpectate: canSpectate,
             isSpectating: isSpectating,
             canRetryPersistence: canRetryPersistence);
-        SetCancelRaidVisible(false);
     }
 
     public void PresentProgressionResults(
@@ -395,13 +388,6 @@ public sealed class RaidMenuView : MonoBehaviour
             canSpectate,
             isSpectating,
             canRetryPersistence);
-        SetCancelRaidVisible(false);
-    }
-
-    public void SetCancelRaidVisible(bool visible)
-    {
-        SetButtonState(_cancelRaidButton, visible, visible);
-        SetText(_cancelRaidButtonText, "Cancelar raid");
     }
 
     public void PresentSpectatorState(string profileId, bool hasTarget)
@@ -434,7 +420,6 @@ public sealed class RaidMenuView : MonoBehaviour
         SetText(_statusText, string.Empty);
         SetText(_controlsText, string.Empty);
         SetMenuVisible(false);
-        SetCancelRaidVisible(false);
         SetTitleEmphasis(false);
         SetProgressionResultsVisible(false);
         SetSpectatorBarVisible(false);
@@ -567,7 +552,6 @@ public sealed class RaidMenuView : MonoBehaviour
         BindButton(_settingsButton, OnSettingsButtonClicked);
         BindButton(_resumeButton, OnResumeButtonClicked);
         BindButton(_abandonButton, OnAbandonButtonClicked);
-        BindButton(_cancelRaidButton, OnCancelRaidButtonClicked);
         BindButton(_previousTargetButton, OnPreviousTargetButtonClicked);
         BindButton(_nextTargetButton, OnNextTargetButtonClicked);
     }
@@ -577,7 +561,6 @@ public sealed class RaidMenuView : MonoBehaviour
         _settingsButton?.onClick.RemoveListener(OnSettingsButtonClicked);
         _resumeButton?.onClick.RemoveListener(OnResumeButtonClicked);
         _abandonButton?.onClick.RemoveListener(OnAbandonButtonClicked);
-        _cancelRaidButton?.onClick.RemoveListener(OnCancelRaidButtonClicked);
         _previousTargetButton?.onClick.RemoveListener(OnPreviousTargetButtonClicked);
         _nextTargetButton?.onClick.RemoveListener(OnNextTargetButtonClicked);
     }
@@ -589,9 +572,6 @@ public sealed class RaidMenuView : MonoBehaviour
             : null;
         _abandonButtonText ??= _abandonButton != null
             ? _abandonButton.GetComponentInChildren<TMP_Text>(true)
-            : null;
-        _cancelRaidButtonText ??= _cancelRaidButton != null
-            ? _cancelRaidButton.GetComponentInChildren<TMP_Text>(true)
             : null;
     }
 
@@ -618,7 +598,6 @@ public sealed class RaidMenuView : MonoBehaviour
     private void OnSettingsButtonClicked() => _settingsPanel?.Open();
     private void OnResumeButtonClicked() => ResumeRequested?.Invoke();
     private void OnAbandonButtonClicked() => AbandonRequested?.Invoke();
-    private void OnCancelRaidButtonClicked() => CancelRaidRequested?.Invoke();
     private void OnPreviousTargetButtonClicked() => PreviousTargetRequested?.Invoke();
     private void OnNextTargetButtonClicked() => NextTargetRequested?.Invoke();
 

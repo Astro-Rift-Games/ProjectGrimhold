@@ -295,7 +295,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         {
             _view.ResumeRequested += OnResumeRequested;
             _view.AbandonRequested += OnAbandonRequested;
-            _view.CancelRaidRequested += OnCancelRaidRequested;
             _view.PreviousTargetRequested += OnPreviousTargetRequested;
             _view.NextTargetRequested += OnNextTargetRequested;
         }
@@ -317,7 +316,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         {
             _view.ResumeRequested -= OnResumeRequested;
             _view.AbandonRequested -= OnAbandonRequested;
-            _view.CancelRaidRequested -= OnCancelRaidRequested;
             _view.PreviousTargetRequested -= OnPreviousTargetRequested;
             _view.NextTargetRequested -= OnNextTargetRequested;
         }
@@ -381,15 +379,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             return;
         }
 
-        // An operational Host cannot abandon its participant while sustaining
-        // the raid. Cancel Raid is the authoritative action for that role.
-        if (TryResolveOperationalLocalRole(out bool isHost) && isHost)
-        {
-            _awaitingAbandonConfirmation = false;
-            RefreshViewContent();
-            return;
-        }
-
         if (IsVoluntaryAbandonResult())
         {
             RequestTerminalReturnOnce();
@@ -430,7 +419,8 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
 
         _returnRequested = true;
-        if (TryResolveOperationalLocalRole(out bool isHost) && isHost)
+        if (TryResolveOperationalLocalRole(out bool isHost) && isHost &&
+            !ShouldRouteHostReturnThroughParticipant())
         {
             SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
             if (coordinator == null || !coordinator.RequestHostResultsReturn())
@@ -496,15 +486,8 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
         else
         {
-            bool canAbandon = !TryResolveOperationalLocalRole(out bool isHost) || !isHost;
-            _view.PresentAliveState(canAbandon);
+            _view.PresentAliveState();
         }
-
-        NetworkMatchController matchController = GetMatchController();
-        bool canCancelRaid = _runner != null && _runner.IsServer && matchController != null &&
-            matchController.Phase == NetworkMatchController.MatchPhase.InProgress &&
-            !_awaitingAbandonConfirmation && !IsLocalDefeated();
-        _view.SetCancelRaidVisible(canCancelRaid);
     }
 
     /// <summary>
@@ -534,16 +517,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             _levelUpCelebrated);
         _levelUpCelebrated = true;
         _view.PresentLevelUp(_progressionResultSnapshot.ResultingLevel, animate);
-    }
-
-    private void OnCancelRaidRequested()
-    {
-        NetworkMatchController matchController = GetMatchController();
-        if (_runner == null || !_runner.IsServer || matchController == null || IsLocalDefeated())
-        {
-            return;
-        }
-        matchController.TryCancelRaid();
     }
 
     private void ObserveParticipantState()
@@ -781,6 +754,18 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         return true;
     }
 
+    private bool ShouldRouteHostReturnThroughParticipant()
+    {
+        NetworkMatchController matchController = GetMatchController();
+        NetworkSpawnManager spawnManager = _runner != null
+            ? _runner.GetComponent<NetworkSpawnManager>()
+            : null;
+        return matchController != null && spawnManager != null &&
+            HostHandoffPolicy.ShouldRouteHostReturnThroughParticipant(
+                matchController.Phase == NetworkMatchController.MatchPhase.InProgress,
+                spawnManager.CountConnectedRaidingRemoteParticipants());
+    }
+
     private bool CanIssueReturnRequest()
     {
         if (_participant == null ||
@@ -807,6 +792,21 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
 
         NetworkSpawnManager spawnManager = _runner.GetComponent<NetworkSpawnManager>();
+        LogHostReturnGateOnChange(phase, spawnManager);
+        if (spawnManager != null &&
+            RaidResultsReturnPolicy.CanRequestHostHandoffReturn(
+                _participant.State,
+                _participant.FinalizationCause,
+                _participant.IsExtractionProgressionComplete,
+                _hasProgressionResultSnapshot,
+                isServer: true,
+                isMatchInProgress: phase == NetworkMatchController.MatchPhase.InProgress,
+                connectedRaidingRemoteParticipants:
+                    spawnManager.CountConnectedRaidingRemoteParticipants()))
+        {
+            return true;
+        }
+
         return RaidResultsReturnPolicy.CanRequestHostReturn(
             _participant.State,
             _participant.FinalizationCause,
@@ -815,6 +815,29 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             isServer: true,
             hasRaidingParticipants: spawnManager == null || spawnManager.HasRaidingParticipants,
             isMatchFinished: phase == NetworkMatchController.MatchPhase.Finished);
+    }
+
+    private string _lastHostReturnGate;
+
+    /// <summary>Logs the Host Return gate inputs once per change, never per frame.</summary>
+    private void LogHostReturnGateOnChange(
+        NetworkMatchController.MatchPhase phase,
+        NetworkSpawnManager spawnManager)
+    {
+        int raidingPeers = spawnManager != null
+            ? spawnManager.CountConnectedRaidingRemoteParticipants()
+            : -1;
+        string gate = $"State={_participant.State}, Phase={phase}, " +
+            $"HasSnapshot={_hasProgressionResultSnapshot}, " +
+            $"ExtractionComplete={_participant.IsExtractionProgressionComplete}, " +
+            $"ConnectedRaidingPeers={raidingPeers}";
+        if (gate == _lastHostReturnGate)
+        {
+            return;
+        }
+
+        _lastHostReturnGate = gate;
+        Debug.Log($"[HM-MULTI] FIX-50 Host Return gate: {gate}.", this);
     }
 
     internal static bool CanIssueReturnRequest(

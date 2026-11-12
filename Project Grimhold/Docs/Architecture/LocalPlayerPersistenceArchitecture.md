@@ -504,7 +504,7 @@ Bounded Player-Host extraction publishing requires (see [Extraction](ExtractionA
 | Failure before admission (`DELETE ...?rollback=true`) | Removed | Restored |
 | Admission confirmed (`POST /character/me/inventory/reservation/admit`) | Kept, marked `admittedAt` (idempotent) | Owned by the Raid participation |
 | Extraction commit | Consumed by `ExtractionCommitService` | Replaced by the authoritative result |
-| Any other ending (defeat, abandon, return without extraction, definitive disconnect, Absolute Closure, Host cancel or timeouts, Host Migration failure, crash or relogin) | Consumed by `DELETE ...` without rollback | Lost |
+| Any other ending (defeat, abandon, return without extraction, definitive disconnect, Absolute Closure, timeouts, Host Migration failure, crash or relogin) | Consumed by `DELETE ...` without rollback | Lost |
 
 An admitted reservation is never rolled back: rollback returns `409 RESERVATION_ADMITTED`, and a new
 launch never restores its items. A loss clear or a replacement while an unconsumed

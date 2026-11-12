@@ -115,6 +115,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private readonly Dictionary<ProfileId, NetworkObject> _restoredHostMigrationParticipants = new();
     private readonly HashSet<ProfileId> _hostMigrationEligibleProfiles = new();
     private readonly HashSet<ProfileId> _hostMigrationUnresolvedProfiles = new();
+    private readonly HashSet<ProfileId> _hostMigrationDepartedTerminalProfiles = new();
     private readonly Dictionary<ProfileId, PlayerRef> _hostMigrationRecoveredProfiles = new();
     private readonly List<NetworkObject> _spawnedEnemies = new();
     private int _nextEnemyLootSpawnIndex;
@@ -261,6 +262,102 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Counts remote peers still connected to this runner whose participant is actively Raiding;
+    /// these are the only valid targets of a voluntary Host handoff (FIX-50).
+    /// </summary>
+    public int CountConnectedRaidingRemoteParticipants()
+    {
+        if (_runner == null)
+        {
+            return 0;
+        }
+
+        PlayerRef localPlayer = _runner.LocalPlayer;
+        int count = 0;
+        foreach (KeyValuePair<PlayerRef, NetworkObject> entry in _spawnedPlayers)
+        {
+            if (entry.Key == localPlayer ||
+                entry.Value == null ||
+                !_runner.IsPlayerValid(entry.Key) ||
+                !entry.Value.TryGetBehaviour(out NetworkRaidParticipant participant) ||
+                participant.State != RaidParticipantState.Raiding)
+            {
+                continue;
+            }
+
+            count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Replicated display name of the Raid participant owning <paramref name="profileId"/>, read
+    /// from this runner's replicated state; empty when unavailable.
+    /// </summary>
+    public string GetParticipantDisplayName(ProfileId profileId)
+    {
+        if (_runner == null || !profileId.IsValid)
+        {
+            return string.Empty;
+        }
+
+        foreach (NetworkRaidParticipant participant in _runner.GetAllBehaviours<NetworkRaidParticipant>())
+        {
+            if (participant != null && participant.ProfileId.ToString() == profileId.Value)
+            {
+                return participant.DisplayName.ToString();
+            }
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// Replicated display name of the participant controlled by the current State Authority of
+    /// the Raid (the Host of this runner); empty when it is not (yet) replicated.
+    /// </summary>
+    public string GetCurrentHostDisplayName()
+    {
+        if (_runner == null || _matchController == null || _matchController.Object == null)
+        {
+            return string.Empty;
+        }
+
+        PlayerRef host = _runner.IsServer ? _runner.LocalPlayer : _matchController.Object.StateAuthority;
+        if (host.IsNone)
+        {
+            return string.Empty;
+        }
+
+        foreach (NetworkRaidParticipant participant in _runner.GetAllBehaviours<NetworkRaidParticipant>())
+        {
+            if (participant != null && participant.Object != null &&
+                participant.Object.InputAuthority == host)
+            {
+                return participant.DisplayName.ToString();
+            }
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>Whether the local Host participant already resolved its own exit with an accepted Return.</summary>
+    public bool IsLocalHostExitResolved()
+    {
+        if (_runner == null ||
+            !_spawnedPlayers.TryGetValue(_runner.LocalPlayer, out NetworkObject participantObject) ||
+            participantObject == null ||
+            !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant))
+        {
+            return false;
+        }
+
+        // FIX-49: the handoff starts only after the Host's accepted Return, never on Abandon alone.
+        return participant.IsReturnAuthorized;
     }
 
     /// <summary>
@@ -1300,6 +1397,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _restoredHostMigrationParticipants.Clear();
         _hostMigrationEligibleProfiles.Clear();
         _hostMigrationUnresolvedProfiles.Clear();
+        _hostMigrationDepartedTerminalProfiles.Clear();
         _hostMigrationRecoveredProfiles.Clear();
         _hostMigrationSnapshotHadRaidingParticipant = false;
         _hostMigrationRecoveryState = HostMigrationRecoveryWindowState.Inactive;
@@ -1357,6 +1455,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _restoredHostMigrationParticipants.Clear();
         _hostMigrationEligibleProfiles.Clear();
         _hostMigrationUnresolvedProfiles.Clear();
+        _hostMigrationDepartedTerminalProfiles.Clear();
         _hostMigrationRecoveredProfiles.Clear();
         _hostMigrationSnapshotHadRaidingParticipant = false;
         var restoredAvatarIds = new HashSet<NetworkId>();
@@ -1396,7 +1495,22 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
             if (profileId == _launchContext.HostProfileId)
             {
-                _hostMigrationUnresolvedProfiles.Add(profileId);
+                if (HostMigrationRosterPolicy.ClassifyHistoricHost(
+                        participant.State,
+                        participant.FinalizationCause,
+                        participant.IsReturnAuthorized) ==
+                    HistoricHostRosterClass.DepartedTerminal)
+                {
+                    // FIX-50: the outgoing Host resolved its own exit before handing off.
+                    _hostMigrationDepartedTerminalProfiles.Add(profileId);
+                    _controlledReturns.MarkTerminal(
+                        new ControlledReturnKey(profileId.Value, generationId));
+                }
+                else
+                {
+                    _hostMigrationUnresolvedProfiles.Add(profileId);
+                }
+
                 continue;
             }
 
@@ -1526,6 +1640,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         {
             ReconcileRecoveredProfilesWithActivePlayers();
             FinalizeUnrecoveredHostMigrationProfiles();
+            ReleaseDepartedTerminalHostMigrationProfiles();
             if (!ValidateSealedHostMigrationRoster(out string failure))
             {
                 throw new InvalidOperationException(failure);
@@ -1693,6 +1808,39 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 $"State={finalizedState}.",
                 this);
         }
+    }
+
+    /// <summary>
+    /// Releases an outgoing Host that already resolved its exit, following the client departure
+    /// rule: its participant object goes away, while its corpse (if any) stays lootable and the
+    /// persisted result is not re-finalized or aborted.
+    /// </summary>
+    private void ReleaseDepartedTerminalHostMigrationProfiles()
+    {
+        foreach (ProfileId profileId in _hostMigrationDepartedTerminalProfiles)
+        {
+            if (!_restoredHostMigrationParticipants.TryGetValue(
+                    profileId,
+                    out NetworkObject participantObject) ||
+                participantObject == null)
+            {
+                continue;
+            }
+
+            if (TryFindLinkedAvatarOrCorpse(participantObject.Id, out NetworkObject body) &&
+                body != null && !body.InputAuthority.IsNone)
+            {
+                body.AssignInputAuthority(PlayerRef.None);
+            }
+
+            _runner.Despawn(participantObject);
+            _restoredHostMigrationParticipants.Remove(profileId);
+            Debug.Log(
+                $"[HM-MULTI] Departed Host released without re-finalization. ProfileId={profileId}.",
+                this);
+        }
+
+        _hostMigrationDepartedTerminalProfiles.Clear();
     }
 
     private bool ValidateSealedHostMigrationRoster(out string failure)
@@ -2253,7 +2401,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 LocalPlayerJoinContext localContext = runner.GetComponent<LocalPlayerJoinContext>();
                 if (localContext != null && localContext.HasRaidAdmission && IsRaidAdmissionValid(localContext.RaidAdmission))
                 {
-                    admission = localContext.RaidAdmission;
+                    // The local Host is the State Authority: its own session name is trusted.
+                    admission = localContext.RaidAdmission.WithDisplayName(
+                        ApplicationAuthContext.Instance != null
+                            ? ApplicationAuthContext.Instance.CharacterName
+                            : null);
                     hasFullAdmission = true;
                 }
                 else
@@ -2805,11 +2957,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     Debug.LogWarning($"[SECURITY] Authoritative ticket rejected by verifier for player {playerIdentifierForLogging}: {error}");
                     return false;
                 }
-                authTicket = verifiedTicket;
+                authTicket = WithDecodedCharacterName(verifiedTicket);
             }
 
             // Hydrate state exclusively from backend verified snapshot
-            if (!authTicket.TryToRaidAdmissionData(out resolvedAdmission, catalog: catalog) || !resolvedAdmission.IsValid)
+            if (!TryHydrateAdmission(authTicket, catalog, out resolvedAdmission))
             {
                 Debug.LogWarning($"[SECURITY] Failed to hydrate canonical RaidAdmissionData from authoritative ticket for player {playerIdentifierForLogging}.");
                 return false;
@@ -2826,6 +2978,36 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         Debug.LogWarning($"[NetworkSpawnManager] Could not resolve valid admission for {playerIdentifierForLogging}.");
         return false;
+    }
+
+    /// <summary>
+    /// Projects the verified ticket into canonical admission data and attaches the display-only
+    /// character name, sanitized at this State Authority boundary.
+    /// </summary>
+    private static bool TryHydrateAdmission(
+        in AuthoritativeRaidAdmissionTicket ticket,
+        LootDefinitionCatalog catalog,
+        out RaidAdmissionData admission)
+    {
+        if (!ticket.TryToRaidAdmissionData(out admission, catalog: catalog) || !admission.IsValid)
+        {
+            return false;
+        }
+
+        admission = admission.WithDisplayName(RaidDisplayNamePolicy.Sanitize(ticket.CharacterName));
+        return true;
+    }
+
+    /// <summary>
+    /// The backend verify response carries no character name, so the verified ticket regains the
+    /// display-only claim from the (now authenticated) raw ticket it was verified from.
+    /// </summary>
+    private static AuthoritativeRaidAdmissionTicket WithDecodedCharacterName(
+        in AuthoritativeRaidAdmissionTicket verified)
+    {
+        return AuthoritativeRaidAdmissionTicketCodec.TryDecode(verified.RawTicket, out var decoded)
+            ? verified.WithCharacterName(decoded.CharacterName)
+            : verified;
     }
 
     private async Task CompleteRemoteAdmissionVerificationAsync(
@@ -2849,7 +3031,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             if (!valid ||
                 !RaidAdmissionRules.IsAdmitted(_launchContext, verifiedTicket) ||
                 verifiedTicket.IsExpired(DateTimeOffset.UtcNow.ToUnixTimeSeconds()) ||
-                !verifiedTicket.TryToRaidAdmissionData(out resolvedAdmission, catalog: _lootCatalog) ||
+                !TryHydrateAdmission(WithDecodedCharacterName(verifiedTicket), _lootCatalog, out resolvedAdmission) ||
                 !TryFinalizeRemoteAdmission(player, resolvedAdmission))
             {
                 Debug.LogWarning($"[SECURITY] Deferred authoritative ticket verification failed for player {player}: {error ?? "ADMISSION_FINALIZATION_FAILED"}. Disconnecting.");
@@ -3090,7 +3272,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                         _matchController != null ? _matchController.RaidGenerationId.ToString() : null,
                         hasAdmission ? admission.ReservationId : null,
                         admission.LastAppliedProgressionResultSequence,
-                        admission.PreparedAbilities);
+                        admission.PreparedAbilities,
+                        admission.DisplayName);
                 }
             });
 

@@ -130,12 +130,13 @@ namespace Tests.EditMode.Presentation
         }
 
         [Test]
-        public void View_PresentAliveStateForOperationalHost_HidesAbandonAction()
+        public void View_PresentAliveState_ShowsAbandonActionForEveryRole()
         {
-            _view.PresentAliveState(canAbandon: false);
+            // FIX-49: the Host abandons like any participant; there is no role-based hiding.
+            _view.PresentAliveState();
 
-            Assert.That(_view.AbandonButton.gameObject.activeSelf, Is.False);
-            Assert.That(_view.AbandonButton.interactable, Is.False);
+            Assert.That(_view.AbandonButton.gameObject.activeSelf, Is.True);
+            Assert.That(_view.AbandonButton.interactable, Is.True);
         }
 
         [Test]

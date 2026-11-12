@@ -34,6 +34,28 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
     private CancellationTokenSource _migrationCancellation;
     private bool _isMigrating;
     private RaidAdmissionData _admissionData;
+    private readonly HostHandoffNoticeSlot _handoffNotice = new();
+    private string _departedHostName = string.Empty;
+
+    /// <summary>
+    /// Single-delivery HUD notice (FIX-50 S3) published on the adopted replacement runner after a
+    /// completed Host Migration. Presentation only.
+    /// </summary>
+    public bool TryConsumeHandoffNotice(out string message) =>
+        _handoffNotice.TryConsume(out message);
+
+    private void PublishHandoffNotice(
+        HostMigrationLifecycleController target,
+        NetworkSpawnManager replacementSpawnManager)
+    {
+        // The departed Host name was captured from this peer's last replicated view before the
+        // old runner shut down; the new Host is the participant controlled by the replacement
+        // runner's State Authority. Missing data falls back to neutral labels in Format.
+        string newHostName = replacementSpawnManager != null
+            ? replacementSpawnManager.GetCurrentHostDisplayName()
+            : null;
+        target._handoffNotice.Publish(HostHandoffAnnouncement.Format(_departedHostName, newHostName));
+    }
 
     public void Initialize(
         NetworkRunner runner,
@@ -95,6 +117,9 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
             Debug.LogError("[HM-MULTI] Launcher rejected migration ownership.", this);
             return;
         }
+
+        // The outgoing Host's participant still exists in this peer's replicated view right now.
+        _departedHostName = spawnManager.GetParticipantDisplayName(_launchContext.HostProfileId);
 
         _migrationCancellation?.Cancel();
         _migrationCancellation?.Dispose();
@@ -291,6 +316,7 @@ public sealed class HostMigrationLifecycleController : NetworkRunnerCallbacksAda
                     "FusionSessionLauncher rejected replacement runner adoption.");
             }
 
+            PublishHandoffNotice(replacement.HostMigrationController, replacement.SpawnManager);
             Debug.Log(
                 $"[HM-MULTI] Replacement adopted as RecoveredAs{role}.",
                 this);

@@ -129,48 +129,8 @@ public sealed class RaidResultsReturnPolicyTests
             Is.False);
     }
 
-    [TestCase(NetworkMatchController.MatchPhase.Closing)]
-    [TestCase(NetworkMatchController.MatchPhase.Finished)]
-    public void HostCancellationClosure_ArmsThePendingGlobalReturn(
-        NetworkMatchController.MatchPhase phase)
-    {
-        Assert.That(CanArmHostCancellationReturn(phase: phase), Is.True);
-    }
-
-    [TestCase(RaidClosureReason.NaturalCompletion)]
-    [TestCase(RaidClosureReason.BootstrapFailure)]
-    public void OtherClosureReasons_NeverArmThePendingGlobalReturn(RaidClosureReason reason)
-    {
-        Assert.That(CanArmHostCancellationReturn(closureReason: reason), Is.False);
-    }
-
     [Test]
-    public void HostCancellationClosure_DoesNotArmBeforeClosureOrOutsideTheRaid()
-    {
-        Assert.That(
-            CanArmHostCancellationReturn(phase: NetworkMatchController.MatchPhase.InProgress),
-            Is.False);
-        Assert.That(
-            CanArmHostCancellationReturn(state: SessionConnectionState.ReturningTown),
-            Is.False);
-        Assert.That(CanArmHostCancellationReturn(hasValidHostRunner: false), Is.False);
-        Assert.That(CanArmHostCancellationReturn(operationActive: true), Is.False);
-    }
-
-    [Test]
-    public void HostCancellationClosure_ArmsExactlyOnceAcrossFrames()
-    {
-        Assert.That(CanArmHostCancellationReturn(), Is.True);
-
-        // The armed latch survives the frames the closure takes to reach Finished and the
-        // frames the Host waits for the last remote peer to leave.
-        Assert.That(CanArmHostCancellationReturn(cancellationReturnArmed: true), Is.False);
-        Assert.That(CanArmHostCancellationReturn(hostReturnRequested: true), Is.False);
-        Assert.That(CanArmHostCancellationReturn(hostReturnStarted: true), Is.False);
-    }
-
-    [Test]
-    public void ArmedHostCancellation_StartsOnlyAfterTheLastRemotePeerLeaves()
+    public void PendingHostReturn_StartsOnlyAfterTheLastRemotePeerLeaves()
     {
         Assert.That(
             CanStartHostReturn(
@@ -184,27 +144,6 @@ public sealed class RaidResultsReturnPolicyTests
                 hostReturnStarted: false,
                 hasConnectedRemoteParticipants: false),
             Is.True);
-    }
-
-    private static bool CanArmHostCancellationReturn(
-        bool cancellationReturnArmed = false,
-        bool hostReturnRequested = false,
-        bool hostReturnStarted = false,
-        bool operationActive = false,
-        SessionConnectionState state = SessionConnectionState.Raid,
-        bool hasValidHostRunner = true,
-        RaidClosureReason closureReason = RaidClosureReason.HostCancellation,
-        NetworkMatchController.MatchPhase phase = NetworkMatchController.MatchPhase.Closing)
-    {
-        return SessionConnectionCoordinator.ShouldArmHostCancellationReturn(
-            cancellationReturnArmed,
-            hostReturnRequested,
-            hostReturnStarted,
-            operationActive,
-            state,
-            hasValidHostRunner,
-            closureReason,
-            phase);
     }
 
     private static bool CanStartHostReturn(
@@ -221,5 +160,59 @@ public sealed class RaidResultsReturnPolicyTests
             isMatchFinished: true,
             hasRaidingParticipants: false,
             hasConnectedRemoteParticipants);
+    }
+
+    [TestCase(true, true, 1, true, true)]
+    [TestCase(false, true, 1, true, false)]
+    [TestCase(true, false, 1, true, false)]
+    [TestCase(true, true, 0, true, false)]
+    [TestCase(true, true, 1, false, false)]
+    public void HostReturn_DuringActiveRaid_IsAllowedOnlyForResolvedHostWithRaidingPeers(
+        bool isServer,
+        bool isMatchInProgress,
+        int connectedRaiding,
+        bool hasSnapshot,
+        bool expected)
+    {
+        Assert.That(
+            RaidResultsReturnPolicy.CanRequestHostHandoffReturn(
+                RaidParticipantState.Defeated,
+                ExpeditionProgressionFinalizationCause.DefeatConfirmed,
+                isExtractionProgressionComplete: true,
+                hasProgressionResultSnapshot: hasSnapshot,
+                isServer: isServer,
+                isMatchInProgress: isMatchInProgress,
+                connectedRaidingRemoteParticipants: connectedRaiding),
+            Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void HostReturn_DuringActiveRaid_RejectsRaidingHost()
+    {
+        Assert.That(
+            RaidResultsReturnPolicy.CanRequestHostHandoffReturn(
+                RaidParticipantState.Raiding,
+                ExpeditionProgressionFinalizationCause.None,
+                isExtractionProgressionComplete: false,
+                hasProgressionResultSnapshot: true,
+                isServer: true,
+                isMatchInProgress: true,
+                connectedRaidingRemoteParticipants: 1),
+            Is.False);
+    }
+
+    [Test]
+    public void HostReturn_DuringActiveRaid_RejectsExtractedHostWithIncompleteExtractionProgression()
+    {
+        Assert.That(
+            RaidResultsReturnPolicy.CanRequestHostHandoffReturn(
+                RaidParticipantState.Extracted,
+                ExpeditionProgressionFinalizationCause.ExtractionConfirmed,
+                isExtractionProgressionComplete: false,
+                hasProgressionResultSnapshot: true,
+                isServer: true,
+                isMatchInProgress: true,
+                connectedRaidingRemoteParticipants: 1),
+            Is.False);
     }
 }

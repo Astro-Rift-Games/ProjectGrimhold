@@ -37,7 +37,7 @@ Starting / bootstrap failure
 `RaidClosureReason.BootstrapFailure`; it does not pass through `InProgress` and
 cleanup remains idempotent.
 
-Host cancellation marks only `Raiding` participants as `Aborted`. An individual
+The Host cannot cancel the Raid (removed by FIX-49). An individual
 Host abandonment remains a participant result: if another participant is still
 `Raiding`, the existing Host Migration flow continues the raid.
 

@@ -146,4 +146,48 @@ public sealed class RaidAdmissionTicketCodecTests
         Assert.That(RaidAdmissionRules.IsAdmitted(manifest, uninvitedTicket), Is.False);
         Assert.That(RaidAdmissionRules.IsAdmitted(null, validTicket1), Is.False);
     }
+
+    private static string AuthoritativeTicket(Action<Newtonsoft.Json.Linq.JObject> editClaims)
+    {
+        Assert.That(RaidCode.TryParse("038271", out RaidCode code), Is.True);
+        string raw = AuthoritativeRaidAdmissionTicketCodec.CreateTestTicket(new ProfileId("profile-1"), code,
+            ReservationGuid, 1, 0, ProgressionBalanceDefaults.InitialCharacterAttributeState,
+            default, Array.Empty<LootEntry>(), default);
+        string[] parts = raw.Split('.');
+        string body = parts[0].Replace('-', '+').Replace('_', '/');
+        body = body.PadRight((body.Length + 3) / 4 * 4, '=');
+        var claims = Newtonsoft.Json.Linq.JObject.Parse(System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(body)));
+        editClaims(claims);
+        string rewritten = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(claims.ToString()))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        return rewritten + "." + parts[1];
+    }
+
+    [Test]
+    public void AuthoritativeTicket_DecodesCharacterNameClaim()
+    {
+        string raw = AuthoritativeTicket(claims => claims["characterName"] = "Beto");
+
+        Assert.That(AuthoritativeRaidAdmissionTicketCodec.TryDecode(raw, out var ticket), Is.True);
+        Assert.That(ticket.CharacterName, Is.EqualTo("Beto"));
+        Assert.That(ticket.ProfileId.Value, Is.EqualTo("profile-1"), "The name is display data, never identity.");
+    }
+
+    [Test]
+    public void AuthoritativeTicket_MissingCharacterName_DecodesWithEmptyName()
+    {
+        string raw = AuthoritativeTicket(claims => claims.Remove("characterName"));
+
+        Assert.That(AuthoritativeRaidAdmissionTicketCodec.TryDecode(raw, out var ticket), Is.True);
+        Assert.That(ticket.CharacterName, Is.EqualTo(string.Empty));
+    }
+
+    [Test]
+    public void AuthoritativeTicket_NonStringCharacterName_DecodesWithEmptyName()
+    {
+        string raw = AuthoritativeTicket(claims => claims["characterName"] = 42);
+
+        Assert.That(AuthoritativeRaidAdmissionTicketCodec.TryDecode(raw, out var ticket), Is.True);
+        Assert.That(ticket.CharacterName, Is.EqualTo(string.Empty));
+    }
 }

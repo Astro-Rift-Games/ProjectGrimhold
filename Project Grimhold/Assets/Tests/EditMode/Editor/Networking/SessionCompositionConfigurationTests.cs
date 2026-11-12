@@ -221,7 +221,6 @@ public sealed class SessionCompositionConfigurationTests
         RaidMenuView view = prefab.GetComponentInChildren<RaidMenuView>(true);
 
         Assert.That(view, Is.Not.Null);
-        Assert.That(view.CancelRaidButton, Is.Not.Null);
         Assert.That(view.SpectatorBarRoot, Is.Not.Null);
         Assert.That(view.SpectatorTargetText, Is.Not.Null);
         Assert.That(view.PreviousTargetButton, Is.Not.Null);

@@ -84,7 +84,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private Task _participationOutcomeTask = Task.CompletedTask;
     private bool _hostResultsReturnRequested;
     private bool _hostResultsReturnStarted;
-    private bool _hostCancellationReturnArmed;
     private SessionTransitionResult? _pendingTransitionFailure;
     private ExpeditionPreparationResult? _pendingLaunchRejection;
     private CancellationTokenSource _activeTransitionCancellation;
@@ -454,16 +453,94 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         bool operationActive,
         bool isQuitting,
         SessionConnectionState state,
-        ShutdownReason shutdownReason)
+        ShutdownReason shutdownReason,
+        bool isOutgoingHostHandoff = false)
     {
+        // Host Migration normally hands the runner to a replacement; only the outgoing Host,
+        // which will not be migrated, must return to Town itself.
         return !operationActive && !isQuitting && state == SessionConnectionState.Raid &&
-               shutdownReason != ShutdownReason.HostMigration;
+               (shutdownReason != ShutdownReason.HostMigration || isOutgoingHostHandoff);
+    }
+
+    private const float HostHandoffRetrySeconds = 3f;
+    private bool _hostHandoffInFlight;
+    private bool _outgoingHostHandoff;
+    private HostHandoffOutcome _lastHostHandoffOutcome = HostHandoffOutcome.Stayed;
+    private float _hostHandoffNotBefore;
+
+    private void ObserveHostHandoff()
+    {
+        if (!HostHandoffPolicy.ShouldAttemptHandoff(
+                _hostHandoffInFlight,
+                _operationActive,
+                State == SessionConnectionState.Raid,
+                Time.unscaledTime,
+                _hostHandoffNotBefore))
+        {
+            return;
+        }
+
+        NetworkRunner runner = _raidLauncher != null ? _raidLauncher.Runner : null;
+        NetworkSpawnManager spawnManager = runner != null
+            ? runner.GetComponent<NetworkSpawnManager>()
+            : null;
+        if (runner == null || !runner.IsRunning || !runner.IsServer || spawnManager == null ||
+            !spawnManager.IsLocalHostExitResolved())
+        {
+            return;
+        }
+
+        _hostHandoffInFlight = true;
+        _ = AttemptHostHandoffAsync(runner);
+    }
+
+    private async Task AttemptHostHandoffAsync(NetworkRunner runner)
+    {
+        HostHandoffOutcome outcome = HostHandoffOutcome.Stayed;
+        try
+        {
+            outcome = await HostHandoffService.TryHandOffAsync(
+                new FusionHostHandoffRunner(runner),
+                beforeShutdown: () => _outgoingHostHandoff = true);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+        }
+
+        if (this == null)
+        {
+            return;
+        }
+
+        _hostHandoffInFlight = false;
+        if (outcome != _lastHostHandoffOutcome)
+        {
+            // Logged on change only: CloseNormally and Stayed are re-evaluated every retry window.
+            _lastHostHandoffOutcome = outcome;
+            Debug.Log($"[HM-MULTI] FIX-50 Host handoff attempt outcome={outcome}.", this);
+        }
+
+        if (outcome == HostHandoffOutcome.HandedOff)
+        {
+            return;
+        }
+
+        _outgoingHostHandoff = false;
+        _hostHandoffNotBefore = Time.unscaledTime + HostHandoffRetrySeconds;
+        if (outcome == HostHandoffOutcome.SnapshotRejected)
+        {
+            Debug.LogWarning(
+                $"[{nameof(SessionConnectionCoordinator)}] Host handoff snapshot was rejected; " +
+                "the Host keeps the role and retries.",
+                this);
+        }
     }
 
     private void Update()
     {
-        ObserveHostCancellationClosure();
         ObservePendingHostResultsReturn();
+        ObserveHostHandoff();
         if (_loadoutConfirmationPending)
         {
             TryConfirmActiveReservation();
@@ -514,63 +591,6 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
         _hostResultsReturnRequested = true;
         return true;
-    }
-
-    /// <summary>
-    /// Determines whether an authoritative Host cancellation must arm the pending operational-Host
-    /// return. This is the second valid entry point into that lifecycle: a cancelled generation
-    /// produces no accepted terminal Results, so the Results eligibility gate cannot authorize it.
-    /// It never bypasses the shutdown boundary evaluated by <see cref="ObservePendingHostResultsReturn"/>.
-    /// </summary>
-    internal static bool ShouldArmHostCancellationReturn(
-        bool cancellationReturnArmed,
-        bool hostReturnRequested,
-        bool hostReturnStarted,
-        bool operationActive,
-        SessionConnectionState state,
-        bool hasValidHostRunner,
-        RaidClosureReason closureReason,
-        NetworkMatchController.MatchPhase phase)
-    {
-        return !cancellationReturnArmed &&
-               !hostReturnRequested &&
-               !hostReturnStarted &&
-               !operationActive &&
-               state == SessionConnectionState.Raid &&
-               hasValidHostRunner &&
-               closureReason == RaidClosureReason.HostCancellation &&
-               (phase == NetworkMatchController.MatchPhase.Closing ||
-                phase == NetworkMatchController.MatchPhase.Finished);
-    }
-
-    private void ObserveHostCancellationClosure()
-    {
-        NetworkRunner runner = _raidLauncher != null ? _raidLauncher.Runner : null;
-        NetworkMatchController matchController = _raidLauncher != null
-            ? _raidLauncher.MatchController
-            : null;
-        if (matchController == null ||
-            !ShouldArmHostCancellationReturn(
-                _hostCancellationReturnArmed,
-                _hostResultsReturnRequested,
-                _hostResultsReturnStarted,
-                _operationActive,
-                State,
-                hasValidHostRunner: runner != null && runner.IsRunning && runner.IsServer,
-                matchController.ClosureReason,
-                matchController.Phase))
-        {
-            return;
-        }
-
-        // Armed exactly once per raid generation: a failed transition must not be retried
-        // every frame. The failure remains observable through TryConsumeLastTransitionFailure.
-        _hostCancellationReturnArmed = true;
-        _hostResultsReturnRequested = true;
-        Debug.Log(
-            $"[{nameof(SessionConnectionCoordinator)}] Host cancellation closure armed the pending " +
-            "global Town return.",
-            this);
     }
 
     private void ObservePendingHostResultsReturn()
@@ -1973,7 +1993,8 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 _operationActive,
                 _isQuitting,
                 State,
-                shutdownReason))
+                shutdownReason,
+                _outgoingHostHandoff))
         {
             if (shutdownReason == ShutdownReason.HostMigration && State == SessionConnectionState.Raid)
             {
@@ -1990,8 +2011,15 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         bool migrationFailed = _hostMigrationSourceRunner == runner &&
             shutdownReason == ShutdownReason.Error;
         _hostMigrationSourceRunner = null;
+        bool outgoingHandoff = _outgoingHostHandoff && shutdownReason == ShutdownReason.HostMigration;
+        _outgoingHostHandoff = false;
+        if (outgoingHandoff)
+        {
+            Debug.Log("[HM-MULTI] FIX-50 outgoing Host handed off; returning to Town.", this);
+        }
         RecoverFromUnexpectedShutdown(
-            preserveReconnect: !migrationFailed && !IsTerminalReconnectShutdownReason(shutdownReason));
+            preserveReconnect: !outgoingHandoff && !migrationFailed &&
+                !IsTerminalReconnectShutdownReason(shutdownReason));
     }
 
     private async void RecoverFromUnexpectedShutdown(bool preserveReconnect = true)
@@ -2154,7 +2182,9 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     {
         _hostResultsReturnRequested = false;
         _hostResultsReturnStarted = false;
-        _hostCancellationReturnArmed = false;
+        _outgoingHostHandoff = false;
+        _hostHandoffNotBefore = 0f;
+        _lastHostHandoffOutcome = HostHandoffOutcome.Stayed;
     }
 
     private void UpdateTicketState(SessionConnectionState state)

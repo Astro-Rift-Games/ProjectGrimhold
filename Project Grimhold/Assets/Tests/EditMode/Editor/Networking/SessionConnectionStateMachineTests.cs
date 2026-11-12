@@ -505,6 +505,43 @@ public sealed class SessionConnectionStateMachineTests
     }
 
     [Test]
+    public void HostMigrationShutdown_RecoversToTownOnlyForOutgoingHost()
+    {
+        Assert.That(
+            SessionConnectionCoordinator.ShouldRecoverRaidShutdown(
+                operationActive: false,
+                isQuitting: false,
+                SessionConnectionState.Raid,
+                ShutdownReason.HostMigration,
+                isOutgoingHostHandoff: true),
+            Is.True);
+        Assert.That(
+            SessionConnectionCoordinator.ShouldRecoverRaidShutdown(
+                operationActive: false,
+                isQuitting: false,
+                SessionConnectionState.Raid,
+                ShutdownReason.HostMigration,
+                isOutgoingHostHandoff: false),
+            Is.False);
+        Assert.That(
+            SessionConnectionCoordinator.ShouldRecoverRaidShutdown(
+                operationActive: false,
+                isQuitting: true,
+                SessionConnectionState.Raid,
+                ShutdownReason.HostMigration,
+                isOutgoingHostHandoff: true),
+            Is.False);
+        Assert.That(
+            SessionConnectionCoordinator.ShouldRecoverRaidShutdown(
+                operationActive: true,
+                isQuitting: false,
+                SessionConnectionState.Raid,
+                ShutdownReason.HostMigration,
+                isOutgoingHostHandoff: true),
+            Is.False);
+    }
+
+    [Test]
     public void UnexpectedRaidShutdown_RecoversOnlyWhileApplicationIsRunning()
     {
         Assert.That(

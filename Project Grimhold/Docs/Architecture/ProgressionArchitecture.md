@@ -228,8 +228,8 @@ may change its own feedback and keep Return disabled, but cannot hide or alter a
 The accepted semantic causes are extraction confirmed, defeat confirmed, voluntary abandonment
 confirmed and definitive disconnection confirmed. `Aborted` is only a technical lifecycle state and
 never implies an outcome. Bootstrap/pre-Dungeon cancellation has no participation Experience to
-resolve. Active Host cancellation keeps its current technical closure; its Progression meaning is
-not defined by this task and no outcome is invented for it.
+resolve. There is no active Host cancellation (removed by FIX-49); a Host abandons with the same
+voluntary-abandon outcome as any participant.
 
 ## Process-local result sequence and consolidation
 

@@ -16,6 +16,13 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     [Networked]
     public NetworkString<_32> ProfileId { get; private set; }
 
+    /// <summary>
+    /// Display-only character name set once by the State Authority at admission (FIX-50 S3).
+    /// Never identity; carried across Host Migration by the restored networked state.
+    /// </summary>
+    [Networked]
+    public NetworkString<_32> DisplayName { get; private set; }
+
     [Networked]
     public RaidParticipantId RaidParticipantId { get; private set; }
 
@@ -60,6 +67,10 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
 
     [Networked]
     public NetworkBool IsReturnAuthorized { get; private set; }
+
+    public bool HasProgressionResultSnapshot =>
+        _progressionResolver != null &&
+        _progressionResolver.TryGetProgressionResult(out ExpeditionProgressionResult _);
 
 
 
@@ -255,7 +266,8 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         string raidGenerationId = null,
         string loadoutReservationId = null,
         int baselineResultSequence = 0,
-        PreparedAbilityLoadout preparedAbilities = default)
+        PreparedAbilityLoadout preparedAbilities = default,
+        string displayName = null)
     {
         if (!HasStateAuthority)
         {
@@ -290,6 +302,8 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         }
 
         ProfileId = profileId;
+        // Display-only; sanitized again here so no caller can replicate an unclamped name.
+        DisplayName = RaidDisplayNamePolicy.Sanitize(displayName);
         RaidParticipantId = raidParticipantId;
         RaidGenerationId = raidGenerationId ?? string.Empty;
         LoadoutReservationId = loadoutReservationId ?? string.Empty;
@@ -711,7 +725,10 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         spawnManager.TryConfirmTeammateAbsence(this, targetParticipantId, out _);
     }
 
-    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    // HostMode: the operational Host invokes this on its own participant (FIX-50). The default
+    // SourceIsServer reports PlayerRef.None, which TryResolveReturnRequester rejects, leaving the
+    // Host unable to leave after Defeat or Extraction (L13).
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
     private void RPC_RequestAbandon(RpcInfo info = default)
     {
         if (State != RaidParticipantState.Raiding)
@@ -729,11 +746,13 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
                 info.Source,
                 out bool requesterIsHost,
                 out rejectionReason) ||
-            requesterIsHost)
+            !HostHandoffPolicy.AcceptsExitRequest(
+                requesterIsHost,
+                IsRaidInProgress(spawnManager)))
         {
             Debug.LogWarning(
-                $"[HM-MULTI] Abandon rejected for the operational Host or an invalid requester. " +
-                $"Reason={rejectionReason ?? "Operational Host cannot abandon during an active Raid"}.",
+                $"[HM-MULTI] FIX-50 Abandon rejected for an invalid requester. " +
+                $"Reason={rejectionReason ?? "Operational Host can only abandon during an active Raid"}.",
                 this);
             return;
         }
@@ -743,7 +762,10 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         TryAdvanceVoluntaryAbandon();
     }
 
-    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    // HostMode: the operational Host invokes this on its own participant (FIX-50). The default
+    // SourceIsServer reports PlayerRef.None, which TryResolveReturnRequester rejects, leaving the
+    // Host unable to leave after Defeat or Extraction (L13).
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority, HostMode = RpcHostMode.SourceIsHostPlayer)]
     private void RPC_RequestReturn(RpcInfo info = default)
     {
         if (IsReturnAuthorized)
@@ -763,16 +785,19 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
                 out rejectionReason))
         {
             Debug.LogWarning(
-                $"[HM-MULTI] Return rejected because requester identity could not be resolved. " +
+                $"[HM-MULTI] FIX-50 Return rejected because requester identity could not be resolved. " +
                 $"Reason={rejectionReason ?? "Missing NetworkSpawnManager"}.",
                 this);
             return;
         }
 
-        if (requesterIsHost)
+        if (!HostHandoffPolicy.AcceptsExitRequest(
+                requesterIsHost,
+                IsRaidInProgress(spawnManager)))
         {
             Debug.LogWarning(
-                "[HM-MULTI] Operational Host Return rejected while the Host must sustain the Raid.",
+                "[HM-MULTI] FIX-50 Operational Host Return rejected outside an active Raid; " +
+                "the Host uses the Results return path.",
                 this);
             return;
         }
@@ -786,6 +811,24 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
                 hasProgressionResultSnapshot,
                 spawnManager.IsResultsReturnPhaseCompatible))
         {
+            Debug.LogWarning(
+                $"[HM-MULTI] FIX-50 Return rejected: result not accepted. State={State}, " +
+                $"Cause={FinalizationCause}, ExtractionComplete={IsExtractionProgressionComplete}, " +
+                $"HasSnapshot={hasProgressionResultSnapshot}, " +
+                $"PhaseCompatible={spawnManager.IsResultsReturnPhaseCompatible}, " +
+                $"RequesterIsHost={requesterIsHost}.",
+                this);
+            return;
+        }
+
+        if (!HostHandoffPolicy.CanAuthorizeReturn(
+                requesterIsHost,
+                FinalizationCause,
+                _progressionResolver != null && _progressionResolver.Committed))
+        {
+            Debug.LogWarning(
+                "[HM-MULTI] FIX-49 Host Return after Abandon deferred: progression not durably committed.",
+                this);
             return;
         }
 
@@ -801,6 +844,13 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
         }
 
         IsReturnAuthorized = true;
+    }
+
+    private static bool IsRaidInProgress(NetworkSpawnManager spawnManager)
+    {
+        NetworkMatchController matchController = spawnManager.MatchController;
+        return matchController != null &&
+               matchController.Phase == NetworkMatchController.MatchPhase.InProgress;
     }
 
     private bool IsCurrentRaidingAvatar(NetworkObject avatar)
@@ -843,20 +893,13 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             return;
         }
 
-        if (_progressionResolver.Committed)
+        if (!_progressionResolver.Committed)
         {
-            return;
-        }
-
-        PlayerExpeditionProgressionFinalizationResult result =
             _progressionResolver.TryFinalize(
                 ExpeditionProgressionFinalizationCause.VoluntaryAbandonConfirmed);
-        if (result.IsCompleted)
-        {
-            Debug.Log(
-                $"[HM-MULTI] Client abandon progression resolved; durable local commit remains pending. State={State}.",
-                this);
         }
+
+        // Return stays an explicit request for every participant, the Host included (FIX-49).
     }
 
     private bool TryTransitionToAborted(

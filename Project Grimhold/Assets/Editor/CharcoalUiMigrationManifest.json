@@ -12221,41 +12221,6 @@
     },
     {
       "asset": "Assets/Prefabs/UI/PlayerUI/RaidMenuPanel.prefab",
-      "fileId": "578839607776989853",
-      "hierarchy": "RaidMenuPanel[0]/CancelRaidButton[6]",
-      "sprite": "UI_11",
-      "spriteAsset": "Assets/Placeholder/UI/UI.png",
-      "color": [
-        1,
-        1,
-        1,
-        1
-      ],
-      "sizeDelta": [
-        200,
-        60
-      ],
-      "anchorMin": [
-        0.5,
-        0
-      ],
-      "anchorMax": [
-        0.5,
-        0
-      ],
-      "pivot": [
-        0.5,
-        0
-      ],
-      "enabled": true,
-      "raycast": true,
-      "preserveAspect": false,
-      "migrate": true,
-      "target": "button_normal",
-      "reason": "Button target graphic; five authored Selectable sprite states"
-    },
-    {
-      "asset": "Assets/Prefabs/UI/PlayerUI/RaidMenuPanel.prefab",
       "fileId": "6747454648067603569",
       "hierarchy": "RaidMenuPanel[0]/ProgressionResults[7]/ActivityPanel[0]",
       "sprite": "UI_5",

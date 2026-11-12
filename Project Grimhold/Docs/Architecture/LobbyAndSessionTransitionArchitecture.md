@@ -221,18 +221,12 @@ until `OnPlayerLeft`, and the query is additionally guarded by `NetworkRunner.Ac
 Therefore `Finished` alone can remain in Results indefinitely, and a pending Host return
 cannot shut down the runner while a remote Client still belongs to it.
 
-The pending operational-Host return lifecycle has two valid entry points:
-
-- an explicit Results return after an accepted terminal result;
-- an authoritative `HostCancellation` closure.
-
-Both arm the same coordinator latches and converge on the same single global `ReturnToTownAsync()`;
-no second lifecycle owner exists. `HostCancellation` bypasses Results eligibility — a cancelled
-participant is `Aborted` without an accepted terminal cause, so `RaidResultsReturnPolicy` correctly
-rejects it — but it does not bypass the shutdown boundary: the Host still waits for
-`MatchPhase.Finished`, no remaining `Raiding` participants and no connected remote peers before the
-coordinator performs the global return. Clients cancelled by that closure keep using their existing
-individual participant return; the operational Host never uses it.
+The pending operational-Host return lifecycle has one entry point: an explicit Results return after an
+accepted terminal result. There is no Host-initiated cancellation of the Raid (FIX-49): the Host
+abandons like any participant, sees the loss Results, and leaves with `Volver`, which hands the Host
+role off per FIX-50 while other participants remain (FIX-52 owns the full Host Migration rewrite).
+The Host still waits for `MatchPhase.Finished`, no remaining `Raiding` participants and no connected
+remote peers before the coordinator performs the global return.
 
 #### MVP topology constraint
 
