@@ -221,7 +221,6 @@ public sealed class SessionCompositionConfigurationTests
         RaidMenuView view = prefab.GetComponentInChildren<RaidMenuView>(true);
 
         Assert.That(view, Is.Not.Null);
-        Assert.That(view.CancelRaidButton, Is.Not.Null);
         Assert.That(view.SpectatorBarRoot, Is.Not.Null);
         Assert.That(view.SpectatorTargetText, Is.Not.Null);
         Assert.That(view.PreviousTargetButton, Is.Not.Null);
@@ -706,6 +705,37 @@ public sealed class SessionCompositionConfigurationTests
             Assert.That(FindInScene<LocalCameraController>(scene), Has.Count.EqualTo(1));
             Assert.That(FindInScene<PlayerInputReader>(scene), Has.Count.EqualTo(1));
             Assert.That(FindInScene<FusionInputProvider>(scene), Has.Count.EqualTo(1));
+        }
+        finally
+        {
+            if (openedForTest)
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+    }
+
+    [Test]
+    public void TownScene_HostsTheRaidLossNoticePresenterBoundToItsView()
+    {
+        Scene scene = SceneManager.GetSceneByPath(TownScenePath);
+        bool openedForTest = !scene.IsValid() || !scene.isLoaded;
+        if (openedForTest)
+        {
+            scene = EditorSceneManager.OpenScene(TownScenePath, OpenSceneMode.Additive);
+        }
+
+        try
+        {
+            List<TownRaidLossNoticePresenter> presenters = FindInScene<TownRaidLossNoticePresenter>(scene);
+            Assert.That(presenters, Has.Count.EqualTo(1));
+            var view = SerializedReference(presenters[0], "_view") as TownRaidLossNoticeView;
+            Assert.That(view, Is.Not.Null);
+            Assert.That(view.gameObject.scene, Is.EqualTo(scene));
+            foreach (string field in new[] { "_root", "_titleText", "_bodyText", "_itemsText", "_continueButton", "_continueLabel" })
+            {
+                Assert.That(SerializedReference(view, field), Is.Not.Null, field);
+            }
         }
         finally
         {

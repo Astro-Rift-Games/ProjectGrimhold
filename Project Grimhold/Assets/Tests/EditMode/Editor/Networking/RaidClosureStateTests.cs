@@ -11,8 +11,10 @@ public sealed class RaidClosureStateTests
     }
 
     [Test]
-    public void ClosureReasonsRemainDistinct()
+    public void ClosureReasonsKeepTheirNetworkedByteValues()
     {
-        Assert.That(RaidClosureReason.NaturalCompletion, Is.Not.EqualTo(RaidClosureReason.HostCancellation));
+        // [Networked] byte: value 1 (removed Host cancellation) stays reserved, never renumbered.
+        Assert.That((byte)RaidClosureReason.NaturalCompletion, Is.EqualTo(0));
+        Assert.That((byte)RaidClosureReason.BootstrapFailure, Is.EqualTo(2));
     }
 }

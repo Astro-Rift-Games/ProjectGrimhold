@@ -1,71 +1,71 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1009,
-  "canonicalEntries": 1006,
+  "rawCommits": 1035,
+  "canonicalEntries": 1032,
   "before": {
-    "Bug Fixes": 115,
-    "Tests": 37,
-    "Features": 384,
-    "Architecture & Infrastructure": 21,
-    "Other Changes": 355,
-    "Documentation": 83,
+    "Documentation": 92,
+    "Features": 391,
+    "Bug Fixes": 120,
+    "Tests": 40,
+    "Architecture & Infrastructure": 22,
+    "Other Changes": 356,
     "Refactoring": 14
   },
   "after": {
-    "Bug Fixes": 131,
-    "Tests": 42,
-    "Features": 521,
-    "Maintenance": 19,
+    "Documentation": 108,
+    "Features": 529,
+    "Bug Fixes": 136,
+    "Tests": 45,
+    "Maintenance": 20,
     "Architecture & Infrastructure": 6,
-    "Documentation": 99,
     "Other Changes": 164,
     "Refactoring": 27
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Inventory & Loot": 411,
-    "Networking & Sessions": 288,
-    "Persistence & Backend": 229,
-    "Build & Tooling": 517,
-    "Tests": 634,
-    "Combat": 367,
-    "UI": 308,
-    "World & Visibility": 134,
-    "Abilities": 127,
-    "Extraction": 135,
-    "Unassigned": 21,
-    "Documentation": 382,
+    "Extraction": 143,
+    "Networking & Sessions": 305,
+    "Build & Tooling": 534,
+    "UI": 318,
+    "Documentation": 390,
+    "Inventory & Loot": 419,
+    "Persistence & Backend": 235,
+    "World & Visibility": 136,
+    "Tests": 650,
+    "Art & Animation": 237,
+    "Unassigned": 24,
+    "Combat": 368,
+    "Abilities": 128,
     "Audio": 34,
-    "Art & Animation": 233,
     "Input": 30,
     "Movement": 94
   },
   "canonical": {
     "sections": {
-      "Bug Fixes": 130,
-      "Tests": 42,
-      "Features": 520,
-      "Maintenance": 19,
+      "Documentation": 108,
+      "Features": 528,
+      "Bug Fixes": 135,
+      "Tests": 45,
+      "Maintenance": 20,
       "Architecture & Infrastructure": 6,
-      "Documentation": 99,
       "Other Changes": 163,
       "Refactoring": 27
     },
     "systems": {
-      "Inventory & Loot": 411,
-      "Networking & Sessions": 288,
-      "Persistence & Backend": 229,
-      "Build & Tooling": 515,
-      "Tests": 632,
-      "Combat": 365,
-      "UI": 307,
-      "World & Visibility": 132,
-      "Abilities": 125,
-      "Extraction": 135,
-      "Unassigned": 21,
-      "Documentation": 380,
+      "Extraction": 143,
+      "Networking & Sessions": 305,
+      "Build & Tooling": 532,
+      "UI": 317,
+      "Documentation": 388,
+      "Inventory & Loot": 419,
+      "Persistence & Backend": 235,
+      "World & Visibility": 134,
+      "Tests": 648,
+      "Art & Animation": 234,
+      "Unassigned": 24,
+      "Combat": 366,
+      "Abilities": 126,
       "Audio": 34,
-      "Art & Animation": 230,
       "Input": 30,
       "Movement": 94
     }
@@ -31501,6 +31501,48 @@
   ],
   "examples": [
     {
+      "sha": "d39a56acee9e44cbd169c96893e05e203fdb6257",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d39a56acee9e44cbd169c96893e05e203fdb6257",
+      "subject": "Add multiplayer playmode package",
+      "body": "Enables Unity Multiplayer Play Mode 3.0.0 and adds the corresponding virtual projects configuration.\n",
+      "date": "2026-11-10T23:02:38-03:00",
+      "files": [
+        "Project Grimhold/Packages/manifest.json",
+        "Project Grimhold/Packages/packages-lock.json",
+        "Project Grimhold/ProjectSettings/VirtualProjectsConfig.json"
+      ],
+      "originalType": null,
+      "originalScope": null,
+      "originalSection": "Other Changes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "inferred",
+      "systems": [
+        "Build & Tooling"
+      ],
+      "evidence": [
+        {
+          "source": "subject-action",
+          "value": "Add multiplayer playmode package",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Packages/manifest.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Packages/packages-lock.json",
+          "supports": "Build & Tooling"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
       "sha": "9509f3b4842b9f6d1b936665435ae49f75904a3b",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9509f3b4842b9f6d1b936665435ae49f75904a3b",
       "subject": "Enforce strict TDD in project workflows",
@@ -34005,76 +34047,6 @@
       "diagnostics": [],
       "generic": false,
       "secondary": false
-    },
-    {
-      "sha": "8ab041de6a86016264ce0d6f65aef4ab60ad3baa",
-      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8ab041de6a86016264ce0d6f65aef4ab60ad3baa",
-      "subject": "Fix ability stop and equip guard during casts",
-      "body": "Makes ability stop callbacks resilient to transient slot unbinding by building stop context from the cached execution behaviour instead of live slot binding. Also tightens weapon equip authority checks to reject replacing an active main-hand weapon whenever an ability execution is in progress. Adds play mode coverage for both regressions: active-set equip rejection during execution and guaranteed Stop delivery after participation ends even after a temporary unresolve.\n",
-      "date": "2026-10-04T04:33:19-03:00",
-      "files": [
-        "Project Grimhold/Assets/Scripts/Abilities/Runtime/PlayerAbilityRuntimeNetworkController.cs",
-        "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
-        "Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs"
-      ],
-      "originalType": null,
-      "originalScope": null,
-      "originalSection": "Other Changes",
-      "breaking": false,
-      "reverts": null,
-      "section": "Bug Fixes",
-      "confidence": "inferred",
-      "systems": [
-        "Combat",
-        "Abilities",
-        "Inventory & Loot",
-        "Tests"
-      ],
-      "evidence": [
-        {
-          "source": "subject-action",
-          "value": "Fix ability stop and equip guard during casts",
-          "supports": "Bug Fixes"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
-          "supports": "Combat"
-        },
-        {
-          "source": "message-term",
-          "value": "weapon",
-          "supports": "Combat"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Abilities/Runtime/PlayerAbilityRuntimeNetworkController.cs",
-          "supports": "Abilities"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs",
-          "supports": "Abilities"
-        },
-        {
-          "source": "message-term",
-          "value": "ability",
-          "supports": "Abilities"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Scripts/Player/Combat/PlayerWeaponEquipmentNetworkController.cs",
-          "supports": "Inventory & Loot"
-        },
-        {
-          "source": "path",
-          "value": "Project Grimhold/Assets/Tests/PlayMode/PlayerAbilityRuntimeNetworkControllerPlayModeTests.cs",
-          "supports": "Tests"
-        }
-      ],
-      "diagnostics": [],
-      "generic": false,
-      "secondary": false
     }
   ],
   "periods": [
@@ -34083,8 +34055,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 132,
-      "canonicalEntries": 132
+      "originalCommits": 158,
+      "canonicalEntries": 158
     },
     {
       "key": "v0.5.0",
@@ -34128,6 +34100,3147 @@
     }
   ],
   "commits": [
+    {
+      "sha": "21d3d0df3d7ed976ec0442f79b094bfb763cad07",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/21d3d0df3d7ed976ec0442f79b094bfb763cad07",
+      "subject": "docs(agents): state the Host handoff rule for Host Migration",
+      "body": "Project Grimhold/AGENTS.md said Host Migration only recovers abrupt Host loss, never Return, Abandon, Extraction or cancellation. It now covers the voluntary Host exit handoff and the removal of Cancel Raid, matching HostMigrationRecoveryArchitecture.\n\nRefs: HacknPlan FIX-52 (732)\n",
+      "date": "2026-11-12T15:26:53-03:00",
+      "files": [
+        "Project Grimhold/AGENTS.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "agents",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Networking & Sessions",
+        "Build & Tooling"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "message-term",
+          "value": "Extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "Host Migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/AGENTS.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "scope",
+          "value": "agents",
+          "supports": "Build & Tooling"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "1b790b0fd42cb7c5fdd850b6e57fd75d6abe7cb6",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1b790b0fd42cb7c5fdd850b6e57fd75d6abe7cb6",
+      "subject": "docs(network): align architecture with the Host handoff rule",
+      "body": "The approved architecture now matches FIX-US-08: a Host exit, voluntary\nor not, hands the Host role to a connected Raiding participant, and\nCancel Raid no longer exists (FIX-52).\n\n- HostMigrationRecoveryArchitecture: Host Migration has two triggers\n  (abrupt loss and voluntary exit with a resolved result); new\n  \"Voluntary Host exit (handoff)\" section (HostHandoffPolicy,\n  HostHandoffService, ObserveHostHandoff, CloseNormally,\n  SnapshotRejected, ClassifyHistoricHost, HostHandoffAnnouncement);\n  unresolved historic Host only is finalized as Aborted; FIX-51\n  retention, session gate and reconnect proof replace the placeholder;\n  known limitation: HostProfileId is not rebuilt for a chained migration.\n- LobbyAndSessionTransition, RaidDefeatAndSpectator, RaidParticipant,\n  RaidGenerationLifecycle, SessionLifecycleAndSpawning, RaidMainHud:\n  the Host returns or abandons like any participant; no \"Host cannot\n  Return/leave\", no Host cancellation.\n- RaidConnectivityContinuity FU-3 and DownedAndRevive §16 updated to\n  the FIX-51 re-retention; Host Migration marked as an MVP requirement\n  pending Game Design confirmation.\n- docs/fix-52_solicitud_game_design_game_flow_13.md: request to the\n  Game Design owner for Game Flow §13, with the 2026-11-01 decision\n  quoted verbatim and open questions. The current §13 text could not be\n  read from this session and is not transcribed.\n\nValidation: Markdown and cross-reference check (classes, methods,\nrelative links and anchors resolve); no Cancel Raid / HostCancellation /\n\"Host cannot leave\" statement remains except notes that deny it.\nArchitecture owner approval is pending.\n\nRefs: HacknPlan FIX-52 (732)\n",
+      "date": "2026-11-12T15:26:53-03:00",
+      "files": [
+        "Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md",
+        "Project Grimhold/Docs/Architecture/HostMigrationRecoveryArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidConnectivityContinuityArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidDefeatAndSpectatorArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidGenerationLifecycleArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidParticipantArchitecture.md",
+        "Project Grimhold/Docs/Architecture/SessionLifecycleAndSpawning.md",
+        "docs/fix-52_solicitud_game_design_game_flow_13.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "network",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "UI",
+        "Documentation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/SessionLifecycleAndSpawning.md",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "Host Migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/DownedAndReviveArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/HostMigrationRecoveryArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidConnectivityContinuityArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidDefeatAndSpectatorArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidGenerationLifecycleArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidParticipantArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/SessionLifecycleAndSpawning.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/fix-52_solicitud_game_design_game_flow_13.md",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "f2fc7539bd0bd9b6d96e4c2bd036637bc80b2a68",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f2fc7539bd0bd9b6d96e4c2bd036637bc80b2a68",
+      "subject": "docs(raid): document FIX-53 Solo exit and loss notice rules",
+      "body": "Architecture: loss notice and no pre-start refund (LocalPlayerPersistence), Abandon confirmation and corpse-failure feedback (RaidMainHud), Failed to Waiting corpse retry (LootInteraction), automatic Host return after BootstrapFailure (LobbyAndSessionTransition). Adds the FIX-53 ODD tracker and evidence offsets.\n\nRefs: HacknPlan FIX-53 (733)\n",
+      "date": "2026-11-12T15:11:54-03:00",
+      "files": [
+        "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+        "odd/evidence/fix-53-offsets-step3.txt",
+        "odd/evidence/fix-53-offsets.txt",
+        "odd/tasks/fix-53-solo-abandon.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "raid",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "Persistence & Backend",
+        "Documentation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/fix-53-solo-abandon.md",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "f76890189e580fe6add2b75f7824aaa086caf38a",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f76890189e580fe6add2b75f7824aaa086caf38a",
+      "subject": "docs(raid): document FIX-53 Solo exit and loss notice rules",
+      "body": "Architecture: loss notice and no pre-start refund (LocalPlayerPersistence), Abandon confirmation and corpse-failure feedback (RaidMainHud), Failed to Waiting corpse retry (LootInteraction), automatic Host return after BootstrapFailure (LobbyAndSessionTransition). Adds the FIX-53 ODD tracker and evidence offsets.\n\nRefs: HacknPlan FIX-53 (733)\n",
+      "date": "2026-11-12T15:11:54-03:00",
+      "files": [
+        ".pi/subagents.json",
+        "Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset",
+        "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+        "odd/evidence/fix-53-offsets-step3.txt",
+        "odd/evidence/fix-53-offsets.txt",
+        "odd/tasks/fix-53-solo-abandon.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "raid",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "World & Visibility",
+        "Persistence & Backend",
+        "Documentation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/fix-53-solo-abandon.md",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LootInteractionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "261bc7b07e6d2867c8e1a47f0bad3ba55d149126",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/261bc7b07e6d2867c8e1a47f0bad3ba55d149126",
+      "subject": "feat(raid): show a Town loss notice after a technical raid failure",
+      "body": "A Solo player no longer loses the loadout silently, nor stays stuck in\nthe raid scene, when the raid fails for technical reasons (FIX-53).\n\n- After a BootstrapFailure closure (including the expected-admission\n  timeout) the Host returned nowhere: its participant was Aborted with\n  cause None, no Results existed and Abandon was rejected, so it stayed\n  in the raid scene until quitting. RaidLossNoticePolicy.\n  ShouldReturnHostAfterTechnicalClosure and SessionConnectionCoordinator.\n  ObserveTechnicalClosure now route the Host to Town through the\n  ordinary Host Return (3 s retry guard; still waits for remote peers).\n- Before ClearLostParticipationReservation consumes the reservation, the\n  coordinator captures a RaidLossNotice (reserved items + prepared\n  equipment via RaidResultsLootSummaryBuilder.TryBuildLost) into a\n  one-shot RaidLossNoticeSlot. Reasons: RaidStartFailed (BootstrapFailure\n  closure) and ConnectionLost (unexpected own-runner shutdown without a\n  retained reconnect ticket and no outgoing Host handoff).\n- Town shows it once (\"Incursión perdida\", reason text, item list,\n  \"Continuar\") through TownRaidLossNoticePresenter/View and the new\n  TownRaidLossNotice prefab, wired into Lobby-Town through the Editor.\n- Abandon, Defeat and extraction keep their in-raid Results and capture\n  no notice. App quit/crash mid-raid stays a loss without notice.\n  Admitted reservations are still never rolled back; a pre-start refund\n  is a separate follow-up.\n- [FIX-53] logs for capture, show, dismiss, technical-closure routing\n  and Solo Host Return.\n\nTests: RaidLossNoticeTests, RaidLossNoticePolicyTests,\nRaidLossNoticeSlotTests, TownRaidLossNoticePresentationTests,\nSessionCompositionConfigurationTests. Live Solo: forced GameClosed\nshutdown showed the \"Incursión perdida\" notice in Town\n(odd/tasks/fix-53-solo-abandon.md L19-L20). The bootstrap-failure route\nis unit-tested only.\n\nPlayer-Fixed: If a raid fails to start or the connection drops, you return to town and see which equipment was lost instead of losing it silently.\nRefs: HacknPlan FIX-53 (733)\n",
+      "date": "2026-11-12T15:11:40-03:00",
+      "files": [
+        "Project Grimhold/Assets/Prefabs/UI/TownRaidLossNotice.prefab",
+        "Project Grimhold/Assets/Prefabs/UI/TownRaidLossNotice.prefab.meta",
+        "Project Grimhold/Assets/Scenes/Lobby-Town.unity",
+        "Project Grimhold/Assets/Scripts/Networking/RaidLossNotice.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidLossNotice.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticePolicy.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticePolicy.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticeReason.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticeReason.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticeSlot.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticeSlot.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidLossNoticePresentation.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidLossNoticePresentation.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidLossNoticePresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidLossNoticePresenter.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidLossNoticeView.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownRaidLossNoticeView.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticePolicyTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticePolicyTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeSlotTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeSlotTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownRaidLossNoticePresentationTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownRaidLossNoticePresentationTests.cs.meta"
+      ],
+      "originalType": "feat",
+      "originalScope": "raid",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scenes/Lobby-Town.unity",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLossNotice.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLossNotice.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticePolicy.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticePolicy.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticeReason.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticeReason.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticeSlot.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLossNoticeSlot.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticePolicyTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticePolicyTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeSlotTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeSlotTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "Lobby",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/TownRaidLossNotice.prefab",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/TownRaidLossNotice.prefab.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticePolicyTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticePolicyTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeSlotTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeSlotTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownRaidLossNoticePresentationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownRaidLossNoticePresentationTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticePolicyTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticePolicyTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeSlotTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeSlotTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidLossNoticeTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownRaidLossNoticePresentationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TownRaidLossNoticePresentationTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "487aad8d700b89bc4190b295ccf199540aee087b",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/487aad8d700b89bc4190b295ccf199540aee087b",
+      "subject": "fix(raid): warn about equipment loss and recover a failed Abandon",
+      "body": "Abandon in a Solo raid now warns that the equipment is lost and no\nlonger gets stuck when the corpse cannot be generated (FIX-53).\n\n- The Abandon confirmation names the loss explicitly: \"Perderás todo tu\n  equipamiento e inventario; quedarán en tu cadáver. Pulsá Abandonar\n  otra vez para confirmar o Reanudar para cancelar.\"\n- If corpse generation fails, the participant stays Raiding with its\n  equipment, the pending Abandon is cleared (SoloAbandonCorpseResolution)\n  and a replicated AbandonFailureSequence makes the menu show \"No se pudo\n  abandonar: no se pudo generar tu cadáver. Seguís en la incursión con\n  tu equipamiento.\" once per failure (SoloAbandonFailureNotice).\n  Before, the participant retried silently every tick and never left.\n- PlayerCorpseGenerationController returns from Failed to Waiting only\n  after a full compensation (inventory intact and corpse container clean,\n  PlayerCorpseGenerationRetryRule), so a second Abandon can succeed\n  without losing or duplicating items; otherwise it stays terminal.\n- The Solo Host Return after Abandon already requires the committed\n  progression result before the reservation is consumed; the ordering\n  is now pinned by tests.\n- [FIX-53] logs for Abandon accepted, corpse failure, Results shown.\n\nTests: RaidMenuPresenterTests, RaidResultsReturnPolicyTests,\nSoloAbandonCorpseResolutionTests, SoloAbandonFailureNoticeTests,\nPlayerCorpseGenerationRetryRuleTests. Live Solo: Abandon → loss Results\n→ Volver → Town (odd/tasks/fix-53-solo-abandon.md L19).\n\nPlayer-Improved: Abandoning a raid now clearly warns that you lose all your equipment.\nPlayer-Fixed: If abandoning fails, you get a message and can try again instead of being stuck.\nRefs: HacknPlan FIX-53 (733)\n",
+      "date": "2026-11-12T15:11:24-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs",
+        "Project Grimhold/Assets/Scripts/Networking/SoloAbandonCorpseResolution.cs",
+        "Project Grimhold/Assets/Scripts/Networking/SoloAbandonCorpseResolution.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/SoloAbandonFailureNotice.cs",
+        "Project Grimhold/Assets/Scripts/Networking/SoloAbandonFailureNotice.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCorpseGenerationController.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCorpseGenerationRetryRule.cs",
+        "Project Grimhold/Assets/Scripts/Player/PlayerCorpseGenerationRetryRule.cs.meta",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuView.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseGenerationRetryRuleTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseGenerationRetryRuleTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMenuPresenterTests.cs"
+      ],
+      "originalType": "fix",
+      "originalScope": "raid",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "UI",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SoloAbandonCorpseResolution.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SoloAbandonCorpseResolution.cs.meta",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SoloAbandonFailureNotice.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SoloAbandonFailureNotice.cs.meta",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs.meta",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs.meta",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "equipment",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SoloAbandonCorpseResolution.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SoloAbandonCorpseResolution.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SoloAbandonFailureNotice.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SoloAbandonFailureNotice.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuView.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMenuPresenterTests.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseGenerationRetryRuleTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseGenerationRetryRuleTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMenuPresenterTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonCorpseResolutionTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SoloAbandonFailureNoticeTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseGenerationRetryRuleTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseGenerationRetryRuleTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMenuPresenterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "7ae117a5043c0355db83db5ba4c7a76f3bc5da6f",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7ae117a5043c0355db83db5ba4c7a76f3bc5da6f",
+      "subject": "feat(art): wire chest opening spritesheets to chest prefabs",
+      "body": "Wire the 4-frame chest opening sprite sheets into LootContainer.prefab\nand LockedChest.prefab via ChestOpeningPresenter at 12 fps, replacing\nthe placeholder multi-door chest animation and static locked sprite.\n\n- Trim 1 px transparent padding from each frame with center pivots\n  (Chest-Open-Sheet_0..3: 16x16..20 at 16 PPU;\n  LockedChest-Open-Sheet_0..3: 32x19..25 at 16 PPU).\n- Fit BoxCollider2D interaction trigger bounds on both prefabs while\n  keeping m_IsTrigger enabled on layer 8, and preserve the closed world\n  footprint and -0.5 bottom anchor on LootContainer.prefab and the\n  1.1222 x 0.6663 closed footprint at 0.56109375 child scale on\n  LockedChest.prefab.\n- Update EditMode and PlayMode assertions for the trimmed dimensions,\n  4-frame sheets, 16 PPU point import settings, and isTrigger contract.\n\nTests: EditMode LootContainerPrefabTests (20/20),\nChestOpeningPresenterTests (8/8), ChestOpeningPresentationStateTests\n(6/6), LockedLootContainerTests (5/5), VisibilityPrefabCoverageTests\n(24/24), NetworkSpawnManagerLootTests (12/12),\nFirstOpenExperienceConfigurationTests (2/2),\nRaidLootOriginWordCountTests (6/6),\nExtractionProgressPrefabTests (11/11) and PlayMode\nLootContainerPreSpawnPlayModeTests (12/12),\nLockpickInteractionPlayModeTests (9/9), LockedLootContainerPlayModeTests\n(5/5), DefeatedPlayerLootIntegrationPlayModeTests (18/18), and\nRaidInventoryPresenterInteractionTests (67/67) pass in Unity Editor.\n\nPlayer-Added: Standard and locked chests now play an opening animation when opened.\n",
+      "date": "2026-11-12T02:16:51-03:00",
+      "files": [
+        "Project Grimhold/Assets/Art/Props/Chest-Open-Sheet.png.meta",
+        "Project Grimhold/Assets/Art/Props/LockedChest-Open-Sheet.png.meta",
+        "Project Grimhold/Assets/Prefabs/LockedChest.prefab",
+        "Project Grimhold/Assets/Prefabs/LootContainer.prefab",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresenterTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs"
+      ],
+      "originalType": "feat",
+      "originalScope": "art",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Art & Animation",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/LootContainer.prefab",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresenterTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "interaction",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Chest-Open-Sheet.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/LockedChest-Open-Sheet.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "scope",
+          "value": "art",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "message-term",
+          "value": "sprite",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresenterTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ChestOpeningPresenterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/LootContainerPreSpawnPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "b72cece0f8aedc6d0649750b84c4d9490d5383c5",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b72cece0f8aedc6d0649750b84c4d9490d5383c5",
+      "subject": "docs(odd): add FIX-51 execution tracker and evidence offsets",
+      "body": "Refs: HacknPlan FIX-51 (731)\n",
+      "date": "2026-11-12T02:00:11-03:00",
+      "files": [
+        "odd/evidence/fix-50/offsets-fix51-run2.txt",
+        "odd/evidence/fix-50/offsets-fix51-run3.txt",
+        "odd/evidence/fix-50/offsets-fix51-run4.txt",
+        "odd/evidence/fix-50/offsets-fix51-run5.txt",
+        "odd/evidence/fix-50/offsets-fix51.txt",
+        "odd/tasks/fix-51-handoff-disconnected-pending.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "odd",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "unassigned-system",
+          "message": "No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system."
+        }
+      ],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "06164463c8654c3d2f14b6ecc73b5107bd8ad4b9",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/06164463c8654c3d2f14b6ecc73b5107bd8ad4b9",
+      "subject": "fix(network): send the reservation proof when reconnecting from Town",
+      "body": "An in-app reconnect from Town always failed the Host's SEC-59.4\nreservation proof check, migration or not: on an unexpected raid\nshutdown the client replaced its join-time reconnect ticket with one\nbuilt without ReservationId, so the proof sent was empty\n(\"ReservationId proof mismatch (expected '…', got '')\"). A rejected\nreconnect also kept retrying for the whole admission window, leaving\nthe player on the transition screen until Fusion timed out.\n\n- RaidReconnectPolicy.BuildTicketAtUnexpectedShutdown carries the\n  active transition ticket's ReservationId, falling back to the\n  persisted ticket. The Host check is unchanged.\n- ClassifyAdmissionFailure reports ConnectionRefused when the runner\n  ended before the admission deadline (the Host disconnects a rejected\n  arrival) and Error on timeout; ShouldRetryAttempt makes\n  ConnectionRefused terminal, so the client discards the ticket and\n  returns to Town at once per the existing discard policy.\n- [HM-MULTI] FIX-51 logs: ticket preserved (HasReservationId, never the\n  id), rejected admission on Host and client.\n\nTests: RaidReconnectPolicyTests. Live: a teammate reconnected from Town\ninto the raid after a Host Migration with the proof accepted\n(odd/tasks/fix-51-handoff-disconnected-pending.md L22).\n\nPlayer-Fixed: Reconnecting to a raid from town after losing connection works again.\nRefs: HacknPlan FIX-51 (731)\n",
+      "date": "2026-11-12T02:00:11-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidReconnectPolicy.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidReconnectPolicy.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidReconnectPolicyTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidReconnectPolicyTests.cs.meta"
+      ],
+      "originalType": "fix",
+      "originalScope": "network",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidReconnectPolicy.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidReconnectPolicy.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidReconnectPolicyTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidReconnectPolicyTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "Host Migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidReconnectPolicyTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidReconnectPolicyTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidReconnectPolicyTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidReconnectPolicyTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "80409baec33beb02a7701d36323e58bf3aa58637",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/80409baec33beb02a7701d36323e58bf3aa58637",
+      "subject": "fix(network): keep disconnected and extracting players across Host Migration",
+      "body": "A Host handoff no longer drops teammates who were disconnected or whose\nextraction commit was still pending (FIX-51, FIX-US-08). Before, the\nreplacement Host started with an empty disconnected registry, aborted\nand despawned them at seal, and closed the room, so they could not come\nback and pending extraction loot could be lost.\n\n- HostMigrationRetentionPolicy: a restored Raiding participant that is\n  disconnected with reconnect budget left is re-retained, skipped at\n  seal and never finalized; an Extracted participant whose extraction\n  phase is not Complete is recoverable, and is kept without despawn if\n  it does not return before seal. Budget exhausted or absence confirmed\n  keeps the existing finalization.\n- The reconnect budget is paused while the recovery window is open and\n  resumes after seal (ReconnectBudgetRules.ConsumeTick isBudgetPaused).\n- After seal, reconnect-token holders take the normal reconnect path;\n  everyone else is still refused. Rebind clears IsDisconnected and gives\n  an Extracted-pending avatar its Input Authority back so the commit\n  RPC and ACK can complete.\n- RaidSessionGatePolicy + RaidSessionGateTracker: the room stays open\n  while a retained participant can reconnect. The gate writes from the\n  last value it requested instead of the observed SessionInfo.IsOpen,\n  re-applies a deferred decision once authority and phase are ready,\n  and the seal no longer closes the room unconditionally.\n- [HM-MULTI] FIX-51 logs for re-retain, seal skip, rebind, Extracted\n  recovery and every session gate decision.\n\nDocs: the accepted \"Known limitation\" in HostMigrationRecoveryArchitecture\nand one RaidConnectivityContinuity sentence now describe these rules;\nthe full Host Migration rewrite is FIX-52.\n\nTests: HostMigrationRetentionPolicyTests, RaidSessionGatePolicyTests.\nLive (Host + 2 Clients): a teammate suspended before the Host was killed\nwas re-retained with its budget paused, the room reopened and it\nreconnected from Town (odd/tasks/fix-51-handoff-disconnected-pending.md\nL22). The Extracted-with-pending-commit case is unit-tested only;\nmultiplayer extraction is currently broken before this change (L23).\n\nRefs: HacknPlan FIX-51 (731)\n",
+      "date": "2026-11-12T01:59:56-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Networking/HostMigrationRetentionPolicy.cs",
+        "Project Grimhold/Assets/Scripts/Networking/HostMigrationRetentionPolicy.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidParticipantConnectivity.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidSessionGatePolicy.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidSessionGatePolicy.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/ReconnectBudgetRules.cs",
+        "Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRetentionPolicyTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRetentionPolicyTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidSessionGatePolicyTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidSessionGatePolicyTests.cs.meta",
+        "Project Grimhold/Docs/Architecture/HostMigrationRecoveryArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidConnectivityContinuityArchitecture.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "network",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "extracting",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/HostMigrationRetentionPolicy.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/HostMigrationRetentionPolicy.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidParticipantConnectivity.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidSessionGatePolicy.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidSessionGatePolicy.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/ReconnectBudgetRules.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRetentionPolicyTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRetentionPolicyTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidSessionGatePolicyTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidSessionGatePolicyTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "Host Migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRetentionPolicyTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRetentionPolicyTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidSessionGatePolicyTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidSessionGatePolicyTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/HostMigrationRecoveryArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidConnectivityContinuityArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRetentionPolicyTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRetentionPolicyTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidSessionGatePolicyTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidSessionGatePolicyTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "d0de8c3bd0ff81131df48ce7332ae0b2e8a689e8",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d0de8c3bd0ff81131df48ce7332ae0b2e8a689e8",
+      "subject": "feat(art): animate dungeon wall torch flames",
+      "body": "Replace the static wall torch flame with a looping 10-frame S-wave\nflame animation seated cleanly on a dedicated flameless sconce base,\nkeeping original Torch-Lit and Torch-Unlit artwork and sibling lighting\nprops untouched.\n\n- Add Torch-Lit-Base.png (16 PPU, Point, Uncompressed, Tight, aligned\n  origin at (64.0, 64.5)) and Torch-Flame-Sheet.png (1280x128, ten\n  128x128 frames using the 5 original torch fire colors with rising\n  detached embers).\n- Add Torch_Flame_Flicker.anim (7 fps, ~1.43 s loop) and\n  TorchFlame.controller wired onto FlameVisual in Torch.prefab\n  (Sorting Layer Traps, Order 2).\n- Remove stale static root and FlameVisual overrides on all 17 Torch\n  instances in Gameplay.unity so they inherit the variant animation,\n  and regenerate DungeonGrayboxMinimapLayout.asset for the updated\n  scene source hash.\n\nTests: TorchFlameAnimationTests (8/8), DungeonLightPropTests (4/4),\nMinimapSceneSourceTests (3/3), RaidSceneMinimapTests (9/9) and\nMinimapTileArtTests (11/11) pass in Unity EditMode.\n\nPlayer-Added: Dungeon wall torches now burn with an animated flickering flame.\n",
+      "date": "2026-11-11T16:46:08-03:00",
+      "files": [
+        "Project Grimhold/Assets/Animations/Props.meta",
+        "Project Grimhold/Assets/Animations/Props/TorchFlame.controller",
+        "Project Grimhold/Assets/Animations/Props/TorchFlame.controller.meta",
+        "Project Grimhold/Assets/Animations/Props/Torch_Flame_Flicker.anim",
+        "Project Grimhold/Assets/Animations/Props/Torch_Flame_Flicker.anim.meta",
+        "Project Grimhold/Assets/Art/Props/Torch-Flame-Sheet.png",
+        "Project Grimhold/Assets/Art/Props/Torch-Flame-Sheet.png.meta",
+        "Project Grimhold/Assets/Art/Props/Torch-Lit-Base.png",
+        "Project Grimhold/Assets/Art/Props/Torch-Lit-Base.png.meta",
+        "Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset",
+        "Project Grimhold/Assets/Prefabs/Lighting Props/Torch.prefab",
+        "Project Grimhold/Assets/Scenes/Gameplay.unity",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TorchFlameAnimationTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TorchFlameAnimationTests.cs.meta"
+      ],
+      "originalType": "feat",
+      "originalScope": "art",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "UI",
+        "World & Visibility",
+        "Art & Animation",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Data/Minimap/DungeonGrayboxMinimapLayout.asset",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Props.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Props/TorchFlame.controller",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Props/TorchFlame.controller.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Props/Torch_Flame_Flicker.anim",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Animations/Props/Torch_Flame_Flicker.anim.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Torch-Flame-Sheet.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Torch-Flame-Sheet.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Torch-Lit-Base.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Torch-Lit-Base.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TorchFlameAnimationTests.cs",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TorchFlameAnimationTests.cs.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "scope",
+          "value": "art",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "message-term",
+          "value": "animation",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TorchFlameAnimationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TorchFlameAnimationTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TorchFlameAnimationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/TorchFlameAnimationTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "f4945af769f07f959fd44e105c3cabdf63966116",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f4945af769f07f959fd44e105c3cabdf63966116",
+      "subject": "feat(art): add chest opening animation sprite sheets",
+      "body": "Add 4-frame horizontal opening sprite sheets and Unity import metadata\nfor both standard and locked chests, keeping all original chest artwork\nintact while leaving Aseprite source files untracked locally.\n\nBoth sheets are configured in Unity at PPU 16, Point filtering,\nuncompressed default platform format, and Multiple sprite mode sliced\ninto four frames:\n- Chest-Open-Sheet.png (256x64): four 64x64 frames starting from\n  Chest-Close and ending on Chest-Open.\n- LockedChest-Open-Sheet.png (512x128): four 128x128 frames starting\n  from LockedChest.\n\nThese assets are standalone artwork deliverables and are not yet wired\ninto chest prefabs, animation clips, or runtime controllers. No\nexecutable C# code or gameplay tests were modified.\n",
+      "date": "2026-11-11T15:48:39-03:00",
+      "files": [
+        "Project Grimhold/Assets/Art/Props/Chest-Open-Sheet.png",
+        "Project Grimhold/Assets/Art/Props/Chest-Open-Sheet.png.meta",
+        "Project Grimhold/Assets/Art/Props/LockedChest-Open-Sheet.png",
+        "Project Grimhold/Assets/Art/Props/LockedChest-Open-Sheet.png.meta"
+      ],
+      "originalType": "feat",
+      "originalScope": "art",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Art & Animation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Chest-Open-Sheet.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/Chest-Open-Sheet.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/LockedChest-Open-Sheet.png",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Art/Props/LockedChest-Open-Sheet.png.meta",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "scope",
+          "value": "art",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "message-term",
+          "value": "animation",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "message-term",
+          "value": "tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "319a3855fa05d02006b79131a6f8f45d989f1f7d",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/319a3855fa05d02006b79131a6f8f45d989f1f7d",
+      "subject": "docs(odd): record FIX-49 commit in the tracker",
+      "body": "Refs: HacknPlan FIX-49 (729)\n",
+      "date": "2026-11-11T15:35:56-03:00",
+      "files": [
+        "odd/tasks/fix-49-remove-cancel-raid.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "odd",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "unassigned-system",
+          "message": "No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system."
+        }
+      ],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "71fe7864bc2b270ebbadedc64ad31ac7af27f577",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/71fe7864bc2b270ebbadedc64ad31ac7af27f577",
+      "subject": "fix(raid): remove Cancel Raid and give the Host the standard Abandon",
+      "body": "No Host action can end the Raid for the other participants anymore\n(FIX-49, FIX-US-08). The Host menu shows Abandon with the same two-step\nconfirmation as everyone else, and \"Cancelar raid\" is gone from the\nmenu, the match controller and the session coordinator.\n\n- A Host Abandon behaves like a client's: the corpse is generated, the\n  loss Results open, and Return stays an explicit request. The FIX-50\n  handoff now starts only once the Host's Return is accepted, and\n  HostHandoffPolicy.CanAuthorizeReturn defers a Host Return after\n  Abandon until the progression is durably committed.\n- The replacement Host still classifies a historic Host that abandoned\n  (Aborted + VoluntaryAbandonConfirmed) as departed-terminal even if it\n  left before pressing Return, so it is never re-finalized as Aborted.\n- Removed NetworkMatchController.TryCancelRaid,\n  RaidClosureReason.HostCancellation and the cancellation Town return.\n  RaidClosureReason is a networked byte: NaturalCompletion = 0 and\n  BootstrapFailure = 2 keep their values and 1 stays reserved.\n- CancelRaidButton removed from RaidMenuPanel.prefab and its stale\n  overrides from LocalGameplayHud.prefab through the Editor; that save\n  also re-serialized TMP fields (m_ActiveFontFeatures, m_MaxWidth/Height)\n  with no visual change. The UI migration manifest entry for the removed\n  button image is dropped.\n\nTests: HostHandoffPolicyTests, HostMigrationRosterPolicyTests and\nRaidMenuPresenterTests rewritten to the new rules; RaidClosureStateTests\npins the networked byte values; cancellation tests removed from\nRaidResultsReturnPolicyTests and RaidResultsLifecycleSourceTests.\n\nDocs: cancellation wording updated in RaidMainHud, LobbyAndSession\nTransition, Progression, RaidGenerationLifecycle and LocalPlayer\nPersistence architecture; the Host Migration rule rewrite is FIX-52.\n\nPlayer-Fixed: The host can no longer end the raid for everyone; the host now abandons or returns like any other player.\nRefs: HacknPlan FIX-49 (729)\n",
+      "date": "2026-11-11T15:33:36-03:00",
+      "files": [
+        "Project Grimhold/Assets/Editor/CharcoalUiMigrationManifest.json",
+        "Project Grimhold/Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab",
+        "Project Grimhold/Assets/Prefabs/UI/PlayerUI/RaidMenuPanel.prefab",
+        "Project Grimhold/Assets/Scripts/Networking/HostHandoffPolicy.cs",
+        "Project Grimhold/Assets/Scripts/Networking/HostMigrationRosterPolicy.cs",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+        "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuView.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidClosureStateTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsLifecycleSourceTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMenuPresenterTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidMainHudPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+        "Project Grimhold/Docs/Architecture/ProgressionArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidGenerationLifecycleArchitecture.md",
+        "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+        "odd/evidence/fix-50/offsets-fix49.txt",
+        "odd/tasks/fix-49-remove-cancel-raid.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "raid",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Networking & Sessions",
+        "UI",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/HostHandoffPolicy.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/HostMigrationRosterPolicy.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidClosureStateTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsLifecycleSourceTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "Host Migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/CharcoalUiMigrationManifest.json",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/PlayerUI/LocalGameplayHud.prefab",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/PlayerUI/RaidMenuPanel.prefab",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuView.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMenuPresenterTests.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidMainHudPlayModeTests.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "menu",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "Persistence",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/CharcoalUiMigrationManifest.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidClosureStateTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsLifecycleSourceTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMenuPresenterTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LocalPlayerPersistenceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/ProgressionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidGenerationLifecycleArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RaidMainHudArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidClosureStateTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsLifecycleSourceTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionCompositionConfigurationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Presentation/RaidMenuPresenterTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/Presentation/RaidMainHudPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "9685baff0776058a87f94b21d4cb6a2653de7b86",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9685baff0776058a87f94b21d4cb6a2653de7b86",
+      "subject": "docs(odd): record FIX-50 work-unit commits in the tracker",
+      "body": "Refs: HacknPlan FIX-50 (730)\n",
+      "date": "2026-11-11T15:33:21-03:00",
+      "files": [
+        "odd/tasks/fix-50-host-handoff.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "odd",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "unassigned-system",
+          "message": "No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system."
+        }
+      ],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "85e7549dde4dfea36fec56b3edaecd8c71dce902",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/85e7549dde4dfea36fec56b3edaecd8c71dce902",
+      "subject": "feat(hud): announce the new Raid Host after a Host handoff",
+      "body": "Remaining players are told who left and who now hosts the Raid\n(FIX-50 S3), after any completed Host Migration during an active Raid,\nincluding an abrupt Host loss.\n\n- HostHandoffAnnouncement.Format builds \"{Nombre} salió. {Nuevo} es el\n  nuevo Host.\" with neutral fallbacks only when a name is unavailable.\n- HostHandoffNoticeSlot: runner-scoped one-shot mailbox published by\n  HostMigrationLifecycleController after adoption. The departed Host\n  name is captured from replicated participant state in\n  OnHostMigration, before the old runner is gone.\n- RaidDownedHudPresenter shows it through the existing\n  RaidDownedHudView.ShowMessage for 5 s; no serialized wiring changed.\n\nTests: HostHandoffAnnouncementTests. Visual check confirmed in a live\n3-process run. Adds the FIX-50 ODD execution tracker and the evidence\nlog offsets.\n\nPlayer-Added: Players are told on screen when the host leaves and who the new host is.\nRefs: HacknPlan FIX-50 (730)\n",
+      "date": "2026-11-11T14:43:21-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Networking/HostHandoffAnnouncement.cs",
+        "Project Grimhold/Assets/Scripts/Networking/HostHandoffAnnouncement.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/HostMigrationLifecycleController.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidDownedHudPresenter.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffAnnouncementTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffAnnouncementTests.cs.meta",
+        "odd/evidence/fix-50/offsets.txt",
+        "odd/tasks/fix-50-host-handoff.md"
+      ],
+      "originalType": "feat",
+      "originalScope": "hud",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "UI",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/HostHandoffAnnouncement.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/HostHandoffAnnouncement.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/HostMigrationLifecycleController.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffAnnouncementTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffAnnouncementTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "Host Migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidDownedHudPresenter.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "scope",
+          "value": "hud",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "hud",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffAnnouncementTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffAnnouncementTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffAnnouncementTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffAnnouncementTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "c707a1169bc226993d53284b85f0653ddbd7b831",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c707a1169bc226993d53284b85f0653ddbd7b831",
+      "subject": "feat(network): hand the Raid Host role over when the Host leaves",
+      "body": "The Raid no longer depends on the Host staying connected (FIX-US-08).\nWhen the Host resolves its own participation during an active Raid\n(Return after Defeat or a completed extraction, or a confirmed abandon)\nand at least one connected participant is still Raiding, the Host\npushes a Host Migration snapshot and shuts down with\nShutdownReason.HostMigration; Photon promotes a remaining peer and the\noutgoing Host returns to Town without waiting for anybody.\n\n- HostHandoffPolicy: Stay / HandOff / CloseNormally decision, Host\n  exit admission only while InProgress, resolved-exit rule.\n- HostHandoffService + production IHostHandoffRunner and\n  FusionHostHandoffRunner (moved out of the FIX-48 dev probe). A\n  rejected snapshot keeps the Host and retries every 3 s; the room is\n  never closed for the others. No Raiding peer left keeps the normal\n  closure path, which waits for pending commits.\n- Host Return/Abandon RPCs use RpcHostMode.SourceIsHostPlayer: with\n  the default SourceIsServer a Host-invoked call arrived with\n  Source = None and was rejected, leaving the Host stuck spectating.\n- A Host abandon replicates IsReturnAuthorized once the progression is\n  durably committed, so the new Host can see the exit was resolved.\n- HostMigrationRosterPolicy: on the replacement Host a historic Host\n  with a resolved exit is released as departed-terminal (corpse stays\n  lootable) instead of being finalized as Aborted. An abrupt Host loss\n  keeps the existing unrecovered path.\n- SessionConnectionCoordinator recovers to Town only for the outgoing\n  Host on a HostMigration shutdown; clients keep waiting for the\n  replacement runner. RaidMenuPresenter routes the Host Return through\n  the participant RPC while Raiding peers remain.\n- [HM-MULTI] FIX-50 logs for the Host Return gate, handoff outcome and\n  outgoing Town return.\n\nReviewers: this changes the approved HostMigrationRecoveryArchitecture\nrule that voluntary exits never start a migration; the document rewrite\nis FIX-52. NetworkMatchController natural closure has no pure seam and\nwas only checked live.\n\nTests: HostHandoffPolicyTests, HostHandoffServiceTests,\nHostMigrationRosterPolicyTests, RaidResultsReturnPolicyTests,\nSessionConnectionStateMachineTests, VoluntaryHostHandoffProbeTests.\nLive 3-process runs: Host Defeat + Return handoff, abrupt Host kill\n(odd/tasks/fix-50-host-handoff.md L18, L21).\n\nPlayer-Improved: When the host dies and returns to town, the raid keeps going for everyone else and another player becomes the host.\nRefs: HacknPlan FIX-50 (730)\n",
+      "date": "2026-11-11T14:43:07-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Networking/HostHandoffPolicy.cs",
+        "Project Grimhold/Assets/Scripts/Networking/HostHandoffPolicy.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/HostHandoffService.cs",
+        "Project Grimhold/Assets/Scripts/Networking/HostHandoffService.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/HostMigrationRosterPolicy.cs",
+        "Project Grimhold/Assets/Scripts/Networking/HostMigrationRosterPolicy.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidResultsReturnPolicy.cs",
+        "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+        "Project Grimhold/Assets/Scripts/Networking/VoluntaryHostHandoffProbe.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffServiceTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffServiceTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs"
+      ],
+      "originalType": "feat",
+      "originalScope": "network",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Networking & Sessions",
+        "UI",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidResultsReturnPolicy.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/HostHandoffPolicy.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/HostHandoffPolicy.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/HostHandoffService.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/HostHandoffService.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/HostMigrationRosterPolicy.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/HostMigrationRosterPolicy.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidResultsReturnPolicy.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/VoluntaryHostHandoffProbe.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffServiceTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffServiceTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "Host Migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffServiceTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffServiceTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffPolicyTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffServiceTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostHandoffServiceTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/HostMigrationRosterPolicyTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidResultsReturnPolicyTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "b75245b19df5c0c41bf0a3bb19bad90a6ea66e02",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b75245b19df5c0c41bf0a3bb19bad90a6ea66e02",
+      "subject": "feat(network): carry the character name through Raid admission",
+      "body": "Raid peers only knew each other's ProfileId, so presentation could not\nname the departing or new Host (FIX-50 S3). The backend-signed admission\nticket already carries a characterName claim; the Unity codec now\ndecodes it as optional display data and admission data can hold a\nsanitized display name.\n\n- AuthoritativeRaidAdmissionTicket.CharacterName is display-only:\n  missing or non-string claims decode to empty, never reject the\n  ticket, and are excluded from ticket equality.\n- RaidDisplayNamePolicy.Sanitize strips control, format, private-use\n  and unassigned characters, trims, and clamps to 24 chars without\n  splitting surrogate pairs.\n- RaidAdmissionData.WithDisplayName; the name is not serialized by\n  RaidAdmissionDataCodec.\n\nTests: RaidDisplayNamePolicyTests, RaidAdmissionTicketCodecTests\n(name present, absent, non-string).\n\nRefs: HacknPlan FIX-50 (730)\n",
+      "date": "2026-11-11T14:42:44-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Networking/AuthoritativeRaidAdmissionTicket.cs",
+        "Project Grimhold/Assets/Scripts/Networking/AuthoritativeRaidAdmissionTicketCodec.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionData.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidDisplayNamePolicy.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidDisplayNamePolicy.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionTicketCodecTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDisplayNamePolicyTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDisplayNamePolicyTests.cs.meta"
+      ],
+      "originalType": "feat",
+      "originalScope": "network",
+      "originalSection": "Features",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "feat",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/AuthoritativeRaidAdmissionTicket.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/AuthoritativeRaidAdmissionTicketCodec.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidAdmissionData.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidDisplayNamePolicy.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidDisplayNamePolicy.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionTicketCodecTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDisplayNamePolicyTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDisplayNamePolicyTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionTicketCodecTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDisplayNamePolicyTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDisplayNamePolicyTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionTicketCodecTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDisplayNamePolicyTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidDisplayNamePolicyTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "83702f1e1b6d23ffe64f963ccb2716280902cbc6",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/83702f1e1b6d23ffe64f963ccb2716280902cbc6",
+      "subject": "docs(network): clarify where FIX-48 run logs live",
+      "body": "",
+      "date": "2026-11-11T09:26:22-03:00",
+      "files": [
+        "docs/fix-48_reporte_traspaso_host_salida_voluntaria.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "network",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "Documentation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "docs/fix-48_reporte_traspaso_host_salida_voluntaria.md",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "64225f4531cf77826aa8863162dfd54109467209",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/64225f4531cf77826aa8863162dfd54109467209",
+      "subject": "docs(network): report FIX-48 voluntary Host handoff findings",
+      "body": "Records the 3-process Host Migration run triggered by the dev-only probe, the state that does not migrate, and the requirements for FIX-50, FIX-51 and FIX-52.\n",
+      "date": "2026-11-11T09:25:55-03:00",
+      "files": [
+        "docs/fix-48_reporte_traspaso_host_salida_voluntaria.md",
+        "odd/evidence/fix-48/offsets.txt",
+        "odd/tasks/fix-48-host-migration-voluntary-exit.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "network",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "Documentation"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "docs/fix-48_reporte_traspaso_host_salida_voluntaria.md",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "2577e65e9deb548a240beb939f1503d08183abf9",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2577e65e9deb548a240beb939f1503d08183abf9",
+      "subject": "test(network): cover null runner in FIX-48 handoff probe",
+      "body": "",
+      "date": "2026-11-11T01:39:45-03:00",
+      "files": [
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+        "odd/tasks/fix-48-host-migration-voluntary-exit.md"
+      ],
+      "originalType": "test",
+      "originalScope": "network",
+      "originalSection": "Tests",
+      "breaking": false,
+      "reverts": null,
+      "section": "Tests",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "test",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "4aeb9715a9c3edcbe2424ade2544f4630eba18a3",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/4aeb9715a9c3edcbe2424ade2544f4630eba18a3",
+      "subject": "test(network): add FIX-48 voluntary Host handoff probe",
+      "body": "Development-only probe that pushes a Host Migration snapshot and shuts the Raid Host down with ShutdownReason.HostMigration, so a multi-process run can verify whether remaining clients migrate on a voluntary Host exit. Triggered from Grimhold/Dev/FIX-48 Voluntary Host Handoff. Productive handoff stays in FIX-50.\n",
+      "date": "2026-11-11T01:36:39-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs",
+        "Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/VoluntaryHostHandoffProbe.cs",
+        "Project Grimhold/Assets/Scripts/Networking/VoluntaryHostHandoffProbe.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs.meta",
+        "odd/tasks/fix-48-host-migration-voluntary-exit.md"
+      ],
+      "originalType": "test",
+      "originalScope": "network",
+      "originalSection": "Tests",
+      "breaking": false,
+      "reverts": null,
+      "section": "Tests",
+      "confidence": "explicit",
+      "systems": [
+        "Networking & Sessions",
+        "UI",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "test",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/VoluntaryHostHandoffProbe.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/VoluntaryHostHandoffProbe.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "Host Migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs.meta",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Editor/VoluntaryHostHandoffProbeMenu.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/VoluntaryHostHandoffProbeTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "b655db6546eb3886c64ddebc87bf77d55df55fdc",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/b655db6546eb3886c64ddebc87bf77d55df55fdc",
+      "subject": "test: compare remaining sprite assertions by native identity",
+      "body": "Unity 6000.6 can surface the same native Sprite through different\nmanaged wrappers (serialized reference vs AssetDatabase load), so\nIs.SameAs failed with identical names on both sides. 09c85bd3 fixed\nmost sites; four sprite assertions it did not cover kept 27 EditMode\ntests red. Is.EqualTo still compares instance ids, so a different\nSprite with the same name still fails. ScriptableObject definition\nassertions keep Is.SameAs.\n\nTests: ArmorSetCatalogTests 6/6, ConsumableUtilitySpriteAssetsTests\n10/10, WeaponAttackSpriteAnimationTests 30/30.\n",
+      "date": "2026-11-11T01:28:52-03:00",
+      "files": [
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs"
+      ],
+      "originalType": "test",
+      "originalScope": null,
+      "originalSection": "Tests",
+      "breaking": false,
+      "reverts": null,
+      "section": "Tests",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Abilities",
+        "Inventory & Loot",
+        "Art & Animation",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "test",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "message-term",
+          "value": "sprite",
+          "supports": "Art & Animation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Equipment/ArmorSetCatalogTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/ConsumableUtilitySpriteAssetsTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/Presentation/WeaponAttackSpriteAnimationTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "1f2a69d5ee0a0d67911d351b7225b3c04ace0784",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/1f2a69d5ee0a0d67911d351b7225b3c04ace0784",
+      "subject": "fix(network): bind Town identity to the real RPC sender",
+      "body": "Town runs in Shared Mode, and every peer wrote and replicated its own\nSessionTicket. Any client could copy a companion's ticket and act as\nthat player in Party, preparation and merchant RPCs (FIX-54).\n\nThe ticket is no longer replicated. Each client delivers it through the\ntargeted static RPC SocialPlayerIdentity.RPC_RegisterTownSender only to\nthe current State Authority of each Town authority object. The\nrunner-scoped TownSenderIdentityContext binds the ticket's profile to\nRpcInfo.Source in TownSenderIdentityRegistry, so the payload never names\nthe sender. Every authoritative Town RPC, including the launch ack and\nreject in TownRaidPreparationNetworkController, now resolves its sender\nonly through that verified binding and requires the visible ProfileId\nto match. Non-authority peers use the replicated claim for presentation\nonly.\n\nReviewers should verify:\n- only a verified binding blocks other claimants; unverified or\n  rejected claims are evicted, so a forged unsigned ticket cannot lock\n  the owner out, and the earliest genuine registration owns a profile;\n- clients re-register when the State Authority PlayerRef changes, and\n  bindings are released on player leave and runner shutdown;\n- GameMode.Single reports StateAuthority as None while HasStateAuthority\n  is true, so local registration uses LocalPlayer.\n\nTests:\n- TownSenderIdentityRegistryTests (14) and TownSenderIdentityContractTests\n  (5) cover the binding, conflicts, forged and pending tickets,\n  reconnection and the non-replicated, targeted RPC contract.\n- Town merchant, party and interaction PlayMode compositions add the\n  context; the merchant test waits for the local registration.\n\nDocs: RemoteIdentityAndAuthArchitecture.md documents sender binding and\nthe residual Shared Mode trust.\n\nRefs: FIX-54\n",
+      "date": "2026-11-11T01:18:32-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Networking/HubRunnerFactory.cs",
+        "Project Grimhold/Assets/Scripts/Networking/SocialPlayerIdentity.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownMerchantNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownPartyDirectory.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationDirectory.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityContext.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityContext.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityRegistry.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityRegistry.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityValidator.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderRegistrationResult.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownSenderRegistrationResult.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs.meta",
+        "Project Grimhold/Assets/Tests/PlayMode/TownInteractionLocalAuthorityPlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/TownMerchantTradePlayModeTests.cs",
+        "Project Grimhold/Assets/Tests/PlayMode/TownPartyLocalAuthorityPlayModeTests.cs",
+        "Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md",
+        "odd/tasks/fix-54-town-sender-binding.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "network",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/TownInteractionLocalAuthorityPlayModeTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "interaction",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/HubRunnerFactory.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SocialPlayerIdentity.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownMerchantNetworkController.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownPartyDirectory.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationDirectory.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityContext.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityContext.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityRegistry.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityRegistry.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderIdentityValidator.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderRegistrationResult.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownSenderRegistrationResult.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/RemoteIdentityAndAuthArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityContractTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownSenderIdentityRegistryTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/TownInteractionLocalAuthorityPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/TownMerchantTradePlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/PlayMode/TownPartyLocalAuthorityPlayModeTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "82c71822f34396ba615f6c65424e0c58d7b6dd1d",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/82c71822f34396ba615f6c65424e0c58d7b6dd1d",
+      "subject": "chore(hooks): disable the local pre-push quality gate by default",
+      "body": "The local pre-push gate blocked pushes before it was reliable enough to\nbe useful. It now exits immediately unless GRIMHOLD_PREPUSH_GATE=1 is\nset, so it is off for everyone, including clones that already point\ncore.hooksPath at .githooks. The gate logic is kept for later rework.\n\nStop configuring the hook automatically: remove the Unity\nInitializeOnLoad GitHooksSetup and the backend `prepare` script.\n`npm run setup:hooks` remains as a manual opt-in. GitHub Actions CI is\nunchanged.\n\nTests:\n- prepush.hook.test.js runs existing cases with the gate enabled and\n  adds a case asserting the disabled hook exits 0 without running steps\n\nDocs: AGENTS.md Quality Gates line describes the opt-in.\n",
+      "date": "2026-11-11T00:13:14-03:00",
+      "files": [
+        ".githooks/pre-push",
+        "AGENTS.md",
+        "Project Grimhold/Assets/Editor/GitHooks.meta",
+        "Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs",
+        "Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs.meta",
+        "backend/package.json",
+        "backend/tests/prepush.hook.test.js",
+        "tools/hooks/setup-hooks.js"
+      ],
+      "originalType": "chore",
+      "originalScope": "hooks",
+      "originalSection": "Architecture & Infrastructure",
+      "breaking": false,
+      "reverts": null,
+      "section": "Maintenance",
+      "confidence": "explicit",
+      "systems": [
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "chore",
+          "supports": "Maintenance"
+        },
+        {
+          "source": "path",
+          "value": "backend/package.json",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/prepush.hook.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "AGENTS.md",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/GitHooks.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Editor/GitHooks/GitHooksSetup.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/hooks/setup-hooks.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/prepush.hook.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "d39a56acee9e44cbd169c96893e05e203fdb6257",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d39a56acee9e44cbd169c96893e05e203fdb6257",
+      "subject": "Add multiplayer playmode package",
+      "body": "Enables Unity Multiplayer Play Mode 3.0.0 and adds the corresponding virtual projects configuration.\n",
+      "date": "2026-11-10T23:02:38-03:00",
+      "files": [
+        "Project Grimhold/Packages/manifest.json",
+        "Project Grimhold/Packages/packages-lock.json",
+        "Project Grimhold/ProjectSettings/VirtualProjectsConfig.json"
+      ],
+      "originalType": null,
+      "originalScope": null,
+      "originalSection": "Other Changes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Features",
+      "confidence": "inferred",
+      "systems": [
+        "Build & Tooling"
+      ],
+      "evidence": [
+        {
+          "source": "subject-action",
+          "value": "Add multiplayer playmode package",
+          "supports": "Features"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Packages/manifest.json",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Packages/packages-lock.json",
+          "supports": "Build & Tooling"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "e3f247b5822ddfe84cc1b25efa716a8835d17246",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e3f247b5822ddfe84cc1b25efa716a8835d17246",

@@ -125,6 +125,7 @@ describe('Pre-push quality gate hook', { skip: shell ? false : 'sh is not availa
         PATH: [stubDir, path.dirname(shell)].join(path.delimiter),
         GRIMHOLD_UNITY_PROJECT: unityProject,
         GRIMHOLD_UNITY_POLL_SECONDS: '0',
+        GRIMHOLD_PREPUSH_GATE: '1',
         ...env
       }
     });
@@ -134,6 +135,15 @@ describe('Pre-push quality gate hook', { skip: shell ? false : 'sh is not availa
 
   const UPDATE = `refs/heads/feature ${SHA} refs/heads/feature ${'b'.repeat(40)}\n`;
   const UNITY_FILE = 'Project Grimhold/Assets/Scripts/Loot/LootDefinition.cs';
+
+  test('the gate is disabled unless GRIMHOLD_PREPUSH_GATE=1 opts in', () => {
+    writeNodeStub();
+    const result = runHook(UPDATE, { changed: [UNITY_FILE], env: { GRIMHOLD_PREPUSH_GATE: '' } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(result.calls, []);
+    assert.deepEqual(result.unityCalls, []);
+    assert.match(result.stdout, /Quality gate desactivado/);
+  });
 
   test('a push that does not touch the Unity project skips the Unity gate', () => {
     writeNodeStub();

@@ -52,6 +52,30 @@ public static class RaidResultsReturnPolicy
                    isExtractionProgressionComplete);
     }
 
+    /// <summary>
+    /// Host Return while the Raid is still in progress: the Host already holds an accepted terminal
+    /// result and connected Raiding peers remain, so it hands the Host role off instead of waiting.
+    /// </summary>
+    public static bool CanRequestHostHandoffReturn(
+        RaidParticipantState state,
+        ExpeditionProgressionFinalizationCause finalizationCause,
+        bool isExtractionProgressionComplete,
+        bool hasProgressionResultSnapshot,
+        bool isServer,
+        bool isMatchInProgress,
+        int connectedRaidingRemoteParticipants)
+    {
+        return isServer &&
+               HostHandoffPolicy.ShouldRouteHostReturnThroughParticipant(
+                   isMatchInProgress,
+                   connectedRaidingRemoteParticipants) &&
+               hasProgressionResultSnapshot &&
+               IsAcceptedTerminalResult(
+                   state,
+                   finalizationCause,
+                   isExtractionProgressionComplete);
+    }
+
     public static bool ShouldStartHostReturn(
         bool hostReturnRequested,
         bool hostReturnStarted,

@@ -21,19 +21,37 @@ public static class TownSenderIdentityValidator
             return false;
         }
 
-        NetworkObject playerObject = runner.GetPlayerObject(player);
-        if (playerObject == null || !playerObject.TryGetBehaviour(out SocialPlayerIdentity identity) ||
-            identity.Object == null || identity.Object.InputAuthority != player)
+        TownSenderIdentityContext context = runner.GetComponent<TownSenderIdentityContext>();
+        if (context == null)
+        {
+            Debug.LogWarning($"[SECURITY] Town sender resolution rejected: runner has no {nameof(TownSenderIdentityContext)}.");
+            return false;
+        }
+
+        if (!context.Registry.TryResolve(player, verifier, out ProfileId bound) ||
+            !TryResolveDeclaredProfile(runner, player, out ProfileId declared) || declared != bound)
         {
             return false;
         }
 
-        return TryValidateSenderIdentity(
-            identity.ProfileId.ToString(),
-            identity.SessionTicket.ToString(),
-            verifier,
-            player.ToString(),
-            out profileId);
+        profileId = bound;
+        return true;
+    }
+
+    /// <summary>Replicated, unauthenticated claim. For presentation only; never authorize with it.</summary>
+    public static bool TryResolveDeclaredProfile(NetworkRunner runner, PlayerRef player, out ProfileId profileId)
+    {
+        profileId = default;
+        NetworkObject playerObject = runner != null && !player.IsNone ? runner.GetPlayerObject(player) : null;
+        if (playerObject == null || !playerObject.TryGetBehaviour(out SocialPlayerIdentity identity) ||
+            identity.Object == null || identity.Object.InputAuthority != player ||
+            string.IsNullOrWhiteSpace(identity.ProfileId.ToString()))
+        {
+            return false;
+        }
+
+        profileId = new ProfileId(identity.ProfileId.ToString());
+        return true;
     }
 
     public static bool TryValidateSenderIdentity(

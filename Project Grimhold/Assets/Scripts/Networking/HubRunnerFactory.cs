@@ -35,6 +35,7 @@ public static class HubRunnerFactory
         runnerObject.AddComponent<LocalInputContext>();
         runnerObject.AddComponent<TownRaidPreparationDirectoryContext>();
         runnerObject.AddComponent<TownPartyDirectoryContext>();
+        runnerObject.AddComponent<TownSenderIdentityContext>();
         
         var joinContext = runnerObject.AddComponent<LocalPlayerJoinContext>();
         joinContext.Initialize(in joinData);

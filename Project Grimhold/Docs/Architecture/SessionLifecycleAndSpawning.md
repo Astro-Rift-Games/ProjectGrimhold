@@ -23,7 +23,7 @@ stateDiagram-v2
     WaitingForPlayers --> Starting : Frozen cohort admitted
     Starting --> InProgress : Deferred PvPvE bootstrap succeeds
     Starting --> Closing : Bootstrap failure
-    InProgress --> Closing : Natural completion or Host cancellation
+    InProgress --> Closing : Natural completion
     Closing --> Finished : Persistence barrier and cleanup complete
 ```
 
@@ -210,6 +210,14 @@ selected. Town Create/Join/Ready and the player-facing Host Start remain owned b
 `TownRaidQueueArchitecture.md`.
 
 ## 9. Host Migration resume
+
+The Host role is not tied to a person. When the Host leaves an `InProgress` Raid, abruptly or by a
+voluntary exit that resolved its own participation first, a connected `Raiding` participant becomes
+the replacement Host through Host Migration and the Raid continues; only when none remains does the
+Raid close through `NaturalCompletion`. There is no Host cancellation of a Raid (FIX-49). The exit
+rule and handoff are specified in
+`Docs/Architecture/HostMigrationRecoveryArchitecture.md`; this section covers the resume boundary
+shared by both triggers.
 
 `SessionStartupContext` has two modes:
 

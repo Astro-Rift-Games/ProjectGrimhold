@@ -38,6 +38,7 @@ public sealed class TownPartyLocalAuthorityPlayModeTests
         runnerObject.AddComponent<LocalInputContext>();
         runnerObject.AddComponent<TownRaidPreparationDirectoryContext>();
         runnerObject.AddComponent<TownPartyDirectoryContext>();
+        runnerObject.AddComponent<TownSenderIdentityContext>();
         var joinContext = runnerObject.AddComponent<LocalPlayerJoinContext>();
         // The Party directory only serves senders whose Town session ticket verifies, so the fixture composes one.
         _identity = new Tests.PlayMode.PlayModeMerchantComposition(0);

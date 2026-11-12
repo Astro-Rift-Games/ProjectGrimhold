@@ -504,16 +504,36 @@ Bounded Player-Host extraction publishing requires (see [Extraction](ExtractionA
 | Failure before admission (`DELETE ...?rollback=true`) | Removed | Restored |
 | Admission confirmed (`POST /character/me/inventory/reservation/admit`) | Kept, marked `admittedAt` (idempotent) | Owned by the Raid participation |
 | Extraction commit | Consumed by `ExtractionCommitService` | Replaced by the authoritative result |
-| Any other ending (defeat, abandon, return without extraction, definitive disconnect, Absolute Closure, Host cancel or timeouts, Host Migration failure, crash or relogin) | Consumed by `DELETE ...` without rollback | Lost |
+| Any other ending (defeat, abandon, return without extraction, definitive disconnect, Absolute Closure, timeouts, Host Migration failure, crash or relogin) | Consumed by `DELETE ...` without rollback | Lost |
 
 An admitted reservation is never rolled back: rollback returns `409 RESERVATION_ADMITTED`, and a new
-launch never restores its items. A loss clear or a replacement while an unconsumed
+launch never restores its items. No pre-start refund exists: the backend has no server-side "raid
+started" marker, so a refund window from `admittedAt` would be self-attested; it is a separate
+follow-up (FIX-53 does not implement it) and needs backend and Game Design approval. A loss clear or a replacement while an unconsumed
 `AuthoritativeExtractionResult` targets the character returns `409 EXTRACTION_RESULT_PENDING`, so
 extracted loot is never discarded. On login, an admitted reservation without a local pending
 extraction commit is discarded locally without restoring items and cleared on the backend as a loss;
 a pending extraction commit keeps its retry path. Previously admission deleted the backend
 reservation, which made every player-hosted extraction publish fail with `NO_ACTIVE_RESERVATION`
 and left the backend Loadout empty for the next Raid.
+
+**Loss notice (FIX-53).** Technical Raid failures still consume the reservation as a loss, but no
+longer silently: before `ClearLostParticipationReservation`, `SessionConnectionCoordinator` captures
+the lost set (reserved items plus prepared Equipment of its own reservation) as a `RaidLossNotice`
+(`RaidLossNotice.TryCreate`, built with `RaidResultsLootSummaryBuilder.TryBuildLost`) into the one-shot
+`RaidLossNoticeSlot`. The first capture of a departure wins. Town consumes it once through
+`TownRaidLossNoticePresenter` and shows the loss Results. The covered causes are:
+
+- `RaidLossNoticeReason.RaidStartFailed`: a `BootstrapFailure` closure, which includes the
+  expected-admission deadline.
+- `RaidLossNoticeReason.ConnectionLost`: an unexpected shutdown of the participant's own runner without
+  a retained reconnect ticket and outside an outgoing Host handoff
+  (`RaidLossNoticePolicy.ShouldReportConnectionLoss`).
+
+Defeat, voluntary abandonment and extraction keep their in-Raid Results and capture no notice.
+Closing the application or crashing mid-Raid remains a loss without any notice: no code runs to
+capture it and the loss is only cleared on the next login (accepted exception, FIX-53 S6). Neither the
+notice nor the cleanup changes the rule above: admitted reservations are never rolled back.
 
 The backend retains guarded reservation rollback support for callers that supply a reservation ID. `DELETE /character/me/inventory/reservation?rollback=true`
 accepts optional `expectedReservationId` (query, or request body when omitted from the query). It must

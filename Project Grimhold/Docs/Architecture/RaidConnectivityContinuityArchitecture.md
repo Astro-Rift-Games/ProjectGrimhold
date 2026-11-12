@@ -114,7 +114,7 @@ The Host enforces single-writer ordering:
 * `AbortRaidingParticipantsForClosure` ensures they are cleanly aborted if the match closes (e.g. Host shutdown) without leaks.
 
 ### Host Migration
-* Retained disconnected participants face a known limitation: since `_retainedDownedParticipants` and retention status are Host-runtime-only state (not networked), a participant who is disconnected during Host Migration might not be correctly retained on the new Host. This is an accepted limitation and is not redesigned here. 
+* FIX-51: a disconnected Raiding participant with budget left is re-retained on the replacement Host from the replicated connectivity state, with its budget paused during the recovery window; see `HostMigrationRecoveryArchitecture.md`.
 
 ## 8. Resolved Decisions and Operational Values
 
@@ -126,7 +126,7 @@ The Host enforces single-writer ordering:
 
 * **FU-1**: Reconnecting a participant who is already `Defeated` (entering as a spectator or viewing Results).
 * **FU-2**: Full team extraction mechanics (shared quota, shared Sanctuary, shared countdown as required by GD 06 §15) — **Implemented in US-53 (`TASK-190`, `TASK-191`)**.
-* **FU-3**: Host Migration coverage for retained disconnected participants.
+* **FU-3**: Host Migration coverage for retained disconnected participants — implemented by FIX-51 (re-retention on the replacement Host, budget paused during the recovery window, room kept open while a retained participant may reconnect); multi-process evidence recorded for the reconnect, see `HostMigrationRecoveryArchitecture.md`.
 * **FU-4**: Automatic retry or countdown UI on the client side for reconnection.
 
 ## 10. Report on SessionInfo Mutability in Fusion 2.1.1

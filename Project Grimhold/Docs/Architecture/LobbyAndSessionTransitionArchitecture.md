@@ -184,9 +184,15 @@ After the complete frozen cohort is prepared, State Authority changes the phase 
 `Starting`, closes the session, invokes the existing spawn manager's one-time
 initial bootstrap and enters `InProgress` only after that bootstrap succeeds. A
 bootstrap failure starts normal closure with `BootstrapFailure`; it never reloads
-Gameplay or represents failure as `InProgress`. 
+Gameplay or represents failure as `InProgress`. A `BootstrapFailure` closure (including the
+expected-admission deadline) aborts every participant without a result, so there is no Results screen
+to Return from. The Host therefore returns to Town automatically
+(`RaidLossNoticePolicy.ShouldReturnHostAfterTechnicalClosure`, observed by
+`SessionConnectionCoordinator.ObserveTechnicalClosure` while the phase is `Closing` or `Finished`),
+through the ordinary Host Return that still waits for remote peers, and Town shows the loss notice
+captured before the reservation clear (FIX-53; see [Local Player Persistence](LocalPlayerPersistenceArchitecture.md)).
 
-Normal code admission is accepted only in `WaitingForPlayers`. However, during `InProgress`, the session may be temporarily reopened (`IsOpen = true`) if there is at least one retained, disconnected participant who is eligible for reconnection (as defined in `RaidConnectivityContinuityArchitecture.md`). This reopening path validates by `ProfileId` + `RaidGenerationId` and strictly rejects unauthorized fresh joiners. Host Migration reconnect/rebind remains a separate path.
+Normal code admission is accepted only in `WaitingForPlayers`. However, during `InProgress`, the session may be temporarily reopened (`IsOpen = true`) if there is at least one retained, disconnected participant who is eligible for reconnection (as defined in `RaidConnectivityContinuityArchitecture.md`). This reopening path validates by `ProfileId` + `RaidGenerationId` and strictly rejects unauthorized fresh joiners. Host Migration reconnect/rebind remains a separate path; after the recovery roster is sealed, the same gate (`RaidSessionGatePolicy`, applied by `NetworkSpawnManager.UpdateMatchSessionGate`) keeps the room open while a participant retained across the migration may still reconnect (FIX-51).
 
 The serialized `Gameplay` scene audit found configuration/input/visibility
 behaviours (`NetworkSpawnSceneConfiguration`, `FusionInputProvider`,
@@ -211,35 +217,47 @@ authorized only for an accepted terminal participant with a captured progression
 confirmed persistence and a compatible raid phase. The resulting
 `ReturnParticipantToTownAsync()` removes only that Client through the existing lifecycle.
 
-The operational Host never uses the participant return RPC. Its Results button calls
-`RequestHostResultsReturn()`, which records one local intent only after the local participant
-is terminal, its result and persistence are confirmed, the match is `Finished`, and no
-participant remains `Raiding`. `Update()` reevaluates that pending intent; it starts the
-existing `ReturnToTownAsync()` exactly once only when no remote peer remains connected.
-Removing a Client's terminal objects does not satisfy this condition: routing is retained
-until `OnPlayerLeft`, and the query is additionally guarded by `NetworkRunner.ActivePlayers`.
-Therefore `Finished` alone can remain in Results indefinitely, and a pending Host return
-cannot shut down the runner while a remote Client still belongs to it.
+The operational Host has two Results return routes, chosen by whether the Raid can continue
+without it (`HostHandoffPolicy.ShouldRouteHostReturnThroughParticipant`):
 
-The pending operational-Host return lifecycle has two valid entry points:
+- **Handoff route (Raid `InProgress` and at least one connected `Raiding` remote participant,
+  `NetworkSpawnManager.CountConnectedRaidingRemoteParticipants`).** The Host's Results button
+  sends the participant `RequestReturn()` like a Client (`RaidResultsReturnPolicy.CanRequestHostHandoffReturn`);
+  the Return RPC uses `RpcHostMode.SourceIsHostPlayer` so the Host's own call is accepted. State
+  Authority publishes `IsReturnAuthorized`, `SessionConnectionCoordinator.ObserveHostHandoff`
+  starts `HostHandoffService.TryHandOffAsync`, and the Host role moves to a remaining participant
+  through Host Migration. The outgoing Host returns to Town immediately and does not wait for
+  Clients or for `Finished`; the Raid continues. The full rule is in
+  [Host Migration Recovery](HostMigrationRecoveryArchitecture.md#voluntary-host-exit-handoff).
+- **Closure route (no connected `Raiding` participant remains).** There is nobody to hand the role
+  to, so the Raid closes normally (`NaturalCompletion`). The Results button calls
+  `RequestHostResultsReturn()`, which records one local intent only after the local participant
+  is terminal, its result and persistence are confirmed, the match is `Finished`, and no
+  participant remains `Raiding`. `Update()` reevaluates that pending intent; it starts the
+  existing `ReturnToTownAsync()` exactly once only when no remote peer remains connected.
+  Removing a Client's terminal objects does not satisfy this condition: routing is retained
+  until `OnPlayerLeft`, and the query is additionally guarded by `NetworkRunner.ActivePlayers`.
+  Therefore `Finished` alone can remain in Results indefinitely, and a pending Host return
+  cannot shut down the runner while a remote Client still belongs to it.
 
-- an explicit Results return after an accepted terminal result;
-- an authoritative `HostCancellation` closure.
+A Client remains on the participant route in both cases.
 
-Both arm the same coordinator latches and converge on the same single global `ReturnToTownAsync()`;
-no second lifecycle owner exists. `HostCancellation` bypasses Results eligibility — a cancelled
-participant is `Aborted` without an accepted terminal cause, so `RaidResultsReturnPolicy` correctly
-rejects it — but it does not bypass the shutdown boundary: the Host still waits for
-`MatchPhase.Finished`, no remaining `Raiding` participants and no connected remote peers before the
-coordinator performs the global return. Clients cancelled by that closure keep using their existing
-individual participant return; the operational Host never uses it.
+The Host has no exit of its own. There is no Host-initiated cancellation of the Raid (FIX-49): while
+living the Host abandons like any participant (same two-step confirmation, corpse and loss Results),
+and it leaves with `Volver` after an accepted terminal result (Defeat, completed extraction or
+Abandon). If the Host's exit is not resolved (for example an abrupt loss) the existing Host Migration
+recovery applies instead. The only return that needs no explicit Results decision is the automatic
+technical-closure return described above (FIX-53). An abandon never starts the handoff by itself;
+the Host returns when it presses `Volver`, after its progression result is durably committed
+(`HostHandoffPolicy.CanAuthorizeReturn`).
 
 #### MVP topology constraint
 
-The Host-specific Results return path exists only because the MVP Raid topology is
+The Host-specific Results return routes exist only because the MVP Raid topology is
 Host/Client: the operational Host owns the authoritative `NetworkRunner` lifecycle, so its
-departure cannot behave exactly like an individual Client departure. This is a temporary
-technical constraint, not a Game Design rule or intended permanent product behaviour.
+departure is a role handoff (or a closure when nobody remains) rather than an individual Client
+departure. This is a temporary technical constraint, not a Game Design rule or intended permanent
+product behaviour.
 
 The post-MVP target is Dedicated Server. With that topology no player owns the authoritative
 Raid lifecycle, the Host/Client distinction for leaving Results must disappear, and every

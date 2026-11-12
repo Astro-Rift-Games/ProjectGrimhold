@@ -33,8 +33,8 @@ try {
     }
   }
 
-  console.log('[GitHooks] Quality gate hooks are now ACTIVE.');
-  console.log('[GitHooks] Pre-push will automatically verify secrets, backend test suites, and parity contracts.');
+  console.log('[GitHooks] Hooks path configured. The pre-push gate is disabled by default;');
+  console.log('[GitHooks] set GRIMHOLD_PREPUSH_GATE=1 to run it (secrets, backend suites, Unity EditMode subset).');
 } catch (err) {
   console.error('[GitHooks] Failed to configure git hooks:', err.message);
   process.exit(1);

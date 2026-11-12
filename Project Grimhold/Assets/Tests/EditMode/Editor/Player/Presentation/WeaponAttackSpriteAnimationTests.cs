@@ -267,7 +267,7 @@ public sealed class WeaponAttackSpriteAnimationTests
             animator.Update(0f);
             Assert.That(view.TryGetPresentedAttackSeconds(out _), Is.False, "Idle is outside the attack window.");
             typeof(PlayerWeaponPresenter).GetMethod("RefreshMainHandSprite", Private).Invoke(presenter, null);
-            Assert.That(renderer.sprite, Is.SameAs(bow.WorldSprite));
+            Assert.That(renderer.sprite, Is.EqualTo(bow.WorldSprite));
         }
         finally
         {
@@ -327,7 +327,7 @@ public sealed class WeaponAttackSpriteAnimationTests
     private static void AssertFrame(WeaponAttackSpriteAnimation animation, float seconds, Sprite expected)
     {
         Assert.That(animation.TryGetSprite(seconds, out Sprite sprite), Is.True, $"{seconds}s");
-        Assert.That(sprite, Is.SameAs(expected), $"{seconds}s");
+        Assert.That(sprite, Is.EqualTo(expected), $"{seconds}s");
     }
 
     private static WeaponDefinition LongBow() => Bow("LongBow");

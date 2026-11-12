@@ -21,6 +21,12 @@ public readonly struct AuthoritativeRaidAdmissionTicket : IEquatable<Authoritati
     public int LastAppliedProgressionResultSequence { get; }
     public long ExpiresAt { get; }
 
+    /// <summary>
+    /// Optional display-only <c>characterName</c> claim; empty when absent. Never an identity,
+    /// key or authorization input and not part of ticket equality.
+    /// </summary>
+    public string CharacterName { get; }
+
     public bool IsValid =>
         !string.IsNullOrWhiteSpace(RawTicket) &&
         ProfileId.IsValid &&
@@ -42,7 +48,8 @@ public readonly struct AuthoritativeRaidAdmissionTicket : IEquatable<Authoritati
         LootEntry[] reservedItems,
         PreparedEquipmentLoadout preparedEquipment,
         int lastAppliedProgressionResultSequence,
-        long expiresAt)
+        long expiresAt,
+        string characterName = null)
     {
         RawTicket = rawTicket ?? string.Empty;
         ProfileId = profileId;
@@ -56,6 +63,7 @@ public readonly struct AuthoritativeRaidAdmissionTicket : IEquatable<Authoritati
         PreparedEquipment = preparedEquipment;
         LastAppliedProgressionResultSequence = lastAppliedProgressionResultSequence;
         ExpiresAt = expiresAt;
+        CharacterName = characterName ?? string.Empty;
     }
 
     public AuthoritativeRaidAdmissionTicket(
@@ -85,6 +93,12 @@ public readonly struct AuthoritativeRaidAdmissionTicket : IEquatable<Authoritati
             expiresAt)
     {
     }
+
+    /// <summary>Copy of this ticket carrying <paramref name="characterName"/> as display data.</summary>
+    public AuthoritativeRaidAdmissionTicket WithCharacterName(string characterName) =>
+        new AuthoritativeRaidAdmissionTicket(RawTicket, ProfileId, RaidCode, ReservationId, Level, Experience,
+            CharacterAttributes, PreparedAbilities, ReservedItems, PreparedEquipment,
+            LastAppliedProgressionResultSequence, ExpiresAt, characterName);
 
     public bool TryToRaidAdmissionData(out RaidAdmissionData data, PreparedAbilityLoadout fallbackAbilities = default,
         LootDefinitionCatalog catalog = null)

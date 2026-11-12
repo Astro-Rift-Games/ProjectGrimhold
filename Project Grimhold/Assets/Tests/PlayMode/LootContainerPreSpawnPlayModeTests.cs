@@ -14,6 +14,7 @@ namespace Tests.PlayMode.Loot
     public sealed class LootContainerPreSpawnPlayModeTests
     {
         private const string LootContainerPrefabGuid = "2c19a78647c64b84a765ff0280706b7d";
+        private const string LockedChestPrefabGuid = "d3073f98b1bfb53448989241f9087814";
         private const string EnemyMeleePrefabGuid = "5deca87613df0fa409d98702aec643d4";
         private NetworkRunner _runner;
         private NetworkObject _prefab;
@@ -33,7 +34,20 @@ namespace Tests.PlayMode.Loot
         [UnityTest]
         public IEnumerator FirstOpenBeforeFirstPresentationFrame_StillPlaysAndOpenBaselineDoesNotReplay()
         {
-            yield return StartRunnerAndLoadPrefab(LootContainerPrefabGuid);
+            return VerifyFirstOpenBeforeFirstPresentationFrame(LootContainerPrefabGuid, "Chest-Open-Sheet_3");
+        }
+
+        [UnityTest]
+        public IEnumerator LockedChestFirstOpenBeforeFirstPresentationFrame_StillPlaysAndOpenBaselineDoesNotReplay()
+        {
+            return VerifyFirstOpenBeforeFirstPresentationFrame(LockedChestPrefabGuid, "LockedChest-Open-Sheet_3");
+        }
+
+        private IEnumerator VerifyFirstOpenBeforeFirstPresentationFrame(
+            string prefabGuid,
+            string expectedFinalSpriteName)
+        {
+            yield return StartRunnerAndLoadPrefab(prefabGuid);
             NetworkObject spawned = _runner.Spawn(_prefab, Vector3.zero, Quaternion.identity);
             ChestOpeningPresenter presenter = spawned.GetComponent<ChestOpeningPresenter>();
             NetworkLootContainerInteractable interactable = spawned.GetComponent<NetworkLootContainerInteractable>();
@@ -52,7 +66,7 @@ namespace Tests.PlayMode.Loot
             presenter.Spawned();
             Assert.That(presenter.IsOpening, Is.False);
             Assert.That(spawned.GetComponentInChildren<SpriteRenderer>().sprite.name,
-                Is.EqualTo("doors_lever_chest_animation_5"));
+                Is.EqualTo(expectedFinalSpriteName));
             presenter.ObserveConfirmedOpen();
             Assert.That(presenter.IsOpening, Is.False);
             _runner.Despawn(spawned);

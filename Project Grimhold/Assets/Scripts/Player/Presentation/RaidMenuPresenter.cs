@@ -29,6 +29,9 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private bool _isSubscribed;
     private bool _wasDefeatedObserved;
     private bool _awaitingAbandonConfirmation;
+    private bool _abandonFailureVisible;
+    private bool _abandonResultsLogged;
+    private SoloAbandonFailureNotice _abandonFailureNotice;
     private bool _returnRequested;
     private bool _returnStarted;
     private bool _hostClosureAcknowledged;
@@ -90,6 +93,12 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
 
         _isBound = true;
+        _abandonFailureNotice = new SoloAbandonFailureNotice();
+        if (_participant != null)
+        {
+            _abandonFailureNotice.Observe(_participant.AbandonFailureSequence);
+        }
+
         _wasDefeatedObserved = _participant != null
             ? _participant.State == RaidParticipantState.Defeated
             : !_character.IsAlive;
@@ -130,6 +139,9 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _isBound = false;
         _wasDefeatedObserved = false;
         _awaitingAbandonConfirmation = false;
+        _abandonFailureVisible = false;
+        _abandonResultsLogged = false;
+        _abandonFailureNotice = null;
         _returnRequested = false;
         _returnStarted = false;
         _hostClosureAcknowledged = false;
@@ -295,7 +307,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         {
             _view.ResumeRequested += OnResumeRequested;
             _view.AbandonRequested += OnAbandonRequested;
-            _view.CancelRaidRequested += OnCancelRaidRequested;
             _view.PreviousTargetRequested += OnPreviousTargetRequested;
             _view.NextTargetRequested += OnNextTargetRequested;
         }
@@ -317,7 +328,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         {
             _view.ResumeRequested -= OnResumeRequested;
             _view.AbandonRequested -= OnAbandonRequested;
-            _view.CancelRaidRequested -= OnCancelRaidRequested;
             _view.PreviousTargetRequested -= OnPreviousTargetRequested;
             _view.NextTargetRequested -= OnNextTargetRequested;
         }
@@ -381,15 +391,6 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             return;
         }
 
-        // An operational Host cannot abandon its participant while sustaining
-        // the raid. Cancel Raid is the authoritative action for that role.
-        if (TryResolveOperationalLocalRole(out bool isHost) && isHost)
-        {
-            _awaitingAbandonConfirmation = false;
-            RefreshViewContent();
-            return;
-        }
-
         if (IsVoluntaryAbandonResult())
         {
             RequestTerminalReturnOnce();
@@ -399,6 +400,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         if (!_awaitingAbandonConfirmation)
         {
             _awaitingAbandonConfirmation = true;
+            _abandonFailureVisible = false;
             _view?.PresentAbandonConfirmation();
             return;
         }
@@ -430,7 +432,8 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
 
         _returnRequested = true;
-        if (TryResolveOperationalLocalRole(out bool isHost) && isHost)
+        if (TryResolveOperationalLocalRole(out bool isHost) && isHost &&
+            !ShouldRouteHostReturnThroughParticipant())
         {
             SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
             if (coordinator == null || !coordinator.RequestHostResultsReturn())
@@ -496,15 +499,12 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
         else
         {
-            bool canAbandon = !TryResolveOperationalLocalRole(out bool isHost) || !isHost;
-            _view.PresentAliveState(canAbandon);
+            _view.PresentAliveState();
+            if (_abandonFailureVisible)
+            {
+                _view.PresentAbandonFailure();
+            }
         }
-
-        NetworkMatchController matchController = GetMatchController();
-        bool canCancelRaid = _runner != null && _runner.IsServer && matchController != null &&
-            matchController.Phase == NetworkMatchController.MatchPhase.InProgress &&
-            !_awaitingAbandonConfirmation && !IsLocalDefeated();
-        _view.SetCancelRaidVisible(canCancelRaid);
     }
 
     /// <summary>
@@ -536,21 +536,17 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _view.PresentLevelUp(_progressionResultSnapshot.ResultingLevel, animate);
     }
 
-    private void OnCancelRaidRequested()
-    {
-        NetworkMatchController matchController = GetMatchController();
-        if (_runner == null || !_runner.IsServer || matchController == null || IsLocalDefeated())
-        {
-            return;
-        }
-        matchController.TryCancelRaid();
-    }
-
     private void ObserveParticipantState()
     {
         if (_participant == null)
         {
             return;
+        }
+
+        if (_abandonFailureNotice != null &&
+            _abandonFailureNotice.Observe(_participant.AbandonFailureSequence))
+        {
+            PresentAbandonFailure();
         }
 
         bool hasOperationalRole = TryResolveOperationalLocalRole(out bool isOperationalHost);
@@ -630,6 +626,15 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         else if (IsVoluntaryAbandonResult())
         {
             _awaitingAbandonConfirmation = false;
+            if (!_abandonResultsLogged)
+            {
+                _abandonResultsLogged = true;
+                Debug.Log(
+                    $"[FIX-53] Results shown for Abandon. HasSnapshot={_hasProgressionResultSnapshot}, " +
+                    $"Phase={matchPhase}.",
+                    this);
+            }
+
             _inventoryPresenter?.SetGameplayMutationsBlocked(true);
             if (!IsOpen)
             {
@@ -644,6 +649,27 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         else if (IsLocalDefeated() && IsOpen && (resultChanged || capturedResult))
         {
             RefreshViewContent();
+        }
+    }
+
+    /// <summary>
+    /// The authoritative corpse generation failed: the player is still raiding with their
+    /// equipment, so the menu returns to its regular actions with the reason shown.
+    /// </summary>
+    private void PresentAbandonFailure()
+    {
+        Debug.LogWarning(
+            "[FIX-53] Abandon failure reported to the player: corpse generation failed.",
+            this);
+        _awaitingAbandonConfirmation = false;
+        _abandonFailureVisible = true;
+        if (IsOpen)
+        {
+            RefreshViewContent();
+        }
+        else
+        {
+            OpenMenu();
         }
     }
 
@@ -781,6 +807,18 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         return true;
     }
 
+    private bool ShouldRouteHostReturnThroughParticipant()
+    {
+        NetworkMatchController matchController = GetMatchController();
+        NetworkSpawnManager spawnManager = _runner != null
+            ? _runner.GetComponent<NetworkSpawnManager>()
+            : null;
+        return matchController != null && spawnManager != null &&
+            HostHandoffPolicy.ShouldRouteHostReturnThroughParticipant(
+                matchController.Phase == NetworkMatchController.MatchPhase.InProgress,
+                spawnManager.CountConnectedRaidingRemoteParticipants());
+    }
+
     private bool CanIssueReturnRequest()
     {
         if (_participant == null ||
@@ -807,6 +845,21 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
 
         NetworkSpawnManager spawnManager = _runner.GetComponent<NetworkSpawnManager>();
+        LogHostReturnGateOnChange(phase, spawnManager);
+        if (spawnManager != null &&
+            RaidResultsReturnPolicy.CanRequestHostHandoffReturn(
+                _participant.State,
+                _participant.FinalizationCause,
+                _participant.IsExtractionProgressionComplete,
+                _hasProgressionResultSnapshot,
+                isServer: true,
+                isMatchInProgress: phase == NetworkMatchController.MatchPhase.InProgress,
+                connectedRaidingRemoteParticipants:
+                    spawnManager.CountConnectedRaidingRemoteParticipants()))
+        {
+            return true;
+        }
+
         return RaidResultsReturnPolicy.CanRequestHostReturn(
             _participant.State,
             _participant.FinalizationCause,
@@ -815,6 +868,29 @@ public sealed class RaidMenuPresenter : MonoBehaviour
             isServer: true,
             hasRaidingParticipants: spawnManager == null || spawnManager.HasRaidingParticipants,
             isMatchFinished: phase == NetworkMatchController.MatchPhase.Finished);
+    }
+
+    private string _lastHostReturnGate;
+
+    /// <summary>Logs the Host Return gate inputs once per change, never per frame.</summary>
+    private void LogHostReturnGateOnChange(
+        NetworkMatchController.MatchPhase phase,
+        NetworkSpawnManager spawnManager)
+    {
+        int raidingPeers = spawnManager != null
+            ? spawnManager.CountConnectedRaidingRemoteParticipants()
+            : -1;
+        string gate = $"State={_participant.State}, Phase={phase}, " +
+            $"HasSnapshot={_hasProgressionResultSnapshot}, " +
+            $"ExtractionComplete={_participant.IsExtractionProgressionComplete}, " +
+            $"ConnectedRaidingPeers={raidingPeers}";
+        if (gate == _lastHostReturnGate)
+        {
+            return;
+        }
+
+        _lastHostReturnGate = gate;
+        Debug.Log($"[HM-MULTI] FIX-50 Host Return gate: {gate}.", this);
     }
 
     internal static bool CanIssueReturnRequest(
@@ -987,6 +1063,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
     private void CloseMenuInternal(bool forceReleaseSuppression)
     {
+        _abandonFailureVisible = false;
         _view?.SetMenuVisible(false);
         if (forceReleaseSuppression || !HasPersistentResultScreen())
         {

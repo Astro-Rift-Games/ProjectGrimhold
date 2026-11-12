@@ -19,6 +19,9 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - Added basic training short sword, dagger, and wand for contingency expeditions.
 - If you return to Town before your partner, you now see that they are still in the Dungeon and can start the next expedition together once they are back.
 - Ask the Trainer for a free training weapon in Town.
+- Players are told on screen when the host leaves and who the new host is.
+- Dungeon wall torches now burn with an animated flickering flame.
+- Standard and locked chests now play an opening animation when opened.
 
 ### Improved
 
@@ -32,6 +35,8 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - While you are Ready in Town your build, equipment and Stash are locked with a clear notice, and your Quick Slots can still be rearranged.
 - Items that cannot be dropped, such as training weapons, now show their drop options disabled and can no longer be thrown on the ground.
 - Training weapons now appear dimmed when a chest is open and can no longer be stored in chests or other containers.
+- When the host dies and returns to town, the raid keeps going for everyone else and another player becomes the host.
+- Abandoning a raid now clearly warns that you lose all your equipment.
 
 ### Fixed
 
@@ -57,6 +62,10 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - Ready now directs you to the Trainer when no weapon is equipped.
 - The Catacombs Specter now cleanly avoids damage and projectile collisions during its fade-out, attacks with a visible telegraph build-up, and relocates behind cover.
 - Aiming no longer jitters or drifts when the camera shakes during dungeon pressure and collapse phases.
+- The host can no longer end the raid for everyone; the host now abandons or returns like any other player.
+- Reconnecting to a raid from town after losing connection works again.
+- If abandoning fails, you get a message and can try again instead of being stuck.
+- If a raid fails to start or the connection drops, you return to town and see which equipment was lost instead of losing it silently.
 
 
 ## [0.5.0](https://github.com/Astro-Rift-Games/ProjectGrimhold/releases/tag/v0.5.0) - 2026-11-08

@@ -23,6 +23,7 @@ public sealed class RaidParticipantConnectivity : NetworkBehaviour
     public bool IsDecisionAvailable => IsDisconnected && IsBudgetExhausted && _participant != null && _participant.State == RaidParticipantState.Raiding;
 
     private NetworkRaidParticipant _participant;
+    private NetworkSpawnManager _spawnManager;
 
     public override void Spawned()
     {
@@ -80,7 +81,18 @@ public sealed class RaidParticipantConnectivity : NetworkBehaviour
             return;
         }
 
-        RemainingBudgetTicks = ReconnectBudgetRules.ConsumeTick(RemainingBudgetTicks, IsDisconnected, _participant.State);
+        if (_spawnManager == null)
+        {
+            _spawnManager = Runner.GetComponent<NetworkSpawnManager>();
+        }
+
+        // FIX-51: the budget is frozen until the Host Migration recovery roster is sealed.
+        bool isBudgetPaused = _spawnManager != null && _spawnManager.IsReconnectBudgetPausedByHostMigration;
+        RemainingBudgetTicks = ReconnectBudgetRules.ConsumeTick(
+            RemainingBudgetTicks,
+            IsDisconnected,
+            _participant.State,
+            isBudgetPaused);
     }
 
     /// <summary>

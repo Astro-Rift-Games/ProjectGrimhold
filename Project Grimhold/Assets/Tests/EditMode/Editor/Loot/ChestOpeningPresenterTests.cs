@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -23,17 +24,31 @@ namespace Tests.EditMode.Loot
                 Is.SameAs(prefab.GetComponent<NetworkLootContainerInteractable>()));
             SpriteRenderer renderer = serialized.FindProperty("_renderer").objectReferenceValue as SpriteRenderer;
             Assert.That(renderer, Is.Not.Null);
+            Assert.That(renderer.transform.localPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(renderer.transform.localScale, Is.EqualTo(Vector3.one));
+            Assert.That(renderer.sprite, Is.Not.Null);
+            Assert.That(renderer.sprite.name, Is.EqualTo("Chest-Open-Sheet_0"));
+            Assert.That(AssetDatabase.GetAssetPath(renderer.sprite),
+                Is.EqualTo("Assets/Art/Props/Chest-Open-Sheet.png"));
+            var importer = (TextureImporter)AssetImporter.GetAtPath("Assets/Art/Props/Chest-Open-Sheet.png");
+            Assert.That(importer.filterMode, Is.EqualTo(FilterMode.Point));
+            Assert.That(importer.mipmapEnabled, Is.False);
+            Assert.That(importer.spritePixelsPerUnit, Is.EqualTo(16));
             Assert.That(renderer.sprite.bounds.size.x * renderer.transform.localScale.x,
-                Is.EqualTo(1.125f).Within(0.001f));
+                Is.EqualTo(1.0f).Within(0.001f));
             Assert.That(renderer.transform.localPosition.y + renderer.sprite.bounds.min.y * renderer.transform.localScale.y,
-                Is.EqualTo(-0.5625f).Within(0.001f));
+                Is.EqualTo(-0.5f).Within(0.001f));
+            Sprite[] sheetSprites = AssetDatabase.LoadAllAssetsAtPath("Assets/Art/Props/Chest-Open-Sheet.png")
+                .OfType<Sprite>()
+                .ToArray();
             SerializedProperty frames = serialized.FindProperty("_openingFrames");
-            Assert.That(frames.arraySize, Is.EqualTo(5));
-            int[] order = { 6, 7, 3, 4, 5 };
-            for (int index = 0; index < order.Length; index++)
+            Assert.That(frames.arraySize, Is.EqualTo(4));
+            for (int index = 0; index < 4; index++)
             {
-                Assert.That(frames.GetArrayElementAtIndex(index).objectReferenceValue.name,
-                    Is.EqualTo($"doors_lever_chest_animation_{order[index]}"));
+                Sprite frame = frames.GetArrayElementAtIndex(index).objectReferenceValue as Sprite;
+                Assert.That(frame, Is.Not.Null);
+                Assert.That(frame.name, Is.EqualTo($"Chest-Open-Sheet_{index}"));
+                Assert.That(sheetSprites, Does.Contain(frame));
             }
             Assert.That(serialized.FindProperty("_framesPerSecond").floatValue, Is.EqualTo(12f));
             SerializedProperty sound = serialized.FindProperty("_openingSound");
@@ -59,7 +74,7 @@ namespace Tests.EditMode.Loot
                     "ChestOpeningPresenter omitted opening sound: configure a non-looping clip and an available AudioManager.");
                 typeof(ChestOpeningPresenter).GetMethod("ObserveOpen", flags).Invoke(presenter, new object[] { true });
                 Assert.That(state.IsOpening, Is.True);
-                Assert.That(state.Advance(1f, 5, 12f), Is.EqualTo(4));
+                Assert.That(state.Advance(1f, 4, 12f), Is.EqualTo(3));
                 Assert.That(state.IsOpening, Is.False);
             }
             finally
@@ -91,21 +106,24 @@ namespace Tests.EditMode.Loot
             }
         }
 
-        [Test]
-        public void AnimationFrames_KeepTheClosedChestBottomAnchor()
+        [TestCase("Assets/Prefabs/LootContainer.prefab")]
+        [TestCase("Assets/Prefabs/LockedChest.prefab")]
+        public void AnimationFrames_KeepTheClosedChestBottomAnchor(string prefabPath)
         {
-            GameObject instance = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/LootContainer.prefab"));
+            GameObject instance = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath));
             try
             {
                 ChestOpeningPresenter presenter = instance.GetComponent<ChestOpeningPresenter>();
                 typeof(ChestOpeningPresenter).GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(presenter, null);
                 SpriteRenderer renderer = instance.GetComponentInChildren<SpriteRenderer>();
+                int frameCount = new SerializedObject(presenter).FindProperty("_openingFrames").arraySize;
+                Assert.That(frameCount, Is.EqualTo(4), prefabPath);
                 float bottom = renderer.bounds.min.y;
-                for (int index = 0; index < 5; index++)
+                for (int index = 0; index < frameCount; index++)
                 {
                     typeof(ChestOpeningPresenter).GetMethod("ApplyFrame", BindingFlags.Instance | BindingFlags.NonPublic)
                         .Invoke(presenter, new object[] { index });
-                    Assert.That(renderer.bounds.min.y, Is.EqualTo(bottom).Within(0.001f));
+                    Assert.That(renderer.bounds.min.y, Is.EqualTo(bottom).Within(0.001f), $"{prefabPath} frame {index}");
                 }
             }
             finally

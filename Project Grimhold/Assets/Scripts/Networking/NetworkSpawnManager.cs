@@ -159,6 +159,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private readonly Dictionary<ProfileId, NetworkObject> _restoredHostMigrationParticipants = new();
     private readonly HashSet<ProfileId> _hostMigrationEligibleProfiles = new();
     private readonly HashSet<ProfileId> _hostMigrationUnresolvedProfiles = new();
+    private readonly HashSet<ProfileId> _hostMigrationDepartedTerminalProfiles = new();
+    private readonly HashSet<ProfileId> _hostMigrationRetainedProfiles = new();
     private readonly Dictionary<ProfileId, PlayerRef> _hostMigrationRecoveredProfiles = new();
     private readonly List<NetworkObject> _spawnedEnemies = new();
     private int _nextEnemyLootSpawnIndex;
@@ -205,6 +207,25 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
     internal HostMigrationRecoveryWindowState HostMigrationRecoveryState =>
         _hostMigrationRecoveryState;
+    private bool IsHostMigrationResume =>
+        _startupContext.IsValid && _startupContext.Mode == SessionStartupMode.HostMigrationResume;
+
+    /// <summary>Until the roster is sealed, arrivals follow the migration recovery boundary (FIX-51).</summary>
+    private bool UsesHostMigrationArrivalBoundary =>
+        HostMigrationRetentionPolicy.UsesMigrationArrivalBoundary(
+            IsHostMigrationResume,
+            _hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Closed);
+
+    private bool IsHostMigrationRecoverySealed =>
+        _hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Closed ||
+        _hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Failed;
+
+    /// <summary>FIX-51: the reconnect budget does not tick until the recovery roster is sealed.</summary>
+    internal bool IsReconnectBudgetPausedByHostMigration =>
+        HostMigrationRetentionPolicy.IsReconnectBudgetPaused(
+            IsHostMigrationResume,
+            IsHostMigrationRecoverySealed);
+
     internal bool IsHostMigrationRecoveryInProgress =>
         _hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Open ||
         _hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Sealing;
@@ -305,6 +326,102 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Counts remote peers still connected to this runner whose participant is actively Raiding;
+    /// these are the only valid targets of a voluntary Host handoff (FIX-50).
+    /// </summary>
+    public int CountConnectedRaidingRemoteParticipants()
+    {
+        if (_runner == null)
+        {
+            return 0;
+        }
+
+        PlayerRef localPlayer = _runner.LocalPlayer;
+        int count = 0;
+        foreach (KeyValuePair<PlayerRef, NetworkObject> entry in _spawnedPlayers)
+        {
+            if (entry.Key == localPlayer ||
+                entry.Value == null ||
+                !_runner.IsPlayerValid(entry.Key) ||
+                !entry.Value.TryGetBehaviour(out NetworkRaidParticipant participant) ||
+                participant.State != RaidParticipantState.Raiding)
+            {
+                continue;
+            }
+
+            count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Replicated display name of the Raid participant owning <paramref name="profileId"/>, read
+    /// from this runner's replicated state; empty when unavailable.
+    /// </summary>
+    public string GetParticipantDisplayName(ProfileId profileId)
+    {
+        if (_runner == null || !profileId.IsValid)
+        {
+            return string.Empty;
+        }
+
+        foreach (NetworkRaidParticipant participant in _runner.GetAllBehaviours<NetworkRaidParticipant>())
+        {
+            if (participant != null && participant.ProfileId.ToString() == profileId.Value)
+            {
+                return participant.DisplayName.ToString();
+            }
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// Replicated display name of the participant controlled by the current State Authority of
+    /// the Raid (the Host of this runner); empty when it is not (yet) replicated.
+    /// </summary>
+    public string GetCurrentHostDisplayName()
+    {
+        if (_runner == null || _matchController == null || _matchController.Object == null)
+        {
+            return string.Empty;
+        }
+
+        PlayerRef host = _runner.IsServer ? _runner.LocalPlayer : _matchController.Object.StateAuthority;
+        if (host.IsNone)
+        {
+            return string.Empty;
+        }
+
+        foreach (NetworkRaidParticipant participant in _runner.GetAllBehaviours<NetworkRaidParticipant>())
+        {
+            if (participant != null && participant.Object != null &&
+                participant.Object.InputAuthority == host)
+            {
+                return participant.DisplayName.ToString();
+            }
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>Whether the local Host participant already resolved its own exit with an accepted Return.</summary>
+    public bool IsLocalHostExitResolved()
+    {
+        if (_runner == null ||
+            !_spawnedPlayers.TryGetValue(_runner.LocalPlayer, out NetworkObject participantObject) ||
+            participantObject == null ||
+            !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant))
+        {
+            return false;
+        }
+
+        // FIX-49: the handoff starts only after the Host's accepted Return, never on Abandon alone.
+        return participant.IsReturnAuthorized;
     }
 
     /// <summary>
@@ -1358,6 +1475,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _restoredHostMigrationParticipants.Clear();
         _hostMigrationEligibleProfiles.Clear();
         _hostMigrationUnresolvedProfiles.Clear();
+        _hostMigrationDepartedTerminalProfiles.Clear();
+        _hostMigrationRetainedProfiles.Clear();
         _hostMigrationRecoveredProfiles.Clear();
         _hostMigrationSnapshotHadRaidingParticipant = false;
         _hostMigrationRecoveryState = HostMigrationRecoveryWindowState.Inactive;
@@ -1415,6 +1534,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _restoredHostMigrationParticipants.Clear();
         _hostMigrationEligibleProfiles.Clear();
         _hostMigrationUnresolvedProfiles.Clear();
+        _hostMigrationDepartedTerminalProfiles.Clear();
+        _hostMigrationRetainedProfiles.Clear();
         _hostMigrationRecoveredProfiles.Clear();
         _hostMigrationSnapshotHadRaidingParticipant = false;
         var restoredAvatarIds = new HashSet<NetworkId>();
@@ -1445,8 +1566,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     $"Restored Raiding participant '{profileId}' has a missing or duplicated avatar.");
             }
 
+            bool extractionCommitPending =
+                HostMigrationRetentionPolicy.IsExtractionCommitPending(
+                    participant.State,
+                    participant.ExtractionExperiencePhase);
             bool completedTerminalState =
-                participant.State == RaidParticipantState.Extracted ||
+                (participant.State == RaidParticipantState.Extracted && !extractionCommitPending) ||
                 participant.State == RaidParticipantState.Aborted;
             bool terminal = participant.IsReturnAuthorized || completedTerminalState;
             _hostMigrationSnapshotHadRaidingParticipant |=
@@ -1454,19 +1579,63 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
             if (profileId == _launchContext.HostProfileId)
             {
-                _hostMigrationUnresolvedProfiles.Add(profileId);
+                if (HostMigrationRosterPolicy.ClassifyHistoricHost(
+                        participant.State,
+                        participant.FinalizationCause,
+                        participant.IsReturnAuthorized) ==
+                    HistoricHostRosterClass.DepartedTerminal)
+                {
+                    // FIX-50: the outgoing Host resolved its own exit before handing off.
+                    _hostMigrationDepartedTerminalProfiles.Add(profileId);
+                    _controlledReturns.MarkTerminal(
+                        new ControlledReturnKey(profileId.Value, generationId));
+                }
+                else
+                {
+                    _hostMigrationUnresolvedProfiles.Add(profileId);
+                }
+
                 continue;
             }
 
-            if (IsHostMigrationRecoveryEligible(
+            bool hasConnectivity = participantObject.TryGetBehaviour(
+                out RaidParticipantConnectivity connectivity);
+            if (hasConnectivity &&
+                HostMigrationRetentionPolicy.Classify(
+                    participant.State,
+                    participant.IsReturnAuthorized,
+                    connectivity.IsDisconnected,
+                    connectivity.RemainingBudgetTicks,
+                    connectivity.IsAbsenceConfirmed,
+                    participant.ExtractionExperiencePhase) ==
+                HostMigrationParticipantDisposition.Retain)
+            {
+                // FIX-51: a disconnected Raider with budget left survives the handoff; the budget
+                // stays paused until the roster is sealed.
+                _hostMigrationRetainedProfiles.Add(profileId);
+                _disconnectedRegistry.Retain(participantObject);
+                Debug.Log(
+                    $"[HM-MULTI] FIX-51 re-retained disconnected participant. ProfileId={profileId}, " +
+                    $"RemainingBudgetTicks={connectivity.RemainingBudgetTicks}.",
+                    this);
+            }
+            else if (IsHostMigrationRecoveryEligible(
                     profileId,
                     _launchContext.HostProfileId,
                     participant.State,
                     participant.IsReturnAuthorized,
-                    terminalKnown: terminal))
+                    terminalKnown: terminal,
+                    extractionCommitPending: extractionCommitPending))
             {
                 _hostMigrationEligibleProfiles.Add(profileId);
                 _hostMigrationUnresolvedProfiles.Add(profileId);
+                if (extractionCommitPending)
+                {
+                    Debug.Log(
+                        $"[HM-MULTI] FIX-51 Extracted participant with pending commit is recoverable. " +
+                        $"ProfileId={profileId}, ExtractionPhase={participant.ExtractionExperiencePhase}.",
+                        this);
+                }
             }
             else
             {
@@ -1482,7 +1651,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         ProfileId oldHostProfileId,
         RaidParticipantState state,
         bool isReturnAuthorized,
-        bool terminalKnown)
+        bool terminalKnown,
+        bool extractionCommitPending = false)
     {
         if (!profileId.IsValid || profileId == oldHostProfileId || terminalKnown)
         {
@@ -1490,6 +1660,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
 
         if (state == RaidParticipantState.Raiding || state == RaidParticipantState.Defeated)
+        {
+            return !isReturnAuthorized;
+        }
+
+        if (state == RaidParticipantState.Extracted && extractionCommitPending)
         {
             return !isReturnAuthorized;
         }
@@ -1528,7 +1703,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         {
             KeyValuePair<ProfileId, PlayerRef> arrival = arrivals[index];
             if (!TryRebindHostMigrationProfile(arrival.Key, arrival.Value) &&
-                !_hostMigrationEligibleProfiles.Contains(arrival.Key))
+                !_hostMigrationEligibleProfiles.Contains(arrival.Key) &&
+                !_hostMigrationRetainedProfiles.Contains(arrival.Key))
             {
                 _earlyHostMigrationReconnects.Remove(arrival.Key);
                 if (arrival.Value != _runner.LocalPlayer)
@@ -1541,9 +1717,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
     private bool TryRebindHostMigrationProfile(ProfileId profileId, PlayerRef player)
     {
+        bool isRetained = _hostMigrationRetainedProfiles.Contains(profileId) &&
+            !_hostMigrationRecoveredProfiles.ContainsKey(profileId);
         if (_hostMigrationRecoveryState != HostMigrationRecoveryWindowState.Open ||
-            !_hostMigrationEligibleProfiles.Contains(profileId) ||
-            !_hostMigrationUnresolvedProfiles.Contains(profileId) ||
+            (!isRetained &&
+             (!_hostMigrationEligibleProfiles.Contains(profileId) ||
+              !_hostMigrationUnresolvedProfiles.Contains(profileId))) ||
             !_restoredHostMigrationParticipants.TryGetValue(
                 profileId,
                 out NetworkObject participantObject) ||
@@ -1569,6 +1748,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _hostMigrationRecoveredProfiles[profileId] = player;
         _hostMigrationUnresolvedProfiles.Remove(profileId);
         _earlyHostMigrationReconnects.Remove(profileId);
+        if (isRetained)
+        {
+            _disconnectedRegistry.Remove(profileId);
+        }
+
         return true;
     }
 
@@ -1583,7 +1767,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         try
         {
             ReconcileRecoveredProfilesWithActivePlayers();
+            LogRetainedProfilesSkippedAtSeal();
             FinalizeUnrecoveredHostMigrationProfiles();
+            ReleaseDepartedTerminalHostMigrationProfiles();
             if (!ValidateSealedHostMigrationRoster(out string failure))
             {
                 throw new InvalidOperationException(failure);
@@ -1604,10 +1790,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 pathfindingGrid.Build();
             }
 
-            _runner.SessionInfo.IsOpen = false;
+            // The session gate (UpdateMatchSessionGate) owns IsOpen after the seal.
             _runner.SessionInfo.IsVisible = false;
             _matchController.RestoreHostMigrationParticipantObservation(
                 _hostMigrationSnapshotHadRaidingParticipant);
+            // FIX-51: stay joinable while a retained participant may still reconnect.
+            UpdateMatchSessionGate();
             _hostMigrationRecoveryState = HostMigrationRecoveryWindowState.Closed;
             ClearPendingHostMigrationRebindData();
             CompleteHostMigration(
@@ -1630,6 +1818,27 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
     }
 
+    private void LogRetainedProfilesSkippedAtSeal()
+    {
+        foreach (ProfileId profileId in _hostMigrationRetainedProfiles)
+        {
+            if (_hostMigrationRecoveredProfiles.ContainsKey(profileId) ||
+                !_restoredHostMigrationParticipants.TryGetValue(
+                    profileId,
+                    out NetworkObject participantObject) ||
+                participantObject == null ||
+                !participantObject.TryGetBehaviour(out RaidParticipantConnectivity connectivity))
+            {
+                continue;
+            }
+
+            Debug.Log(
+                $"[HM-MULTI] FIX-51 retained participant skipped at seal (not finalized). " +
+                $"ProfileId={profileId}, RemainingBudgetTicks={connectivity.RemainingBudgetTicks}.",
+                this);
+        }
+    }
+
     private void ReconcileRecoveredProfilesWithActivePlayers()
     {
         var activePlayers = new HashSet<PlayerRef>(_runner.ActivePlayers);
@@ -1641,9 +1850,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             PlayerRef player = recovered[index].Value;
             NetworkObject expected = _restoredHostMigrationParticipants[profileId];
             if (!expected.TryGetBehaviour(out NetworkRaidParticipant participant) ||
-                participant.IsReturnAuthorized ||
-                (participant.State != RaidParticipantState.Raiding &&
-                 participant.State != RaidParticipantState.Defeated))
+                !HostMigrationRetentionPolicy.IsRecoveredStateValid(
+                    participant.State,
+                    participant.IsReturnAuthorized))
             {
                 RemoveRecoveredHostMigrationProfile(profileId, player, requeue: false);
                 _hostMigrationEligibleProfiles.Remove(profileId);
@@ -1688,6 +1897,31 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             {
                 throw new InvalidOperationException(
                     $"Unrecovered participant '{profileId}' is missing during sealing.");
+            }
+
+            if (HostMigrationRetentionPolicy.ClassifyUnrecoveredAtSeal(
+                    participant.State,
+                    participant.ExtractionExperiencePhase,
+                    profileId == _launchContext.HostProfileId) ==
+                HostMigrationUnrecoveredSealAction.KeepObjectsTerminal)
+            {
+                // FIX-51: same rule as a non-migration disconnect of an Extracted participant whose
+                // commit is pending: authority is cleared and the objects are kept, never despawned.
+                if (participant.TryResolveCurrentAvatar(out NetworkObject pendingAvatar) &&
+                    pendingAvatar != null && !pendingAvatar.InputAuthority.IsNone)
+                {
+                    pendingAvatar.AssignInputAuthority(PlayerRef.None);
+                }
+
+                participantObject.AssignInputAuthority(PlayerRef.None);
+                _controlledReturns.MarkTerminal(
+                    new ControlledReturnKey(profileId.Value, generationId));
+                _restoredHostMigrationParticipants.Remove(profileId);
+                Debug.LogWarning(
+                    $"[HM-MULTI] FIX-51 unrecovered Extracted participant kept without despawn. " +
+                    $"ProfileId={profileId}, ExtractionPhase={participant.ExtractionExperiencePhase}.",
+                    this);
+                continue;
             }
 
             NetworkObject avatar = null;
@@ -1753,6 +1987,39 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         }
     }
 
+    /// <summary>
+    /// Releases an outgoing Host that already resolved its exit, following the client departure
+    /// rule: its participant object goes away, while its corpse (if any) stays lootable and the
+    /// persisted result is not re-finalized or aborted.
+    /// </summary>
+    private void ReleaseDepartedTerminalHostMigrationProfiles()
+    {
+        foreach (ProfileId profileId in _hostMigrationDepartedTerminalProfiles)
+        {
+            if (!_restoredHostMigrationParticipants.TryGetValue(
+                    profileId,
+                    out NetworkObject participantObject) ||
+                participantObject == null)
+            {
+                continue;
+            }
+
+            if (TryFindLinkedAvatarOrCorpse(participantObject.Id, out NetworkObject body) &&
+                body != null && !body.InputAuthority.IsNone)
+            {
+                body.AssignInputAuthority(PlayerRef.None);
+            }
+
+            _runner.Despawn(participantObject);
+            _restoredHostMigrationParticipants.Remove(profileId);
+            Debug.Log(
+                $"[HM-MULTI] Departed Host released without re-finalization. ProfileId={profileId}.",
+                this);
+        }
+
+        _hostMigrationDepartedTerminalProfiles.Clear();
+    }
+
     private bool ValidateSealedHostMigrationRoster(out string failure)
     {
         var activePlayers = new HashSet<PlayerRef>(_runner.ActivePlayers);
@@ -1772,9 +2039,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 return false;
             }
 
-            if (participant.IsReturnAuthorized ||
-                (participant.State != RaidParticipantState.Raiding &&
-                 participant.State != RaidParticipantState.Defeated))
+            if (!HostMigrationRetentionPolicy.IsRecoveredStateValid(
+                    participant.State,
+                    participant.IsReturnAuthorized))
             {
                 failure = $"Recovered profile '{recovered.Key}' is terminal and cannot remain operational.";
                 return false;
@@ -1785,6 +2052,14 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                  avatar == null || avatar.InputAuthority != recovered.Value))
             {
                 failure = $"Recovered Raiding profile '{recovered.Key}' has invalid avatar authority.";
+                return false;
+            }
+
+            if (participant.State == RaidParticipantState.Extracted &&
+                participant.TryResolveCurrentAvatar(out NetworkObject extractedAvatar) &&
+                extractedAvatar != null && extractedAvatar.InputAuthority != recovered.Value)
+            {
+                failure = $"Recovered Extracted profile '{recovered.Key}' has invalid avatar authority.";
                 return false;
             }
 
@@ -1805,6 +2080,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             if (restored.Value != null &&
                 restored.Value.TryGetBehaviour(out NetworkRaidParticipant participant) &&
                 participant.State == RaidParticipantState.Raiding &&
+                !_hostMigrationRetainedProfiles.Contains(restored.Key) &&
                 !_hostMigrationRecoveredProfiles.ContainsKey(restored.Key))
             {
                 failure = $"Raiding profile '{restored.Key}' has no recovered peer.";
@@ -1814,6 +2090,30 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         failure = null;
         return true;
+    }
+
+    /// <summary>
+    /// A retained participant that rebound during the window and dropped again returns to the
+    /// retained set with its remaining (still paused) budget instead of being finalized at seal.
+    /// </summary>
+    private void ReRetainHostMigrationProfile(ProfileId profileId)
+    {
+        if (!_restoredHostMigrationParticipants.TryGetValue(
+                profileId,
+                out NetworkObject participantObject) ||
+            participantObject == null ||
+            !participantObject.TryGetBehaviour(out RaidParticipantConnectivity connectivity))
+        {
+            return;
+        }
+
+        connectivity.IsDisconnected = true;
+        _disconnectedRegistry.Retain(participantObject);
+        _hostMigrationUnresolvedProfiles.Remove(profileId);
+        Debug.Log(
+            $"[HM-MULTI] FIX-51 re-retained disconnected participant. ProfileId={profileId}, " +
+            $"RemainingBudgetTicks={connectivity.RemainingBudgetTicks}.",
+            this);
     }
 
     private void RemoveRecoveredHostMigrationProfile(
@@ -2005,8 +2305,17 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
-        if (participant.State != RaidParticipantState.Raiding &&
-            participant.State != RaidParticipantState.Defeated)
+        if (participant.State == RaidParticipantState.Extracted &&
+            participant.TryResolveCurrentAvatar(out NetworkObject extractedAvatar) &&
+            extractedAvatar != null && extractedAvatar.InputAuthority != _runner.LocalPlayer)
+        {
+            failure = "Local Extracted avatar authority has not replicated yet.";
+            return false;
+        }
+
+        if (!HostMigrationRetentionPolicy.IsRecoveredStateValid(
+                participant.State,
+                participant.IsReturnAuthorized))
         {
             failure = $"Local participant is terminal ({participant.State}).";
             return false;
@@ -2128,13 +2437,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (!runner.IsServer || runner != _runner)
             return;
 
-        bool isHostMigrationResume =
-            _startupContext.IsValid &&
-            _startupContext.Mode == SessionStartupMode.HostMigrationResume;
-        if (isHostMigrationResume)
+        if (UsesHostMigrationArrivalBoundary)
         {
             if (_hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Sealing ||
-                _hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Closed ||
                 _hostMigrationRecoveryState == HostMigrationRecoveryWindowState.Failed ||
                 _launchContext == null ||
                 !TryValidateEarlyHostMigrationToken(
@@ -2210,8 +2515,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return;
         }
 
-        if (_startupContext.IsValid &&
-            _startupContext.Mode == SessionStartupMode.HostMigrationResume)
+        if (UsesHostMigrationArrivalBoundary)
         {
             HandleHostMigrationPlayerJoined(runner, player);
             return;
@@ -2262,6 +2566,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (player != runner.LocalPlayer)
         {
             Debug.LogWarning($"[NetworkSpawnManager] Disconnecting player {player} after admission was rejected.");
+            Debug.Log($"[HM-MULTI] FIX-51 reconnect/admission rejected; Host disconnects PlayerRef={player}.", this);
             runner.Disconnect(player);
         }
         else
@@ -2278,8 +2583,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (player.IsNone)
             return false;
 
-        if (_startupContext.IsValid &&
-            _startupContext.Mode == SessionStartupMode.HostMigrationResume)
+        if (UsesHostMigrationArrivalBoundary)
         {
             return false;
         }
@@ -2311,7 +2615,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 LocalPlayerJoinContext localContext = runner.GetComponent<LocalPlayerJoinContext>();
                 if (localContext != null && localContext.HasRaidAdmission && IsRaidAdmissionValid(localContext.RaidAdmission))
                 {
-                    admission = localContext.RaidAdmission;
+                    // The local Host is the State Authority: its own session name is trusted.
+                    admission = localContext.RaidAdmission.WithDisplayName(
+                        ApplicationAuthContext.Instance != null
+                            ? ApplicationAuthContext.Instance.CharacterName
+                            : null);
                     hasFullAdmission = true;
                 }
                 else
@@ -2863,11 +3171,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     Debug.LogWarning($"[SECURITY] Authoritative ticket rejected by verifier for player {playerIdentifierForLogging}: {error}");
                     return false;
                 }
-                authTicket = verifiedTicket;
+                authTicket = WithDecodedCharacterName(verifiedTicket);
             }
 
             // Hydrate state exclusively from backend verified snapshot
-            if (!authTicket.TryToRaidAdmissionData(out resolvedAdmission, catalog: catalog) || !resolvedAdmission.IsValid)
+            if (!TryHydrateAdmission(authTicket, catalog, out resolvedAdmission))
             {
                 Debug.LogWarning($"[SECURITY] Failed to hydrate canonical RaidAdmissionData from authoritative ticket for player {playerIdentifierForLogging}.");
                 return false;
@@ -2884,6 +3192,36 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         Debug.LogWarning($"[NetworkSpawnManager] Could not resolve valid admission for {playerIdentifierForLogging}.");
         return false;
+    }
+
+    /// <summary>
+    /// Projects the verified ticket into canonical admission data and attaches the display-only
+    /// character name, sanitized at this State Authority boundary.
+    /// </summary>
+    private static bool TryHydrateAdmission(
+        in AuthoritativeRaidAdmissionTicket ticket,
+        LootDefinitionCatalog catalog,
+        out RaidAdmissionData admission)
+    {
+        if (!ticket.TryToRaidAdmissionData(out admission, catalog: catalog) || !admission.IsValid)
+        {
+            return false;
+        }
+
+        admission = admission.WithDisplayName(RaidDisplayNamePolicy.Sanitize(ticket.CharacterName));
+        return true;
+    }
+
+    /// <summary>
+    /// The backend verify response carries no character name, so the verified ticket regains the
+    /// display-only claim from the (now authenticated) raw ticket it was verified from.
+    /// </summary>
+    private static AuthoritativeRaidAdmissionTicket WithDecodedCharacterName(
+        in AuthoritativeRaidAdmissionTicket verified)
+    {
+        return AuthoritativeRaidAdmissionTicketCodec.TryDecode(verified.RawTicket, out var decoded)
+            ? verified.WithCharacterName(decoded.CharacterName)
+            : verified;
     }
 
     private async Task CompleteRemoteAdmissionVerificationAsync(
@@ -2907,7 +3245,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             if (!valid ||
                 !RaidAdmissionRules.IsAdmitted(_launchContext, verifiedTicket) ||
                 verifiedTicket.IsExpired(DateTimeOffset.UtcNow.ToUnixTimeSeconds()) ||
-                !verifiedTicket.TryToRaidAdmissionData(out resolvedAdmission, catalog: _lootCatalog) ||
+                !TryHydrateAdmission(WithDecodedCharacterName(verifiedTicket), _lootCatalog, out resolvedAdmission) ||
                 !TryFinalizeRemoteAdmission(player, resolvedAdmission))
             {
                 Debug.LogWarning($"[SECURITY] Deferred authoritative ticket verification failed for player {player}: {error ?? "ADMISSION_FINALIZATION_FAILED"}. Disconnecting.");
@@ -3159,7 +3497,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                         _matchController != null ? _matchController.RaidGenerationId.ToString() : null,
                         hasAdmission ? admission.ReservationId : null,
                         baselineSequence,
-                        admission.PreparedAbilities);
+                        admission.PreparedAbilities,
+                        admission.DisplayName);
                 }
             });
 
@@ -4440,7 +4779,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     migrationProfileId.Value,
                     migrationParticipant.RaidGenerationId.ToString());
                 bool completedTerminalState =
-                    migrationParticipant.State == RaidParticipantState.Extracted ||
+                    (migrationParticipant.State == RaidParticipantState.Extracted &&
+                     !HostMigrationRetentionPolicy.IsExtractionCommitPending(
+                         migrationParticipant.State,
+                         migrationParticipant.ExtractionExperiencePhase)) ||
                     migrationParticipant.State == RaidParticipantState.Aborted;
                 terminal |= migrationParticipant.IsReturnAuthorized ||
                             completedTerminalState ||
@@ -4452,6 +4794,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 migrationProfileId,
                 player,
                 requeue: !terminal);
+            if (!terminal && _hostMigrationRetainedProfiles.Contains(migrationProfileId))
+            {
+                ReRetainHostMigrationProfile(migrationProfileId);
+            }
+
             if (terminal)
             {
                 _hostMigrationEligibleProfiles.Remove(migrationProfileId);
@@ -5011,10 +5358,6 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         if (TryBindRetainedParticipant(payload.ProfileId, player, participantObject, participant))
         {
-            if (participantObject.TryGetBehaviour(out RaidParticipantConnectivity connectivity))
-            {
-                connectivity.IsDisconnected = false;
-            }
             _disconnectedRegistry.Remove(payload.ProfileId);
             
             UpdateMatchSessionGate();
@@ -5047,6 +5390,28 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             avatar.AssignInputAuthority(player);
             _spawnedAvatars[player] = avatar;
         }
+        else if (participant.State == RaidParticipantState.Extracted &&
+                 participant.TryResolveCurrentAvatar(out NetworkObject extractedAvatar) &&
+                 extractedAvatar != null)
+        {
+            // FIX-51: the pending extraction commit RPC/ACK target the avatar's Input Authority.
+            extractedAvatar.AssignInputAuthority(player);
+            _spawnedAvatars[player] = extractedAvatar;
+            Debug.Log(
+                $"[HM-MULTI] FIX-51 Extracted participant rebound for pending commit. " +
+                $"ProfileId={profileId}, ExtractionPhase={participant.ExtractionExperiencePhase}.",
+                this);
+        }
+
+        if (participantObject.TryGetBehaviour(out RaidParticipantConnectivity connectivity) &&
+            connectivity.IsDisconnected)
+        {
+            connectivity.IsDisconnected = false;
+            Debug.Log(
+                $"[HM-MULTI] FIX-51 rebind cleared IsDisconnected. ProfileId={profileId}, " +
+                $"RemainingBudgetTicks={connectivity.RemainingBudgetTicks}.",
+                this);
+        }
 
         TryBindRecoveredLocalPresentation(profileId, player, participant);
         SignalRosterChanged();
@@ -5056,13 +5421,48 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return true;
     }
 
+    private readonly RaidSessionGateTracker _sessionGateTracker = new();
+
     private void UpdateMatchSessionGate()
     {
-        if (_matchController != null)
+        if (_matchController == null)
         {
-            bool hasRetained = _disconnectedRegistry.HasUnresolvedRetainedParticipant();
-            _matchController.SetSessionReopenState(hasRetained);
+            return;
         }
+
+        bool hasRetained = _disconnectedRegistry.HasUnresolvedRetainedParticipant();
+        RaidSessionGateDecision decision = _matchController.SetSessionReopenState(hasRetained, _sessionGateTracker);
+        _sessionGateTracker.Record(decision);
+        LogSessionGateDecision(hasRetained, decision);
+    }
+
+    /// <summary>
+    /// Re-applies a session gate decision that was deferred because the match controller was not
+    /// ready (authority/phase) when it was made. No-op, and silent, when nothing is pending.
+    /// </summary>
+    internal void ReapplyDeferredSessionGate()
+    {
+        if (_sessionGateTracker.HasPendingDecision)
+        {
+            UpdateMatchSessionGate();
+        }
+    }
+
+    private void LogSessionGateDecision(bool hasRetained, RaidSessionGateDecision decision)
+    {
+        bool isOpen = _runner != null && _runner.SessionInfo != null && _runner.SessionInfo.IsOpen;
+        string signature =
+            $"{hasRetained}|{_matchController.HasStateAuthority}|{_matchController.Phase}|{isOpen}|{_sessionGateTracker.LastRequestedIsOpen}|{decision.Deferral}";
+        if (!_sessionGateTracker.ShouldLog(signature))
+        {
+            return;
+        }
+
+        Debug.Log(
+            $"[HM-MULTI] FIX-51 session gate: hasRetained={hasRetained}, " +
+            $"HasStateAuthority={_matchController.HasStateAuthority}, Phase={_matchController.Phase}, " +
+            $"IsOpen={isOpen}, LastRequested={_sessionGateTracker.LastRequestedIsOpen}, Deferral={decision.Deferral}.",
+            this);
     }
 
     /// <summary>

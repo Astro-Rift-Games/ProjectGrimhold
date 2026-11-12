@@ -91,6 +91,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     public override void Spawned()
     {
         ApplySpawnInitialization();
+        Runner.GetComponent<TownSenderIdentityContext>()?.RegisterAuthorityObject(Object);
         ResolveDirectory();
         _observedSnapshotRevision = SnapshotRevision;
         _directory?.RegisterPreparation(this);
@@ -160,6 +161,7 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
+        runner.GetComponent<TownSenderIdentityContext>()?.UnregisterAuthorityObject(Object);
         _directory?.UnregisterPreparation(this);
         _directory = null;
         ResetLaunchRuntime();
@@ -736,17 +738,11 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
     private bool TryResolveSender(PlayerRef player, out ProfileId profileId)
     {
-        profileId = default;
-        NetworkObject playerObject = Runner != null && !player.IsNone ? Runner.GetPlayerObject(player) : null;
-        if (playerObject == null || !playerObject.TryGetBehaviour(out SocialPlayerIdentity identity) || identity == null ||
-            identity.Object.InputAuthority != player || string.IsNullOrWhiteSpace(identity.ProfileId.ToString()))
-        {
-            return false;
-        }
-
-        profileId = new ProfileId(identity.ProfileId.ToString());
-        return true;
+        ITownSessionTicketVerifier verifier = TicketVerifier ?? ApplicationAuthContext.Instance?.TownTicketVerifier;
+        return TownSenderIdentityValidator.TryResolveVerifiedSender(Runner, player, verifier, out profileId);
     }
+
+    public ITownSessionTicketVerifier TicketVerifier { get; set; }
 
     private bool TryGetLocalProfile(out ProfileId profileId)
     {

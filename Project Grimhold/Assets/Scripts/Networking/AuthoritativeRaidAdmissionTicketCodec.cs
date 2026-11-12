@@ -11,7 +11,6 @@ public static class AuthoritativeRaidAdmissionTicketCodec
     private sealed class TicketPayloadJson
     {
         public string characterId;
-        public string characterName;
         public string raidCode;
         public string reservationId;
         public AuthoritativeRaidAdmissionSnapshotDto snapshot;
@@ -47,9 +46,13 @@ public static class AuthoritativeRaidAdmissionTicketCodec
                 !RaidCode.TryParse(data.raidCode, out var code) ||
                 !RaidAdmissionSnapshotMapper.TryProject(data.snapshot, out var attributes, out var abilities,
                     out var items, out var equipment)) return false;
+            // Optional display data: a missing or non-string claim never rejects the ticket.
+            JToken nameClaim = json["characterName"];
+            string characterName = nameClaim?.Type == JTokenType.String ? (string)nameClaim : string.Empty;
             ticket = new AuthoritativeRaidAdmissionTicket(rawTicket, new ProfileId(data.characterId), code,
                 data.reservationId, data.snapshot.level > 0 ? data.snapshot.level : 1, data.snapshot.experience,
-                attributes, abilities, items, equipment, data.snapshot.lastAppliedProgressionResultSequence, data.expiresAt);
+                attributes, abilities, items, equipment, data.snapshot.lastAppliedProgressionResultSequence, data.expiresAt,
+                characterName);
             return ticket.IsValid;
         }
         catch (FormatException) { return false; }
@@ -75,7 +78,7 @@ public static class AuthoritativeRaidAdmissionTicketCodec
         for (int index = 0; index < itemData.Length; index++)
             itemData[index] = new LootEntryDto { lootId = items[index].LootId.Value, amount = items[index].Amount,
                 modifiers = items[index].Modifiers.HasValue ? WeaponInstanceModifiersData.FromModifiers(items[index].Modifiers.Value) : null };
-        var payload = new TicketPayloadJson { characterId = profileId.Value, characterName = profileId.Value,
+        var payload = new TicketPayloadJson { characterId = profileId.Value,
             raidCode = raidCode.Value, reservationId = reservationId, issuedAt = now, expiresAt = now + ttlSeconds,
             snapshot = new AuthoritativeRaidAdmissionSnapshotDto { level = level, experience = experience,
                 characterAttributes = new CharacterAttributeStateDto { vitality = (short)attributes.Vitality,
