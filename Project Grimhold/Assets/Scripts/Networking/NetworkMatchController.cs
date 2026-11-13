@@ -321,7 +321,9 @@ public sealed class NetworkMatchController : NetworkBehaviour
 
         if (ClosureState == RaidClosureState.AwaitingPersistence)
         {
-            if (spawnManager.HasPendingExtractionCommits && !PersistenceDeadline.Expired(Runner))
+            if (spawnManager.HasPendingExtractionCommits &&
+                PersistenceDeadline.IsRunning &&
+                !PersistenceDeadline.Expired(Runner))
             {
                 return;
             }

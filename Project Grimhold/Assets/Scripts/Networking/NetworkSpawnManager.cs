@@ -3805,9 +3805,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             {
                 character.ForceDefinitiveDefeatFromCollapse();
             }
-            else
+
+            if (participant.State == RaidParticipantState.Raiding)
             {
-                participant.TryMarkDefeated(avatar);
+                participant.TryMarkDefeatedWithoutAvatar();
             }
 
             if (participant.State == RaidParticipantState.Raiding)
@@ -3837,9 +3838,10 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             {
                 character.ForceDefinitiveDefeatFromCollapse();
             }
-            else
+
+            if (participant.State == RaidParticipantState.Raiding)
             {
-                participant.TryMarkDefeated(avatar);
+                participant.TryMarkDefeatedWithoutAvatar();
             }
 
             if (participant.State == RaidParticipantState.Raiding)
@@ -5724,7 +5726,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         if (!defeatApplied)
         {
-            defeatApplied = targetParticipant.TryMarkDefeated(avatarObject);
+            defeatApplied = avatarObject != null
+                ? targetParticipant.TryMarkDefeated(avatarObject)
+                : targetParticipant.TryMarkDefeatedWithoutAvatar();
         }
 
         if (!defeatApplied)

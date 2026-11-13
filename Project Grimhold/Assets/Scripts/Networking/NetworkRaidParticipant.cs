@@ -437,6 +437,29 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     }
 
     /// <summary>
+    /// Completes the defeated result when no avatar is resolvable (e.g. absolute collapse or lost avatar).
+    /// </summary>
+    internal bool TryMarkDefeatedWithoutAvatar()
+    {
+        if (!HasStateAuthority || State != RaidParticipantState.Raiding)
+        {
+            return false;
+        }
+
+        State = RaidParticipantState.Defeated;
+        CurrentAvatarId = default;
+        ResultSequence++;
+        bool isDisconnectedDefeat =
+            TryGetBehaviour(out RaidParticipantConnectivity connectivity) &&
+            (connectivity.IsDisconnected || connectivity.IsAbsenceConfirmed);
+        FinalizationCause = isDisconnectedDefeat
+            ? ExpeditionProgressionFinalizationCause.DefeatWhileDisconnectedConfirmed
+            : ExpeditionProgressionFinalizationCause.DefeatConfirmed;
+        _progressionResolver?.TryFinalize(FinalizationCause);
+        return true;
+    }
+
+    /// <summary>
     /// Records extraction. TASK-80 must subsequently confirm the matching sequence before return is allowed.
     /// </summary>
     internal bool TryMarkExtracted(NetworkObject avatar)
