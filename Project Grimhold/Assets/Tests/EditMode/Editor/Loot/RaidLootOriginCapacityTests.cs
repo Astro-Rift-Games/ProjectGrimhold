@@ -22,7 +22,7 @@ namespace Tests.EditMode.Loot
                     $"catalog index {catalogIndex}");
             }
 
-            Assert.That(state.BucketCount, Is.EqualTo(510));
+            Assert.That(state.BucketCount, Is.EqualTo(RaidLootOriginPackedBuffer.MaximumStacks * RaidLootOriginPackedBuffer.OriginsPerLoot));
             Assert.That(RaidLootOriginIndexedStateUtility.TryValidateState(state), Is.True);
             for (int catalogIndex = 0; catalogIndex < RaidLootOriginPackedBuffer.MaximumStacks; catalogIndex++)
             {

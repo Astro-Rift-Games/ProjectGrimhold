@@ -12,9 +12,11 @@ namespace Tests.EditMode.Loot
         // Report the actual newly woven layout; retain the approved upper bound, not a guessed total.
         // TASK-283 S18: container, enemy and pickup ceilings are the measured sizes with weapon instance
         // modifiers (receiver array, hand words, 34 container weapon units, pickup word).
-        [TestCase("Assets/Prefabs/NetworkPlayer.prefab", 1289, null, 1884)]
-        [TestCase("Assets/Prefabs/LootContainer.prefab", 820, 1230, 1230)]
-        [TestCase("Assets/Prefabs/Enemies/NetworkEnemy.prefab", 844, 1291, 1291)]
+        // FIX-39: Container and player origin buffers expand from 30 to 38 stacks to accommodate
+        // full corpse loot capacity (30 inventory + 8 equipped), adding 183 words to ContainerRaidLootOriginState.
+        [TestCase("Assets/Prefabs/NetworkPlayer.prefab", 1289, null, 2048)]
+        [TestCase("Assets/Prefabs/LootContainer.prefab", 820, 1413, 1413)]
+        [TestCase("Assets/Prefabs/Enemies/NetworkEnemy.prefab", 844, 1474, 1474)]
         [TestCase("Assets/Prefabs/LootPickup.prefab", 6, 24, 192)]
         public void ProductivePrefab_UsesMeasuredCompactBudget(
             string prefabPath,

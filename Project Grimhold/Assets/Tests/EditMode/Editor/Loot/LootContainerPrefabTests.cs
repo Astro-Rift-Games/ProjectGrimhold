@@ -291,7 +291,7 @@ namespace Tests.EditMode.Loot
             Assert.That(interactable.gameObject, Is.SameAs(networkObject.gameObject));
 
             Assert.That(container.StartsAvailable, Is.False);
-            Assert.That(container.SlotCapacity, Is.EqualTo(LocalProfileSnapshot.MaxLoadoutSlots));
+            Assert.That(container.SlotCapacity, Is.EqualTo(NetworkLootContainer.MaxDistinctLootTypes));
             Assert.That(container.SupportsFullPlayerInventory, Is.True);
             var serializedContainer = new SerializedObject(container);
             Assert.That(serializedContainer.FindProperty("_initialContent").arraySize, Is.Zero);

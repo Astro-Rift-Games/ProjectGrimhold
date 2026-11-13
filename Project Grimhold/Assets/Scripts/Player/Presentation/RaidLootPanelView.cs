@@ -149,8 +149,8 @@ public sealed class RaidLootPanelView : MonoBehaviour
     }
 
     /// <summary>
-    /// Shows the first <paramref name="slotCount"/> authored slots and hides the rest. The pool is
-    /// authored in the prefab, so a request larger than the pool fails instead of creating a slot.
+    /// Shows the first <paramref name="slotCount"/> authored slots and hides the rest. If a request
+    /// exceeds the authored pool, additional slots are dynamically instantiated to preserve presentation.
     /// </summary>
     public bool EnsureSlotCount(int slotCount)
     {
@@ -161,15 +161,34 @@ public sealed class RaidLootPanelView : MonoBehaviour
 
         if (slotCount > _authoredSlots.Length)
         {
-            if (!_hasReportedSlotShortage)
+            if (_slotContainer != null && _authoredSlots.Length > 0 && _authoredSlots[0] != null)
             {
-                _hasReportedSlotShortage = true;
-                Debug.LogError(
-                    $"{name} needs {slotCount} slots but only {_authoredSlots.Length} are authored in the prefab.",
-                    this);
+                int currentCount = _authoredSlots.Length;
+                int needed = slotCount - currentCount;
+                var expanded = new List<RaidInventorySlotView>(_authoredSlots);
+                RaidInventorySlotView template = _authoredSlots[0];
+                for (int i = 0; i < needed; i++)
+                {
+                    RaidInventorySlotView newSlot = Instantiate(template, _slotContainer);
+                    newSlot.name = $"Slot{currentCount + i:D2}";
+                    SubscribeSlot(newSlot);
+                    newSlot.Clear();
+                    expanded.Add(newSlot);
+                }
+                _authoredSlots = expanded.ToArray();
             }
+            else
+            {
+                if (!_hasReportedSlotShortage)
+                {
+                    _hasReportedSlotShortage = true;
+                    Debug.LogError(
+                        $"{name} needs {slotCount} slots but only {_authoredSlots.Length} are authored in the prefab.",
+                        this);
+                }
 
-            return false;
+                return false;
+            }
         }
 
         _slots.Clear();
@@ -216,23 +235,27 @@ public sealed class RaidLootPanelView : MonoBehaviour
 
         for (int index = 0; index < _authoredSlots.Length; index++)
         {
-            _authoredSlots[index].SelectionRequested += OnSlotSelectionRequested;
-            _authoredSlots[index].ContextRequested += OnSlotContextRequested;
-            _authoredSlots[index].InventorySelectionRequested += OnInventorySelectionRequested;
-            _authoredSlots[index].InventoryContextRequested += OnInventoryContextRequested;
-            _authoredSlots[index].TooltipRequested += OnSlotTooltipRequested;
-            _authoredSlots[index].TooltipDismissRequested += OnSlotTooltipDismissRequested;
-            
-            _authoredSlots[index].DragStarted += OnSlotDragStarted;
-            _authoredSlots[index].DragUpdated += OnSlotDragUpdated;
-            _authoredSlots[index].DragEnded += OnSlotDragEnded;
-            _authoredSlots[index].DropReceived += OnSlotDropReceived;
-
+            SubscribeSlot(_authoredSlots[index]);
             _authoredSlots[index].Clear();
         }
 
         _hasBoundAuthoredSlots = true;
         return true;
+    }
+
+    private void SubscribeSlot(RaidInventorySlotView slot)
+    {
+        slot.SelectionRequested += OnSlotSelectionRequested;
+        slot.ContextRequested += OnSlotContextRequested;
+        slot.InventorySelectionRequested += OnInventorySelectionRequested;
+        slot.InventoryContextRequested += OnInventoryContextRequested;
+        slot.TooltipRequested += OnSlotTooltipRequested;
+        slot.TooltipDismissRequested += OnSlotTooltipDismissRequested;
+        
+        slot.DragStarted += OnSlotDragStarted;
+        slot.DragUpdated += OnSlotDragUpdated;
+        slot.DragEnded += OnSlotDragEnded;
+        slot.DropReceived += OnSlotDropReceived;
     }
 
     public bool Present(

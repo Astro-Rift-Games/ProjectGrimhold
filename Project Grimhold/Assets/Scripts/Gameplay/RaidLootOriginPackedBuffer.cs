@@ -6,7 +6,11 @@ public static class RaidLootOriginPackedBuffer
     public const int MaximumCatalogEntries = 128;
     public const int MaximumPlayerOrigins = RaidSessionRules.MaxParticipants;
     public const int OriginsPerLoot = MaximumPlayerOrigins + 1;
-    public const int MaximumStacks = 30;
+    /// <summary>
+    /// Maximum distinct loot stacks tracked in a container origin buffer.
+    /// Accommodates player corpse loot capacity (30 backpack slots + 8 equipped items).
+    /// </summary>
+    public const int MaximumStacks = LootInventoryRules.PhysicalSlotCount + 8;
     public const int MaximumBuckets = MaximumStacks * OriginsPerLoot;
     public const int KeyBits = 12;
     public const int AmountBits = 31;
