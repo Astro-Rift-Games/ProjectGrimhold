@@ -173,121 +173,133 @@ class ExtractionCommitService {
       };
     }
 
-    // ------------------------------------------------------------------
-    // 4. Compute new states in memory
-    // ------------------------------------------------------------------
-    
-    // Progression
-    const computed = computeLevelAndExperience(
-      character.level,
-      character.experience,
-      authResult.experienceGranted
-    );
-    const pointsGranted = computeAttributePointsGranted(character.level, computed.resultingLevel);
-    const newAvailablePoints = (character.characterAttributes?.availablePoints || 0) + pointsGranted;
+    // From here on the result is claimed: any failure before the character
+    // write is confirmed must release the claim so the client can retry (FIX-20).
+    // The extraction receipt filter still prevents applying the result twice.
+    try {
+      // ------------------------------------------------------------------
+      // 4. Compute new states in memory
+      // ------------------------------------------------------------------
 
-    const progressionReceipt = {
-      raidId,
-      resultSequence,
-      consolidatedExperience: authResult.experienceGranted,
-      resultingLevel: computed.resultingLevel,
-    };
+      // Progression
+      const computed = computeLevelAndExperience(
+        character.level,
+        character.experience,
+        authResult.experienceGranted
+      );
+      const pointsGranted = computeAttributePointsGranted(character.level, computed.resultingLevel);
+      const newAvailablePoints = (character.characterAttributes?.availablePoints || 0) + pointsGranted;
+
+      const progressionReceipt = {
+        raidId,
+        resultSequence,
+        consolidatedExperience: authResult.experienceGranted,
+        resultingLevel: computed.resultingLevel,
+      };
 
 
-    // ------------------------------------------------------------------
-    // 5. Atomic Database Update on Character
-    // ------------------------------------------------------------------
-    
-    const updateDoc = {
-      $unset: { 'inventory.pendingReservation': 1 },
-      $set: { 
-        'inventory.preparedEquipment': newPreparedEquipment,
-        'inventory.loadout': trainingReturn.loadout,
-        ...(trainingReturn.changed ? { 'inventory.stash': trainingReturn.stash } : {}),
-        level: computed.resultingLevel,
-        experience: computed.resultingExperience,
-        'characterAttributes.availablePoints': newAvailablePoints,
-        lastAppliedProgressionResultSequence: resultSequence,
-        lastProgressionReceipt: progressionReceipt
-      },
-      $inc: { revision: 1 },
-      $push: {
-        'inventory.appliedExtractionReceipts': {
-          $each: [{
-            raidId,
-            resultSequence,
-            resultId: authResult.resultId || `${raidId}:${resultSequence}`,
-            timestamp: new Date()
-          }]
+      // ------------------------------------------------------------------
+      // 5. Atomic Database Update on Character
+      // ------------------------------------------------------------------
+
+      const updateDoc = {
+        $unset: { 'inventory.pendingReservation': 1 },
+        $set: {
+          'inventory.preparedEquipment': newPreparedEquipment,
+          'inventory.loadout': trainingReturn.loadout,
+          ...(trainingReturn.changed ? { 'inventory.stash': trainingReturn.stash } : {}),
+          level: computed.resultingLevel,
+          experience: computed.resultingExperience,
+          'characterAttributes.availablePoints': newAvailablePoints,
+          lastAppliedProgressionResultSequence: resultSequence,
+          lastProgressionReceipt: progressionReceipt
         },
-        'appliedProgressionReceipts': {
-          $each: [progressionReceipt],
-          $slice: -MAX_PROGRESSION_RECEIPTS
+        $inc: { revision: 1 },
+        $push: {
+          'inventory.appliedExtractionReceipts': {
+            $each: [{
+              raidId,
+              resultSequence,
+              resultId: authResult.resultId || `${raidId}:${resultSequence}`,
+              timestamp: new Date()
+            }]
+          },
+          'appliedProgressionReceipts': {
+            $each: [progressionReceipt],
+            $slice: -MAX_PROGRESSION_RECEIPTS
+          }
         }
-      }
-    };
+      };
 
-    const updatedCharacter = await Character.findOneAndUpdate(
-      {
-        accountId: accountId,
-        revision: character.revision,
-        'inventory.appliedExtractionReceipts': { 
-          $not: { $elemMatch: { raidId: raidId } }
+      const updatedCharacter = await Character.findOneAndUpdate(
+        {
+          accountId: accountId,
+          revision: character.revision,
+          'inventory.appliedExtractionReceipts': {
+            $not: { $elemMatch: { raidId: raidId } }
+          }
+        },
+        updateDoc,
+        { new: true }
+      );
+
+      if (!updatedCharacter) {
+        // Re-fetch to return the newly secured state; conflicts throw and the catch releases the claim
+        let refreshedChar = await Character.findOne({ accountId });
+        if (!refreshedChar) {
+          throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'Character not found after commit.' };
         }
-      },
-      updateDoc,
-      { new: true }
-    );
 
-    if (!updatedCharacter) {
-      // Re-fetch to return the newly secured state or release claim on conflict
-      let refreshedChar = await Character.findOne({ accountId });
-      if (!refreshedChar) {
-        await AuthoritativeExtractionResult.findOneAndUpdate(
-          authQuery,
-          { $set: { consumed: false, consumedAt: null } }
+        const lootAlreadyAppliedNow = (refreshedChar.inventory.appliedExtractionReceipts || []).some(
+          r => r.raidId === raidId && r.resultSequence === resultSequence
         );
-        throw { statusCode: 404, errorCode: 'CHARACTER_NOT_FOUND', message: 'Character not found after commit.' };
+
+        if (lootAlreadyAppliedNow) {
+          return {
+            alreadySecured:      true,
+            loadout:             serializeItems(refreshedChar.inventory.loadout),
+            level:               refreshedChar.level,
+            experience:          refreshedChar.experience,
+            characterAttributes: serializeAttributes(refreshedChar.characterAttributes),
+            revision:            refreshedChar.revision || 0
+          };
+        }
+
+        // Revision conflict: the catch releases the claim so the client can retry cleanly
+        throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during extraction commit.' };
       }
 
-      const lootAlreadyAppliedNow = (refreshedChar.inventory.appliedExtractionReceipts || []).some(
-        r => r.raidId === raidId && r.resultSequence === resultSequence
-      );
-
-      if (lootAlreadyAppliedNow) {
-        return {
-          alreadySecured:      true,
-          loadout:             serializeItems(refreshedChar.inventory.loadout),
-          level:               refreshedChar.level,
-          experience:          refreshedChar.experience,
-          characterAttributes: serializeAttributes(refreshedChar.characterAttributes),
-          revision:            refreshedChar.revision || 0
-        };
-      }
-
-      // Roll back lock on revision conflict so client can retry cleanly
-      await AuthoritativeExtractionResult.findOneAndUpdate(
-        authQuery,
-        { $set: { consumed: false, consumedAt: null } }
-      );
-
-      throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during extraction commit.' };
+      return {
+        alreadySecured:      false,
+        loadout:             serializeItems(updatedCharacter.inventory.loadout),
+        level:               updatedCharacter.level,
+        experience:          updatedCharacter.experience,
+        characterAttributes: serializeAttributes(updatedCharacter.characterAttributes),
+        revision:            updatedCharacter.revision
+      };
+    } catch (error) {
+      await releaseClaim(authQuery);
+      throw error;
     }
-
-    return {
-      alreadySecured:      false,
-      loadout:             serializeItems(updatedCharacter.inventory.loadout),
-      level:               updatedCharacter.level,
-      experience:          updatedCharacter.experience,
-      characterAttributes: serializeAttributes(updatedCharacter.characterAttributes),
-      revision:            updatedCharacter.revision
-    };
   }
 }
 
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+// Makes a claimed result consumable again. A release failure must not hide the
+// error that caused it, so it is logged and the original error is rethrown.
+async function releaseClaim(authQuery) {
+  try {
+    await AuthoritativeExtractionResult.findOneAndUpdate(
+      authQuery,
+      { $set: { consumed: false, consumedAt: null } }
+    );
+  } catch (releaseError) {
+    console.error('[ExtractionCommit] Failed to release the authoritative result claim:', releaseError);
+  }
+}
 
 function serializeAttributes(attrs) {
   if (!attrs) {
