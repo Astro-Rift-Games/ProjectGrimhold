@@ -27,6 +27,8 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     }
 
     [SerializeField, Min(1f)]
+    [Tooltip("Budget of one coordinated release stage (and of the ACK phase). The staged Host-first release " +
+             "re-arms it per stage, so the whole release is bounded by the stage count times this value.")]
     private float _coordinatedReleaseTimeoutSeconds = 15f;
 
     [SerializeField, Min(MinLocalLaunchRetryIntervalSeconds)]
@@ -84,6 +86,10 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     private bool _cancelLaunchRequested;
     private bool _releaseDispatched;
     private bool _terminalAuthorityReleaseRequested;
+    private bool _resumingRelease;
+    private int _releaseStageIndex;
+    private IReadOnlyList<ProfileId> _releaseOrder;
+    private ProfileId _releaseRaidHostProfileId;
     private ProfileId _terminalTownAuthorityProfileId;
     private float _releaseDeadline;
     private float _acknowledgeDeadline;
@@ -425,14 +431,18 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
             return;
         }
 
-        if (!_expectedDepartures.Contains(profileId) || !_releasedProfiles.Contains(profileId))
+        // A member that leaves before the authority released it (staged release) is premature.
+        if (!TownRaidPreparationRules.IsExpectedReleaseDeparture(_expectedDepartures, _releasedProfiles, profileId))
         {
             _cancelLaunchRequested = true;
             return;
         }
 
         _departedProfiles.Add(profileId);
-        TryReleaseTerminalTownAuthority();
+        Debug.Log($"[{nameof(TownRaidPreparationNetworkController)}] Release revision {LaunchRevision}: " +
+                  $"observed {profileId.Value} leaving Town ({_departedProfiles.Count}/{_expectedDepartures.Count}).",
+            this);
+        AdvanceStagedRelease();
     }
 
     [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
@@ -672,51 +682,126 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         _releasedProfiles.Clear();
         _departedProfiles.Clear();
         _terminalTownAuthorityProfileId = townStateAuthorityProfileId;
+        _releaseOrder = initialDepartures;
+        _releaseRaidHostProfileId = snapshot.HostProfileId;
+        _releaseStageIndex = 0;
         _releaseDispatched = true;
-        bool resumingRelease = ReleaseRevision == snapshot.LaunchRevision;
+        _resumingRelease = ReleaseRevision == snapshot.LaunchRevision;
         ReleaseRevision = snapshot.LaunchRevision;
-        _releaseDeadline = Time.time + Mathf.Max(1f, _coordinatedReleaseTimeoutSeconds);
+        _releaseDeadline = Time.time + ReleaseStageBudgetSeconds;
         _acknowledgeDeadline = 0f;
 
-        var releaseTargets = new List<KeyValuePair<ProfileId, PlayerRef>>(initialDepartures.Count);
         for (int index = 0; index < initialDepartures.Count; index++)
         {
             ProfileId profileId = initialDepartures[index];
+            _expectedDepartures.Add(profileId);
+            if (!_resumingRelease && (_directory == null || !_directory.TryResolvePlayer(profileId, out _)))
+            {
+                _cancelLaunchRequested = true;
+                return;
+            }
+        }
 
+        AdvanceStagedRelease();
+    }
+
+    private float ReleaseStageBudgetSeconds => Mathf.Max(1f, _coordinatedReleaseTimeoutSeconds);
+
+    /// <summary>
+    /// Thin glue over <see cref="TownRaidPreparationRules.SelectReleaseBatch"/>: dispatches every stage
+    /// that is due (the Raid Host alone, then the other members once the Host's departure was observed)
+    /// and finally the Town authority's own terminal release.
+    /// </summary>
+    private void AdvanceStagedRelease()
+    {
+        if (!_releaseDispatched || _terminalAuthorityReleaseRequested)
+        {
+            return;
+        }
+
+        while (true)
+        {
+            IReadOnlyList<ProfileId> batch = TownRaidPreparationRules.SelectReleaseBatch(
+                _releaseRaidHostProfileId, _releaseOrder, _releasedProfiles, _departedProfiles);
+            if (batch.Count == 0 || !TryDispatchReleaseBatch(batch))
+            {
+                break;
+            }
+        }
+
+        TryReleaseTerminalTownAuthority();
+    }
+
+    private bool TryDispatchReleaseBatch(IReadOnlyList<ProfileId> batch)
+    {
+        var targets = new List<KeyValuePair<ProfileId, PlayerRef>>(batch.Count);
+        for (int index = 0; index < batch.Count; index++)
+        {
+            ProfileId profileId = batch[index];
             if (_directory == null || !_directory.TryResolvePlayer(profileId, out PlayerRef player))
             {
-                if (resumingRelease)
+                if (_resumingRelease)
                 {
-                    _expectedDepartures.Add(profileId);
+                    // A new authority resuming the release finds this profile already gone from Town.
                     _releasedProfiles.Add(profileId);
                     _departedProfiles.Add(profileId);
                     continue;
                 }
 
                 _cancelLaunchRequested = true;
-                return;
+                return false;
             }
 
-            _expectedDepartures.Add(profileId);
-            _releasedProfiles.Add(profileId);
-            releaseTargets.Add(new KeyValuePair<ProfileId, PlayerRef>(profileId, player));
+            targets.Add(new KeyValuePair<ProfileId, PlayerRef>(profileId, player));
         }
 
-        for (int index = 0; index < releaseTargets.Count; index++)
+        if (targets.Count > 0)
         {
-            RPC_ReleaseLaunch(
-                releaseTargets[index].Value,
-                snapshot.RaidCode.Value,
-                snapshot.LaunchRevision);
+            _releaseStageIndex++;
+            _releaseDeadline = Time.time + ReleaseStageBudgetSeconds;
+            Debug.Log($"[{nameof(TownRaidPreparationNetworkController)}] Release revision {LaunchRevision} " +
+                      $"stage {_releaseStageIndex} ({DescribeReleaseStage(targets)}): releasing " +
+                      $"{FormatReleaseTargets(targets)} (stage budget {ReleaseStageBudgetSeconds:0.#}s).", this);
         }
 
-        TryReleaseTerminalTownAuthority();
+        for (int index = 0; index < targets.Count; index++)
+        {
+            _releasedProfiles.Add(targets[index].Key);
+            RPC_ReleaseLaunch(targets[index].Value, RaidCode.Value, LaunchRevision);
+        }
+
+        return true;
+    }
+
+    private string DescribeReleaseStage(List<KeyValuePair<ProfileId, PlayerRef>> targets)
+    {
+        for (int index = 0; index < targets.Count; index++)
+        {
+            if (targets[index].Key == _releaseRaidHostProfileId)
+            {
+                return "Raid Host";
+            }
+        }
+
+        return "members";
+    }
+
+    private static string FormatReleaseTargets(List<KeyValuePair<ProfileId, PlayerRef>> targets)
+    {
+        var names = new string[targets.Count];
+        for (int index = 0; index < targets.Count; index++)
+        {
+            names[index] = targets[index].Key.Value;
+        }
+
+        return string.Join(", ", names);
     }
 
     private void TryReleaseTerminalTownAuthority()
     {
         if (!_releaseDispatched || _terminalAuthorityReleaseRequested ||
-            _departedProfiles.Count < _expectedDepartures.Count)
+            !TownRaidPreparationRules.CanReleaseTerminalAuthority(
+                _expectedDepartures, _releasedProfiles, _departedProfiles))
         {
             return;
         }
@@ -730,6 +815,10 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
         _terminalAuthorityReleaseRequested = true;
         _releaseDeadline = 0f;
+        _releaseStageIndex++;
+        Debug.Log($"[{nameof(TownRaidPreparationNetworkController)}] Release revision {LaunchRevision} " +
+                  $"stage {_releaseStageIndex} (Town authority, last): releasing " +
+                  $"{_terminalTownAuthorityProfileId.Value}.", this);
         RPC_ReleaseLaunch(terminalPlayer, RaidCode.Value, LaunchRevision);
     }
 
@@ -890,6 +979,10 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
         _cancelLaunchRequested = false;
         _releaseDispatched = false;
         _terminalAuthorityReleaseRequested = false;
+        _resumingRelease = false;
+        _releaseStageIndex = 0;
+        _releaseOrder = null;
+        _releaseRaidHostProfileId = default;
         _terminalTownAuthorityProfileId = default;
         _releaseDeadline = 0f;
         _acknowledgeDeadline = 0f;

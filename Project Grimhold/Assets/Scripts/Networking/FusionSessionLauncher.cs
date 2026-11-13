@@ -8,7 +8,7 @@ using UnityEngine.SceneManagement;
 
 public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 {
-    private const float LocalAdmissionTimeoutSeconds = 30f;
+    private const float LocalAdmissionTimeoutSeconds = RaidAdmissionWindows.ClientAdmissionSeconds;
     [Header("Session")]
     [SerializeField]
     private string _sessionName;

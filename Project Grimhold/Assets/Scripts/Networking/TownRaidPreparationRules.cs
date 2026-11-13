@@ -460,6 +460,103 @@ public static class TownRaidPreparationRules
     }
 
     /// <summary>
+    /// Selects the profiles the Town authority releases now from the initial release order
+    /// (<see cref="TryCreateReleaseOrder"/>). When the Raid Host is itself an initial departure
+    /// (the Town authority is a different profile) it is released alone first so its Raid session can
+    /// exist before any non-authority member leaves Town; the remaining members are released only
+    /// once the Host's departure was observed. When the Host is the Town authority every initial
+    /// departure is a Client and all are released together. The Town authority is never part of the
+    /// order: it leaves last through <see cref="CanReleaseTerminalAuthority"/>.
+    /// </summary>
+    public static IReadOnlyList<ProfileId> SelectReleaseBatch(
+        ProfileId raidHost,
+        IReadOnlyList<ProfileId> releaseOrder,
+        ISet<ProfileId> released,
+        ISet<ProfileId> departed)
+    {
+        if (releaseOrder == null || releaseOrder.Count == 0 || released == null || departed == null)
+        {
+            return System.Array.Empty<ProfileId>();
+        }
+
+        if (ContainsProfile(releaseOrder, raidHost))
+        {
+            if (!released.Contains(raidHost))
+            {
+                return new[] { raidHost };
+            }
+
+            if (!departed.Contains(raidHost))
+            {
+                return System.Array.Empty<ProfileId>();
+            }
+        }
+
+        var batch = new List<ProfileId>(releaseOrder.Count);
+        for (int index = 0; index < releaseOrder.Count; index++)
+        {
+            if (!released.Contains(releaseOrder[index]))
+            {
+                batch.Add(releaseOrder[index]);
+            }
+        }
+
+        return batch;
+    }
+
+    /// <summary>
+    /// Whether a departure observed during a staged release is one the authority dispatched. A member
+    /// that leaves before its release (or was never part of it) is a premature departure and cancels
+    /// the launch; a released member leaving is the expected progress.
+    /// </summary>
+    public static bool IsExpectedReleaseDeparture(
+        ISet<ProfileId> expected,
+        ISet<ProfileId> released,
+        ProfileId profileId)
+    {
+        return expected != null && released != null &&
+               expected.Contains(profileId) && released.Contains(profileId);
+    }
+
+    /// <summary>
+    /// Whether the Town authority may take its own terminal departure: every expected departure was
+    /// released and has been observed leaving Town. Vacuously true when no other member participates.
+    /// </summary>
+    public static bool CanReleaseTerminalAuthority(
+        ISet<ProfileId> expected,
+        ISet<ProfileId> released,
+        ISet<ProfileId> departed)
+    {
+        if (expected == null || released == null || departed == null)
+        {
+            return false;
+        }
+
+        foreach (ProfileId profileId in expected)
+        {
+            if (!released.Contains(profileId) || !departed.Contains(profileId))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool ContainsProfile(IReadOnlyList<ProfileId> profiles, ProfileId profileId)
+    {
+        for (int index = 0; index < profiles.Count; index++)
+        {
+            if (profiles[index] == profileId)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Records an acknowledgement only for the matching frozen profile and revision.
     /// Duplicate acknowledgements are idempotent.
     /// </summary>

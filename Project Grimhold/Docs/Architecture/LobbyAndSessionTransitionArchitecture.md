@@ -178,11 +178,35 @@ reservation rollback of a cancelled revision fails, Town stays usable through th
 Release order is based on Town network ownership, not social ownership. The profile holding State
 Authority for the `TownRaidPreparation` Master Client object is the terminal Town departure, so the
 frozen preparation remains authoritative while every other participant replaces its runner. When
-the Raid Host is a different profile, it is released first to create the Host/Client session; the
-remaining non-authority participants follow and the Town authority leaves last. When both roles
-coincide, Clients leave first and that same profile creates the Raid after their departures. Party
-Host never participates in this decision, and `SessionConnectionCoordinator` remains the only owner
-of each local runner replacement.
+the Raid Host is a different profile, it is released **alone** first to create the Host/Client session;
+the remaining non-authority participants are released only after the authority observes the Raid Host
+leave Town, and the Town authority leaves last. When both roles coincide, Clients leave first and that
+same profile creates the Raid after their departures. Party Host never participates in this decision,
+and `SessionConnectionCoordinator` remains the only owner of each local runner replacement. The
+sequencing rules and per-stage logs are described in [Town Raid Queue](TownRaidQueueArchitecture.md).
+
+### Raid admission windows
+
+`RaidAdmissionWindows` is the single source of the launch time budgets:
+
+| Budget | Value | Owner |
+| --- | --- | --- |
+| Client session availability (`GameNotFound`/`GameClosed` retries, from the Client's own launch) | 40 s | `SessionConnectionCoordinator._clientSessionAvailabilityTimeoutSeconds` (serialized, default from `RaidAdmissionWindows`) |
+| Client admission wait after connecting | 30 s | `FusionSessionLauncher` |
+| Host margin | 5 s | `RaidAdmissionWindows` |
+| Host admission window (expected cohort admitted) | 75 s = 40 + 30 + 5 | `NetworkMatchController` |
+| Initial Fusion scene wait of a created runner | 30 s (precedes the Host window) | `LauncherShutdownListener` |
+| Release stage (Host stage, members stage) | 15 s each | `TownRaidPreparationNetworkController._coordinatedReleaseTimeoutSeconds` (serialized) |
+
+A Client of a Party launch is released after the Raid Host left Town (or, when the Raid Host is the Town
+authority, before it leaves), retries availability for at most 40 s and, once connected, waits at most
+30 s for admission. Nothing forces the Client to start joining before the Host session opens: the bound
+assumes the Host opens its session within the Client's availability budget, and the 5 s margin absorbs
+the release-to-open latency. The Host window is armed by `ConfigurePreloadedRaidAdmission` once its session bootstrap
+runs (after the scene wait, hence never earlier than the session opening) and must cover that whole path
+plus the margin, so a member that completes the connection inside its own budget is never rejected by a
+`BootstrapFailure` caused by misalignment. `RaidAdmissionWindowsTests` pins
+`HostAdmissionSeconds >= ClientSessionAvailabilitySeconds + ClientAdmissionSeconds + HostAdmissionMarginSeconds`.
 
 ### Raid runner lifecycle
 

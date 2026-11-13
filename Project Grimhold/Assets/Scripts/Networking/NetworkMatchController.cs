@@ -12,7 +12,7 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class NetworkMatchController : NetworkBehaviour
 {
-    private const float ExpectedAdmissionTimeoutSeconds = 30f;
+    private const float ExpectedAdmissionTimeoutSeconds = RaidAdmissionWindows.HostAdmissionSeconds;
     public enum MatchPhase
     {
         WaitingForPlayers,

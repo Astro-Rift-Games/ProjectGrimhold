@@ -38,7 +38,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private float _clientJoinRetryDelaySeconds = 0.5f;
 
     [SerializeField, Min(1f)]
-    private float _clientSessionAvailabilityTimeoutSeconds = 40f;
+    private float _clientSessionAvailabilityTimeoutSeconds = RaidAdmissionWindows.ClientSessionAvailabilitySeconds;
 
     [Header("Direct Development Context")]
     [SerializeField]
