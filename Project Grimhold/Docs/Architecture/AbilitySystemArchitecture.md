@@ -137,6 +137,8 @@ Only the two prepared identities cross admission. The complete unlocked repertoi
 
 The implemented admission path represents both optional slots and preserves slot order. Unknown identities, duplicate occupied slots, malformed values, or unmet admitted attribute requirements fail admission; they are not defaulted, substituted, or silently removed. `NetworkRaidParticipant.TryGetPreparedAbilityLoadout` exposes the admitted pair only after its replicated initialization marker is available.
 
+The backend also validates the prepared pair against its ability catalog and the character's `unlockedAbilities` when it saves the Raid reservation and again when it issues the Raid admission ticket. An identity outside the catalog fails with `422 UNKNOWN_ABILITY`, an unowned catalog identity with `422 ABILITY_NOT_UNLOCKED`, and a malformed pair or the same identity in both slots with `400 INVALID_PREPARED_ABILITIES`; a rejected reservation does not modify the character. Unlocks reach the backend only through the vendor purchase endpoint, so locally granted unlocks are not accepted for admission until they are persisted there.
+
 The Raid Host never queries another player's `LocalProfileStore`. It accepts only the validated admission snapshot for the frozen cohort.
 
 ## Raid ownership and authority

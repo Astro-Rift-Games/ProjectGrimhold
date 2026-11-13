@@ -37,9 +37,10 @@ describe('SessionTicketService (US-59 / SEC-59.1)', () => {
         luck: 7,
         availablePoints: 2
       },
+      unlockedAbilities: ['charge', 'seismic_strike'],
       preparedAbilities: {
-        slot1: 'ability_whirlwind',
-        slot2: 'ability_dash'
+        slot1: 'charge',
+        slot2: 'seismic_strike'
       },
       inventory: {
         currency: 500,
@@ -173,7 +174,8 @@ describe('SessionTicketService (US-59 / SEC-59.1)', () => {
       assert.equal(result.snapshot.characterAttributes.vitality, 15);
       assert.equal(result.snapshot.items.length, 3);
       assert.equal(result.snapshot.preparedEquipment.weaponSlot1, 'sword_iron');
-      assert.equal(result.snapshot.preparedAbilities.slot1, 'ability_whirlwind');
+      assert.equal(result.snapshot.preparedAbilities.slot1, 'charge');
+      assert.equal(result.snapshot.preparedAbilities.slot2, 'seismic_strike');
 
       raidTicket = result.ticket;
     });

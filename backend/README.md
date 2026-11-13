@@ -204,6 +204,12 @@ El nuevo `POST /me/inventory/slots/move` usa el mismo gate. Split se añade por 
 | DELETE `/me/inventory/reservation?rollback=true` | Sin body |
 | POST `/me/extraction/commit` | `{"raidId":"raid-1","resultSequence":1}` |
 
+`preparedAbilities` (opcional, slots vacíos permitidos) se valida contra el catálogo del backend
+(`src/config/abilityCatalog.js`) y `unlockedAbilities` del personaje, tanto al guardar la reserva como al emitir el
+ticket de admisión Raid, sin modificar el personaje si se rechaza: `422 UNKNOWN_ABILITY` (fuera del catálogo),
+`422 ABILITY_NOT_UNLOCKED` (en catálogo, no desbloqueada), `400 INVALID_PREPARED_ABILITIES` (forma inválida,
+id de más de 64 caracteres o la misma habilidad en ambos slots). Los ids se normalizan a minúsculas sin espacios.
+
 `list`/`fromList`/`toList`: `stash` o `loadout`. Slots son números enteros no negativos
 (no strings, null ni fracciones). `sourceSlot` es obligatorio sólo para moves/sell v2;
 v1 con ese campo o `slotOrder` devuelve `409 INVENTORY_MIGRATION_REQUIRED`.

@@ -5,6 +5,7 @@ const env = require('../config/env');
 const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
 const { normalizeItems } = require('./InventoryLootIdNormalizer');
 const { inventoryVersion, requireMigratedInventory, serializeItems, copyEntry } = require('./InventoryEntries');
+const { validatePreparedAbilities } = require('./PreparedAbilityValidation');
 
 const TOWN_TICKET_TTL_SECONDS = 1800; // 30 minutes
 const RAID_TICKET_TTL_SECONDS = 600;  // 10 minutes
@@ -173,9 +174,13 @@ class SessionTicketService {
       vitality: 5, resistance: 5, strength: 5, dexterity: 5, intelligence: 5, luck: 5, availablePoints: 10
     };
 
-    const preparedAbilities = (reservation.preparedAbilities && (reservation.preparedAbilities.slot1 || reservation.preparedAbilities.slot2))
-      ? { slot1: reservation.preparedAbilities.slot1 || '', slot2: reservation.preparedAbilities.slot2 || '' }
-      : (character.preparedAbilities ? { slot1: character.preparedAbilities.slot1 || '', slot2: character.preparedAbilities.slot2 || '' } : { slot1: '', slot2: '' });
+    // Defense in depth for reservations persisted before FIX-32: never sign unknown or unowned abilities.
+    const preparedAbilities = validatePreparedAbilities(
+      (reservation.preparedAbilities && (reservation.preparedAbilities.slot1 || reservation.preparedAbilities.slot2))
+        ? { slot1: reservation.preparedAbilities.slot1 || '', slot2: reservation.preparedAbilities.slot2 || '' }
+        : { slot1: character.preparedAbilities?.slot1 || '', slot2: character.preparedAbilities?.slot2 || '' },
+      character.unlockedAbilities
+    );
 
     const snapshot = {
       level: character.level || 1,

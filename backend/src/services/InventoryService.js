@@ -24,6 +24,7 @@ const { inventoryVersion, copyEntry, serializeItems, requireMigratedInventory,
   CAPACITIES, inventoryFull, assertSlot, lowestItemIndex, receiveItem, restoreEntries, addAmount } = require('./InventoryEntries');
 
 const { TRAINING_WEAPONS, isTrainingWeapon } = require('./TrainingWeapons');
+const { validatePreparedAbilities } = require('./PreparedAbilityValidation');
 
 const { INSTANCE_ID, invalidInventory, createEquipment, validateResultItems, resultEquipmentToInstances,
   equipmentToResult } = require('./ItemInstances');
@@ -902,6 +903,15 @@ class InventoryService {
     // recover its items and equipment before creating the new reservation so items are not lost.
     const currentEq = character.inventory.preparedEquipment || {};
     const hasActiveEquipment = EQUIPMENT_SLOTS.some(slot => Boolean(currentEq[slot]));
+    // FIX-32: reject unknown or unowned abilities before restoring or writing anything.
+    const resolvedAbilities = validatePreparedAbilities(
+      preparedAbilities ?? {
+        slot1: character.preparedAbilities?.slot1 || '',
+        slot2: character.preparedAbilities?.slot2 || ''
+      },
+      character.unlockedAbilities
+    );
+
     if (
       character.inventory.pendingReservation &&
       !character.inventory.pendingReservation.admittedAt &&
@@ -922,16 +932,6 @@ class InventoryService {
     // Derive the reservation from the current persisted loadout and preparedEquipment
     const items = inventoryItems(character, 'loadout');
     const preparedEquipment = serializePreparedEquipment(character.inventory.preparedEquipment, version);
-
-    const resolvedAbilities = preparedAbilities && typeof preparedAbilities === 'object'
-      ? {
-          slot1: typeof preparedAbilities.slot1 === 'string' ? preparedAbilities.slot1 : '',
-          slot2: typeof preparedAbilities.slot2 === 'string' ? preparedAbilities.slot2 : ''
-        }
-      : (character.preparedAbilities ? {
-          slot1: character.preparedAbilities.slot1 || '',
-          slot2: character.preparedAbilities.slot2 || ''
-        } : { slot1: '', slot2: '' });
 
     const pendingReservation = {
       reservationId,
