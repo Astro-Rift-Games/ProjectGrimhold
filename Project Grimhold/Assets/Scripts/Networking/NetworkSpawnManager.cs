@@ -157,6 +157,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private readonly Dictionary<PlayerRef, RaidAdmissionData> _admissionData = new();
     private readonly ControlledReturnRegistry _controlledReturns = new();
     private readonly Dictionary<string, PlayerRef> _admittedProfiles = new();
+    // FIX-03: required cohort profiles that joined this Raid session and left or were rejected before
+    // the Raid started. Read by NetworkMatchController to abort the admission on the next tick.
+    private readonly HashSet<string> _lostRequiredAdmissionProfiles = new();
     private readonly Dictionary<ProfileId, PlayerRef> _earlyHostMigrationReconnects = new();
     private readonly Dictionary<ProfileId, NetworkObject> _restoredHostMigrationParticipants = new();
     private readonly HashSet<ProfileId> _hostMigrationEligibleProfiles = new();
@@ -239,6 +242,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     public Spawning.ReinforcementPointRegistry ReinforcementRegistry { get; } = new Spawning.ReinforcementPointRegistry();
     public PvePopulationTracker PopulationTracker { get; } = new PvePopulationTracker();
     public bool HasAdmittedRaidParticipants => _admittedProfiles.Count > 0;
+
+    /// <summary>A required cohort member joined and then left or was rejected before the Raid started (FIX-03).</summary>
+    public bool HasLostRequiredAdmissionMember => _lostRequiredAdmissionProfiles.Count > 0;
     public System.Collections.Generic.IEnumerable<NetworkObject> ActiveAvatarObjects => _spawnedAvatars.Values;
 
     /// <summary>Returns whether an admitted participant is still actively raiding.</summary>
@@ -643,6 +649,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _admissionData.Clear();
         _controlledReturns.Clear();
         _admittedProfiles.Clear();
+        _lostRequiredAdmissionProfiles.Clear();
         _spawnedEnemies.Clear();
         _usedEnemySpawnPoints.Clear();
         _lootSpawnState.Clear();
@@ -716,6 +723,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _admissionData.Clear();
         _controlledReturns.Clear();
         _admittedProfiles.Clear();
+        _lostRequiredAdmissionProfiles.Clear();
         ClearHostMigrationRoster();
         _spawnedEnemies.Clear();
         _usedEnemySpawnPoints.Clear();
@@ -2546,6 +2554,13 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return;
         }
 
+        TraceAdmission(
+            "PlayerJoined",
+            player,
+            detail: $"local={player == runner.LocalPlayer} matchController={(_matchController != null)} " +
+                    $"phase={(_matchController != null ? _matchController.Phase.ToString() : "none")} " +
+                    $"registered={_admittedPlayers.Contains(player)}");
+
         if (UsesHostMigrationArrivalBoundary)
         {
             HandleHostMigrationPlayerJoined(runner, player);
@@ -2563,6 +2578,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             else
             {
                 Debug.LogWarning("[NetworkSpawnManager] OnPlayerJoined: Coordinator not ready. Disconnecting remote player.");
+                TraceAdmission("DisconnectIssued", player, detail: "reason=coordinator_not_ready");
                 runner.Disconnect(player);
                 return;
             }
@@ -2582,12 +2598,18 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                     RemoveAdmissionRecord(player);
                     if (player != runner.LocalPlayer)
                     {
+                        TraceAdmission("DisconnectIssued", player, detail: "reason=spawn_failed");
                         runner.Disconnect(player);
                     }
                 }
             }
             else
             {
+                TraceAdmission(
+                    "AwaitingPayload",
+                    player,
+                    AdmittedProfileOf(player),
+                    "remote player registered; no payload processed yet");
                 Debug.Log($"[NetworkSpawnManager] Remote player {player} admitted via ticket. Awaiting admission RPC payload before spawn.");
             }
 
@@ -2598,6 +2620,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         {
             Debug.LogWarning($"[NetworkSpawnManager] Disconnecting player {player} after admission was rejected.");
             Debug.Log($"[HM-MULTI] FIX-51 reconnect/admission rejected; Host disconnects PlayerRef={player}.", this);
+            TraceAdmission("DisconnectIssued", player, detail: "reason=admission_rejected_on_join");
             runner.Disconnect(player);
         }
         else
@@ -2634,6 +2657,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
 
         if (!TryGetJoinData(runner, player, out PlayerJoinData joinData))
         {
+            TraceAdmission("AdmissionRejected", player, detail: "reason=join_data_unavailable");
             return false;
         }
 
@@ -2656,6 +2680,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 else
                 {
                     Debug.LogWarning("[NetworkSpawnManager] Local Host is missing valid admission data.");
+                    TraceAdmission("AdmissionRejected", player, joinData.ProfileId.Value, "reason=local_host_admission_missing");
                     return false;
                 }
             }
@@ -2686,6 +2711,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (_controlledReturns.IsTerminal(in admissionKey))
         {
             Debug.LogWarning($"[NetworkSpawnManager] Rejected departed profile '{joinData.ProfileId.Value}' from re-entering this raid.");
+            TraceAdmission("AdmissionRejected", player, joinData.ProfileId.Value, "reason=profile_departed");
             return false;
         }
 
@@ -2696,12 +2722,16 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         if (_admittedProfiles.TryGetValue(profileKey, out PlayerRef admittedProfilePlayer) && admittedProfilePlayer != player)
         {
             Debug.LogWarning($"[NetworkSpawnManager] Rejected duplicate admitted profile '{profileKey}'.");
+            TraceAdmission("AdmissionRejected", player, profileKey, "reason=duplicate_profile");
             return false;
         }
 
         bool admissionPhaseIsOpen = _matchController.Phase == NetworkMatchController.MatchPhase.WaitingForPlayers;
         if (!admissionPhaseIsOpen)
+        {
+            TraceAdmission("AdmissionRejected", player, profileKey, $"reason=admission_phase_closed phase={_matchController.Phase}");
             return false;
+        }
 
         _admittedPlayers.Add(player);
         _admittedProfiles[profileKey] = player;
@@ -2710,6 +2740,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             _admissionData[player] = admission;
         }
         Debug.Log($"[NetworkSpawnManager] Player {player} registered as an admitted participant (hasFullAdmission={hasFullAdmission}).");
+        TraceAdmission("AdmissionRegistered", player, profileKey, $"hasFullAdmission={hasFullAdmission}");
         return true;
     }
 
@@ -3106,6 +3137,23 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return RaidAdmissionRules.IsAdmitted(_launchContext, admission);
     }
 
+    /// <summary>FIX-06: single greppable trace line for the Host-side admission arrival order.</summary>
+    private void TraceAdmission(string traceEvent, PlayerRef player, string profile = null, string detail = null) =>
+        RaidAdmissionDiagnostics.Trace(_runner, traceEvent, player, profile, detail, this);
+
+    private string AdmittedProfileOf(PlayerRef player)
+    {
+        foreach (KeyValuePair<string, PlayerRef> pair in _admittedProfiles)
+        {
+            if (pair.Value == player)
+            {
+                return pair.Key;
+            }
+        }
+
+        return null;
+    }
+
     public bool TryHandleRemoteAdmissionPayload(PlayerRef player, byte[] admissionPayload)
     {
         if (_runner == null || !_runner.IsServer || player.IsNone)
@@ -3113,15 +3161,29 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             return false;
         }
 
-        if (!_admittedPlayers.Contains(player))
+        bool senderRegistered = _admittedPlayers.Contains(player);
+        TraceAdmission(
+            "PayloadReceived",
+            player,
+            AdmittedProfileOf(player),
+            $"senderRegistered={senderRegistered} spawned={_spawnedPlayers.ContainsKey(player)} " +
+            $"phase={(_matchController != null ? _matchController.Phase.ToString() : "none")} " +
+            $"bytes={admissionPayload?.Length ?? 0}");
+
+        if (!senderRegistered)
         {
             Debug.LogWarning($"[NetworkSpawnManager] Received admission RPC from non-admitted player {player}.");
+            TraceAdmission(
+                "PayloadRejected",
+                player,
+                detail: "reason=sender_not_registered (payload arrived before admission registration or after a rejected join)");
             return false;
         }
 
         if (_spawnedPlayers.ContainsKey(player))
         {
             Debug.LogWarning($"[NetworkSpawnManager] Player {player} already spawned; ignoring duplicate admission RPC.");
+            TraceAdmission("PayloadIgnored", player, AdmittedProfileOf(player), "reason=already_spawned");
             return true;
         }
 
@@ -3137,14 +3199,26 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         {
             if (pendingVerificationTask != null)
             {
+                TraceAdmission("PayloadDeferred", player, AdmittedProfileOf(player), "reason=ticket_verification_pending");
                 _ = CompleteRemoteAdmissionVerificationAsync(player, pendingVerificationTask);
                 return true;
             }
 
+            TraceAdmission(
+                "PayloadRejected",
+                player,
+                AdmittedProfileOf(player),
+                "reason=ticket_evaluation_failed (see the preceding [SECURITY]/[NetworkSpawnManager] warning)");
             return false;
         }
 
-        return TryFinalizeRemoteAdmission(player, resolvedAdmission);
+        bool finalized = TryFinalizeRemoteAdmission(player, resolvedAdmission);
+        TraceAdmission(
+            finalized ? "PayloadAccepted" : "PayloadRejected",
+            player,
+            AdmittedProfileOf(player),
+            finalized ? "reason=none" : "reason=finalize_failed (see the preceding warning)");
+        return finalized;
     }
 
     internal static bool TryEvaluateRemoteAdmissionTicket(
@@ -3267,6 +3341,12 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 return;
             }
 
+            TraceAdmission(
+                "DeferredVerificationCompleted",
+                player,
+                AdmittedProfileOf(player),
+                $"valid={valid} error={error ?? "none"} senderStillRegistered={_admittedPlayers.Contains(player)}");
+
             if (!_admittedPlayers.Contains(player) || _spawnedPlayers.ContainsKey(player))
             {
                 return;
@@ -3280,6 +3360,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 !TryFinalizeRemoteAdmission(player, resolvedAdmission))
             {
                 Debug.LogWarning($"[SECURITY] Deferred authoritative ticket verification failed for player {player}: {error ?? "ADMISSION_FINALIZATION_FAILED"}. Disconnecting.");
+                TraceAdmission("DisconnectIssued", player, AdmittedProfileOf(player), "reason=deferred_verification_failed");
                 _runner.Disconnect(player);
             }
         }
@@ -3394,8 +3475,49 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return phaseAllowsSpawning;
     }
 
+    /// <summary>
+    /// Records that a required remote member of the frozen cohort joined this Raid session and left or was
+    /// rejected before the Raid started, so the match controller aborts the admission instead of waiting out
+    /// the Host window (FIX-03). The profile comes from the admission bookkeeping; a player that never reached
+    /// it (refused at connect, duplicate profile, closed phase) has no reliable mapping and is not a member loss.
+    /// A member that has not joined yet records nothing and stays covered by the Host window.
+    /// </summary>
+    private void RecordRequiredAdmissionLoss(PlayerRef player, string cause)
+    {
+        if (_launchContext == null || _runner == null || player == _runner.LocalPlayer ||
+            _matchController == null ||
+            _matchController.Phase != NetworkMatchController.MatchPhase.WaitingForPlayers)
+        {
+            return;
+        }
+
+        foreach (KeyValuePair<string, PlayerRef> pair in _admittedProfiles)
+        {
+            if (pair.Value != player)
+            {
+                continue;
+            }
+
+            if (RaidAdmissionAbortPolicy.IsRequiredMemberLoss(
+                    _launchContext.ParticipantProfileIds,
+                    _launchContext.HostProfileId,
+                    new ProfileId(pair.Key)) &&
+                _lostRequiredAdmissionProfiles.Add(pair.Key))
+            {
+                Debug.LogWarning(
+                    $"[NetworkSpawnManager] Required member '{pair.Key}' (PlayerRef={player}) {cause}. " +
+                    "The Raid admission will be aborted on the next tick.",
+                    this);
+            }
+
+            return;
+        }
+    }
+
     private void RemoveAdmissionRecord(PlayerRef player)
     {
+        // A rejected admission is disconnected right after this call; keep the loss before the mapping goes.
+        RecordRequiredAdmissionLoss(player, "was rejected during admission");
         _admittedPlayers.Remove(player);
         _admissionData.Remove(player);
 
@@ -4862,6 +4984,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             participantObject == null ||
             !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant))
         {
+            // FIX-03: the mapping must be read before RemovePlayerRouting drops it.
+            RecordRequiredAdmissionLoss(player, "left before being admitted and spawned");
             RemovePlayerRouting(player);
             Debug.LogWarning(
                 $"[NetworkSpawnManager] Player {player} left without an authoritative participant mapping. " +
@@ -5158,6 +5282,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             _disconnectedRegistry.Clear();
             _controlledReturns.Clear();
             _admittedProfiles.Clear();
+            _lostRequiredAdmissionProfiles.Clear();
             _spawnedEnemies.Clear();
         _usedEnemySpawnPoints.Clear();
             _lootSpawnState.Clear();

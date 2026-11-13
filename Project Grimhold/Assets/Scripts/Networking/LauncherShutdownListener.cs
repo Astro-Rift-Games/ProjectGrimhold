@@ -7,7 +7,7 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class LauncherShutdownListener : NetworkRunnerCallbacksAdapter
 {
-    private static readonly TimeSpan InitialSceneTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan InitialSceneTimeout = TimeSpan.FromSeconds(RaidAdmissionWindows.InitialSceneWaitSeconds);
 
     private Action<NetworkRunner, ShutdownReason> _shutdownHandler;
     private NetworkRunner _expectedRunner;

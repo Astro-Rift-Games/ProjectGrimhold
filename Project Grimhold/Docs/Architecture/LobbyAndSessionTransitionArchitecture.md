@@ -52,7 +52,9 @@ Failed -> ConnectingTown | ConnectingRaid | ReturningTown
 ```
 
 `Failed` means there is no usable active runner. A caller may retry Town connection or use
-the explicit development entry point. Invalid transitions do not mutate state.
+the explicit development entry point. Invalid transitions do not mutate state. There is no
+`Failed -> Town` edge: `Failed` exits to Town only through `ReturningTown` or `ConnectingTown`
+(see "Stale launch ticket and reservation recovery").
 
 ## Sources of truth and data ownership
 
@@ -169,16 +171,72 @@ the local expiry, so a deadline cancellation always has an observable local caus
 The coordinated preparation owns two deadlines within the same lifecycle: the ACK phase deadline
 armed when the cohort freezes, and the existing release deadline armed by
 `PrepareCoordinatedRelease`. A launch revision therefore cannot wait for a missing ACK
-indefinitely, and a cancelled revision leaves Town usable for a new preparation.
+indefinitely, and a cancelled revision leaves Town usable for a new preparation. When the local
+reservation rollback of a cancelled revision fails, Town stays usable through the recovery in
+"Stale launch ticket and reservation recovery".
 
 Release order is based on Town network ownership, not social ownership. The profile holding State
 Authority for the `TownRaidPreparation` Master Client object is the terminal Town departure, so the
 frozen preparation remains authoritative while every other participant replaces its runner. When
-the Raid Host is a different profile, it is released first to create the Host/Client session; the
-remaining non-authority participants follow and the Town authority leaves last. When both roles
-coincide, Clients leave first and that same profile creates the Raid after their departures. Party
-Host never participates in this decision, and `SessionConnectionCoordinator` remains the only owner
-of each local runner replacement.
+the Raid Host is a different profile, it is released **alone** first to create the Host/Client session;
+the remaining non-authority participants are released only after the authority observes the Raid Host
+leave Town, and the Town authority leaves last. When both roles coincide, Clients leave first and that
+same profile creates the Raid after their departures. Party Host never participates in this decision,
+and `SessionConnectionCoordinator` remains the only owner of each local runner replacement. The
+sequencing rules and per-stage logs are described in [Town Raid Queue](TownRaidQueueArchitecture.md).
+
+### Raid admission windows
+
+`RaidAdmissionWindows` is the single source of the launch time budgets:
+
+| Budget | Value | Owner |
+| --- | --- | --- |
+| Client session availability (`GameNotFound`/`GameClosed` retries, from the Client's own launch) | 40 s | `SessionConnectionCoordinator._clientSessionAvailabilityTimeoutSeconds` (serialized, default from `RaidAdmissionWindows`) |
+| Client admission wait after connecting | 30 s | `FusionSessionLauncher` |
+| Host margin | 5 s | `RaidAdmissionWindows` |
+| Host admission window (expected cohort admitted) | 75 s = 40 + 30 + 5 | `NetworkMatchController` |
+| Initial Fusion scene wait of a created runner | 30 s (precedes the Host window) | `LauncherShutdownListener` |
+| Release stage (Host stage, members stage) | 15 s each | `TownRaidPreparationNetworkController._coordinatedReleaseTimeoutSeconds` (serialized) |
+
+A Client of a Party launch is released after the Raid Host left Town (or, when the Raid Host is the Town
+authority, before it leaves), retries availability for at most 40 s and, once connected, waits at most
+30 s for admission. Nothing forces the Client to start joining before the Host session opens: the bound
+assumes the Host opens its session within the Client's availability budget, and the 5 s margin absorbs
+the release-to-open latency. The Host window is armed by `ConfigurePreloadedRaidAdmission` once its session bootstrap
+runs (after the scene wait, hence never earlier than the session opening) and must cover that whole path
+plus the margin, so a member that completes the connection inside its own budget is never rejected by a
+`BootstrapFailure` caused by misalignment. `RaidAdmissionWindowsTests` pins
+`HostAdmissionSeconds >= ClientSessionAvailabilitySeconds + ClientAdmissionSeconds + HostAdmissionMarginSeconds`.
+
+### FIX-06 diagnostics: admission payload arrival order and ticket fallback
+
+The Client sends its admission payload once (`NetworkMatchController.TrySubmitClientAdmissionPayload`, from
+`Spawned` or the first tick the admission data exists) and never resends it. The Host rejects and disconnects a
+sender that is not yet registered in `NetworkSpawnManager.TryHandleRemoteAdmissionPayload`. Whether a payload can
+reach the Host before `OnPlayerJoined` registers the sender, and whether a failed authoritative-ticket request
+silently degrades to the local snapshot (`FusionSessionLauncher`), is a code-reading suspicion that is not yet
+reproduced. These diagnostics exist only to reproduce or rule it out; they change no behavior (no resend, no retry,
+no change to accept/reject decisions or to the ticket fallback). A fix, or a documented not-reproducible closure,
+waits for a Host + Client run.
+
+Every line shares the greppable prefix `[RaidAdmissionTrace]` (`RaidAdmissionDiagnostics.FormatTrace`):
+`event=<E> player=<PlayerRef> profile=<id|n/a> tick=<Runner.Tick|n/a> t=<Time.realtimeSinceStartup> detail=<...>`.
+Only presence, lengths, outcome codes, profile ids, `PlayerRef`, tick and realtime are logged; ticket contents,
+tokens and payload bytes never are.
+
+| Instance | Events |
+| --- | --- |
+| Host (`NetworkSpawnManager`) | `PlayerJoined` (with `registered=` at that moment), `AdmissionRegistered`, `AdmissionRejected` (`reason=`), `AwaitingPayload`, `PayloadReceived` (`senderRegistered=`), `PayloadRejected` (`reason=sender_not_registered` / `ticket_evaluation_failed` / `finalize_failed`), `PayloadDeferred`, `DeferredVerificationCompleted`, `PayloadAccepted`, `PayloadIgnored`, `DisconnectIssued` (`reason=`) |
+| Host (`NetworkMatchController`) | `ChunkReceived`, `DisconnectIssued` (`payload_rejected_no_resend`, `malformed_chunk_stream`) |
+| Client (`NetworkMatchController`) | `ClientPayloadNotReady` (once), `ClientPayloadSent` (`sentOnce=true`), `ClientPayloadSkipped` (`already_sent_no_resend`) |
+| Client (`FusionSessionLauncher`) | `TicketObtained`, `TicketFailed` (unauthorized), `TicketFallbackToLocalSnapshot` (failure category), `TicketSkipped` (no authenticated session), `TicketVerificationCompleted` / `TicketVerificationFaulted` (outcome of the fire-and-forget verification) |
+
+The early-payload suspicion is confirmed when the Host log shows `PayloadReceived ... senderRegistered=False`
+followed by `PayloadRejected reason=sender_not_registered` and `DisconnectIssued`, with a later `PlayerJoined` /
+`AdmissionRegistered` for the same `PlayerRef` (read the order within the Host log by line order, `tick=` and `t=`; `t=` is
+per-process and is not comparable between the Host and Client logs).
+The ticket suspicion is confirmed when a `TicketFallbackToLocalSnapshot` on the Client is followed by
+`PayloadRejected reason=ticket_evaluation_failed` on the Host.
 
 ### Raid runner lifecycle
 
@@ -208,6 +266,44 @@ to Return from. The Host therefore returns to Town automatically
 `SessionConnectionCoordinator.ObserveTechnicalClosure` while the phase is `Closing` or `Finished`),
 through the ordinary Host Return that still waits for remote peers, and Town shows the loss notice
 captured before the reservation clear (FIX-53; see [Local Player Persistence](LocalPlayerPersistenceArchitecture.md)).
+
+**Admission abort (FIX-03).** The Host aborts a `WaitingForPlayers` admission in one routine (`NetworkMatchController.AbortAdmission`:
+`Starting`, session closed and hidden, participants aborted, `BootstrapFailure` closure) for two causes,
+chosen by `RaidAdmissionAbortPolicy`:
+
+- **Deadline:** the Host admission window (75 s) expired with the frozen cohort incomplete.
+- **Required member lost:** a required remote member of the frozen cohort joined the Raid session and was
+  registered in the admission bookkeeping (`_admittedProfiles`) but has no spawned participant yet, and then
+  left (`OnPlayerLeft` for a player without a participant) or was definitively rejected (malformed or rejected
+  admission payload, failed verification, failed spawn; `RemoveAdmissionRecord`) before the Raid started.
+  `NetworkSpawnManager` reads the profile from that bookkeeping before `RemovePlayerRouting`/`RemoveAdmissionRecord`
+  drop the mapping, and the match controller aborts on its next `FixedUpdateNetwork`, without waiting for the
+  window. A lost member takes precedence over a complete-looking remaining cohort and `TryStartRaid` refuses to
+  start while a loss is recorded, so a Duo expedition never starts as Solo.
+
+The immediate trigger does **not** cover these cases, which end by the 75 s Host window instead (the Raid still
+never starts with a reduced cohort, because `ReadyRaidProfileCount` must reach the frozen count):
+
+- a member that spawned and then left before the Raid started (the spawned branch of `OnPlayerLeft`);
+- a member that never joined the Raid session: it is still inside its availability budget, and this includes one
+  that drops in Town after the Raid Host already left (the Host cannot observe it);
+- a player rejected before it reached the admission bookkeeping (refused at connect, duplicate profile, closed
+  phase, no join data), which has no reliable profile mapping and is not classified as a member loss.
+
+Clients leave the admission wait in under 1 s after observing the closure. `FusionSessionLauncher.WaitForLocalRaidAdmissionAsync`
+reads the replicated `Phase`/`ClosureReason` through `NetworkSpawnManager.MatchController` (the Host-only
+`_matchController` is not available on Clients) and applies `RaidAdmissionWaitPolicy`:
+
+- local admission wins first (`Starting` -> `InProgress` can occur within one tick);
+- a `BootstrapFailure` closure aborts immediately;
+- a `Phase` other than `WaitingForPlayers` without a replicated local participant aborts only after that
+  condition held continuously for `RaidAdmissionWindows.ClientAdmissionClosedGraceSeconds` (0.5 s), because Fusion
+  does not order the phase against the Client's own participant; the clock resets whenever a participant appears
+  or the phase is `WaitingForPlayers` again, and a participant already replicated keeps waiting inside the 30 s
+  client window. The exit is therefore under 1 s after the closure is observed.
+
+The wait then fails through the normal launch failure path (runner shutdown, FIX-05 recovery to Town); connection
+retries of the failing member stay out of scope.
 
 Normal code admission is accepted only in `WaitingForPlayers`. However, during `InProgress`, the session may be temporarily reopened (`IsOpen = true`) if there is at least one retained, disconnected participant who is eligible for reconnection (as defined in `RaidConnectivityContinuityArchitecture.md`). This reopening path validates by `ProfileId` + `RaidGenerationId` and strictly rejects unauthorized fresh joiners. Host Migration reconnect/rebind remains a separate path; after the recovery roster is sealed, the same gate (`RaidSessionGatePolicy`, applied by `NetworkSpawnManager.UpdateMatchSessionGate`) keeps the room open while a participant retained across the migration may still reconnect (FIX-51).
 
@@ -430,6 +526,56 @@ enters `Failed`. If raid startup fails after Town was left, the coordinator perf
 one recovery attempt: it cleans any partial runner and starts a fresh Shared Town runner. A
 successful recovery returns the original raid failure while leaving the application in
 `Town`; a failed recovery leaves no usable runner and enters `Failed`.
+
+Recovery is exception-tolerant (FIX-05). Runner shutdown, the wait for an in-flight
+reservation-loss clear and Town runner startup are guarded: an exception is logged and
+classified as a failed recovery instead of escaping the caller's `catch` block. A failed
+recovery always ends in `Failed` with `RecoveryFailed` published through the consume-once
+transition failure channel (`TryConsumeLastTransitionFailure`), never in `ReturningTown`. The
+coordinated launch task started from a launch release is fire-and-forget, so it publishes any
+non-successful result through the same channel for the Town UI and observes any fault itself.
+
+### Stale launch ticket and reservation recovery
+
+The local launch ticket is the only handle to a pre-admission `PendingReservation`, so it is never
+dropped while that reservation could still be pending (FIX-02).
+
+- **Bounded retry.** `TryRollbackActiveReservation` retries a rollback whose profile save failed up
+  to three times (`ReservationRollbackAttempts`); any other result is deterministic and not
+  retried. A rollback of an already absent reservation counts as success (idempotent).
+- **Release on a new launch.** `TryStoreRaidLaunchContext` releases only a stale ticket by rolling
+  its reservation back before reserving again: a disarmed ticket, or one of an older revision,
+  another Raid code or another profile. A ticket whose release was already received or whose
+  launch is being dispatched belongs to the live party launch and is never released (the whole
+  party launches or nobody does); a ticket of a newer revision is kept too. In both cases the
+  late launch reports `NotReady(TicketMismatch)`.
+- **Backend rollback.** The local rollback also requests the backend rollback with the id of the
+  reservation it rolled back (`expectedReservationId`), so a delayed retry cannot undo the
+  reservation of a newer revision. The reservation contract itself is unchanged.
+- **Failed rollback.** When the bounded rollback still fails, the ticket is retained but disarmed
+  (`_ticketReleasePending`): it never ACKs, `BeginAcknowledgedRaidLaunch` ignores it, and a
+  same-revision launch cannot report `Success` for it. The reservation and its items stay intact in
+  `LocalProfileStore` (`LocalProfileStore.TryCreateLoadoutReservation` rejects a different reservation id while
+  one is pending, so releasing only the ticket would never unblock a relaunch). The next
+  launch preparation, cancel or exit to the main menu repeats the release; once the rollback
+  succeeds the new revision reserves, so items are never lost or duplicated. Exiting to the main
+  menu is the exception: the player is never stuck, so `ReturnToMainMenuAsync` still leaves
+  (shutdown, ticket dropped, `MainMenu`) after a failed bounded rollback and the reservation stays in
+  `LocalProfileStore.PendingReservation`; the login orphan resolution
+  (`ApplicationStashServiceBootstrapper.TryResolveOrphanedReservation`) rolls it back. This relies
+  on every caller of `ReturnToMainMenuAsync` logging out right after it (today `TownOptionsPresenter`
+  and `LogoutButtonPresenter`); a caller that returns to the main menu without logout would keep
+  the stale reservation and block the next launch until the next login.
+- **Recovery to Town.** A pre-admission rollback failure during raid-failure recovery no longer
+  stops in `Failed`: recovery continues through `ReturningTown -> Town` (or
+  `ConnectingTown -> Town`). If the reservation is still stale on arrival, Town is entered with the
+  disarmed ticket and `LoadoutRollbackFailed` is published through the consume-once channel.
+  A failed confirmation after admission is not rolled back and keeps its existing `Failed` outcome
+  (published as `LoadoutRollbackFailed`).
+- **Left in `Failed`.** A ticket and reservation left behind by a `Failed` outcome (including
+  `RecoveryFailed`) are resolved by the existing exits: `ReturnToTownAsync` and Town connection
+  re-run the rollback on arrival, and `ReturnToMainMenuAsync` rolls the non-admitted reservation
+  back before dropping the ticket (and leaves with the reservation pending when it cannot, as above).
 
 An unexpected shutdown of the current Town or raid runner uses the same recovery boundary.
 Shutdown notifications produced during an intentional transition are ignored because the
