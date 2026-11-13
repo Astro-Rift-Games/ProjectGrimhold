@@ -16,6 +16,7 @@ public static class AbilityVendorFeedback
         AbilityPurchaseResult.PersistenceFailed => "The purchase could not be saved",
         AbilityPurchaseResult.ReservationPending => "Cannot buy while raid reservation is pending",
         AbilityPurchaseResult.RevisionConflict => "Profile out of sync. Please retry",
+        AbilityPurchaseResult.TransactionExpired => "This purchase expired. Please try again",
         _ => "Purchase not available"
     };
 }

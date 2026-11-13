@@ -65,7 +65,8 @@ public sealed class RemoteAbilityPurchaseService : MonoBehaviour, IAbilityPurcha
             return AbilityPurchaseResult.PersistenceFailed;
         }
 
-        string transactionId = Guid.NewGuid().ToString("N");
+        // Timestamped id: lets the backend reject a replay of a receipt it has already evicted.
+        string transactionId = new ShopTransactionId(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), Guid.NewGuid()).ToString();
         (bool success, PurchaseAbilityResult data, BackendError error) response;
         try
         {
@@ -116,6 +117,7 @@ public sealed class RemoteAbilityPurchaseService : MonoBehaviour, IAbilityPurcha
             "ALREADY_UNLOCKED" => AbilityPurchaseResult.AlreadyUnlocked,
             "INSUFFICIENT_FUNDS" => AbilityPurchaseResult.InsufficientCurrency,
             "REVISION_CONFLICT" => AbilityPurchaseResult.RevisionConflict,
+            "TRANSACTION_RETENTION_EXCEEDED" => AbilityPurchaseResult.TransactionExpired,
             "ABILITY_NOT_OFFERED" or "INVALID_ABILITY_ID" => AbilityPurchaseResult.UnknownAbility,
             _ => AbilityPurchaseResult.PersistenceFailed
         };

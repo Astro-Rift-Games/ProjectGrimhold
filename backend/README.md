@@ -246,15 +246,16 @@ El receipt sell v2 vincula también `sourceSlot`: reusar el transactionId con ot
   `alreadySecured:true`, sin escribir, incluso con revisión vieja o reserva pendiente.
   El fingerprint es el JSON canónico de las líneas guardado en `receipt.intent`; no incluye revisión
   ni sourceSlot v1. Otra intención u operación bajo ese ID devuelve `409 TRANSACTION_ID_REUSED`.
-  Se conservan los últimos 64 receipts, como las demás operaciones shop.
+  Se conservan los últimos 64 receipts, como las demás operaciones shop; fuera de esa ventana rige
+  la retención descrita en "Retención de receipts shop y compra de habilidades (FIX-31)".
 
 Errores: `400 VALIDATION_FAILED` (DTO, duplicados, límites, campos adicionales),
 `400 INTEGER_OVERFLOW` (totales, saldo o merge no seguros), `404 CHARACTER_NOT_FOUND`,
 `404 ITEM_NOT_OFFERED`, `404 ITEM_NOT_SELLABLE`, `409 INSUFFICIENT_ITEMS`,
 `409 INSUFFICIENT_FUNDS`, `409 INVENTORY_FULL`, `409 INVENTORY_SLOT_ADDRESS_REQUIRED`,
 `409 INVENTORY_MIGRATION_REQUIRED`, `409 REVISION_CONFLICT`, `409 RESERVATION_PENDING`,
-`409 TRANSACTION_ID_REUSED`, y los errores compartidos de autenticación/protocolo
-(`401`, `426 CLIENT_UPGRADE_REQUIRED`) o inventario v3 inválido (`400 INVALID_INVENTORY`).
+`409 TRANSACTION_ID_REUSED`, `409 TRANSACTION_RETENTION_EXCEEDED`, y los errores compartidos de
+autenticación/protocolo (`401`, `426 CLIENT_UPGRADE_REQUIRED`) o inventario v3 inválido (`400 INVALID_INVENTORY`).
 Forma de error: `{error,message,details?}`; ningún rechazo aplica parcialmente el ticket.
 Buy/sell/buyback individuales conservan su contrato anterior.
 
@@ -327,10 +328,35 @@ characterAttributes,revision}`; el payload autoritativo sigue agregado, y `loado
 | 409 | `RESERVATION_PENDING` | Order, slot move o nueva transacción shop durante reserva |
 | 409 | `REVISION_CONFLICT` | Revisión stale o carrera del write atómico |
 | 409 | `TRANSACTION_ID_REUSED` | Replay con intención distinta, incluido sourceSlot sell |
+| 409 | `TRANSACTION_RETENTION_EXCEEDED` | Id con timestamp ya expulsado de la ventana de 64 receipts; no se aplicó nada |
 | 409 | `INSUFFICIENT_STASH_ITEMS` / `INSUFFICIENT_LOADOUT_ITEMS` / `INSUFFICIENT_ITEMS` | Guarda/cantidad de transfer o venta no coincide |
 | 422 | `ITEM_NOT_FOUND` | Guarda del source slot move inválida o equipo no disponible |
 | 400 | `VALIDATION_FAILED` | DTO inválido o slotOrder no es permutación exacta |
 | 400 | `INTEGER_OVERFLOW` | Merge v2 excede cantidad entera segura |
+
+### Retención de receipts shop y compra de habilidades (FIX-31)
+
+`appliedShopReceipts` conserva sólo los últimos 64 receipts de buy, sell, buyback, trade, install-gem y
+`POST /character/me/abilities/purchase`. Repetir un `transactionId` dentro de esa ventana devuelve
+`alreadySecured:true` sin escribir. Fuera de ella el receipt ya no existe, por lo que el backend aplica
+esta política explícita:
+
+- **Ids con timestamp** (`<ms Unix>_<32 hex>`, el formato de `ShopTransactionId.ToString()` en Unity).
+  Toda escritura que expulsa receipts avanza `Character.shopReceiptWatermark` con `$max`, en el mismo
+  `findOneAndUpdate` atómico y guardado por revisión, al mayor timestamp de los receipts expulsados. Ese
+  timestamp se limita a la hora del servidor con que se guardó el receipt, de modo que un reloj de cliente
+  adelantado o falsificado no puede bloquear la tienda. Un `transactionId` con timestamp, sin receipt y con
+  timestamp `<=` al watermark se rechaza con `409 TRANSACTION_RETENTION_EXCEEDED` antes de cualquier
+  mutación: moneda, inventario, revisión, receipts y watermark no cambian. Se evalúa tras la búsqueda de
+  receipt y antes de las guardas de reserva y revisión.
+- **Ids legacy** (GUID sin timestamp u otro string) no tienen timestamp que comparar y conservan el
+  comportamiento anterior: fuera de la ventana un replay se trata como transacción nueva, limitada sólo por
+  `expectedRevision` y las guardas de cada operación. Los ids nuevos con timestamp posterior al watermark se
+  aceptan con normalidad.
+- Respuesta: `409 {"error":"TRANSACTION_RETENTION_EXCEEDED","message":"..."}`. Es definitiva para ese id
+  (no se aplicó ni se reaplicará): el cliente debe reconciliar el perfil y emitir una transacción nueva.
+- Los ids deben cumplir `<ms>_<32 hex>` (hasta 15 dígitos para el timestamp); la compra de habilidades
+  admite hasta 64 caracteres (el id timestamped usa 46).
 
 ## Inventario: T6 — split autoritativo (TASK-281, C8)
 
@@ -498,8 +524,9 @@ Ejemplo de respuesta cuando se consume la última gema:
 
 Repetir intención/transactionId devuelve **el snapshot almacenado del resultado**, añadiendo
 `alreadySecured:true`, incluso con una revisión vieja o después de mover el arma. Una intención
-cambiada rechaza `TRANSACTION_ID_REUSED`. Comparte la ventana de 64 receipts de shop; la revisión
-sigue protegiendo contra reenvíos obsoletos fuera de esa ventana. Rechazos no consumen gemas ni
+cambiada rechaza `TRANSACTION_ID_REUSED`. Comparte la ventana de 64 receipts y la política de
+retención de shop (un id con timestamp expulsado devuelve `409 TRANSACTION_RETENTION_EXCEEDED`; los ids
+legacy sólo quedan protegidos por la revisión fuera de esa ventana). Rechazos no consumen gemas ni
 cambian IDs, listas, moneda, receipts o revisión:
 
 | HTTP | Código | Condición |

@@ -17,6 +17,7 @@ The backend is the sole authority for economic mutations:
 - `POST /character/me/inventory/shop/trade` accepts one complete ticket (`transactionId`, `expectedRevision`, `purchases: [{ lootId, amount }]`, `sales: [{ lootId, amount, sourceSlot }]`). It applies all sales, then all purchases in ticket order, validates funds and capacity on the final state, and persists the whole ticket in one revision-guarded write with one `trade` receipt bound to the canonical ordered lines; any failing line rejects the ticket without mutation. Replaying the same `transactionId` and lines returns `alreadySecured`; different lines return `TRANSACTION_ID_REUSED`. See `backend/README.md` for limits and error codes.
 - Client-declared prices (`declaredPrice`, `declaredSellValue`) are strictly untrusted and ignored for authoritative economic balance calculations.
 - Authoritative buy and sell values are resolved on the server via `shopCatalog.js` (derived from `GD-14` / `LootDefinitionCatalog`).
+- Receipt retention: `appliedShopReceipts` keeps the newest 64 receipts of every writer (buy, sell, buyback, trade, install-gem, ability purchase). Each write that evicts receipts advances `Character.shopReceiptWatermark` (`$max` of the evicted id timestamps, capped by each receipt's server time) in the same atomic update. A timestamped `transactionId` without receipt and at or below the watermark is rejected with `409 TRANSACTION_RETENTION_EXCEEDED` before any mutation; legacy ids (bare GUID) have no timestamp and keep the window-only behavior. Unity sends `ShopTransactionId.ToString()` for trade, buyback and ability purchase. See `backend/README.md`.
 - The backend validates positive integer quantities (`1 <= amount <= MAX_TRANSACTION_AMOUNT`), checks funds/items atomically against MongoDB, and binds receipts strictly to `{ transactionId, type, lootId, amount, totalAmount }` to prevent replay and fraud.
 - Unity client preview (`MerchantTradePreview`) remains purely advisory; persistent confirmation reconciles local state from the backend's authoritative response.
 
@@ -346,8 +347,13 @@ Commerce does not introduce its own inventory model.
 - Transport loss / unknown backend outcome: return `PersistenceFailed` and request reconciliation.
   **Remaining durability gap:** the backend may already have applied the trade despite the lost
   response. Reporting not persisted can release merchant stock for that durable trade. Backend
-  receipts make a later retry with the same transaction id safe, but reconciliation alone does not
-  repair shared merchant stock. Closing this gap needs authoritative outcome lookup/reporting.
+  receipts make a later retry with the same transaction id safe only while that receipt is among the
+  newest 64 (`appliedShopReceipts`). A timestamped id (`ShopTransactionId.ToString()`,
+  `{unix ms}_{32 hex}`) whose receipt was evicted is rejected with `409 TRANSACTION_RETENTION_EXCEEDED`
+  and never re-applied (see the receipt-retention rule at the top of this document); Commerce maps it to `InvalidInventory` (trade, buyback) or
+  `AbilityPurchaseResult.TransactionExpired` (ability), reconciles, and the draft needs a new request
+  identity. Reconciliation alone does not repair shared merchant stock. Closing this gap needs
+  authoritative outcome lookup/reporting.
 - Outcome report lost: the reservation stays held until the requester's next session resolves it
   from the confirmed profile's receipts.
 - Requester leaves after acceptance and does not return: the reservation stays held for the rest of
@@ -424,7 +430,7 @@ Town Ability Vendor purchases are authoritative and durable in the backend:
 2. **Endpoint:** `POST /character/me/abilities/purchase` accepts `{ transactionId, abilityId, expectedRevision }`.
 3. **Invariants:**
    - Single-document atomic update in MongoDB (`Character.findOneAndUpdate`).
-   - Deduplication: Idempotent transaction receipt window (`appliedShopReceipts` with `type: 'ability_purchase'`, `abilityId`, `totalAmount`). Replaying the same `transactionId` returns 200 with `alreadySecured: true`.
+   - Deduplication: Idempotent transaction receipt window (`appliedShopReceipts` with `type: 'ability_purchase'`, `abilityId`, `totalAmount`). Replaying the same `transactionId` returns 200 with `alreadySecured: true` while the receipt is among the newest 64; an evicted timestamped id returns 409 `TRANSACTION_RETENTION_EXCEEDED` without mutation, and a legacy id without timestamp keeps the window-only behavior. Unity creates the id as `ShopTransactionId.ToString()`.
    - Reservation Pending Guard: Blocked with 409 `RESERVATION_PENDING` if `inventory.pendingReservation` is active.
    - Already Unlocked Guard: Blocked with 409 `ALREADY_UNLOCKED` if the ability is already in `unlockedAbilities`.
    - Revision Guard: Optimistic concurrency control via `revision`. Blocked with 409 `REVISION_CONFLICT` if client revision does not match.

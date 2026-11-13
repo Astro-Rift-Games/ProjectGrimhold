@@ -146,4 +146,19 @@ test('POST /character/me/abilities/purchase integration and concurrency contract
     assert.ok(updated.unlockedAbilities.includes('life_drain'));
     assert.equal(updated.unlockedAbilities.filter(a => a === 'life_drain').length, 1);
   });
+
+  await t.test('FIX-31: an evicted timestamped id is rejected with a typed 409 and changes nothing', async () => {
+    await Character.updateOne({ accountId }, { $set: {
+      revision: 20, 'inventory.currency': 500, 'inventory.pendingReservation': null, unlockedAbilities: [],
+      shopReceiptWatermark: 1_700_000_000_000, appliedShopReceipts: []
+    } });
+    const before = await Character.findOne({ accountId }).lean();
+    const res = await request(app)
+      .post('/character/me/abilities/purchase')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ transactionId: `1700000000000_${'a'.repeat(32)}`, abilityId: 'charge', expectedRevision: 20 });
+    assert.equal(res.status, 409, JSON.stringify(res.body));
+    assert.equal(res.body.error, 'TRANSACTION_RETENTION_EXCEEDED');
+    assert.deepEqual(await Character.findOne({ accountId }).lean(), before);
+  });
 });

@@ -339,4 +339,24 @@ test('E2E Shop Authoritative Validation (US-57 / SEC-57.4)', async (t) => {
     const char = await Character.findOne({ accountId });
     assert.strictEqual(char.inventory.currency, 20, '60 - 40 = 20 gold remaining');
   });
+
+  await t.test('FIX-31: an evicted timestamped id is rejected with a typed 409 and changes nothing', async () => {
+    const stamped = n => ({ transactionId: `${1_700_000_000_000 + n}_${n.toString(16).padStart(32, '0')}`, type: 'buy', lootId: 'bone', amount: 1, totalAmount: 5 });
+    await Character.findOneAndUpdate({ accountId }, { $set: {
+      'inventory.currency': 500, 'inventory.pendingReservation': null, revision: 10, shopReceiptWatermark: 0,
+      appliedShopReceipts: Array.from({ length: 64 }, (_, n) => stamped(n))
+    } });
+    // The 65th purchase evicts receipt 0 and advances the watermark in the same atomic update.
+    const fresh = stamped(1000);
+    const bought = await request(app).post('/character/me/inventory/shop/buy').set('Authorization', `Bearer ${token}`)
+      .send({ transactionId: fresh.transactionId, lootId: 'bone', amount: 1, expectedRevision: 10 });
+    assert.strictEqual(bought.status, 200, JSON.stringify(bought.body));
+    const before = await Character.findOne({ accountId }).lean();
+    assert.strictEqual(before.shopReceiptWatermark, 1_700_000_000_000);
+    const replay = await request(app).post('/character/me/inventory/shop/buy').set('Authorization', `Bearer ${token}`)
+      .send({ transactionId: stamped(0).transactionId, lootId: 'bone', amount: 1, expectedRevision: before.revision });
+    assert.strictEqual(replay.status, 409, JSON.stringify(replay.body));
+    assert.strictEqual(replay.body.error, 'TRANSACTION_RETENTION_EXCEEDED');
+    assert.deepStrictEqual(await Character.findOne({ accountId }).lean(), before);
+  });
 });

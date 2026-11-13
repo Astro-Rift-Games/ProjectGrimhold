@@ -102,7 +102,7 @@ public sealed class RemoteShopTransactionServiceTests
         Assert.That(_request.sales, Is.Empty);
         Assert.That((_request.purchases[0].lootId, _request.purchases[0].amount), Is.EqualTo(("bone", 1)));
         Assert.That(_revision, Is.EqualTo(7));
-        Assert.That(_transactionId, Is.EqualTo(ticket.TransactionId.Value.ToString("N")));
+        Assert.That(_transactionId, Is.EqualTo(ticket.TransactionId.ToString()));
         Assert.That(_commits, Is.EqualTo(2), "Trade and remote revision each publish the aggregate.");
     }
 
@@ -191,7 +191,7 @@ public sealed class RemoteShopTransactionServiceTests
         Assert.That(await _service.ExecuteTradeAsync(Profile, ticket), Is.EqualTo(StashOperationResult.Success));
         Assert.That(_calls, Is.EqualTo(1));
         Assert.That(_revision, Is.EqualTo(7));
-        Assert.That(_transactionId, Is.EqualTo(ticket.TransactionId.Value.ToString("N")));
+        Assert.That(_transactionId, Is.EqualTo(ticket.TransactionId.ToString()));
         Assert.That(_request.purchases, Has.Length.EqualTo(1));
         Assert.That((_request.purchases[0].lootId, _request.purchases[0].amount), Is.EqualTo(("bone", 1)));
         Assert.That(_request.sales, Has.Length.EqualTo(2));
@@ -284,7 +284,7 @@ public sealed class RemoteShopTransactionServiceTests
         Assert.That(_store.IsTradeApplied(Profile, request.TransactionId), Is.True);
         Assert.That(_ledger.Entries[0].EntryId, Is.EqualTo("remaining"));
         Assert.That(_revision, Is.EqualTo(7));
-        Assert.That(_transactionId, Is.EqualTo(request.TransactionId.Value.ToString("N")));
+        Assert.That(_transactionId, Is.EqualTo(request.TransactionId.ToString()));
     }
 
     [TestCase("BUYBACK_ENTRY_NOT_FOUND", StashOperationResult.InvalidInventory)]

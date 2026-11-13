@@ -3,6 +3,7 @@
 
 const Character = require('../models/Character');
 const { getAbilityOffer } = require('../config/abilityCatalog');
+const { receiptPush, watermarkUpdate, assertWithinRetention } = require('./ShopReceiptRetention');
 
 class AbilityService {
   /**
@@ -55,6 +56,9 @@ class AbilityService {
         message: 'Transaction ID has already been used for a different operation.'
       };
     }
+
+    // An evicted timestamped id can no longer be confirmed or retried; reject before any mutation.
+    assertWithinRetention(character, transactionId);
 
     // 3. Pending reservation guard
     if (character.inventory && character.inventory.pendingReservation) {
@@ -118,19 +122,17 @@ class AbilityService {
           'inventory.currency': -price,
           revision: 1
         },
+        ...watermarkUpdate(character),
         $push: {
           unlockedAbilities: normAbilityId,
-          appliedShopReceipts: {
-            $each: [{
-              transactionId,
-              type: 'ability_purchase',
-              abilityId: normAbilityId,
-              amount: 1,
-              totalAmount: price,
-              timestamp: new Date()
-            }],
-            $slice: -64
-          }
+          appliedShopReceipts: receiptPush({
+            transactionId,
+            type: 'ability_purchase',
+            abilityId: normAbilityId,
+            amount: 1,
+            totalAmount: price,
+            timestamp: new Date()
+          })
         }
       },
       { new: true, returnDocument: 'after' }

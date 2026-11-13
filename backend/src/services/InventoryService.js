@@ -25,6 +25,7 @@ const { inventoryVersion, copyEntry, serializeItems, requireMigratedInventory,
 
 const { TRAINING_WEAPONS, isTrainingWeapon } = require('./TrainingWeapons');
 const { validatePreparedAbilities } = require('./PreparedAbilityValidation');
+const { receiptPush, watermarkUpdate, assertWithinRetention } = require('./ShopReceiptRetention');
 
 const { INSTANCE_ID, invalidInventory, createEquipment, validateResultItems, resultEquipmentToInstances,
   equipmentToResult } = require('./ItemInstances');
@@ -42,7 +43,7 @@ async function writeSlotLists(character, expectedRevision, lists, blockReservati
     { accountId: character.accountId, revision: expectedRevision,
       ...(blockReservation ? { 'inventory.pendingReservation': null } : {}) },
     { $set: Object.fromEntries(Object.entries(lists).map(([list, items]) => [`inventory.${list}`, items])), $inc: { revision: 1 },
-      ...(receipt ? { $push: { appliedShopReceipts: { $each: [receipt], $slice: -64 } } } : {}) },
+      ...(receipt ? { $push: { appliedShopReceipts: receiptPush(receipt) }, ...watermarkUpdate(character) } : {}) },
     { returnDocument: 'after' }
   );
   if (!updated) throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict during inventory update.' };
@@ -268,6 +269,7 @@ class InventoryService {
       }
       return { ...shopSnapshot(character), alreadySecured: true };
     }
+    assertWithinRetention(character, transactionId);
     for (const line of intent.sales) requireSourceSlot(character, line.sourceSlot);
     if (version === 1) assertUnambiguousItems(character.inventory.loadout,
       [...intent.sales, ...intent.purchases].map(line => line.lootId));
@@ -300,9 +302,10 @@ class InventoryService {
     }, {
       $set: { 'inventory.loadout': loadout, 'inventory.currency': currency },
       $inc: { revision: 1 },
+      ...watermarkUpdate(character),
       $push: {
         ...(entries.length ? { 'inventory.buyback.entries': { $each: entries, $slice: -BUYBACK_MAX_ENTRIES } } : {}),
-        appliedShopReceipts: { $each: [{ transactionId, type: 'trade', intent, totalAmount: cost - revenue, timestamp: new Date() }], $slice: -64 }
+        appliedShopReceipts: receiptPush({ transactionId, type: 'trade', intent, totalAmount: cost - revenue, timestamp: new Date() })
       }
     }, { returnDocument: 'after' });
     if (!updated) {
@@ -335,6 +338,7 @@ class InventoryService {
       }
       return { ...copyEntry(receipt.outcome), alreadySecured: true };
     }
+    assertWithinRetention(character, transactionId);
     if (character.revision !== expectedRevision) throw { statusCode: 409, errorCode: 'REVISION_CONFLICT', message: 'Revision conflict.' };
     if (character.inventory.pendingReservation) throw { statusCode: 409, errorCode: 'RESERVATION_PENDING', message: 'Cannot install gems while a raid reservation is pending.' };
     const lists = { stash: inventoryItems(character, 'stash'), loadout: inventoryItems(character, 'loadout') };
@@ -899,10 +903,6 @@ class InventoryService {
       };
     }
 
-    // If an unconsumed reservation from an aborted/cancelled launch is still pending while active loadout/equipment are empty,
-    // recover its items and equipment before creating the new reservation so items are not lost.
-    const currentEq = character.inventory.preparedEquipment || {};
-    const hasActiveEquipment = EQUIPMENT_SLOTS.some(slot => Boolean(currentEq[slot]));
     // FIX-32: reject unknown or unowned abilities before restoring or writing anything.
     const resolvedAbilities = validatePreparedAbilities(
       preparedAbilities ?? {
@@ -912,6 +912,10 @@ class InventoryService {
       character.unlockedAbilities
     );
 
+    // If an unconsumed reservation from an aborted/cancelled launch is still pending while active loadout/equipment are empty,
+    // recover its items and equipment before creating the new reservation so items are not lost.
+    const currentEq = character.inventory.preparedEquipment || {};
+    const hasActiveEquipment = EQUIPMENT_SLOTS.some(slot => Boolean(currentEq[slot]));
     if (
       character.inventory.pendingReservation &&
       !character.inventory.pendingReservation.admittedAt &&
@@ -1203,6 +1207,7 @@ class InventoryService {
         return { ...shopSnapshot(character), alreadySecured: true };
       }
     }
+    assertWithinRetention(character, transactionId);
 
     // Applied receipts remain replayable during a reservation; only new mutations are blocked.
     if (character.inventory.pendingReservation) {
@@ -1225,12 +1230,10 @@ class InventoryService {
       {
         $set: { 'inventory.loadout': loadout },
         $inc: { revision: 1, 'inventory.currency': authoritativeRevenue },
+        ...watermarkUpdate(character),
         $push: {
           ...buybackPush,
-          appliedShopReceipts: {
-            $each: [{ transactionId, type: 'sell', lootId, amount, ...(version >= 2 ? { sourceSlot } : {}), totalAmount: authoritativeRevenue, timestamp: new Date() }],
-            $slice: -64
-          }
+          appliedShopReceipts: receiptPush({ transactionId, type: 'sell', lootId, amount, ...(version >= 2 ? { sourceSlot } : {}), totalAmount: authoritativeRevenue, timestamp: new Date() })
         }
       },
       { new: true, returnDocument: 'after' }
@@ -1293,6 +1296,7 @@ class InventoryService {
         return { ...shopSnapshot(character), alreadySecured: true };
       }
     }
+    assertWithinRetention(character, transactionId);
 
     // Applied receipts remain replayable during a reservation; only new mutations are blocked.
     if (character.inventory.pendingReservation) {
@@ -1323,11 +1327,9 @@ class InventoryService {
       {
         $set: { 'inventory.loadout': loadout },
         $inc: { revision: 1, 'inventory.currency': -authoritativeCost },
+        ...watermarkUpdate(character),
         $push: {
-          appliedShopReceipts: {
-            $each: [{ transactionId, type: 'buy', lootId, amount, totalAmount: authoritativeCost, timestamp: new Date() }],
-            $slice: -64
-          }
+          appliedShopReceipts: receiptPush({ transactionId, type: 'buy', lootId, amount, totalAmount: authoritativeCost, timestamp: new Date() })
         }
       },
       { new: true, returnDocument: 'after' }
@@ -1359,6 +1361,7 @@ class InventoryService {
       }
       return { ...shopSnapshot(character), alreadySecured: true };
     }
+    assertWithinRetention(character, transactionId);
     if (character.inventory.pendingReservation) {
       throw { statusCode: 409, errorCode: 'RESERVATION_PENDING', message: 'Cannot trade while a raid reservation is pending.' };
     }
@@ -1392,8 +1395,9 @@ class InventoryService {
       ...entryUpdate,
       $set: { 'inventory.loadout': loadout },
       $inc: increments,
-      $push: { appliedShopReceipts: { $each: [{ transactionId, type: 'buyback', entryId,
-        lootId: entry.lootId, amount, totalAmount: cost, timestamp: new Date() }], $slice: -64 } }
+      ...watermarkUpdate(character),
+      $push: { appliedShopReceipts: receiptPush({ transactionId, type: 'buyback', entryId,
+        lootId: entry.lootId, amount, totalAmount: cost, timestamp: new Date() }) }
     }, { returnDocument: 'after' });
     if (!updated) {
       const latest = await Character.findOne({ accountId });

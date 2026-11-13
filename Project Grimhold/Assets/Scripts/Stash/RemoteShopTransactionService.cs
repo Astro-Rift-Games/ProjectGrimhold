@@ -7,7 +7,8 @@ using UnityEngine;
 /// Remote-first shop persistence boundary: dry run, await backend acknowledgement, then commit
 /// the local receipt and revision. No automatic retries, including revision conflicts.
 /// A lost transport response can hide a persisted trade; reconciliation converges the profile and
-/// the backend receipt makes a later retry with the same transaction id safe.
+/// the backend receipt makes a later retry with the same transaction id safe while it is within the
+/// newest 64 receipts; an older id is rejected with TRANSACTION_RETENTION_EXCEEDED, never re-applied.
 /// </summary>
 public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransactionService, IBuybackService
 {
@@ -80,7 +81,7 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
         (bool success, ShopTransactionResult data, BackendError error) response;
         try
         {
-            response = await _buybackBackend(request.TransactionId.Value.ToString("N"), request.EntryId,
+            response = await _buybackBackend(request.TransactionId.ToString(), request.EntryId,
                 request.Amount, _store.RemoteRevision);
         }
         catch (Exception exception)
@@ -118,7 +119,7 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
         {
             "RESERVATION_PENDING" => StashOperationResult.ReservationPending,
             "BUYBACK_ENTRY_NOT_FOUND" or "INSUFFICIENT_BUYBACK_UNITS" or "INSUFFICIENT_FUNDS" or
-                "REVISION_CONFLICT" or "VALIDATION_FAILED" => StashOperationResult.InvalidInventory,
+                "REVISION_CONFLICT" or "VALIDATION_FAILED" or "TRANSACTION_RETENTION_EXCEEDED" => StashOperationResult.InvalidInventory,
             _ => StashOperationResult.PersistenceFailed
         };
     }
@@ -153,7 +154,7 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
             // Deliberately preserve Unity's synchronization context for all store/UI consumers.
             response = await _backend(new ShopTradeRequest
             {
-                transactionId = ticket.TransactionId.Value.ToString("N"),
+                transactionId = ticket.TransactionId.ToString(),
                 expectedRevision = _store.RemoteRevision, purchases = purchases, sales = sales
             });
         }
@@ -205,7 +206,7 @@ public sealed class RemoteShopTransactionService : MonoBehaviour, IShopTransacti
         {
             "RESERVATION_PENDING" => StashOperationResult.ReservationPending,
             "INSUFFICIENT_FUNDS" or "INSUFFICIENT_ITEMS" or "ITEM_NOT_SELLABLE" or "ITEM_NOT_OFFERED" or
-                "REVISION_CONFLICT" or "VALIDATION_FAILED" => StashOperationResult.InvalidInventory,
+                "REVISION_CONFLICT" or "VALIDATION_FAILED" or "TRANSACTION_RETENTION_EXCEEDED" => StashOperationResult.InvalidInventory,
             _ => StashOperationResult.PersistenceFailed
         };
     }

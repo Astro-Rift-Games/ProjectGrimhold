@@ -134,8 +134,11 @@ const characterSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  // Capped at 64 entries (at-most-once window for Shop transactions)
+  // Newest 64 Shop/ability receipts: the replay window. Older receipts are evicted, so a retry of an
+  // evicted timestamped id is rejected through shopReceiptWatermark instead of being applied again.
   appliedShopReceipts: { type: [shopReceiptSchema], default: [] },
+  // Highest id timestamp (unix ms) among evicted receipts; see services/ShopReceiptRetention.js.
+  shopReceiptWatermark: { type: Number, default: 0 },
   revision: {
     type: Number,
     default: 0

@@ -10,5 +10,8 @@ public enum AbilityPurchaseResult
     ProfileUnavailable,
     PersistenceFailed,
     ReservationPending,
-    RevisionConflict
+    RevisionConflict,
+
+    /// <summary>The backend no longer retains this transaction id; it was neither applied nor re-applied.</summary>
+    TransactionExpired
 }
