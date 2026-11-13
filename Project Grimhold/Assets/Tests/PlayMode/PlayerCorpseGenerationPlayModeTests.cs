@@ -164,6 +164,64 @@ namespace Tests.PlayMode.Loot
             Assert.That(inventory, Is.EquivalentTo(entries));
         }
 
+        [UnityTest]
+        public IEnumerator PostClearFailure_PreservesCorpseLootAndEnablesContainer()
+        {
+            yield return StartRunnerAndLoadPlayer();
+            NetworkObject playerObject = _runner.Spawn(_playerPrefab, Vector3.zero, Quaternion.identity);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, playerObject);
+            PlayerCharacter player = playerObject.GetComponent<PlayerCharacter>();
+            PlayerLootReceiver receiver = playerObject.GetComponent<PlayerLootReceiver>();
+            NetworkLootContainer container = playerObject.GetComponent<NetworkLootContainer>();
+            PlayerCorpseGenerationController controller = playerObject.GetComponent<PlayerCorpseGenerationController>();
+            var entries = new[] { new LootEntry(new LootId("bone"), 4) };
+
+            controller.TestShouldFailPostClearVerification = () => true;
+            _driver.Target = player;
+            _driver.Receiver = receiver;
+            _driver.SetEntries(entries);
+            _driver.IsRequested = true;
+            LogAssert.ignoreFailingMessages = true;
+            yield return WaitForDefeat(player);
+            yield return null;
+            LogAssert.ignoreFailingMessages = false;
+
+            Assert.That((bool)container.IsAvailable, Is.True);
+            Assert.That(container.TryGetLootContent(out IReadOnlyList<LootEntry> corpseContent), Is.True);
+            Assert.That(corpseContent, Is.EquivalentTo(entries));
+            Assert.That(receiver.TryGetLootContent(out IReadOnlyList<LootEntry> inventory), Is.True);
+            Assert.That(inventory, Is.Empty);
+        }
+
+        [UnityTest]
+        public IEnumerator PostClearCooldownTransferException_PreservesCorpseLootAndEnablesContainer()
+        {
+            yield return StartRunnerAndLoadPlayer();
+            NetworkObject playerObject = _runner.Spawn(_playerPrefab, Vector3.zero, Quaternion.identity);
+            ExtractionProgressTestAssertions.AssertRegistered(_runner, playerObject);
+            PlayerCharacter player = playerObject.GetComponent<PlayerCharacter>();
+            PlayerLootReceiver receiver = playerObject.GetComponent<PlayerLootReceiver>();
+            NetworkLootContainer container = playerObject.GetComponent<NetworkLootContainer>();
+            PlayerCorpseGenerationController controller = playerObject.GetComponent<PlayerCorpseGenerationController>();
+            var entries = new[] { new LootEntry(new LootId("bone"), 4) };
+
+            controller.TestThrowDuringPostClearCooldownTransfer = () => throw new InvalidOperationException("Simulated cooldown transfer failure");
+            _driver.Target = player;
+            _driver.Receiver = receiver;
+            _driver.SetEntries(entries);
+            _driver.IsRequested = true;
+            LogAssert.ignoreFailingMessages = true;
+            yield return WaitForDefeat(player);
+            yield return null;
+            LogAssert.ignoreFailingMessages = false;
+
+            Assert.That((bool)container.IsAvailable, Is.True);
+            Assert.That(container.TryGetLootContent(out IReadOnlyList<LootEntry> corpseContent), Is.True);
+            Assert.That(corpseContent, Is.EquivalentTo(entries));
+            Assert.That(receiver.TryGetLootContent(out IReadOnlyList<LootEntry> inventory), Is.True);
+            Assert.That(inventory, Is.Empty);
+        }
+
         private IEnumerator StartRunnerAndLoadPlayer()
         {
             var runnerObject = new GameObject("PlayerCorpseLootTestRunner");

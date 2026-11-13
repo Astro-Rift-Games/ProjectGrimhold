@@ -515,6 +515,18 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
         {
             if (participant.State == RaidParticipantState.Raiding)
             {
+                if (_corpseGenerationController != null &&
+                    PlayerCorpseCompensationRule.RequiresForcedDefeatItemLiquidation(
+                        _corpseGenerationController.IsCompleted))
+                {
+                    _corpseGenerationController.EnsureUnownedItemsLiquidatedAndLossSummaryPublished(participant);
+                }
+
+                if (Object != null && !Object.InputAuthority.IsNone)
+                {
+                    Object.AssignInputAuthority(PlayerRef.None);
+                }
+
                 participant.TryMarkDefeated(Object);
             }
         }
@@ -544,6 +556,18 @@ public sealed class PlayerCharacter : CharacterBase, IManaReceiver
         {
             if (participant.State == RaidParticipantState.Raiding)
             {
+                if (_corpseGenerationController != null &&
+                    PlayerCorpseCompensationRule.RequiresForcedDefeatItemLiquidation(
+                        _corpseGenerationController.IsCompleted))
+                {
+                    _corpseGenerationController.EnsureUnownedItemsLiquidatedAndLossSummaryPublished(participant);
+                }
+
+                if (Object != null && !Object.InputAuthority.IsNone)
+                {
+                    Object.AssignInputAuthority(PlayerRef.None);
+                }
+
                 participant.TryMarkDefeated(Object);
             }
         }
