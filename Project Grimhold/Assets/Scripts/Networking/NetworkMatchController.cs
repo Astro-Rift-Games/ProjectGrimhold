@@ -131,6 +131,15 @@ public sealed class NetworkMatchController : NetworkBehaviour
             return false;
         }
 
+        // S10: a Duo expedition never starts as Solo. The next tick aborts the admission (FixedUpdateNetwork).
+        if (spawnManager.HasLostRequiredAdmissionMember)
+        {
+            Debug.LogWarning(
+                "[NetworkMatchController] TryStartRaid refused: a required cohort member was lost before admission completed.",
+                this);
+            return false;
+        }
+
         Phase = MatchPhase.Starting;
         Runner.SessionInfo.IsOpen = false;
         Runner.SessionInfo.IsVisible = false;
@@ -220,26 +229,45 @@ public sealed class NetworkMatchController : NetworkBehaviour
         }
 
         NetworkSpawnManager spawnManager = Runner.GetComponent<NetworkSpawnManager>();
-        if (spawnManager != null &&
-            IsExpectedCohortAdmitted(ExpectedAdmissionCount, spawnManager.ReadyRaidProfileCount))
+        bool cohortAdmitted = spawnManager != null &&
+            IsExpectedCohortAdmitted(ExpectedAdmissionCount, spawnManager.ReadyRaidProfileCount);
+
+        RaidAdmissionAbortDecision abortDecision = RaidAdmissionAbortPolicy.Evaluate(
+            Phase,
+            cohortAdmitted,
+            ExpectedAdmissionDeadline.Expired(Runner),
+            spawnManager != null && spawnManager.HasLostRequiredAdmissionMember);
+        if (abortDecision != RaidAdmissionAbortDecision.None)
         {
-            ClosePreloadedRaidAdmission();
+            AbortAdmission(abortDecision, spawnManager);
             return;
         }
 
-        if (ExpectedAdmissionDeadline.Expired(Runner))
+        if (cohortAdmitted)
         {
-            Debug.LogWarning(
-                $"[NetworkMatchController] Expected admission deadline ({ExpectedAdmissionTimeoutSeconds}s) expired. " +
-                $"ReadyProfiles={spawnManager?.ReadyRaidProfileCount ?? 0}/{ExpectedAdmissionCount}. " +
-                $"PendingAdmissionAssemblies={_pendingAdmissionAssemblies.Count}.",
-                this);
-            Phase = MatchPhase.Starting;
-            Runner.SessionInfo.IsOpen = false;
-            Runner.SessionInfo.IsVisible = false;
-            spawnManager?.AbortRaidingParticipantsForClosure();
-            BeginClosure(RaidClosureReason.BootstrapFailure);
+            ClosePreloadedRaidAdmission();
         }
+    }
+
+    /// <summary>
+    /// Single abort routine of a Waiting admission: the Host admission deadline and the loss of a required
+    /// member both close admission and start the <see cref="RaidClosureReason.BootstrapFailure"/> closure.
+    /// </summary>
+    private void AbortAdmission(RaidAdmissionAbortDecision decision, NetworkSpawnManager spawnManager)
+    {
+        string cause = decision == RaidAdmissionAbortDecision.RequiredMemberLost
+            ? "A required cohort member left or was rejected before admission completed."
+            : $"Expected admission deadline ({ExpectedAdmissionTimeoutSeconds}s) expired.";
+        Debug.LogWarning(
+            $"[NetworkMatchController] Aborting raid admission ({decision}). {cause} " +
+            $"ReadyProfiles={spawnManager?.ReadyRaidProfileCount ?? 0}/{ExpectedAdmissionCount}. " +
+            $"PendingAdmissionAssemblies={_pendingAdmissionAssemblies.Count}.",
+            this);
+        Phase = MatchPhase.Starting;
+        Runner.SessionInfo.IsOpen = false;
+        Runner.SessionInfo.IsVisible = false;
+        spawnManager?.AbortRaidingParticipantsForClosure();
+        BeginClosure(RaidClosureReason.BootstrapFailure);
     }
 
     /// <summary>

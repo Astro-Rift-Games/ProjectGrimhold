@@ -596,38 +596,85 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
         ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
         _lastReconnectRunnerEnded = false;
+        var waitState = default(RaidAdmissionWaitState);
         float deadline = Time.realtimeSinceStartup + LocalAdmissionTimeoutSeconds;
         while (_runner != null && _runner.IsRunning && Time.realtimeSinceStartup < deadline)
         {
             cancellationToken.ThrowIfCancellationRequested();
             NetworkObject participantObject = _runner.GetPlayerObject(_runner.LocalPlayer);
-            if (participantObject != null &&
-                participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
-                string.Equals(participant.ProfileId.ToString(), localProfile.Value, StringComparison.Ordinal) &&
-                string.Equals(participant.LoadoutReservationId.ToString(), reservation.ReservationId, StringComparison.Ordinal) &&
-                participant.TryResolveCurrentAvatar(out NetworkObject avatarObject) &&
-                avatarObject.TryGetBehaviour(out PlayerLootReceiver receiver) &&
-                avatarObject.TryGetBehaviour(out PlayerWeaponEquipmentNetworkController equipment) &&
-                PlayerExpeditionLootSnapshot.TryCapture(
-                    receiver,
-                    equipment,
-                    out PlayerExpeditionLootSnapshot ownership,
-                    out _) &&
-                ((localAdmission.ProfileId == localProfile &&
-                  RaidAdmissionLoadoutMatcher.Matches(localAdmission, ownership, equipment, receiver.LootCatalog)) ||
-                 (authoritativeTicket.IsValid && authoritativeTicket.ProfileId == localProfile &&
-                  string.Equals(authoritativeTicket.ReservationId, reservation.ReservationId, StringComparison.Ordinal) &&
-                  authoritativeTicket.TryToRaidAdmissionData(out RaidAdmissionData canonicalAdmission,
-                      catalog: receiver.LootCatalog) &&
-                  RaidAdmissionLoadoutMatcher.Matches(canonicalAdmission, ownership, equipment, receiver.LootCatalog))))
+            bool localAdmitted = IsLocalRaidAdmissionMatched(
+                participantObject, localProfile, reservation, localAdmission, authoritativeTicket);
+            bool matchObserved = TryReadAdmissionMatchState(
+                out NetworkMatchController.MatchPhase phase, out RaidClosureReason closureReason);
+
+            // FIX-03: leave within one poll once the Host closed or aborted the admission.
+            switch (RaidAdmissionWaitPolicy.Evaluate(
+                        ref waitState, Time.realtimeSinceStartup,
+                        localAdmitted, participantObject != null, matchObserved, phase, closureReason))
             {
-                return true;
+                case RaidAdmissionWaitDecision.Admitted:
+                    return true;
+                case RaidAdmissionWaitDecision.Abort:
+                    Debug.LogWarning(
+                        $"[FusionSessionLauncher] Raid admission closed without admitting the local participant " +
+                        $"(Phase={phase}, ClosureReason={closureReason}); leaving the admission wait.",
+                        this);
+                    return false;
             }
 
             await Task.Delay(50, cancellationToken);
         }
 
         return false;
+    }
+
+    private static bool IsLocalRaidAdmissionMatched(
+        NetworkObject participantObject,
+        ProfileId localProfile,
+        PendingLoadoutReservation reservation,
+        RaidAdmissionData localAdmission,
+        AuthoritativeRaidAdmissionTicket authoritativeTicket)
+    {
+        return participantObject != null &&
+               participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
+               string.Equals(participant.ProfileId.ToString(), localProfile.Value, StringComparison.Ordinal) &&
+               string.Equals(participant.LoadoutReservationId.ToString(), reservation.ReservationId, StringComparison.Ordinal) &&
+               participant.TryResolveCurrentAvatar(out NetworkObject avatarObject) &&
+               avatarObject.TryGetBehaviour(out PlayerLootReceiver receiver) &&
+               avatarObject.TryGetBehaviour(out PlayerWeaponEquipmentNetworkController equipment) &&
+               PlayerExpeditionLootSnapshot.TryCapture(
+                   receiver,
+                   equipment,
+                   out PlayerExpeditionLootSnapshot ownership,
+                   out _) &&
+               ((localAdmission.ProfileId == localProfile &&
+                 RaidAdmissionLoadoutMatcher.Matches(localAdmission, ownership, equipment, receiver.LootCatalog)) ||
+                (authoritativeTicket.IsValid && authoritativeTicket.ProfileId == localProfile &&
+                 string.Equals(authoritativeTicket.ReservationId, reservation.ReservationId, StringComparison.Ordinal) &&
+                 authoritativeTicket.TryToRaidAdmissionData(out RaidAdmissionData canonicalAdmission,
+                     catalog: receiver.LootCatalog) &&
+                 RaidAdmissionLoadoutMatcher.Matches(canonicalAdmission, ownership, equipment, receiver.LootCatalog)));
+    }
+
+    /// <summary>
+    /// Reads the replicated match state through the controller bound to this runner's spawn manager
+    /// (<c>_matchController</c> exists on the Host only). False until the controller is spawned and bound.
+    /// </summary>
+    private bool TryReadAdmissionMatchState(
+        out NetworkMatchController.MatchPhase phase,
+        out RaidClosureReason closureReason)
+    {
+        NetworkMatchController controller = _spawnManager != null ? _spawnManager.MatchController : null;
+        if (controller == null || controller.Object == null || !controller.Object.IsValid)
+        {
+            phase = NetworkMatchController.MatchPhase.WaitingForPlayers;
+            closureReason = RaidClosureReason.NaturalCompletion;
+            return false;
+        }
+
+        phase = controller.Phase;
+        closureReason = controller.ClosureReason;
+        return true;
     }
 
     private async Task<bool> WaitForLocalReconnectAdmissionAsync(

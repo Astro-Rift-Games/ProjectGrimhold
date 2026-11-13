@@ -36,6 +36,16 @@ public sealed class RaidAdmissionWindowsTests
         Assert.That(RaidAdmissionWindows.InitialSceneWaitSeconds, Is.EqualTo(30f));
     }
 
+    [Test]
+    public void ClientAdmissionClosedGrace_KeepsTheExitUnderOneSecondAfterObservingTheClosure()
+    {
+        // FIX-03 S9: grace plus one 50 ms poll of FusionSessionLauncher's admission wait.
+        const float PollSeconds = 0.05f;
+
+        Assert.That(RaidAdmissionWindows.ClientAdmissionClosedGraceSeconds, Is.GreaterThan(0f));
+        Assert.That(RaidAdmissionWindows.ClientAdmissionClosedGraceSeconds + PollSeconds, Is.LessThan(1f));
+    }
+
     // The coordinator's serialized availability budget is the value that applies at runtime; an
     // Inspector change above the shared budget would let a client outlive the Host window.
     [Test]

@@ -20,6 +20,13 @@ public static class RaidAdmissionWindows
     /// <summary>How long a connected Client waits for the Host to admit it.</summary>
     public const float ClientAdmissionSeconds = 30f;
 
+    /// <summary>
+    /// How long a Client tolerates a replicated match phase that moved past <c>WaitingForPlayers</c> while its own
+    /// participant has not replicated yet (Fusion does not order the two), before concluding it was not admitted.
+    /// Together with the 50 ms poll it keeps the exit well under one second after the closure is observed (FIX-03).
+    /// </summary>
+    public const float ClientAdmissionClosedGraceSeconds = 0.5f;
+
     /// <summary>Slack covering scheduling and replication latency between Host and Clients.</summary>
     public const float HostAdmissionMarginSeconds = 5f;
 

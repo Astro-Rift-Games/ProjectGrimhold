@@ -155,6 +155,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private readonly Dictionary<PlayerRef, RaidAdmissionData> _admissionData = new();
     private readonly ControlledReturnRegistry _controlledReturns = new();
     private readonly Dictionary<string, PlayerRef> _admittedProfiles = new();
+    // FIX-03: required cohort profiles that joined this Raid session and left or were rejected before
+    // the Raid started. Read by NetworkMatchController to abort the admission on the next tick.
+    private readonly HashSet<string> _lostRequiredAdmissionProfiles = new();
     private readonly Dictionary<ProfileId, PlayerRef> _earlyHostMigrationReconnects = new();
     private readonly Dictionary<ProfileId, NetworkObject> _restoredHostMigrationParticipants = new();
     private readonly HashSet<ProfileId> _hostMigrationEligibleProfiles = new();
@@ -237,6 +240,9 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     public Spawning.ReinforcementPointRegistry ReinforcementRegistry { get; } = new Spawning.ReinforcementPointRegistry();
     public PvePopulationTracker PopulationTracker { get; } = new PvePopulationTracker();
     public bool HasAdmittedRaidParticipants => _admittedProfiles.Count > 0;
+
+    /// <summary>A required cohort member joined and then left or was rejected before the Raid started (FIX-03).</summary>
+    public bool HasLostRequiredAdmissionMember => _lostRequiredAdmissionProfiles.Count > 0;
     public System.Collections.Generic.IEnumerable<NetworkObject> ActiveAvatarObjects => _spawnedAvatars.Values;
 
     /// <summary>Returns whether an admitted participant is still actively raiding.</summary>
@@ -619,6 +625,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _admissionData.Clear();
         _controlledReturns.Clear();
         _admittedProfiles.Clear();
+        _lostRequiredAdmissionProfiles.Clear();
         _spawnedEnemies.Clear();
         _usedEnemySpawnPoints.Clear();
         _lootSpawnState.Clear();
@@ -690,6 +697,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _admissionData.Clear();
         _controlledReturns.Clear();
         _admittedProfiles.Clear();
+        _lostRequiredAdmissionProfiles.Clear();
         ClearHostMigrationRoster();
         _spawnedEnemies.Clear();
         _usedEnemySpawnPoints.Clear();
@@ -3363,8 +3371,49 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         return phaseAllowsSpawning;
     }
 
+    /// <summary>
+    /// Records that a required remote member of the frozen cohort joined this Raid session and left or was
+    /// rejected before the Raid started, so the match controller aborts the admission instead of waiting out
+    /// the Host window (FIX-03). The profile comes from the admission bookkeeping; a player that never reached
+    /// it (refused at connect, duplicate profile, closed phase) has no reliable mapping and is not a member loss.
+    /// A member that has not joined yet records nothing and stays covered by the Host window.
+    /// </summary>
+    private void RecordRequiredAdmissionLoss(PlayerRef player, string cause)
+    {
+        if (_launchContext == null || _runner == null || player == _runner.LocalPlayer ||
+            _matchController == null ||
+            _matchController.Phase != NetworkMatchController.MatchPhase.WaitingForPlayers)
+        {
+            return;
+        }
+
+        foreach (KeyValuePair<string, PlayerRef> pair in _admittedProfiles)
+        {
+            if (pair.Value != player)
+            {
+                continue;
+            }
+
+            if (RaidAdmissionAbortPolicy.IsRequiredMemberLoss(
+                    _launchContext.ParticipantProfileIds,
+                    _launchContext.HostProfileId,
+                    new ProfileId(pair.Key)) &&
+                _lostRequiredAdmissionProfiles.Add(pair.Key))
+            {
+                Debug.LogWarning(
+                    $"[NetworkSpawnManager] Required member '{pair.Key}' (PlayerRef={player}) {cause}. " +
+                    "The Raid admission will be aborted on the next tick.",
+                    this);
+            }
+
+            return;
+        }
+    }
+
     private void RemoveAdmissionRecord(PlayerRef player)
     {
+        // A rejected admission is disconnected right after this call; keep the loss before the mapping goes.
+        RecordRequiredAdmissionLoss(player, "was rejected during admission");
         _admittedPlayers.Remove(player);
         _admissionData.Remove(player);
 
@@ -4815,6 +4864,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             participantObject == null ||
             !participantObject.TryGetBehaviour(out NetworkRaidParticipant participant))
         {
+            // FIX-03: the mapping must be read before RemovePlayerRouting drops it.
+            RecordRequiredAdmissionLoss(player, "left before being admitted and spawned");
             RemovePlayerRouting(player);
             Debug.LogWarning(
                 $"[NetworkSpawnManager] Player {player} left without an authoritative participant mapping. " +
@@ -5104,6 +5155,7 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             _disconnectedRegistry.Clear();
             _controlledReturns.Clear();
             _admittedProfiles.Clear();
+            _lostRequiredAdmissionProfiles.Clear();
             _spawnedEnemies.Clear();
         _usedEnemySpawnPoints.Clear();
             _lootSpawnState.Clear();

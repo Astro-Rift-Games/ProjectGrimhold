@@ -237,6 +237,44 @@ to Return from. The Host therefore returns to Town automatically
 through the ordinary Host Return that still waits for remote peers, and Town shows the loss notice
 captured before the reservation clear (FIX-53; see [Local Player Persistence](LocalPlayerPersistenceArchitecture.md)).
 
+**Admission abort (FIX-03).** The Host aborts a `WaitingForPlayers` admission in one routine (`NetworkMatchController.AbortAdmission`:
+`Starting`, session closed and hidden, participants aborted, `BootstrapFailure` closure) for two causes,
+chosen by `RaidAdmissionAbortPolicy`:
+
+- **Deadline:** the Host admission window (75 s) expired with the frozen cohort incomplete.
+- **Required member lost:** a required remote member of the frozen cohort joined the Raid session and was
+  registered in the admission bookkeeping (`_admittedProfiles`) but has no spawned participant yet, and then
+  left (`OnPlayerLeft` for a player without a participant) or was definitively rejected (malformed or rejected
+  admission payload, failed verification, failed spawn; `RemoveAdmissionRecord`) before the Raid started.
+  `NetworkSpawnManager` reads the profile from that bookkeeping before `RemovePlayerRouting`/`RemoveAdmissionRecord`
+  drop the mapping, and the match controller aborts on its next `FixedUpdateNetwork`, without waiting for the
+  window. A lost member takes precedence over a complete-looking remaining cohort and `TryStartRaid` refuses to
+  start while a loss is recorded, so a Duo expedition never starts as Solo.
+
+The immediate trigger does **not** cover these cases, which end by the 75 s Host window instead (the Raid still
+never starts with a reduced cohort, because `ReadyRaidProfileCount` must reach the frozen count):
+
+- a member that spawned and then left before the Raid started (the spawned branch of `OnPlayerLeft`);
+- a member that never joined the Raid session: it is still inside its availability budget, and this includes one
+  that drops in Town after the Raid Host already left (the Host cannot observe it);
+- a player rejected before it reached the admission bookkeeping (refused at connect, duplicate profile, closed
+  phase, no join data), which has no reliable profile mapping and is not classified as a member loss.
+
+Clients leave the admission wait in under 1 s after observing the closure. `FusionSessionLauncher.WaitForLocalRaidAdmissionAsync`
+reads the replicated `Phase`/`ClosureReason` through `NetworkSpawnManager.MatchController` (the Host-only
+`_matchController` is not available on Clients) and applies `RaidAdmissionWaitPolicy`:
+
+- local admission wins first (`Starting` -> `InProgress` can occur within one tick);
+- a `BootstrapFailure` closure aborts immediately;
+- a `Phase` other than `WaitingForPlayers` without a replicated local participant aborts only after that
+  condition held continuously for `RaidAdmissionWindows.ClientAdmissionClosedGraceSeconds` (0.5 s), because Fusion
+  does not order the phase against the Client's own participant; the clock resets whenever a participant appears
+  or the phase is `WaitingForPlayers` again, and a participant already replicated keeps waiting inside the 30 s
+  client window. The exit is therefore under 1 s after the closure is observed.
+
+The wait then fails through the normal launch failure path (runner shutdown, FIX-05 recovery to Town); connection
+retries of the failing member stay out of scope.
+
 Normal code admission is accepted only in `WaitingForPlayers`. However, during `InProgress`, the session may be temporarily reopened (`IsOpen = true`) if there is at least one retained, disconnected participant who is eligible for reconnection (as defined in `RaidConnectivityContinuityArchitecture.md`). This reopening path validates by `ProfileId` + `RaidGenerationId` and strictly rejects unauthorized fresh joiners. Host Migration reconnect/rebind remains a separate path; after the recovery roster is sealed, the same gate (`RaidSessionGatePolicy`, applied by `NetworkSpawnManager.UpdateMatchSessionGate`) keeps the room open while a participant retained across the migration may still reconnect (FIX-51).
 
 The serialized `Gameplay` scene audit found configuration/input/visibility
