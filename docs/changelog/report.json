@@ -1,20 +1,20 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1065,
-  "canonicalEntries": 1062,
+  "rawCommits": 1071,
+  "canonicalEntries": 1068,
   "before": {
-    "Bug Fixes": 132,
+    "Documentation": 101,
+    "Bug Fixes": 137,
     "Other Changes": 360,
-    "Documentation": 100,
     "Architecture & Infrastructure": 23,
     "Tests": 41,
     "Features": 395,
     "Refactoring": 14
   },
   "after": {
-    "Bug Fixes": 148,
+    "Documentation": 117,
+    "Bug Fixes": 153,
     "Other Changes": 168,
-    "Documentation": 116,
     "Maintenance": 21,
     "Tests": 46,
     "Features": 533,
@@ -23,14 +23,14 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Abilities": 130,
-    "Inventory & Loot": 428,
-    "Persistence & Backend": 244,
-    "Build & Tooling": 556,
-    "Documentation": 399,
-    "Tests": 672,
-    "Extraction": 153,
-    "Networking & Sessions": 321,
+    "Persistence & Backend": 250,
+    "Abilities": 132,
+    "Inventory & Loot": 431,
+    "Build & Tooling": 558,
+    "Documentation": 401,
+    "Tests": 677,
+    "Networking & Sessions": 322,
+    "Extraction": 154,
     "UI": 324,
     "World & Visibility": 141,
     "Unassigned": 31,
@@ -42,9 +42,9 @@
   },
   "canonical": {
     "sections": {
-      "Bug Fixes": 147,
+      "Documentation": 117,
+      "Bug Fixes": 152,
       "Other Changes": 167,
-      "Documentation": 116,
       "Maintenance": 21,
       "Tests": 46,
       "Features": 532,
@@ -52,14 +52,14 @@
       "Refactoring": 27
     },
     "systems": {
-      "Abilities": 128,
-      "Inventory & Loot": 428,
-      "Persistence & Backend": 244,
-      "Build & Tooling": 554,
-      "Documentation": 397,
-      "Tests": 670,
-      "Extraction": 153,
-      "Networking & Sessions": 321,
+      "Persistence & Backend": 250,
+      "Abilities": 130,
+      "Inventory & Loot": 431,
+      "Build & Tooling": 556,
+      "Documentation": 399,
+      "Tests": 675,
+      "Networking & Sessions": 322,
+      "Extraction": 154,
       "UI": 323,
       "World & Visibility": 139,
       "Unassigned": 31,
@@ -34547,8 +34547,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 188,
-      "canonicalEntries": 188
+      "originalCommits": 194,
+      "canonicalEntries": 194
     },
     {
       "key": "v0.5.0",
@@ -34592,6 +34592,640 @@
     }
   ],
   "commits": [
+    {
+      "sha": "e47705b906cc10e4202d2b1428d700bae8c227d5",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e47705b906cc10e4202d2b1428d700bae8c227d5",
+      "subject": "docs(odd): track backend fixes FIX-20, FIX-31, FIX-32 and FIX-38",
+      "body": "Execution tracker for the four Fixes-board items: specs quoting the\nHacknPlan acceptance criteria, task routes, RED/GREEN evidence, the\nFIX-31 design decision and the commit that holds each task.\n",
+      "date": "2026-11-13T17:42:39-03:00",
+      "files": [
+        "odd/tasks/backend-fixes-20-31-38-32.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "odd",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [
+        "Persistence & Backend"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "odd/tasks/backend-fixes-20-31-38-32.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "a0d12e4db5396120faa22290a9f69c71a55b674f",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a0d12e4db5396120faa22290a9f69c71a55b674f",
+      "subject": "fix(commerce): reject shop retries older than the receipt watermark",
+      "body": "appliedShopReceipts keeps only the last 64 receipts. A late retry of a\nbuy, sell, trade, buyback, gem install or ability purchase whose receipt\nwas already evicted, sent with the current revision, was applied again.\n\nTransaction ids now carry their issue time (`<ms>_<32 hex>`, the\nexisting ShopTransactionId.ToString()). Every write that evicts receipts\nraises Character.shopReceiptWatermark with $max in the same\nrevision-guarded findOneAndUpdate, to the newest evicted id timestamp\ncapped by that receipt's server time. A timestamped id with no receipt\nat or below the watermark is rejected before any mutation with\n409 TRANSACTION_RETENTION_EXCEEDED. Legacy ids without a timestamp keep\nthe previous window-only behavior, so older clients keep working.\n\nContract to verify:\n- New Character.shopReceiptWatermark (Number, default 0; missing reads\n  as 0, no migration).\n- Unity sends the timestamped id for trade, buyback and ability\n  purchase; the 409 maps to StashOperationResult.InvalidInventory and\n  to the new AbilityPurchaseResult.TransactionExpired.\n\nTests:\n- shop.receipt-retention.test.js: evicted replays of buy, sell, trade,\n  buyback, gem install and ability purchase return the typed 409 with\n  currency, inventory, revision and receipts unchanged; replays inside\n  the window stay alreadySecured; fresh and legacy ids still work;\n  watermark edge rules (64 vs 63 receipts, future ids, missing field).\n- HTTP cases in shop.authoritative and ability.purchase integration.\n- ShopTransactionRetentionWireTests (EditMode): wire id format, 409\n  mapping and the vendor message; RemoteShopTransactionServiceTests\n  assert the timestamped id.\n\nDocs: backend/README.md, CommerceArchitecture.md.\n\nPlayer-Fixed: Retrying an old purchase or sale can no longer charge you or pay you twice.\nRefs: #703\n",
+      "date": "2026-11-13T17:41:48-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Abilities/Persistence/AbilityPurchaseResult.cs",
+        "Project Grimhold/Assets/Scripts/Abilities/Vendor/RemoteAbilityPurchaseService.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/AbilityVendorFeedback.cs",
+        "Project Grimhold/Assets/Scripts/Stash/RemoteShopTransactionService.cs",
+        "Project Grimhold/Assets/Scripts/Stash/ShopTransactionId.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/ShopTransactionRetentionWireTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/ShopTransactionRetentionWireTests.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs",
+        "Project Grimhold/Docs/Architecture/CommerceArchitecture.md",
+        "backend/README.md",
+        "backend/src/models/Character.js",
+        "backend/src/services/AbilityService.js",
+        "backend/src/services/InventoryService.js",
+        "backend/src/services/ShopReceiptRetention.js",
+        "backend/tests/integration/ability.purchase.integration.test.js",
+        "backend/tests/integration/shop.authoritative.test.js",
+        "backend/tests/shop.receipt-retention.test.js"
+      ],
+      "originalType": "fix",
+      "originalScope": "commerce",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Abilities",
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Persistence/AbilityPurchaseResult.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Vendor/RemoteAbilityPurchaseService.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/AbilityVendorFeedback.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/AbilityService.js",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/ability.purchase.integration.test.js",
+          "supports": "Abilities"
+        },
+        {
+          "source": "message-term",
+          "value": "ability",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Persistence/AbilityPurchaseResult.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/README.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/models/Character.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/AbilityService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/ShopReceiptRetention.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/ability.purchase.integration.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/shop.authoritative.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/shop.receipt-retention.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/ShopTransactionRetentionWireTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/ShopTransactionRetentionWireTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/CommerceArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/ShopTransactionRetentionWireTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/ShopTransactionRetentionWireTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/ability.purchase.integration.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/shop.authoritative.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/shop.receipt-retention.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "2c4a40bd10acef310f7bd327864016656cc95842",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2c4a40bd10acef310f7bd327864016656cc95842",
+      "subject": "fix(backend): validate prepared abilities against catalog and unlocks",
+      "body": "The raid reservation accepted any string in preparedAbilities and the\nadmission ticket signed it, so a crafted request could bring an ability\nthe character never unlocked, or one that does not exist, into the Raid.\n\nPreparedAbilityValidation checks each non-empty slot against the\nbackend ability catalog (own keys only, so names such as constructor\nare unknown) and character.unlockedAbilities, using AbilityService's\nid normalization. It runs in savePendingReservation before any write\n(same-id retries keep returning early) and again in\nissueRaidAdmissionTicket for reservations stored before this change.\n\nContract:\n- 422 UNKNOWN_ABILITY: the ability is not in the catalog.\n- 422 ABILITY_NOT_UNLOCKED: in the catalog but not owned.\n- 400 INVALID_PREPARED_ABILITIES: not an object, non-string slot, id\n  over 64 characters, or the same ability in both slots. A non-object\n  body was previously ignored silently.\n- Empty or omitted slots stay valid. Current Unity clients send no\n  prepared abilities, so they are unaffected.\n\nTests:\n- reservation.prepared-abilities.test.js (in-memory MongoDB, service\n  and HTTP): every rejection leaves revision, inventory and\n  pendingReservation unchanged; unlocked abilities are stored\n  normalized and carried into the ticket; ticket issuance rejects\n  unowned or unknown stored abilities; prototype names are unknown.\n- session.ticket.test.js fixture now uses unlocked catalog abilities.\n\nDocs: backend/README.md, AbilitySystemArchitecture.md.\n\nRefs: #704\n",
+      "date": "2026-11-13T17:41:05-03:00",
+      "files": [
+        "Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md",
+        "backend/README.md",
+        "backend/src/services/InventoryService.js",
+        "backend/src/services/PreparedAbilityValidation.js",
+        "backend/src/services/SessionTicketService.js",
+        "backend/tests/reservation.prepared-abilities.test.js",
+        "backend/tests/session.ticket.test.js"
+      ],
+      "originalType": "fix",
+      "originalScope": "backend",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Abilities",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Persistence & Backend",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/PreparedAbilityValidation.js",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/reservation.prepared-abilities.test.js",
+          "supports": "Abilities"
+        },
+        {
+          "source": "message-term",
+          "value": "abilities",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "inventory",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/SessionTicketService.js",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/session.ticket.test.js",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "backend/README.md",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/InventoryService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/PreparedAbilityValidation.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/SessionTicketService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/reservation.prepared-abilities.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/session.ticket.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "scope",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/reservation.prepared-abilities.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/session.ticket.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "7f690659fd9784fd25ab81d4c783e5e810d2bf8d",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7f690659fd9784fd25ab81d4c783e5e810d2bf8d",
+      "subject": "fix(login): surface Town ticket failures as login errors",
+      "body": "LoginFlowController discarded the Town session ticket error and still\nreported a successful login with an empty ActiveTownTicket. The ticket\nis now requested before local identity is injected, so a failure leaves\nno partial identity behind.\n\n- Transport and server failures return the hydration failure from\n  LoginHydrationFailureClassifier and keep the pending credentials, so\n  the existing RetryHydrationAsync path retries the login.\n- 401 UNAUTHORIZED clears state and returns AuthFailed, like the other\n  hydration steps.\n- An OK response without a valid ticket is a retryable failure too.\n- HasHydrationFailed is reset after a successful retry.\n- ILoginFlowBackend seam (StaticLoginFlowBackend delegates to the\n  existing static clients) is injected through ConfigureForTesting; the\n  success path is unchanged.\n\nTests:\n- LoginFlowControllerTownTicketTests (EditMode): network, timeout and\n  server failures, 401, missing ticket, retry after recovery, success.\n\nPlayer-Fixed: If the town session cannot be loaded, login now shows an error and lets you try again instead of entering in a broken state.\nRefs: #710\n",
+      "date": "2026-11-13T17:40:39-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Backend/ILoginFlowBackend.cs",
+        "Project Grimhold/Assets/Scripts/Backend/ILoginFlowBackend.cs.meta",
+        "Project Grimhold/Assets/Scripts/Backend/LoginFlowController.cs",
+        "Project Grimhold/Assets/Scripts/Backend/StaticLoginFlowBackend.cs",
+        "Project Grimhold/Assets/Scripts/Backend/StaticLoginFlowBackend.cs.meta",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginFlowControllerTownTicketTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginFlowControllerTownTicketTests.cs.meta"
+      ],
+      "originalType": "fix",
+      "originalScope": "login",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/ILoginFlowBackend.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/ILoginFlowBackend.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/LoginFlowController.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/StaticLoginFlowBackend.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/StaticLoginFlowBackend.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginFlowControllerTownTicketTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginFlowControllerTownTicketTests.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginFlowControllerTownTicketTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginFlowControllerTownTicketTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginFlowControllerTownTicketTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginFlowControllerTownTicketTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "84e42ad58800ccfc41c9e997571df34462f99e77",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/84e42ad58800ccfc41c9e997571df34462f99e77",
+      "subject": "fix(auth): map duplicate registrations to 409 and equalize login timing",
+      "body": "Two concurrent registrations of the same username could both pass the\nfind-then-save check, and the loser surfaced the raw MongoDB duplicate\nkey error as 500 INTERNAL_SERVER_ERROR. Character creation had the same\nrace. Login also returned before running bcrypt for unknown usernames,\nso response time revealed which accounts exist.\n\n- AuthService.register and CharacterService.createForAccount map E11000\n  to the existing 409 USERNAME_TAKEN and CHARACTER_ALREADY_EXISTS errors\n  with unchanged messages (shared isDuplicateKeyError helper).\n- AuthService.login compares unknown usernames against a lazily\n  memoized dummy hash with the same cost as real hashes and throws the\n  same INVALID_CREDENTIALS error.\n\nTests:\n- concurrency/auth.register.real.test.js: two simultaneous registrations\n  and character creations yield one success and one typed 409.\n- auth.login-timing.test.js: both failure branches run one bcrypt\n  comparison and take comparable time.\n\nPlayer-Fixed: Picking a name someone else registers at the same moment now says the name is taken instead of showing a server error.\nRefs: #710\n",
+      "date": "2026-11-13T17:40:39-03:00",
+      "files": [
+        "backend/src/services/AuthService.js",
+        "backend/src/services/CharacterService.js",
+        "backend/src/utils/mongoErrors.js",
+        "backend/tests/auth.login-timing.test.js",
+        "backend/tests/concurrency/auth.register.real.test.js"
+      ],
+      "originalType": "fix",
+      "originalScope": "auth",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/AuthService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/CharacterService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/utils/mongoErrors.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/auth.login-timing.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/auth.register.real.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "scope",
+          "value": "auth",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/auth.login-timing.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/concurrency/auth.register.real.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "Tests",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "6818e014734e5ec61d0c3a1bb2db094f40ca1bbf",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6818e014734e5ec61d0c3a1bb2db094f40ca1bbf",
+      "subject": "fix(backend): release the extraction result claim when the write fails",
+      "body": "A failure after the authoritative extraction result was claimed left it\nmarked consumed with no receipt applied, so every retry was rejected\nwith RESULT_ALREADY_CONSUMED and the extracted loot could not be\nsecured without manual intervention.\n\nEverything after the claim now runs inside one try/catch that releases\nthe claim before rethrowing. The existing 404 and revision-conflict\nreleases go through the same path; alreadySecured returns never release.\nA release failure is logged and the original error is rethrown. The\nper-raid extraction receipt filter still prevents applying a result\ntwice, even if a write landed but reported an error.\n\n- Add extraction.commit.claim-release.test.js (in-memory MongoDB, only\n  the character write fails once): the claim is released, the character\n  is untouched, and a retry applies the loot exactly once.\n\nPlayer-Fixed: Extracted loot is no longer stuck if saving fails once; trying again now secures it.\nRefs: #690\n",
+      "date": "2026-11-13T17:40:23-03:00",
+      "files": [
+        "backend/src/services/ExtractionCommitService.js",
+        "backend/tests/extraction.commit.claim-release.test.js"
+      ],
+      "originalType": "fix",
+      "originalScope": "backend",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/ExtractionCommitService.js",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/extraction.commit.claim-release.test.js",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/ExtractionCommitService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/extraction.commit.claim-release.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "scope",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/extraction.commit.claim-release.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "9509d199bbd72718a926cbd7f3cba137e350f982",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9509d199bbd72718a926cbd7f3cba137e350f982",

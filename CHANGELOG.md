@@ -80,6 +80,10 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - Defeated players no longer lose corpse loot on post-clear errors and forced defeats properly report lost items in the results screen.
 - Experience gained before a definitive defeat now persists reliably in your profile after returning to Town and relogging.
 - Ability purchases now fail safely with an error message instead of desyncing when the game server is unreachable.
+- Extracted loot is no longer stuck if saving fails once; trying again now secures it.
+- Picking a name someone else registers at the same moment now says the name is taken instead of showing a server error.
+- If the town session cannot be loaded, login now shows an error and lets you try again instead of entering in a broken state.
+- Retrying an old purchase or sale can no longer charge you or pay you twice.
 
 
 ## [0.5.0](https://github.com/Astro-Rift-Games/ProjectGrimhold/releases/tag/v0.5.0) - 2026-11-08

@@ -4,32 +4,474 @@
 
 Release: Unreleased
 
-188 original commits; 188 canonical entries.
+194 original commits; 194 canonical entries.
 
 ## Canonical classification
 
-73 features; 54 bug fixes; 1 refactoring; 1 architecture & infrastructure; 26 documentation; 17 tests; 10 maintenance; 6 other changes
+73 features; 59 bug fixes; 1 refactoring; 1 architecture & infrastructure; 27 documentation; 17 tests; 10 maintenance; 6 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Abilities | 8 | 7 | 1 | 0 | 9 | 1 |
+| Abilities | 8 | 9 | 1 | 0 | 9 | 1 |
 | Art & Animation | 10 | 9 | 1 | 0 | 7 | 0 |
 | Audio | 4 | 2 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 47 | 40 | 1 | 1 | 20 | 6 |
+| Build & Tooling | 47 | 42 | 1 | 1 | 20 | 6 |
 | Combat | 34 | 10 | 0 | 0 | 12 | 0 |
-| Documentation | 26 | 19 | 0 | 0 | 11 | 0 |
-| Extraction | 13 | 9 | 0 | 0 | 9 | 3 |
+| Documentation | 26 | 21 | 0 | 0 | 11 | 0 |
+| Extraction | 13 | 10 | 0 | 0 | 9 | 3 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 55 | 33 | 1 | 1 | 19 | 3 |
+| Inventory & Loot | 55 | 36 | 1 | 1 | 19 | 3 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 23 | 23 | 0 | 0 | 17 | 2 |
-| Persistence & Backend | 27 | 18 | 0 | 1 | 10 | 3 |
-| Tests | 70 | 48 | 1 | 1 | 27 | 4 |
+| Networking & Sessions | 23 | 24 | 0 | 0 | 17 | 2 |
+| Persistence & Backend | 27 | 23 | 0 | 1 | 11 | 3 |
+| Tests | 70 | 53 | 1 | 1 | 27 | 4 |
 | UI | 28 | 13 | 1 | 0 | 12 | 1 |
 | Unassigned | 0 | 1 | 0 | 0 | 12 | 0 |
 | World & Visibility | 19 | 8 | 0 | 0 | 3 | 1 |
 
 ## Original commit records
+
+### e47705b906cc10e4202d2b1428d700bae8c227d5
+
+[e47705b906cc10e4202d2b1428d700bae8c227d5](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/e47705b906cc10e4202d2b1428d700bae8c227d5)
+
+Date: 2026-11-13T17:42:39-03:00 · Classification: Documentation (explicit) · Systems: Persistence & Backend
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(odd): track backend fixes FIX-20, FIX-31, FIX-32 and FIX-38
+```
+
+#### Original body
+
+```text
+Execution tracker for the four Fixes-board items: specs quoting the
+HacknPlan acceptance criteria, task routes, RED/GREEN evidence, the
+FIX-31 design decision and the commit that holds each task.
+```
+
+#### Changed paths
+
+```text
+odd/tasks/backend-fixes-20-31-38-32.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+- path → Persistence &amp; Backend: odd/tasks/backend-fixes-20-31-38-32.md
+- message-term → Persistence &amp; Backend: backend
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### a0d12e4db5396120faa22290a9f69c71a55b674f
+
+[a0d12e4db5396120faa22290a9f69c71a55b674f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a0d12e4db5396120faa22290a9f69c71a55b674f)
+
+Date: 2026-11-13T17:41:48-03:00 · Classification: Bug Fixes (explicit) · Systems: Abilities, Inventory & Loot, Persistence & Backend, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(commerce): reject shop retries older than the receipt watermark
+```
+
+#### Original body
+
+```text
+appliedShopReceipts keeps only the last 64 receipts. A late retry of a
+buy, sell, trade, buyback, gem install or ability purchase whose receipt
+was already evicted, sent with the current revision, was applied again.
+
+Transaction ids now carry their issue time (`<ms>_<32 hex>`, the
+existing ShopTransactionId.ToString()). Every write that evicts receipts
+raises Character.shopReceiptWatermark with $max in the same
+revision-guarded findOneAndUpdate, to the newest evicted id timestamp
+capped by that receipt's server time. A timestamped id with no receipt
+at or below the watermark is rejected before any mutation with
+409 TRANSACTION_RETENTION_EXCEEDED. Legacy ids without a timestamp keep
+the previous window-only behavior, so older clients keep working.
+
+Contract to verify:
+- New Character.shopReceiptWatermark (Number, default 0; missing reads
+  as 0, no migration).
+- Unity sends the timestamped id for trade, buyback and ability
+  purchase; the 409 maps to StashOperationResult.InvalidInventory and
+  to the new AbilityPurchaseResult.TransactionExpired.
+
+Tests:
+- shop.receipt-retention.test.js: evicted replays of buy, sell, trade,
+  buyback, gem install and ability purchase return the typed 409 with
+  currency, inventory, revision and receipts unchanged; replays inside
+  the window stay alreadySecured; fresh and legacy ids still work;
+  watermark edge rules (64 vs 63 receipts, future ids, missing field).
+- HTTP cases in shop.authoritative and ability.purchase integration.
+- ShopTransactionRetentionWireTests (EditMode): wire id format, 409
+  mapping and the vendor message; RemoteShopTransactionServiceTests
+  assert the timestamped id.
+
+Docs: backend/README.md, CommerceArchitecture.md.
+
+Player-Fixed: Retrying an old purchase or sale can no longer charge you or pay you twice.
+Refs: #703
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Abilities/Persistence/AbilityPurchaseResult.cs
+Project Grimhold/Assets/Scripts/Abilities/Vendor/RemoteAbilityPurchaseService.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/AbilityVendorFeedback.cs
+Project Grimhold/Assets/Scripts/Stash/RemoteShopTransactionService.cs
+Project Grimhold/Assets/Scripts/Stash/ShopTransactionId.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/ShopTransactionRetentionWireTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/ShopTransactionRetentionWireTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs
+Project Grimhold/Docs/Architecture/CommerceArchitecture.md
+backend/README.md
+backend/src/models/Character.js
+backend/src/services/AbilityService.js
+backend/src/services/InventoryService.js
+backend/src/services/ShopReceiptRetention.js
+backend/tests/integration/ability.purchase.integration.test.js
+backend/tests/integration/shop.authoritative.test.js
+backend/tests/shop.receipt-retention.test.js
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Persistence/AbilityPurchaseResult.cs
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Vendor/RemoteAbilityPurchaseService.cs
+- path → Abilities: Project Grimhold/Assets/Scripts/Player/Presentation/AbilityVendorFeedback.cs
+- path → Abilities: backend/src/services/AbilityService.js
+- path → Abilities: backend/tests/integration/ability.purchase.integration.test.js
+- message-term → Abilities: ability
+- path → Inventory &amp; Loot: backend/src/services/InventoryService.js
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Abilities/Persistence/AbilityPurchaseResult.cs
+- path → Persistence &amp; Backend: backend/README.md
+- path → Persistence &amp; Backend: backend/src/models/Character.js
+- path → Persistence &amp; Backend: backend/src/services/AbilityService.js
+- path → Persistence &amp; Backend: backend/src/services/InventoryService.js
+- path → Persistence &amp; Backend: backend/src/services/ShopReceiptRetention.js
+- path → Persistence &amp; Backend: backend/tests/integration/ability.purchase.integration.test.js
+- path → Persistence &amp; Backend: backend/tests/integration/shop.authoritative.test.js
+- path → Persistence &amp; Backend: backend/tests/shop.receipt-retention.test.js
+- message-term → Persistence &amp; Backend: backend
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/ShopTransactionRetentionWireTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/ShopTransactionRetentionWireTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/CommerceArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/ShopTransactionRetentionWireTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Commerce/ShopTransactionRetentionWireTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RemoteShopTransactionServiceTests.cs
+- path → Tests: backend/tests/integration/ability.purchase.integration.test.js
+- path → Tests: backend/tests/integration/shop.authoritative.test.js
+- path → Tests: backend/tests/shop.receipt-retention.test.js
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 2c4a40bd10acef310f7bd327864016656cc95842
+
+[2c4a40bd10acef310f7bd327864016656cc95842](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2c4a40bd10acef310f7bd327864016656cc95842)
+
+Date: 2026-11-13T17:41:05-03:00 · Classification: Bug Fixes (explicit) · Systems: Abilities, Inventory & Loot, Networking & Sessions, Persistence & Backend, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(backend): validate prepared abilities against catalog and unlocks
+```
+
+#### Original body
+
+```text
+The raid reservation accepted any string in preparedAbilities and the
+admission ticket signed it, so a crafted request could bring an ability
+the character never unlocked, or one that does not exist, into the Raid.
+
+PreparedAbilityValidation checks each non-empty slot against the
+backend ability catalog (own keys only, so names such as constructor
+are unknown) and character.unlockedAbilities, using AbilityService's
+id normalization. It runs in savePendingReservation before any write
+(same-id retries keep returning early) and again in
+issueRaidAdmissionTicket for reservations stored before this change.
+
+Contract:
+- 422 UNKNOWN_ABILITY: the ability is not in the catalog.
+- 422 ABILITY_NOT_UNLOCKED: in the catalog but not owned.
+- 400 INVALID_PREPARED_ABILITIES: not an object, non-string slot, id
+  over 64 characters, or the same ability in both slots. A non-object
+  body was previously ignored silently.
+- Empty or omitted slots stay valid. Current Unity clients send no
+  prepared abilities, so they are unaffected.
+
+Tests:
+- reservation.prepared-abilities.test.js (in-memory MongoDB, service
+  and HTTP): every rejection leaves revision, inventory and
+  pendingReservation unchanged; unlocked abilities are stored
+  normalized and carried into the ticket; ticket issuance rejects
+  unowned or unknown stored abilities; prototype names are unknown.
+- session.ticket.test.js fixture now uses unlocked catalog abilities.
+
+Docs: backend/README.md, AbilitySystemArchitecture.md.
+
+Refs: #704
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md
+backend/README.md
+backend/src/services/InventoryService.js
+backend/src/services/PreparedAbilityValidation.js
+backend/src/services/SessionTicketService.js
+backend/tests/reservation.prepared-abilities.test.js
+backend/tests/session.ticket.test.js
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Abilities: Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md
+- path → Abilities: backend/src/services/PreparedAbilityValidation.js
+- path → Abilities: backend/tests/reservation.prepared-abilities.test.js
+- message-term → Abilities: abilities
+- path → Inventory &amp; Loot: backend/src/services/InventoryService.js
+- message-term → Inventory &amp; Loot: inventory
+- path → Networking &amp; Sessions: backend/src/services/SessionTicketService.js
+- path → Networking &amp; Sessions: backend/tests/session.ticket.test.js
+- path → Persistence &amp; Backend: backend/README.md
+- path → Persistence &amp; Backend: backend/src/services/InventoryService.js
+- path → Persistence &amp; Backend: backend/src/services/PreparedAbilityValidation.js
+- path → Persistence &amp; Backend: backend/src/services/SessionTicketService.js
+- path → Persistence &amp; Backend: backend/tests/reservation.prepared-abilities.test.js
+- path → Persistence &amp; Backend: backend/tests/session.ticket.test.js
+- scope → Persistence &amp; Backend: backend
+- message-term → Persistence &amp; Backend: backend
+- path → Documentation: Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md
+- path → Tests: backend/tests/reservation.prepared-abilities.test.js
+- path → Tests: backend/tests/session.ticket.test.js
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 7f690659fd9784fd25ab81d4c783e5e810d2bf8d
+
+[7f690659fd9784fd25ab81d4c783e5e810d2bf8d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/7f690659fd9784fd25ab81d4c783e5e810d2bf8d)
+
+Date: 2026-11-13T17:40:39-03:00 · Classification: Bug Fixes (explicit) · Systems: Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(login): surface Town ticket failures as login errors
+```
+
+#### Original body
+
+```text
+LoginFlowController discarded the Town session ticket error and still
+reported a successful login with an empty ActiveTownTicket. The ticket
+is now requested before local identity is injected, so a failure leaves
+no partial identity behind.
+
+- Transport and server failures return the hydration failure from
+  LoginHydrationFailureClassifier and keep the pending credentials, so
+  the existing RetryHydrationAsync path retries the login.
+- 401 UNAUTHORIZED clears state and returns AuthFailed, like the other
+  hydration steps.
+- An OK response without a valid ticket is a retryable failure too.
+- HasHydrationFailed is reset after a successful retry.
+- ILoginFlowBackend seam (StaticLoginFlowBackend delegates to the
+  existing static clients) is injected through ConfigureForTesting; the
+  success path is unchanged.
+
+Tests:
+- LoginFlowControllerTownTicketTests (EditMode): network, timeout and
+  server failures, 401, missing ticket, retry after recovery, success.
+
+Player-Fixed: If the town session cannot be loaded, login now shows an error and lets you try again instead of entering in a broken state.
+Refs: #710
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Backend/ILoginFlowBackend.cs
+Project Grimhold/Assets/Scripts/Backend/ILoginFlowBackend.cs.meta
+Project Grimhold/Assets/Scripts/Backend/LoginFlowController.cs
+Project Grimhold/Assets/Scripts/Backend/StaticLoginFlowBackend.cs
+Project Grimhold/Assets/Scripts/Backend/StaticLoginFlowBackend.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginFlowControllerTownTicketTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginFlowControllerTownTicketTests.cs.meta
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/ILoginFlowBackend.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/ILoginFlowBackend.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/LoginFlowController.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/StaticLoginFlowBackend.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/StaticLoginFlowBackend.cs.meta
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginFlowControllerTownTicketTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginFlowControllerTownTicketTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginFlowControllerTownTicketTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginFlowControllerTownTicketTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginFlowControllerTownTicketTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Backend/LoginFlowControllerTownTicketTests.cs.meta
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 84e42ad58800ccfc41c9e997571df34462f99e77
+
+[84e42ad58800ccfc41c9e997571df34462f99e77](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/84e42ad58800ccfc41c9e997571df34462f99e77)
+
+Date: 2026-11-13T17:40:39-03:00 · Classification: Bug Fixes (explicit) · Systems: Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(auth): map duplicate registrations to 409 and equalize login timing
+```
+
+#### Original body
+
+```text
+Two concurrent registrations of the same username could both pass the
+find-then-save check, and the loser surfaced the raw MongoDB duplicate
+key error as 500 INTERNAL_SERVER_ERROR. Character creation had the same
+race. Login also returned before running bcrypt for unknown usernames,
+so response time revealed which accounts exist.
+
+- AuthService.register and CharacterService.createForAccount map E11000
+  to the existing 409 USERNAME_TAKEN and CHARACTER_ALREADY_EXISTS errors
+  with unchanged messages (shared isDuplicateKeyError helper).
+- AuthService.login compares unknown usernames against a lazily
+  memoized dummy hash with the same cost as real hashes and throws the
+  same INVALID_CREDENTIALS error.
+
+Tests:
+- concurrency/auth.register.real.test.js: two simultaneous registrations
+  and character creations yield one success and one typed 409.
+- auth.login-timing.test.js: both failure branches run one bcrypt
+  comparison and take comparable time.
+
+Player-Fixed: Picking a name someone else registers at the same moment now says the name is taken instead of showing a server error.
+Refs: #710
+```
+
+#### Changed paths
+
+```text
+backend/src/services/AuthService.js
+backend/src/services/CharacterService.js
+backend/src/utils/mongoErrors.js
+backend/tests/auth.login-timing.test.js
+backend/tests/concurrency/auth.register.real.test.js
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Persistence &amp; Backend: backend/src/services/AuthService.js
+- path → Persistence &amp; Backend: backend/src/services/CharacterService.js
+- path → Persistence &amp; Backend: backend/src/utils/mongoErrors.js
+- path → Persistence &amp; Backend: backend/tests/auth.login-timing.test.js
+- path → Persistence &amp; Backend: backend/tests/concurrency/auth.register.real.test.js
+- scope → Persistence &amp; Backend: auth
+- path → Tests: backend/tests/auth.login-timing.test.js
+- path → Tests: backend/tests/concurrency/auth.register.real.test.js
+- message-term → Tests: Tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 6818e014734e5ec61d0c3a1bb2db094f40ca1bbf
+
+[6818e014734e5ec61d0c3a1bb2db094f40ca1bbf](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6818e014734e5ec61d0c3a1bb2db094f40ca1bbf)
+
+Date: 2026-11-13T17:40:23-03:00 · Classification: Bug Fixes (explicit) · Systems: Extraction, Inventory & Loot, Persistence & Backend, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(backend): release the extraction result claim when the write fails
+```
+
+#### Original body
+
+```text
+A failure after the authoritative extraction result was claimed left it
+marked consumed with no receipt applied, so every retry was rejected
+with RESULT_ALREADY_CONSUMED and the extracted loot could not be
+secured without manual intervention.
+
+Everything after the claim now runs inside one try/catch that releases
+the claim before rethrowing. The existing 404 and revision-conflict
+releases go through the same path; alreadySecured returns never release.
+A release failure is logged and the original error is rethrown. The
+per-raid extraction receipt filter still prevents applying a result
+twice, even if a write landed but reported an error.
+
+- Add extraction.commit.claim-release.test.js (in-memory MongoDB, only
+  the character write fails once): the claim is released, the character
+  is untouched, and a retry applies the loot exactly once.
+
+Player-Fixed: Extracted loot is no longer stuck if saving fails once; trying again now secures it.
+Refs: #690
+```
+
+#### Changed paths
+
+```text
+backend/src/services/ExtractionCommitService.js
+backend/tests/extraction.commit.claim-release.test.js
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Extraction: backend/src/services/ExtractionCommitService.js
+- path → Extraction: backend/tests/extraction.commit.claim-release.test.js
+- message-term → Extraction: extraction
+- message-term → Inventory &amp; Loot: loot
+- path → Persistence &amp; Backend: backend/src/services/ExtractionCommitService.js
+- path → Persistence &amp; Backend: backend/tests/extraction.commit.claim-release.test.js
+- scope → Persistence &amp; Backend: backend
+- message-term → Persistence &amp; Backend: backend
+- path → Tests: backend/tests/extraction.commit.claim-release.test.js
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 9509d199bbd72718a926cbd7f3cba137e350f982
 
