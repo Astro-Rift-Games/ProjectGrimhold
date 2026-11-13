@@ -76,6 +76,8 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - Depositing and withdrawing utilities into chests or corpses properly respects the single-unit carry limit.
 - Defeated players with full equipment and backpack no longer lock up in raid closure and their corpse loot displays correctly.
 - Extracting players who disconnect or experience host migration no longer lose raid progress or block match closure.
+- Profile saves with catalog drift or transient file locks no longer lose pending extraction progress or overwrite the latest save.
+- Defeated players no longer lose corpse loot on post-clear errors and forced defeats properly report lost items in the results screen.
 
 
 ## [0.5.0](https://github.com/Astro-Rift-Games/ProjectGrimhold/releases/tag/v0.5.0) - 2026-11-08

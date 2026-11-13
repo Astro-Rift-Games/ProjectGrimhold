@@ -4,32 +4,139 @@
 
 Release: Unreleased
 
-182 original commits; 182 canonical entries.
+185 original commits; 185 canonical entries.
 
 ## Canonical classification
 
-73 features; 50 bug fixes; 1 refactoring; 1 architecture & infrastructure; 26 documentation; 17 tests; 10 maintenance; 4 other changes
+73 features; 52 bug fixes; 1 refactoring; 1 architecture & infrastructure; 26 documentation; 17 tests; 10 maintenance; 5 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 8 | 6 | 1 | 0 | 9 | 1 |
 | Art & Animation | 10 | 9 | 1 | 0 | 7 | 0 |
 | Audio | 4 | 2 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 47 | 36 | 1 | 1 | 20 | 4 |
+| Build & Tooling | 47 | 38 | 1 | 1 | 20 | 5 |
 | Combat | 34 | 10 | 0 | 0 | 12 | 0 |
 | Documentation | 26 | 18 | 0 | 0 | 11 | 0 |
-| Extraction | 13 | 8 | 0 | 0 | 9 | 1 |
+| Extraction | 13 | 8 | 0 | 0 | 9 | 2 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 55 | 30 | 1 | 1 | 19 | 2 |
+| Inventory & Loot | 55 | 31 | 1 | 1 | 19 | 2 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 23 | 22 | 0 | 0 | 17 | 1 |
-| Persistence & Backend | 27 | 15 | 0 | 1 | 10 | 1 |
-| Tests | 70 | 44 | 1 | 1 | 27 | 2 |
+| Networking & Sessions | 23 | 23 | 0 | 0 | 17 | 1 |
+| Persistence & Backend | 27 | 16 | 0 | 1 | 10 | 2 |
+| Tests | 70 | 46 | 1 | 1 | 27 | 3 |
 | UI | 28 | 12 | 1 | 0 | 12 | 1 |
 | Unassigned | 0 | 1 | 0 | 0 | 12 | 0 |
-| World & Visibility | 19 | 7 | 0 | 0 | 3 | 1 |
+| World & Visibility | 19 | 8 | 0 | 0 | 3 | 1 |
 
 ## Original commit records
+
+### 6c61021536a05c3f2ba1e23b226706bde9304456
+
+[6c61021536a05c3f2ba1e23b226706bde9304456](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6c61021536a05c3f2ba1e23b226706bde9304456)
+
+Date: 2026-11-13T01:37:04-03:00 · Classification: Bug Fixes (explicit) · Systems: Networking & Sessions, World & Visibility, Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(network): resolve unresolvable avatars on absolute closure and bound persistence wait
+```
+
+#### Original body
+
+```text
+Authoritatively transition raiding participants lacking an active or resolvable avatar to definitive defeat during absolute dungeon collapse, and ensure closure advance bounds persistence wait with the deadline timer.
+
+Adds TryMarkDefeatedWithoutAvatar to NetworkRaidParticipant and delegates to it in NetworkSpawnManager.DefeatRemainingRaidingParticipantsForAbsoluteClosure and ConfirmTeammateAbsence when no avatar exists. Guards persistence wait in NetworkMatchController.AdvanceClosure with PersistenceDeadline.IsRunning.
+
+Player-Fixed: Absolute dungeon collapse now cleanly resolves players without active avatars and bounds persistence wait to avoid hanging raid closure.
+
+Refs: #716
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs
+Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs
+Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAbsoluteClosureTests.cs
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAbsoluteClosureTests.cs
+- scope → Networking &amp; Sessions: network
+- message-term → World &amp; Visibility: dungeon
+- message-term → Persistence &amp; Backend: persistence
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAbsoluteClosureTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAbsoluteClosureTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### be6b97307382b02ba0c85f79566ee166990a2516
+
+[be6b97307382b02ba0c85f79566ee166990a2516](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/be6b97307382b02ba0c85f79566ee166990a2516)
+
+Date: 2026-11-13T01:13:25-03:00 · Classification: Bug Fixes (explicit) · Systems: Inventory & Loot, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(player): preserve corpse loot on post-clear failures and ensure forced defeat loss summary
+```
+
+#### Original body
+
+```text
+Ensure corpse container remains enabled and intact when unexpected
+errors occur after player inventory has been cleared, preventing
+permanent loot destruction.
+
+Direct forced defeat from absence or collapse to liquidate remaining
+avatar items, publish lost results summary to the participant, and
+revoke input authority when corpse conversion is not completed.
+
+Player-Fixed: Defeated players no longer lose corpse loot on post-clear errors and forced defeats properly report lost items in the results screen.
+Refs: #715
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Player/PlayerCharacter.cs
+Project Grimhold/Assets/Scripts/Player/PlayerCorpseCompensationRule.cs
+Project Grimhold/Assets/Scripts/Player/PlayerCorpseCompensationRule.cs.meta
+Project Grimhold/Assets/Scripts/Player/PlayerCorpseGenerationController.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCompensationTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCompensationTests.cs.meta
+Project Grimhold/Assets/Tests/PlayMode/PlayerCorpseGenerationPlayModeTests.cs
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- message-term → Inventory &amp; Loot: loot
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCompensationTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCompensationTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCompensationTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCompensationTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/PlayMode/PlayerCorpseGenerationPlayModeTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 828df914ac052aa7c2f455421c2a9d5ea5b5653d
 
@@ -377,6 +484,62 @@ odd/tasks/fix-us-01-launch-reliability.md
 #### Diagnostics
 
 - No classification ambiguity detected.
+
+### ebbadf3201b9ae23791562d647d42bf8c0e72706
+
+[ebbadf3201b9ae23791562d647d42bf8c0e72706](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ebbadf3201b9ae23791562d647d42bf8c0e72706)
+
+Date: 2026-11-13T00:46:09-03:00 · Classification: Other Changes (unknown) · Systems: Extraction, Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+﻿fix(stash): preserve pending extraction commits and protect main file
+```
+
+#### Original body
+
+```text
+Preserve local profile data containing unknown catalog item identifiers
+as version drift rather than rejecting the file as corrupt, preventing
+login hydration from discarding pending extraction commits.
+
+Guard main file restoration so transient read IO failures never
+overwrite the primary profile file with older backup state, and ensure
+atomic profile writes flush file streams to disk before replacement.
+
+Player-Fixed: Profile saves with catalog drift or transient file locks no longer lose pending extraction progress or overwrite the latest save.
+Refs: #714
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Stash/LocalProfileFileStore.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileRepository.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/LocalProfileResilienceTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/LocalProfileResilienceTests.cs.meta
+```
+
+#### Classification evidence
+
+- message-term → Extraction: extraction
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileFileStore.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileRepository.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileSaveCodec.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/LocalProfileResilienceTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/LocalProfileResilienceTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/LocalProfileResilienceTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/LocalProfileResilienceTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/LocalProfileResilienceTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/LocalProfileResilienceTests.cs.meta
+
+#### Diagnostics
+
+- **ambiguous-kind:** No supported explicit type or anchored historical action. Inspect this commit diff; use an action and object or a Conventional Commit type in future messages.
 
 ### 2f830925229874ba26cc88e1b046f0acf84069e8
 
