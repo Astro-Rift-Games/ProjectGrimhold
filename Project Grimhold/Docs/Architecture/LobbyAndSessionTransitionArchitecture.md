@@ -52,7 +52,9 @@ Failed -> ConnectingTown | ConnectingRaid | ReturningTown
 ```
 
 `Failed` means there is no usable active runner. A caller may retry Town connection or use
-the explicit development entry point. Invalid transitions do not mutate state.
+the explicit development entry point. Invalid transitions do not mutate state. There is no
+`Failed -> Town` edge: `Failed` exits to Town only through `ReturningTown` or `ConnectingTown`
+(see "Stale launch ticket and reservation recovery").
 
 ## Sources of truth and data ownership
 
@@ -169,7 +171,9 @@ the local expiry, so a deadline cancellation always has an observable local caus
 The coordinated preparation owns two deadlines within the same lifecycle: the ACK phase deadline
 armed when the cohort freezes, and the existing release deadline armed by
 `PrepareCoordinatedRelease`. A launch revision therefore cannot wait for a missing ACK
-indefinitely, and a cancelled revision leaves Town usable for a new preparation.
+indefinitely, and a cancelled revision leaves Town usable for a new preparation. When the local
+reservation rollback of a cancelled revision fails, Town stays usable through the recovery in
+"Stale launch ticket and reservation recovery".
 
 Release order is based on Town network ownership, not social ownership. The profile holding State
 Authority for the `TownRaidPreparation` Master Client object is the terminal Town departure, so the
@@ -438,6 +442,48 @@ recovery always ends in `Failed` with `RecoveryFailed` published through the con
 transition failure channel (`TryConsumeLastTransitionFailure`), never in `ReturningTown`. The
 coordinated launch task started from a launch release is fire-and-forget, so it publishes any
 non-successful result through the same channel for the Town UI and observes any fault itself.
+
+### Stale launch ticket and reservation recovery
+
+The local launch ticket is the only handle to a pre-admission `PendingReservation`, so it is never
+dropped while that reservation could still be pending (FIX-02).
+
+- **Bounded retry.** `TryRollbackActiveReservation` retries a rollback whose profile save failed up
+  to three times (`ReservationRollbackAttempts`); any other result is deterministic and not
+  retried. A rollback of an already absent reservation counts as success (idempotent).
+- **Release on a new launch.** `TryStoreRaidLaunchContext` releases only a stale ticket by rolling
+  its reservation back before reserving again: a disarmed ticket, or one of an older revision,
+  another Raid code or another profile. A ticket whose release was already received or whose
+  launch is being dispatched belongs to the live party launch and is never released (the whole
+  party launches or nobody does); a ticket of a newer revision is kept too. In both cases the
+  late launch reports `NotReady(TicketMismatch)`.
+- **Backend rollback.** The local rollback also requests the backend rollback with the id of the
+  reservation it rolled back (`expectedReservationId`), so a delayed retry cannot undo the
+  reservation of a newer revision. The reservation contract itself is unchanged.
+- **Failed rollback.** When the bounded rollback still fails, the ticket is retained but disarmed
+  (`_ticketReleasePending`): it never ACKs, `BeginAcknowledgedRaidLaunch` ignores it, and a
+  same-revision launch cannot report `Success` for it. The reservation and its items stay intact in
+  `LocalProfileStore` (`LocalProfileStore.TryCreateLoadoutReservation` rejects a different reservation id while
+  one is pending, so releasing only the ticket would never unblock a relaunch). The next
+  launch preparation, cancel or exit to the main menu repeats the release; once the rollback
+  succeeds the new revision reserves, so items are never lost or duplicated. Exiting to the main
+  menu is the exception: the player is never stuck, so `ReturnToMainMenuAsync` still leaves
+  (shutdown, ticket dropped, `MainMenu`) after a failed bounded rollback and the reservation stays in
+  `LocalProfileStore.PendingReservation`; the login orphan resolution
+  (`ApplicationStashServiceBootstrapper.TryResolveOrphanedReservation`) rolls it back. This relies
+  on every caller of `ReturnToMainMenuAsync` logging out right after it (today `TownOptionsPresenter`
+  and `LogoutButtonPresenter`); a caller that returns to the main menu without logout would keep
+  the stale reservation and block the next launch until the next login.
+- **Recovery to Town.** A pre-admission rollback failure during raid-failure recovery no longer
+  stops in `Failed`: recovery continues through `ReturningTown -> Town` (or
+  `ConnectingTown -> Town`). If the reservation is still stale on arrival, Town is entered with the
+  disarmed ticket and `LoadoutRollbackFailed` is published through the consume-once channel.
+  A failed confirmation after admission is not rolled back and keeps its existing `Failed` outcome
+  (published as `LoadoutRollbackFailed`).
+- **Left in `Failed`.** A ticket and reservation left behind by a `Failed` outcome (including
+  `RecoveryFailed`) are resolved by the existing exits: `ReturnToTownAsync` and Town connection
+  re-run the rollback on arrival, and `ReturnToMainMenuAsync` rolls the non-admitted reservation
+  back before dropping the ticket (and leaves with the reservation pending when it cannot, as above).
 
 An unexpected shutdown of the current Town or raid runner uses the same recovery boundary.
 Shutdown notifications produced during an intentional transition are ignored because the

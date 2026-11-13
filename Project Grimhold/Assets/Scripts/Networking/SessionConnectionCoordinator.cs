@@ -90,6 +90,12 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private CancellationTokenSource _activeTransitionCancellation;
     private ApplicationStashContext _recoveryStashContext;
     private Task<(bool success, Grimhold.Backend.BackendError error)> _launchReservationSave;
+    // The retained ticket is the only handle to a pending reservation whose rollback failed.
+    // It is disarmed (never ACKs, never launches) until a later release rolls the reservation back.
+    private bool _ticketReleasePending;
+
+    /// <summary>Local attempts to roll a reservation back when the profile save fails (FIX-02).</summary>
+    private const int ReservationRollbackAttempts = 3;
 
     public SessionConnectionState State => _stateMachine.State;
     public RaidTransitionTicket? ActiveTicket => _activeTicket;
@@ -247,12 +253,29 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
         if (_activeTicket.HasValue)
         {
-            return HasActiveLaunchTicket(
-                launchContext.RaidCode.Value,
-                launchContext.LaunchRevision,
-                localProfile)
-                ? ObserveLaunchReservationSave()
-                : LaunchNotReady(RaidLaunchNotReadyReason.TicketMismatch);
+            if (!_ticketReleasePending && HasActiveLaunchTicket(
+                    launchContext.RaidCode.Value,
+                    launchContext.LaunchRevision,
+                    localProfile))
+            {
+                return ObserveLaunchReservationSave();
+            }
+
+            // A ticket of an older launch (or one whose rollback failed) must not block a new
+            // revision: release it first. A newer ticket is never released by a late launch.
+            if (!_ticketReleasePending && (IsLaunchCommitted() || !IsSupersededBy(launchContext, localProfile)))
+            {
+                return LaunchNotReady(RaidLaunchNotReadyReason.TicketMismatch);
+            }
+
+            if (!TryReleaseActiveTicket())
+            {
+                Debug.LogWarning(
+                    $"[{nameof(SessionConnectionCoordinator)}] The previous launch reservation is still stale; " +
+                    "the new launch waits for its rollback.",
+                    this);
+                return LaunchNotReady(RaidLaunchNotReadyReason.TicketMismatch);
+            }
         }
 
         ApplicationStashContext stashContext = ResolveRecoveryStashContext();
@@ -324,13 +347,43 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             if (response.success) return RaidLaunchPreparationResult.Success;
             reason = ReservationFailureReason(response.error);
         }
-        _launchReservationSave = null;
-        if (TryRollbackActiveReservation())
-        {
-            _activeTicket = null;
-            _pendingPartyContinuation = null;
-        }
+        TryReleaseActiveTicket();
         return RejectLaunchPreparation(reason, RaidLaunchPreparationResult.Rejected);
+    }
+
+    /// <summary>
+    /// Releases the pre-admission launch ticket by rolling its reservation back (bounded retry).
+    /// When the rollback still fails the ticket stays as the handle to the stale reservation and
+    /// is disarmed until a later release succeeds.
+    /// </summary>
+    private bool TryReleaseActiveTicket()
+    {
+        _acknowledgedLaunchSequence = 0;
+        _launchDispatchActive = false;
+        _launchReservationSave = null;
+        if (!TryRollbackActiveReservation())
+        {
+            _ticketReleasePending = true;
+            return false;
+        }
+
+        _activeTicket = null;
+        _pendingPartyContinuation = null;
+        _ticketReleasePending = false;
+        return true;
+    }
+
+    // A ticket whose release was received or whose launch is being dispatched belongs to the live
+    // party launch (the whole party launches or nobody does); only a stale ticket may be released.
+    private bool IsLaunchCommitted() => _acknowledgedLaunchSequence != 0 || _launchDispatchActive;
+
+    private bool IsSupersededBy(RaidLaunchContext launchContext, ProfileId localProfile)
+    {
+        RaidLaunchContext stored = _activeTicket.Value.LaunchContext;
+        return stored != null &&
+               (stored.RaidCode != launchContext.RaidCode ||
+                stored.LocalProfileId != localProfile ||
+                stored.LaunchRevision < launchContext.LaunchRevision);
     }
 
     private RaidLaunchPreparationResult LaunchNotReady(RaidLaunchNotReadyReason reason)
@@ -389,6 +442,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     {
         if (State != SessionConnectionState.Town || _operationActive || _launchDispatchActive ||
             _acknowledgedLaunchSequence != 0 ||
+            _ticketReleasePending ||
             !_activeTicket.HasValue ||
             !CanConsumeLaunchRelease(
                 _activeTicket.Value,
@@ -421,17 +475,10 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             return;
         }
 
-        _acknowledgedLaunchSequence = 0;
-        _launchDispatchActive = false;
-        _launchReservationSave = null;
-        if (!TryRollbackActiveReservation())
+        if (!TryReleaseActiveTicket())
         {
             Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Could not roll back the cancelled raid reservation.", this);
-            return;
         }
-
-        _activeTicket = null;
-        _pendingPartyContinuation = null;
     }
 
     /// <summary>
@@ -988,6 +1035,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             if (!_raidAdmissionConfirmed && !TryRollbackActiveReservation())
             {
                 Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Raid failed before admission but reservation rollback failed.", this);
+                CompleteTownEntryWithStaleReservation(SessionTransitionResult.LoadoutRollbackFailed);
                 return SessionTransitionResult.LoadoutRollbackFailed;
             }
 
@@ -1489,6 +1537,17 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         _operationActive = true;
         try
         {
+            // The ticket is the only handle to a non-admitted reservation: roll it back before
+            // dropping the ticket. If the rollback still fails the player leaves anyway: the
+            // reservation stays in the profile store and the login orphan resolution rolls it back.
+            if (!_raidAdmissionConfirmed && !TryRollbackActiveReservation())
+            {
+                Debug.LogWarning(
+                    $"[{nameof(SessionConnectionCoordinator)}] The pending reservation rollback failed before leaving " +
+                    "for the MainMenu; the reservation stays pending for the login orphan resolution.",
+                    this);
+            }
+
             if (_hubLauncher != null)
             {
                 await _hubLauncher.ShutdownAndDestroyRunnerAsync();
@@ -1601,6 +1660,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
             if (!_raidAdmissionConfirmed && !TryRollbackActiveReservation())
             {
+                CompleteTownEntryWithStaleReservation(SessionTransitionResult.LoadoutRollbackFailed);
                 return SessionTransitionResult.LoadoutRollbackFailed;
             }
 
@@ -1802,9 +1862,15 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             $"LoadoutService={(auditStash?.LoadoutService != null ? "ok" : "null")}.",
             this);
 
-        if (!TryRollbackActiveReservation())
+        // Before admission a rollback that still fails after the bounded retry must not strand the
+        // application in Failed: the Town recovery below goes on and, if the reservation is still
+        // stale on arrival, Town keeps the disarmed ticket so a later release can roll it back.
+        // After admission the reservation is confirmed, never rolled back, and a failed
+        // confirmation keeps the existing Failed outcome.
+        if (!TryRollbackActiveReservation() && _raidAdmissionConfirmed)
         {
             TransitionTo(SessionConnectionState.Failed);
+            _pendingTransitionFailure = SessionTransitionResult.LoadoutRollbackFailed;
             return SessionTransitionResult.LoadoutRollbackFailed;
         }
 
@@ -1858,6 +1924,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         if (!_raidAdmissionConfirmed && !TryRollbackActiveReservation())
         {
             Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Raid failed before admission but reservation rollback failed.", this);
+            CompleteTownEntryWithStaleReservation(SessionTransitionResult.LoadoutRollbackFailed);
             return SessionTransitionResult.LoadoutRollbackFailed;
         }
 
@@ -1926,10 +1993,17 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         }
 
         ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
-        StashOperationResult result = stashContext.LoadoutService.TryRollbackLoadoutReservation(
-            localProfile,
-            _activeTicket.Value.LoadoutReservation.ReservationId);
-            
+        // Only a failed profile save is worth retrying locally; any other result is deterministic.
+        StashOperationResult result = StashOperationResult.PersistenceFailed;
+        for (int attempt = 1;
+             attempt <= ReservationRollbackAttempts && result == StashOperationResult.PersistenceFailed;
+             attempt++)
+        {
+            result = stashContext.LoadoutService.TryRollbackLoadoutReservation(
+                localProfile,
+                _activeTicket.Value.LoadoutReservation.ReservationId);
+        }
+
         Debug.Log($"[AUDIT][SessionConnectionCoordinator] Rollback result: {result}.", this);
 
         // InvalidInventory means the reservation is already gone (rolled back on a prior attempt).
@@ -1945,7 +2019,9 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             var remoteInventoryService = stashContext.GetComponent<RemoteInventoryService>();
             if (remoteInventoryService != null)
             {
-                _ = remoteInventoryService.RollbackPendingReservationAsync();
+                // The id keeps a late retry from rolling back a newer revision's reservation.
+                _ = remoteInventoryService.RollbackPendingReservationAsync(
+                    _activeTicket.Value.LoadoutReservation.ReservationId);
             }
         }
 
@@ -2335,6 +2411,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             if (!_raidAdmissionConfirmed && !TryRollbackActiveReservation())
             {
                 Debug.LogError($"[{nameof(SessionConnectionCoordinator)}] Unexpected shutdown occurred before admission and rollback failed.", this);
+                CompleteTownEntryWithStaleReservation(SessionTransitionResult.LoadoutRollbackFailed);
                 return;
             }
 
@@ -2400,12 +2477,27 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         _activeTransitionCancellation = null;
     }
 
+    /// <summary>
+    /// Town entry whose pre-admission reservation could not be rolled back: the runner is usable
+    /// and the Raid-scoped state is reset, but the ticket stays as the disarmed handle to the stale
+    /// reservation. The next launch preparation, cancel or exit to the main menu retries the
+    /// rollback before anything else reserves.
+    /// </summary>
+    private void CompleteTownEntryWithStaleReservation(SessionTransitionResult failure)
+    {
+        RaidTransitionTicket? stale = _activeTicket;
+        CompleteTownEntry(failure);
+        _activeTicket = stale?.WithState(SessionConnectionState.Town);
+        _ticketReleasePending = stale.HasValue;
+    }
+
     private void CompleteTownEntry(SessionTransitionResult? pendingFailure = null)
     {
         // Runner-owned registries, input, HUD and camera bindings disappear with the old
         // runner object. This is the persistent owner's single Raid-scoped cleanup boundary.
         _launchReservationSave = null;
         _activeTicket = null;
+        _ticketReleasePending = false;
         _acknowledgedLaunchSequence = 0;
         _launchDispatchActive = false;
         _raidAdmissionConfirmed = false;

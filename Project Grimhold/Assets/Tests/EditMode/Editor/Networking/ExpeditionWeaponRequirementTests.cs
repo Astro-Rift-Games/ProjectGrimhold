@@ -259,16 +259,18 @@ public sealed class ExpeditionWeaponRequirementTests
     }
 
     [Test]
-    public void NotReadyReason_TicketOfAnotherRevision_IsTicketMismatch()
+    public void NotReadyReason_TicketOfNewerRevision_IsTicketMismatchAndKeptIntact()
     {
         EquipWeapon();
-        var (launch, party) = Launch();
-        Assert.That(_coordinator.TryStoreRaidLaunchContext(launch, party), Is.EqualTo(RaidLaunchPreparationResult.Success));
-        var (nextRevision, _) = Launch(revision: 2);
-        Assert.That(_coordinator.TryStoreRaidLaunchContext(nextRevision, party), Is.EqualTo(RaidLaunchPreparationResult.NotReady));
+        var (newer, party) = Launch(revision: 2);
+        Assert.That(_coordinator.TryStoreRaidLaunchContext(newer, party), Is.EqualTo(RaidLaunchPreparationResult.Success));
+        string reservation = _store.PendingReservation.ReservationId;
+        var (stale, _) = Launch(revision: 1);
+        Assert.That(_coordinator.TryStoreRaidLaunchContext(stale, party), Is.EqualTo(RaidLaunchPreparationResult.NotReady));
         Assert.That(_coordinator.LastLaunchNotReadyReason, Is.EqualTo(RaidLaunchNotReadyReason.TicketMismatch));
-        Assert.That(_coordinator.ActiveTicket.Value.LaunchContext.LaunchRevision, Is.EqualTo(1),
-            "Classifying the mismatch must not touch the stored ticket (stale ticket release is FIX-02).");
+        Assert.That(_coordinator.ActiveTicket.Value.LaunchContext.LaunchRevision, Is.EqualTo(2),
+            "A late launch of an older revision must not release the live newer ticket (FIX-02 releases only older tickets).");
+        Assert.That(_store.PendingReservation.ReservationId, Is.EqualTo(reservation));
     }
 
     [Test]

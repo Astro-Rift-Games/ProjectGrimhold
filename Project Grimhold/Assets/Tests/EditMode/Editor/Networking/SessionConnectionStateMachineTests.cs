@@ -908,12 +908,13 @@ public sealed class SessionConnectionStateMachineTests
         owner.AddComponent<FusionSessionLauncher>();
         SessionConnectionCoordinator coordinator = owner.AddComponent<SessionConnectionCoordinator>();
         BindLaunchers(coordinator);
+        ProfileId previousProfile = UseValidLocalProfile();
 
         try
         {
             DriveToConnectingRaid(coordinator);
             SetPrivateField(coordinator, "_townSceneName", UnbuiltTownSceneName);
-            LogAssert.Expect(LogType.Exception, new Regex("ArgumentException"));
+            LogAssert.Expect(LogType.Exception, UnbuiltSceneStartupFailure);
 
             var recovery = (Task<SessionTransitionResult>)InvokePrivateMethod(
                 coordinator,
@@ -929,6 +930,42 @@ public sealed class SessionConnectionStateMachineTests
         }
         finally
         {
+            RestoreLocalProfile(previousProfile);
+            Object.DestroyImmediate(owner);
+        }
+    }
+
+    // FIX-05: the same guarantee through the real entry path used by the launch catch blocks.
+    [Test]
+    public async Task RaidFailureRecoveryEntryPoint_HubStartupThrows_EndsFailedAndPublishesRecoveryFailedOnce()
+    {
+        var owner = new GameObject("FIX-05 raid recovery entry point test");
+        owner.AddComponent<HubSessionLauncher>();
+        owner.AddComponent<FusionSessionLauncher>();
+        SessionConnectionCoordinator coordinator = owner.AddComponent<SessionConnectionCoordinator>();
+        BindLaunchers(coordinator);
+        ProfileId previousProfile = UseValidLocalProfile();
+
+        try
+        {
+            DriveToConnectingRaid(coordinator);
+            SetPrivateField(coordinator, "_townSceneName", UnbuiltTownSceneName);
+            LogAssert.Expect(LogType.Exception, UnbuiltSceneStartupFailure);
+
+            var recovery = (Task<SessionTransitionResult>)InvokePrivateMethod(
+                coordinator,
+                "RecoverTownAfterRaidFailureAsync",
+                SessionTransitionResult.ConnectionFailed);
+
+            Assert.That(await recovery, Is.EqualTo(SessionTransitionResult.RecoveryFailed));
+            Assert.That(coordinator.State, Is.EqualTo(SessionConnectionState.Failed));
+            Assert.That(coordinator.TryConsumeLastTransitionFailure(out SessionTransitionResult failure), Is.True);
+            Assert.That(failure, Is.EqualTo(SessionTransitionResult.RecoveryFailed));
+            Assert.That(coordinator.TryConsumeLastTransitionFailure(out _), Is.False);
+        }
+        finally
+        {
+            RestoreLocalProfile(previousProfile);
             Object.DestroyImmediate(owner);
         }
     }
@@ -941,12 +978,13 @@ public sealed class SessionConnectionStateMachineTests
         owner.AddComponent<FusionSessionLauncher>();
         SessionConnectionCoordinator coordinator = owner.AddComponent<SessionConnectionCoordinator>();
         BindLaunchers(coordinator);
+        ProfileId previousProfile = UseValidLocalProfile();
 
         try
         {
             DriveToConnectingRaid(coordinator);
             SetPrivateField(coordinator, "_townSceneName", UnbuiltTownSceneName);
-            LogAssert.Expect(LogType.Exception, new Regex("ArgumentException"));
+            LogAssert.Expect(LogType.Exception, UnbuiltSceneStartupFailure);
 
             var recovery = (Task<SessionTransitionResult>)InvokePrivateMethod(
                 coordinator,
@@ -960,6 +998,7 @@ public sealed class SessionConnectionStateMachineTests
         }
         finally
         {
+            RestoreLocalProfile(previousProfile);
             Object.DestroyImmediate(owner);
         }
     }
@@ -1034,7 +1073,31 @@ public sealed class SessionConnectionStateMachineTests
         }
     }
 
+    // HubSessionLauncher.StartHubSessionAsync validates the local profile id before the scene, so
+    // these tests install a valid profile (see UseValidLocalProfile) and assert the scene-check
+    // message; otherwise the invalid-profile ArgumentException would be thrown first.
     private const string UnbuiltTownSceneName = "FIX05-Unbuilt-Town-Scene";
+    private static readonly Regex UnbuiltSceneStartupFailure =
+        new Regex("ArgumentException.*FIX05-Unbuilt-Town-Scene.*not enabled in build settings");
+
+    private static ProfileId UseValidLocalProfile()
+    {
+        ProfileId previousProfile = LocalProfileProvider.GetOrCreateLocalProfile();
+        LocalProfileProvider.SetRemoteCharacterId(new ProfileId("hub-recovery-test"));
+        return previousProfile;
+    }
+
+    private static void RestoreLocalProfile(ProfileId previousProfile)
+    {
+        if (previousProfile.IsValid)
+        {
+            LocalProfileProvider.SetRemoteCharacterId(previousProfile);
+        }
+        else
+        {
+            LocalProfileProvider.ClearRemoteCharacterId();
+        }
+    }
 
     // EditMode does not run Awake, so mirror its serialized launcher resolution.
     private static void BindLaunchers(SessionConnectionCoordinator coordinator)
