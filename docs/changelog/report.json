@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1064,
-  "canonicalEntries": 1061,
+  "rawCommits": 1065,
+  "canonicalEntries": 1062,
   "before": {
+    "Bug Fixes": 132,
     "Other Changes": 360,
-    "Bug Fixes": 131,
     "Documentation": 100,
     "Architecture & Infrastructure": 23,
     "Tests": 41,
@@ -12,8 +12,8 @@
     "Refactoring": 14
   },
   "after": {
+    "Bug Fixes": 148,
     "Other Changes": 168,
-    "Bug Fixes": 147,
     "Documentation": 116,
     "Maintenance": 21,
     "Tests": 46,
@@ -23,18 +23,18 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Abilities": 130,
+    "Inventory & Loot": 428,
+    "Persistence & Backend": 244,
+    "Build & Tooling": 556,
+    "Documentation": 399,
+    "Tests": 672,
     "Extraction": 153,
-    "Inventory & Loot": 427,
     "Networking & Sessions": 321,
-    "Persistence & Backend": 243,
-    "Build & Tooling": 555,
-    "Tests": 671,
     "UI": 324,
     "World & Visibility": 141,
     "Unassigned": 31,
-    "Documentation": 398,
     "Combat": 372,
-    "Abilities": 129,
     "Audio": 36,
     "Art & Animation": 237,
     "Input": 30,
@@ -42,8 +42,8 @@
   },
   "canonical": {
     "sections": {
+      "Bug Fixes": 147,
       "Other Changes": 167,
-      "Bug Fixes": 146,
       "Documentation": 116,
       "Maintenance": 21,
       "Tests": 46,
@@ -52,18 +52,18 @@
       "Refactoring": 27
     },
     "systems": {
+      "Abilities": 128,
+      "Inventory & Loot": 428,
+      "Persistence & Backend": 244,
+      "Build & Tooling": 554,
+      "Documentation": 397,
+      "Tests": 670,
       "Extraction": 153,
-      "Inventory & Loot": 427,
       "Networking & Sessions": 321,
-      "Persistence & Backend": 243,
-      "Build & Tooling": 553,
-      "Tests": 669,
       "UI": 323,
       "World & Visibility": 139,
       "Unassigned": 31,
-      "Documentation": 396,
       "Combat": 370,
-      "Abilities": 127,
       "Audio": 36,
       "Art & Animation": 234,
       "Input": 30,
@@ -34547,8 +34547,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 187,
-      "canonicalEntries": 187
+      "originalCommits": 188,
+      "canonicalEntries": 188
     },
     {
       "key": "v0.5.0",
@@ -34592,6 +34592,162 @@
     }
   ],
   "commits": [
+    {
+      "sha": "9509d199bbd72718a926cbd7f3cba137e350f982",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9509d199bbd72718a926cbd7f3cba137e350f982",
+      "subject": "fix(security): enforce fail-closed ability commerce and expand secret scan",
+      "body": "Ensure ability purchases never debit currency or unlock locally without\nbackend acknowledgment, remove dead client HMAC residues, expand the\nsecret scanner to cover full Git history and Unity YAML assets, and\nreconcile credential audit tracking for US-61 and FIX-US-09.\n\n- Update RemoteAbilityPurchaseService and TownAbilityVendorPresenter to\n  fail closed returning PersistenceFailed when backend service is null.\n- Add integration and concurrency test suite for ability purchases.\n- Remove dead ComputeHmacSha256 and unused canonical message logic.\n- Update scan-secrets to stream full Git history, scan .mat/.anim assets,\n  and classify known development secrets under KNOWN_DEV_SECRET.\n- Enable full fetch depth in CI security scan workflow.\n- Reconcile US-61 report with Render provider, Atlas decision, and ACLs.\n\nPlayer-Fixed: Ability purchases now fail safely with an error message instead of desyncing when the game server is unreachable.\nRefs: #743, #747, #748, #749, #750\n",
+      "date": "2026-11-13T15:55:15-03:00",
+      "files": [
+        ".github/workflows/ci.yml",
+        "Project Grimhold/Assets/Scripts/Abilities/Vendor/RemoteAbilityPurchaseService.cs",
+        "Project Grimhold/Assets/Scripts/Backend/RaidResultCanonicalizer.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/TownAbilityVendorPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidResultCanonicalizerTests.cs",
+        "Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md",
+        "backend/tests/integration/ability.purchase.integration.test.js",
+        "backend/tests/security.scan.test.js",
+        "docs/reporte_us61_investigacion_contencion_credenciales.md",
+        "tools/security/scan-secrets.js"
+      ],
+      "originalType": "fix",
+      "originalScope": "security",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Abilities",
+        "Inventory & Loot",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Abilities/Vendor/RemoteAbilityPurchaseService.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/TownAbilityVendorPresenter.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/ability.purchase.integration.test.js",
+          "supports": "Abilities"
+        },
+        {
+          "source": "message-term",
+          "value": "ability",
+          "supports": "Abilities"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/RaidResultCanonicalizer.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/ability.purchase.integration.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/security.scan.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": ".github/workflows/ci.yml",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidResultCanonicalizerTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "tools/security/scan-secrets.js",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "docs/reporte_us61_investigacion_contencion_credenciales.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidResultCanonicalizerTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/integration/ability.purchase.integration.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/security.scan.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "6dfb67bf72e0951473e2b57ed1f68eb2e6dfc8fc",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6dfb67bf72e0951473e2b57ed1f68eb2e6dfc8fc",

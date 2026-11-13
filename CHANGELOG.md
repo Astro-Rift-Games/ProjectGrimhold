@@ -79,6 +79,7 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - Profile saves with catalog drift or transient file locks no longer lose pending extraction progress or overwrite the latest save.
 - Defeated players no longer lose corpse loot on post-clear errors and forced defeats properly report lost items in the results screen.
 - Experience gained before a definitive defeat now persists reliably in your profile after returning to Town and relogging.
+- Ability purchases now fail safely with an error message instead of desyncing when the game server is unreachable.
 
 
 ## [0.5.0](https://github.com/Astro-Rift-Games/ProjectGrimhold/releases/tag/v0.5.0) - 2026-11-08

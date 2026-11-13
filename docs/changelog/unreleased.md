@@ -4,32 +4,114 @@
 
 Release: Unreleased
 
-187 original commits; 187 canonical entries.
+188 original commits; 188 canonical entries.
 
 ## Canonical classification
 
-73 features; 53 bug fixes; 1 refactoring; 1 architecture & infrastructure; 26 documentation; 17 tests; 10 maintenance; 6 other changes
+73 features; 54 bug fixes; 1 refactoring; 1 architecture & infrastructure; 26 documentation; 17 tests; 10 maintenance; 6 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Abilities | 8 | 6 | 1 | 0 | 9 | 1 |
+| Abilities | 8 | 7 | 1 | 0 | 9 | 1 |
 | Art & Animation | 10 | 9 | 1 | 0 | 7 | 0 |
 | Audio | 4 | 2 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 47 | 39 | 1 | 1 | 20 | 6 |
+| Build & Tooling | 47 | 40 | 1 | 1 | 20 | 6 |
 | Combat | 34 | 10 | 0 | 0 | 12 | 0 |
-| Documentation | 26 | 18 | 0 | 0 | 11 | 0 |
+| Documentation | 26 | 19 | 0 | 0 | 11 | 0 |
 | Extraction | 13 | 9 | 0 | 0 | 9 | 3 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 55 | 32 | 1 | 1 | 19 | 3 |
+| Inventory & Loot | 55 | 33 | 1 | 1 | 19 | 3 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 23 | 23 | 0 | 0 | 17 | 2 |
-| Persistence & Backend | 27 | 17 | 0 | 1 | 10 | 3 |
-| Tests | 70 | 47 | 1 | 1 | 27 | 4 |
+| Persistence & Backend | 27 | 18 | 0 | 1 | 10 | 3 |
+| Tests | 70 | 48 | 1 | 1 | 27 | 4 |
 | UI | 28 | 13 | 1 | 0 | 12 | 1 |
 | Unassigned | 0 | 1 | 0 | 0 | 12 | 0 |
 | World & Visibility | 19 | 8 | 0 | 0 | 3 | 1 |
 
 ## Original commit records
+
+### 9509d199bbd72718a926cbd7f3cba137e350f982
+
+[9509d199bbd72718a926cbd7f3cba137e350f982](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9509d199bbd72718a926cbd7f3cba137e350f982)
+
+Date: 2026-11-13T15:55:15-03:00 · Classification: Bug Fixes (explicit) · Systems: Abilities, Inventory & Loot, Persistence & Backend, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(security): enforce fail-closed ability commerce and expand secret scan
+```
+
+#### Original body
+
+```text
+Ensure ability purchases never debit currency or unlock locally without
+backend acknowledgment, remove dead client HMAC residues, expand the
+secret scanner to cover full Git history and Unity YAML assets, and
+reconcile credential audit tracking for US-61 and FIX-US-09.
+
+- Update RemoteAbilityPurchaseService and TownAbilityVendorPresenter to
+  fail closed returning PersistenceFailed when backend service is null.
+- Add integration and concurrency test suite for ability purchases.
+- Remove dead ComputeHmacSha256 and unused canonical message logic.
+- Update scan-secrets to stream full Git history, scan .mat/.anim assets,
+  and classify known development secrets under KNOWN_DEV_SECRET.
+- Enable full fetch depth in CI security scan workflow.
+- Reconcile US-61 report with Render provider, Atlas decision, and ACLs.
+
+Player-Fixed: Ability purchases now fail safely with an error message instead of desyncing when the game server is unreachable.
+Refs: #743, #747, #748, #749, #750
+```
+
+#### Changed paths
+
+```text
+.github/workflows/ci.yml
+Project Grimhold/Assets/Scripts/Abilities/Vendor/RemoteAbilityPurchaseService.cs
+Project Grimhold/Assets/Scripts/Backend/RaidResultCanonicalizer.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/TownAbilityVendorPresenter.cs
+Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidResultCanonicalizerTests.cs
+Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md
+backend/tests/integration/ability.purchase.integration.test.js
+backend/tests/security.scan.test.js
+docs/reporte_us61_investigacion_contencion_credenciales.md
+tools/security/scan-secrets.js
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Abilities: Project Grimhold/Assets/Scripts/Abilities/Vendor/RemoteAbilityPurchaseService.cs
+- path → Abilities: Project Grimhold/Assets/Scripts/Player/Presentation/TownAbilityVendorPresenter.cs
+- path → Abilities: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs
+- path → Abilities: Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md
+- path → Abilities: backend/tests/integration/ability.purchase.integration.test.js
+- message-term → Abilities: ability
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/RaidResultCanonicalizer.cs
+- path → Persistence &amp; Backend: backend/tests/integration/ability.purchase.integration.test.js
+- path → Persistence &amp; Backend: backend/tests/security.scan.test.js
+- message-term → Persistence &amp; Backend: backend
+- path → Build &amp; Tooling: .github/workflows/ci.yml
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidResultCanonicalizerTests.cs
+- path → Build &amp; Tooling: tools/security/scan-secrets.js
+- path → Documentation: Project Grimhold/Docs/Architecture/AbilitySystemArchitecture.md
+- path → Documentation: docs/reporte\_us61\_investigacion\_contencion\_credenciales.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Abilities/RemoteAbilityPurchaseServiceTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Stash/RaidResultCanonicalizerTests.cs
+- path → Tests: backend/tests/integration/ability.purchase.integration.test.js
+- path → Tests: backend/tests/security.scan.test.js
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 6dfb67bf72e0951473e2b57ed1f68eb2e6dfc8fc
 
