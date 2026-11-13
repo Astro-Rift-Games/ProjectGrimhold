@@ -10,8 +10,8 @@ At most 6 periods and 3 selected advances per period. Selection favors concrete 
 
 ### [Unreleased](docs/changelog/unreleased.md)
 
+- **Networking & Sessions** — **network:** Hand the Raid Host role over when the Host leaves, with related fixes. ([c707a11](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c707a1169bc226993d53284b85f0653ddbd7b831), [94f4930](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/94f49302cba0ee31b543140ea94863d679ae9455), [3209e2c](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3209e2cf520f424504a8a5684202cda4d2c67c29)).
 - **Inventory & Loot** — **loot:** Roll dungeon weapon variants in enemy and breakable drops. ([6e28570](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6e28570a7c65ce94ee250b9e98fb63a5d21b7624), [fed049d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/fed049db01ebc549243d41d78ed46c008a0c5368), [32db5ec](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/32db5ec13ae61dd1eceec7201981585818922959)).
-- **Abilities / Inventory & Loot** — **utilities:** Render rune compass pointer as dynamic tracking sprite, with related fixes. ([8480bed](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8480bedab3e96c387caef697f775f23942fa78f2), [c79d5e2](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/c79d5e225afbc0c4ab22c22620be96830d0c96fd), [a1a9775](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/a1a97759e15381cca528f43576826e9857008abd)).
 - **Inventory & Loot / UI** — Keep weapon modifiers in world pickups. ([689a2ce](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/689a2ce3fdab35eb30e7bc2f8365aa51b08d9b9d), [ec5dbdc](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ec5dbdc43ee19674b096d9ca90204c849bb33ce9), [9999122](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/9999122921fa9ea1177f6fc0b553a8fd8991f047)).
 
 [Full period history](docs/changelog/unreleased.md)
