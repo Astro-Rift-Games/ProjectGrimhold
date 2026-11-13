@@ -38,4 +38,16 @@ const commitExtractionUnifiedValidator = [
   handleValidationErrors,
 ];
 
-module.exports = { commitExtractionUnifiedValidator };
+const commitDefeatValidator = [
+  body('raidId')
+    .isString().withMessage('must be a string')
+    .trim()
+    .notEmpty().withMessage('must not be empty'),
+
+  body('resultSequence')
+    .isInt({ min: 1 }).withMessage('must be a positive integer'),
+
+  handleValidationErrors,
+];
+
+module.exports = { commitExtractionUnifiedValidator, commitDefeatValidator };

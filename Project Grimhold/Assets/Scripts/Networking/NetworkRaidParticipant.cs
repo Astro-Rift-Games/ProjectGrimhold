@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Fusion;
 using UnityEngine;
 
@@ -123,6 +124,10 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
     private RuntimeAttributeOverrideNetworkController _runtimeAttributeOverride;
     private int _localProgressionResultSequence;
     private float _nextProgressionCommitRetryAt;
+    private bool _localDefeatCommitCompleted;
+    private int _authorityDefeatPublishedSequence;
+    private bool _authorityDefeatPublishInFlight;
+    private int _authoritativeDefeatPublishedSequence;
 
     /// <summary>
     /// Reads the single effective attribute snapshot consumed by Raid gameplay.
@@ -358,6 +363,7 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
                 ? ExpeditionProgressionFinalizationCause.DefeatWhileDisconnectedConfirmed
                 : ExpeditionProgressionFinalizationCause.DefeatConfirmed;
             _progressionResolver.TryFinalize(cause);
+            TryPublishAuthoritativeDefeatResult();
             return;
         }
 
@@ -389,7 +395,120 @@ public sealed class NetworkRaidParticipant : NetworkBehaviour, IInputAuthorityGa
             return;
         }
 
-        // Legacy local progression commit has been removed.
+        if (State == RaidParticipantState.Defeated && !_localDefeatCommitCompleted &&
+            _authoritativeDefeatPublishedSequence == ResultSequence)
+        {
+            TryCommitDefeatProgressionLocally(resolution, application);
+        }
+    }
+
+    private void TryPublishAuthoritativeDefeatResult()
+    {
+        if (!HasStateAuthority || _progressionResolver == null ||
+            _authorityDefeatPublishedSequence == ResultSequence ||
+            _authorityDefeatPublishInFlight ||
+            !_progressionResolver.TryGetResolution(out ExpeditionExperienceResolution resolution))
+        {
+            return;
+        }
+
+        ApplicationStashContext context = FindAnyObjectByType<ApplicationStashContext>();
+        var remoteService = context != null ? context.GetComponent<RemoteInventoryService>() : null;
+        if (remoteService != null && ApplicationAuthContext.Instance != null && ApplicationAuthContext.Instance.IsAuthenticated)
+        {
+            _authorityDefeatPublishInFlight = true;
+            int sequenceToPublish = ResultSequence;
+            _ = PublishDefeatResultOnAuthorityAsync(remoteService, sequenceToPublish, resolution.ConsolidatedExperience);
+        }
+        else
+        {
+            _authorityDefeatPublishedSequence = ResultSequence;
+            _authoritativeDefeatPublishedSequence = ResultSequence;
+            if (Object != null && !HasInputAuthority)
+            {
+                RPC_NotifyDefeatResultPublished(ResultSequence);
+            }
+        }
+    }
+
+    private async Task PublishDefeatResultOnAuthorityAsync(
+        RemoteInventoryService remoteService,
+        int resultSequence,
+        long consolidatedExperience)
+    {
+        try
+        {
+            var targetProfileId = new ProfileId(ProfileId.Value);
+            var (success, error) = await remoteService.PublishDefeatResultAsync(
+                RaidGenerationId.ToString(),
+                targetProfileId,
+                resultSequence,
+                consolidatedExperience);
+
+            if (success)
+            {
+                _authorityDefeatPublishedSequence = resultSequence;
+                _authoritativeDefeatPublishedSequence = resultSequence;
+                if (this != null && Object != null && !HasInputAuthority)
+                {
+                    RPC_NotifyDefeatResultPublished(resultSequence);
+                }
+            }
+            else
+            {
+                Debug.LogError(
+                    $"[{nameof(NetworkRaidParticipant)}] Failed to publish authoritative defeat result for profile '{targetProfileId.Value}'. Error={error.error}: {error.message}");
+            }
+        }
+        finally
+        {
+            _authorityDefeatPublishInFlight = false;
+        }
+    }
+
+    [Rpc(RpcSources.StateAuthority, RpcTargets.InputAuthority)]
+    private void RPC_NotifyDefeatResultPublished(int resultSequence)
+    {
+        _authoritativeDefeatPublishedSequence = resultSequence;
+    }
+
+    private void TryCommitDefeatProgressionLocally(
+        in ExpeditionExperienceResolution resolution,
+        in ConsolidatedExperienceApplication application)
+    {
+        ApplicationStashContext context = FindAnyObjectByType<ApplicationStashContext>();
+        if (context?.Store == null)
+        {
+            return;
+        }
+
+        ProfileId expectedProfileId = new ProfileId(ProfileId.Value);
+        if (context.Store.ProfileId != expectedProfileId)
+        {
+            return;
+        }
+
+        var receipt = new ProgressionReceipt(
+            RaidGenerationId.ToString(),
+            expectedProfileId,
+            ResultSequence,
+            resolution.ConsolidatedExperience,
+            application.Result.ResultingLevel);
+
+        StashOperationResult result = context.Store.TryCommitDefeatProgression(
+            receipt,
+            application.Result.ResultingLevel,
+            application.Result.ResultingExperience);
+
+        if (result == StashOperationResult.Success || result == StashOperationResult.AlreadySecured)
+        {
+            _localDefeatCommitCompleted = true;
+            var remoteService = context.GetComponent<RemoteInventoryService>();
+            if (remoteService != null)
+            {
+                _ = remoteService.CommitDefeatUnifiedAsync(receipt);
+            }
+        }
     }
 
 

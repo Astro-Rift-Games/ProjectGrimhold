@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const InventoryService = require('../services/InventoryService');
 const ExtractionCommitService = require('../services/ExtractionCommitService');
+const DefeatCommitService = require('../services/DefeatCommitService');
 const env = require('../config/env');
 const { EQUIPMENT_SLOTS } = require('../config/equipmentSlots');
 const authenticate = require('../middleware/authenticate');
@@ -24,7 +25,7 @@ const {
   shopBuyValidator,
   shopBuybackValidator
 } = require('../validators/inventory.validators');
-const { commitExtractionUnifiedValidator } = require('../validators/extraction.validators');
+const { commitExtractionUnifiedValidator, commitDefeatValidator } = require('../validators/extraction.validators');
 
 // All inventory routes require a valid JWT token.
 router.use(authenticate);
@@ -279,6 +280,19 @@ router.post('/me/inventory/extraction', (req, res, next) => {
 router.post('/me/extraction/commit', inventoryProtocol, commitExtractionUnifiedValidator, async (req, res, next) => {
   try {
     const result = await ExtractionCommitService.commit(req.accountId, req.body);
+    res.status(result.alreadySecured ? 200 : 201).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /character/me/defeat/commit
+// Persists authoritative progression from a defeat in one atomic write.
+// Idempotent: replaying the same (raidId, resultSequence) returns { alreadySecured: true }.
+// Body: { raidId: string, resultSequence: number }
+router.post('/me/defeat/commit', inventoryProtocol, commitDefeatValidator, async (req, res, next) => {
+  try {
+    const result = await DefeatCommitService.commit(req.accountId, req.body);
     res.status(result.alreadySecured ? 200 : 201).json(result);
   } catch (err) {
     next(err);

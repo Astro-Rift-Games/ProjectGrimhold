@@ -514,6 +514,93 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, IS
         });
     }
 
+    public Task<(bool success, CommitDefeatUnifiedResult result, BackendError error)> CommitDefeatUnifiedAsync(
+        ProgressionReceipt receipt)
+    {
+        if (string.IsNullOrEmpty(AuthToken))
+        {
+            Debug.LogError($"[{nameof(RemoteInventoryService)}] CommitDefeatUnifiedAsync: Not authenticated.");
+            return Task.FromResult<(bool, CommitDefeatUnifiedResult, BackendError)>((false, default, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" }));
+        }
+
+        return RemoteIdempotentRetryPolicy.ExecuteWithRetryAsync(async () =>
+        {
+            await _mutationLock.WaitAsync();
+            try
+            {
+                var request = new CommitDefeatUnifiedRequest
+                {
+                    raidId         = receipt.RaidId,
+                    resultSequence = receipt.ResultSequence
+                };
+
+                var (success, result, error) = await InventoryClient.CommitDefeatUnifiedAsync(_backendConfig, AuthToken, request);
+                if (!success && error.error == BackendErrorUtility.Unauthorized)
+                {
+                    ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+                }
+
+                if (success && _store != null)
+                {
+                    _store.SetRemoteRevision(result.revision);
+                    if (result.alreadySecured)
+                    {
+                        Debug.Log($"[{nameof(RemoteInventoryService)}] Defeat progression already secured on backend " +
+                                  $"(raidId={receipt.RaidId}, seq={receipt.ResultSequence}). No action needed.");
+                    }
+                }
+
+                return (success, result, error);
+            }
+            finally
+            {
+                _mutationLock.Release();
+            }
+        });
+    }
+
+    public Task<(bool success, BackendError error)> PublishDefeatResultAsync(
+        string raidId,
+        ProfileId profileId,
+        int resultSequence,
+        long experienceGranted)
+    {
+        if (string.IsNullOrEmpty(AuthToken))
+        {
+            Debug.LogError($"[{nameof(RemoteInventoryService)}] PublishDefeatResultAsync: Not authenticated.");
+            return Task.FromResult((false, new BackendError { error = "UNAUTHORIZED", message = "Not authenticated" }));
+        }
+
+        string targetId = profileId.IsValid ? profileId.Value : "";
+        string resultId = $"{raidId}:{targetId}:{resultSequence}";
+        string issuedAt = System.DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+        var itemsDTO = System.Array.Empty<InventoryItemData>();
+        var eqDTO = new PreparedEquipmentData();
+
+        var request = new PublishExtractionResultRequest
+        {
+            raidId            = raidId,
+            resultId          = resultId,
+            resultSequence    = resultSequence,
+            targetCharacterId = targetId,
+            items             = itemsDTO,
+            preparedEquipment = eqDTO,
+            experienceGranted = experienceGranted,
+            issuedAt          = issuedAt,
+            hostSignature     = string.Empty
+        };
+
+        return RemoteIdempotentRetryPolicy.ExecuteWithRetryAsync(async () =>
+        {
+            var (success, _, error) = await InventoryClient.PublishExtractionResultAsync(_backendConfig, AuthToken, request);
+            if (!success && error.error == BackendErrorUtility.Unauthorized)
+            {
+                ApplicationAuthContext.Instance?.HandleUnauthorizedSession();
+            }
+            return (success, error);
+        });
+    }
+
     public Task<(bool success, BackendError error)> PublishExtractionResultAsync(
         ExtractionReceipt receipt,
         System.Collections.Generic.IReadOnlyList<StashItem> items,

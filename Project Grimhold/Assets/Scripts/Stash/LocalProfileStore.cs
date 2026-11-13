@@ -2236,6 +2236,79 @@ public sealed class LocalProfileStore : IMissionClaimService
             next.Level, next.CurrentExperience, Math.Max(0, next.Level - current.Level));
         return Commit(next, progression);
     }
+
+    /// <summary>
+    /// Commits the authoritative progression from a definitive defeat into the local profile.
+    /// Defeat retains 20% of provisional experience and clears the raid reservation as a loss.
+    /// </summary>
+    public StashOperationResult TryCommitDefeatProgression(
+        ProgressionReceipt receipt,
+        int resultingLevel,
+        long resultingExperience)
+    {
+        if (!receipt.IsValid || receipt.ProfileId != _profileId)
+            return StashOperationResult.InvalidInventory;
+
+        LocalProfileSnapshot current = _repository.Snapshot;
+        if (current == null)
+            return StashOperationResult.PersistenceFailed;
+
+        // Idempotency: exact receipt already applied
+        if (current.LastProgressionReceipt.HasValue &&
+            current.LastProgressionReceipt.Value.Equals(receipt))
+        {
+            return StashOperationResult.Success;
+        }
+
+        foreach (ProgressionReceipt applied in current.AppliedProgressionReceipts)
+        {
+            if (applied.Equals(receipt))
+                return StashOperationResult.Success;
+        }
+
+        // If this raid was already applied with a different sequence:
+        foreach (ProgressionReceipt applied in current.AppliedProgressionReceipts)
+        {
+            if (string.Equals(applied.RaidId, receipt.RaidId, StringComparison.Ordinal))
+                return StashOperationResult.InvalidInventory;
+        }
+
+        LocalProfileSnapshot next = current.Clone();
+
+        int effectiveProgressionSequence = receipt.ResultSequence > current.LastAppliedProgressionResultSequence
+            ? receipt.ResultSequence
+            : current.LastAppliedProgressionResultSequence + 1;
+
+        next.Level = resultingLevel;
+        next.CurrentExperience = resultingExperience;
+        next.LastAppliedProgressionResultSequence = effectiveProgressionSequence;
+
+        var committedReceipt = new ProgressionReceipt(
+            receipt.RaidId,
+            _profileId,
+            effectiveProgressionSequence,
+            receipt.ConsolidatedExperience,
+            resultingLevel);
+
+        next.LastProgressionReceipt = committedReceipt;
+        next.AppliedProgressionReceipts.Add(committedReceipt);
+        while (next.AppliedProgressionReceipts.Count > LocalProfileSnapshot.MaxAppliedProgressionReceipts)
+        {
+            next.AppliedProgressionReceipts.RemoveAt(0);
+        }
+
+        // Defeat consumes the raid reservation as a loss.
+        next.PendingReservation = null;
+
+        var progression = new ExperienceApplicationResult(
+            current.Level,
+            current.CurrentExperience,
+            next.Level,
+            next.CurrentExperience,
+            Math.Max(0, next.Level - current.Level));
+
+        return Commit(next, progression);
+    }
     /// <summary>Accepts backend-issued extraction instances and retires the retry payload in one write.</summary>
     public StashOperationResult TryCompleteExtractionCommit(
         ExtractionReceipt receipt,

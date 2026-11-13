@@ -258,6 +258,16 @@ namespace Grimhold.Backend
         }
 
         /// <summary>
+        /// Unified commit for defeat progression to the backend.
+        /// </summary>
+        public static async Task<(bool success, CommitDefeatUnifiedResult data, BackendError error)>
+            CommitDefeatUnifiedAsync(BackendConfiguration config, string token, CommitDefeatUnifiedRequest request)
+        {
+            var url = $"{config.BaseUrl}/character/me/defeat/commit";
+            return await PostJson<CommitDefeatUnifiedRequest, CommitDefeatUnifiedResult>(config, token, url, request);
+        }
+
+        /// <summary>
         /// Host-only: Publishes the authoritative extraction result signed with an HMAC.
         /// </summary>
         public static async Task<(bool success, PublishExtractionResultResponse data, BackendError error)>
@@ -328,9 +338,19 @@ namespace Grimhold.Backend
         {
             if (!string.IsNullOrEmpty(request.downloadHandler?.text))
             {
-                try   { return JsonUtility.FromJson<BackendError>(request.downloadHandler.text); }
+                try
+                {
+                    var parsed = JsonUtility.FromJson<BackendError>(request.downloadHandler.text);
+                    if (!string.IsNullOrEmpty(parsed.error)) return parsed;
+                }
                 catch { /* fall through */ }
             }
+
+            if (request.responseCode == 404)
+            {
+                return new BackendError { error = "NOT_FOUND", message = $"Endpoint not found (404): {request.url}" };
+            }
+
             return new BackendError { error = BackendErrorUtility.ClassifyConnectionError(request.error), message = request.error };
         }
     }

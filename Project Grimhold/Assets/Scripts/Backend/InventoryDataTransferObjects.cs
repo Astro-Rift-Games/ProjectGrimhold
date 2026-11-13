@@ -369,6 +369,23 @@ namespace Grimhold.Backend
     }
 
     [Serializable]
+    public struct CommitDefeatUnifiedRequest
+    {
+        public string raidId;
+        public int    resultSequence;
+    }
+
+    [Serializable]
+    public struct CommitDefeatUnifiedResult
+    {
+        public bool                    alreadySecured;
+        public int                     level;
+        public long                    experience;
+        public CharacterAttributesData characterAttributes;
+        public int                     revision;
+    }
+
+    [Serializable]
     public struct PublishExtractionResultRequest
     {
         public string raidId;
