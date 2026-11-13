@@ -28,6 +28,29 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
     private NetworkPrefabRef _matchControllerPrefab;
 
     private NetworkRunner _runner;
+
+    /// <summary>FIX-06: authoritative-ticket trace; no ticket contents or credentials are ever logged.</summary>
+    private void TraceTicket(string traceEvent, string profile, string detail) =>
+        RaidAdmissionDiagnostics.Trace(_runner, traceEvent, default, profile, detail, this);
+
+    private async Task TraceTicketVerificationAsync(
+        Task<(bool valid, AuthoritativeRaidAdmissionTicket ticket, string error)> verifyTask,
+        string profile,
+        float startedAt)
+    {
+        try
+        {
+            var (valid, _, error) = await verifyTask;
+            TraceTicket(
+                "TicketVerificationCompleted",
+                profile,
+                $"valid={valid} error={error ?? "none"} elapsedSeconds={(Time.realtimeSinceStartup - startedAt).ToString("F3", System.Globalization.CultureInfo.InvariantCulture)}");
+        }
+        catch (Exception ex)
+        {
+            TraceTicket("TicketVerificationFaulted", profile, $"exception={ex.GetType().Name}");
+        }
+    }
     private GameObject _runnerObject;
     private NetworkSpawnManager _spawnManager;
     private NetworkMatchController _matchController;
@@ -316,6 +339,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
                 if (!ticketOk && ticketError.error == BackendErrorUtility.Unauthorized)
                 {
+                    TraceTicket("TicketFailed", profileId.Value, $"category={ticketError.error} fallback=none (session handled as unauthorized)");
                     authContext.HandleUnauthorizedSession();
                 }
                 else if (ticketOk && !string.IsNullOrEmpty(ticketData.ticket) &&
@@ -323,6 +347,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                          decodedAuthTicket.TryToRaidAdmissionData(out RaidAdmissionData canonicalAdmissionData, preparedAbilities, profileContext.Store.LootCatalog))
                 {
                     authoritativeAdmissionTicket = decodedAuthTicket;
+                    TraceTicket("TicketObtained", profileId.Value, $"ticketChars={ticketData.ticket.Length}");
                     int localWatermark = profileContext.Store.GetLastAppliedProgressionResultSequence();
                     int localLevel = profileContext.Store.GetLevel();
                     long localExp = profileContext.Store.GetCurrentExperience();
@@ -350,9 +375,13 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                     }
                     if (authContext.RaidAdmissionVerifier != null)
                     {
-                        _ = authContext.RaidAdmissionVerifier.VerifyRaidAdmissionTicketAsync(
-                            authoritativeAdmissionTicket.RawTicket,
-                            launchContext.RaidCode);
+                        // Fire-and-forget as before; the continuation only logs the outcome (FIX-06 diagnostics).
+                        _ = TraceTicketVerificationAsync(
+                            authContext.RaidAdmissionVerifier.VerifyRaidAdmissionTicketAsync(
+                                authoritativeAdmissionTicket.RawTicket,
+                                launchContext.RaidCode),
+                            profileId.Value,
+                            Time.realtimeSinceStartup);
                     }
                 }
                 else
@@ -360,7 +389,22 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                     Debug.LogWarning(
                         $"[FusionSessionLauncher] Could not obtain authoritative raid admission ticket ({ticketError.error ?? "DECODE_FAILED"}). Proceeding with local admission snapshot.",
                         this);
+                    TraceTicket(
+                        "TicketFallbackToLocalSnapshot",
+                        profileId.Value,
+                        $"requestOk={ticketOk} category={ticketError.error ?? (ticketOk ? "EMPTY_OR_DECODE_FAILED" : "UNKNOWN")} " +
+                        $"ticketChars={(ticketData.ticket != null ? ticketData.ticket.Length : 0)} " +
+                        "outcome=local_snapshot_used (the Host will reject a payload without an authoritative ticket)");
                 }
+            }
+            else
+            {
+                TraceTicket(
+                    "TicketSkipped",
+                    profileId.Value,
+                    $"authContext={authContext != null} authenticated={authContext != null && authContext.IsAuthenticated} " +
+                    $"backendConfig={authContext != null && authContext.BackendConfig != null} " +
+                    $"token={authContext != null && !string.IsNullOrEmpty(authContext.Token)} outcome=local_snapshot_used");
             }
 
             var ticket = new RaidAdmissionTicket(

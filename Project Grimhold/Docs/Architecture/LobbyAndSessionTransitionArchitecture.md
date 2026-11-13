@@ -208,6 +208,36 @@ plus the margin, so a member that completes the connection inside its own budget
 `BootstrapFailure` caused by misalignment. `RaidAdmissionWindowsTests` pins
 `HostAdmissionSeconds >= ClientSessionAvailabilitySeconds + ClientAdmissionSeconds + HostAdmissionMarginSeconds`.
 
+### FIX-06 diagnostics: admission payload arrival order and ticket fallback
+
+The Client sends its admission payload once (`NetworkMatchController.TrySubmitClientAdmissionPayload`, from
+`Spawned` or the first tick the admission data exists) and never resends it. The Host rejects and disconnects a
+sender that is not yet registered in `NetworkSpawnManager.TryHandleRemoteAdmissionPayload`. Whether a payload can
+reach the Host before `OnPlayerJoined` registers the sender, and whether a failed authoritative-ticket request
+silently degrades to the local snapshot (`FusionSessionLauncher`), is a code-reading suspicion that is not yet
+reproduced. These diagnostics exist only to reproduce or rule it out; they change no behavior (no resend, no retry,
+no change to accept/reject decisions or to the ticket fallback). A fix, or a documented not-reproducible closure,
+waits for a Host + Client run.
+
+Every line shares the greppable prefix `[RaidAdmissionTrace]` (`RaidAdmissionDiagnostics.FormatTrace`):
+`event=<E> player=<PlayerRef> profile=<id|n/a> tick=<Runner.Tick|n/a> t=<Time.realtimeSinceStartup> detail=<...>`.
+Only presence, lengths, outcome codes, profile ids, `PlayerRef`, tick and realtime are logged; ticket contents,
+tokens and payload bytes never are.
+
+| Instance | Events |
+| --- | --- |
+| Host (`NetworkSpawnManager`) | `PlayerJoined` (with `registered=` at that moment), `AdmissionRegistered`, `AdmissionRejected` (`reason=`), `AwaitingPayload`, `PayloadReceived` (`senderRegistered=`), `PayloadRejected` (`reason=sender_not_registered` / `ticket_evaluation_failed` / `finalize_failed`), `PayloadDeferred`, `DeferredVerificationCompleted`, `PayloadAccepted`, `PayloadIgnored`, `DisconnectIssued` (`reason=`) |
+| Host (`NetworkMatchController`) | `ChunkReceived`, `DisconnectIssued` (`payload_rejected_no_resend`, `malformed_chunk_stream`) |
+| Client (`NetworkMatchController`) | `ClientPayloadNotReady` (once), `ClientPayloadSent` (`sentOnce=true`), `ClientPayloadSkipped` (`already_sent_no_resend`) |
+| Client (`FusionSessionLauncher`) | `TicketObtained`, `TicketFailed` (unauthorized), `TicketFallbackToLocalSnapshot` (failure category), `TicketSkipped` (no authenticated session), `TicketVerificationCompleted` / `TicketVerificationFaulted` (outcome of the fire-and-forget verification) |
+
+The early-payload suspicion is confirmed when the Host log shows `PayloadReceived ... senderRegistered=False`
+followed by `PayloadRejected reason=sender_not_registered` and `DisconnectIssued`, with a later `PlayerJoined` /
+`AdmissionRegistered` for the same `PlayerRef` (read the order within the Host log by line order, `tick=` and `t=`; `t=` is
+per-process and is not comparable between the Host and Client logs).
+The ticket suspicion is confirmed when a `TicketFallbackToLocalSnapshot` on the Client is followed by
+`PayloadRejected reason=ticket_evaluation_failed` on the Host.
+
 ### Raid runner lifecycle
 
 For the Raid runner, the Host creates the runner with `SessionInfo.IsOpen=false`

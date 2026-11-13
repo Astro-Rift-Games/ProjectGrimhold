@@ -44,6 +44,7 @@ public sealed class NetworkMatchController : NetworkBehaviour
     private bool _hasObservedParticipant;
     private bool _cleanupAttempted;
     private bool _clientAdmissionSubmitted;
+    private bool _clientAdmissionNotReadyTraced;
     private readonly Dictionary<PlayerRef, RaidAdmissionPayloadAssembler> _pendingAdmissionAssemblies = new();
 
     public override void Spawned()
@@ -356,14 +357,33 @@ public sealed class NetworkMatchController : NetworkBehaviour
 
     private void TrySubmitClientAdmissionPayload()
     {
-        if (_clientAdmissionSubmitted || HasStateAuthority || Runner == null)
+        if (HasStateAuthority || Runner == null)
         {
+            return;
+        }
+
+        if (_clientAdmissionSubmitted)
+        {
+            // FIX-06: the payload is sent exactly once; there is no resend.
+            RaidAdmissionDiagnostics.Trace(
+                Runner, "ClientPayloadSkipped", Runner.LocalPlayer, detail: "reason=already_sent_no_resend", context: this);
             return;
         }
 
         LocalPlayerJoinContext joinContext = Runner.GetComponent<LocalPlayerJoinContext>();
         if (joinContext == null || (!joinContext.HasRaidAdmission && !joinContext.HasAuthoritativeAdmissionTicket))
         {
+            if (!_clientAdmissionNotReadyTraced)
+            {
+                _clientAdmissionNotReadyTraced = true;
+                RaidAdmissionDiagnostics.Trace(
+                    Runner,
+                    "ClientPayloadNotReady",
+                    Runner.LocalPlayer,
+                    detail: $"joinContext={joinContext != null} (traced once; retried each tick until admission data exists)",
+                    context: this);
+            }
+
             return;
         }
 
@@ -386,6 +406,14 @@ public sealed class NetworkMatchController : NetworkBehaviour
         }
 
         _clientAdmissionSubmitted = true;
+        RaidAdmissionDiagnostics.Trace(
+            Runner,
+            "ClientPayloadSent",
+            Runner.LocalPlayer,
+            joinContext.HasRaidAdmission ? joinContext.RaidAdmission.ProfileId.Value : null,
+            $"bytes={payload.Length} chunks={chunks.Length} authoritative={joinContext.HasAuthoritativeAdmissionTicket} " +
+            $"phase={Phase} sentOnce=true",
+            this);
         Debug.Log(
             $"[NetworkMatchController] Submitting raid admission to StateAuthority " +
             $"({payload.Length} bytes in {chunks.Length} chunk(s), authoritative={joinContext.HasAuthoritativeAdmissionTicket}).");
@@ -410,6 +438,12 @@ public sealed class NetworkMatchController : NetworkBehaviour
         Debug.Log(
             $"[NetworkMatchController] Received admission chunk {chunkIndex + 1}/{chunkCount} from {sender} " +
             $"({chunk?.Length ?? 0} bytes). Result={result}.");
+        RaidAdmissionDiagnostics.Trace(
+            Runner,
+            "ChunkReceived",
+            sender,
+            detail: $"chunk={chunkIndex + 1}/{chunkCount} bytes={chunk?.Length ?? 0} result={result}",
+            context: this);
 
         if (result == RaidAdmissionPayloadAssemblyResult.Incomplete)
         {
@@ -420,6 +454,8 @@ public sealed class NetworkMatchController : NetworkBehaviour
         if (result == RaidAdmissionPayloadAssemblyResult.Rejected)
         {
             Debug.LogWarning($"[NetworkMatchController] Malformed admission chunk stream from {sender}. Disconnecting.");
+            RaidAdmissionDiagnostics.Trace(
+                Runner, "DisconnectIssued", sender, detail: "reason=malformed_chunk_stream", context: this);
             Runner.Disconnect(sender);
             return;
         }
@@ -441,6 +477,8 @@ public sealed class NetworkMatchController : NetworkBehaviour
         if (!spawnManager.TryHandleRemoteAdmissionPayload(sender, admissionPayload))
         {
             Debug.LogWarning($"[NetworkMatchController] Remote admission payload from {sender} was rejected. Disconnecting.");
+            RaidAdmissionDiagnostics.Trace(
+                Runner, "DisconnectIssued", sender, detail: "reason=payload_rejected_no_resend", context: this);
             Runner.Disconnect(sender);
         }
     }
