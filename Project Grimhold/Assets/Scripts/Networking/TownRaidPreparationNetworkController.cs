@@ -12,6 +12,7 @@ using UnityEngine;
 public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, IStateAuthorityChanged
 {
     private const int AuthorityReleaseRebuildDelayTicks = 3;
+    private const float MinLocalLaunchRetryIntervalSeconds = 0.05f;
     private struct MemberNetwork : INetworkStruct
     {
         public NetworkString<_32> ProfileId;
@@ -27,6 +28,10 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
     [SerializeField, Min(1f)]
     private float _coordinatedReleaseTimeoutSeconds = 15f;
+
+    [SerializeField, Min(MinLocalLaunchRetryIntervalSeconds)]
+    [Tooltip("Spacing between local launch preparation retries while the result is a transient NotReady.")]
+    private float _localLaunchRetryIntervalSeconds = 0.25f;
 
     [SerializeField]
     private bool _friendlyFireEnabled;
@@ -71,6 +76,9 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     private int _observedSnapshotRevision = -1;
     private int _observedLocalLaunchRevision = -1;
     private bool _localLaunchPreparationPending;
+    private float _nextLocalLaunchAttemptTime;
+    private int _localLaunchWindowRevision;
+    private float _localLaunchWindowDeadline;
     private int _acknowledgedLocalRevision;
     private int _rejectedLocalRevision;
     private bool _cancelLaunchRequested;
@@ -103,8 +111,8 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
     public override void Render()
     {
-        // Async local materialization is not a replicated snapshot change. Resume at most once
-        // per rendered frame while pending, before the snapshot notification short-circuit.
+        // Async local materialization is not a replicated snapshot change. Retry a pending NotReady
+        // on its spaced schedule (never every frame), before the snapshot notification short-circuit.
         TryMaterializeLocalLaunchContext();
         if (_observedSnapshotRevision == SnapshotRevision)
         {
@@ -476,53 +484,126 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
 
     private void TryMaterializeLocalLaunchContext()
     {
-        TownRaidPreparationSnapshot snapshot = Snapshot;
-        if (_acknowledgedLocalRevision == snapshot.LaunchRevision ||
-            _rejectedLocalRevision == snapshot.LaunchRevision ||
-            !TryGetLocalProfile(out ProfileId localProfile) ||
-            !TownRaidPreparationRules.TryCreateLaunchContext(snapshot, localProfile, out RaidLaunchContext context))
+        float now = Time.time;
+        // Cheap gate before building the snapshot: nothing new was replicated and no spaced retry is due.
+        if (!IsLocalLaunchAttemptDue(SnapshotRevision, now) || !TryGetLocalProfile(out ProfileId localProfile))
         {
             return;
         }
 
         SessionConnectionCoordinator coordinator = SessionConnectionCoordinator.Instance;
-        if (coordinator == null || _directory == null ||
-            !_directory.TryGetLocalPartyContinuation(localProfile, out TownPartyContinuationContext partyContinuation))
+        if (coordinator == null)
         {
             return;
         }
 
-        if (AdvanceLocalLaunch(snapshot, localProfile, coordinator, partyContinuation, RPC_AcknowledgeLocalLaunch) == RaidLaunchPreparationResult.Rejected)
+        // A missing party continuation is a transient, classified wait, not a silent skip.
+        TownPartyContinuationContext partyContinuation = null;
+        if (_directory != null)
+        {
+            _directory.TryGetLocalPartyContinuation(localProfile, out partyContinuation);
+        }
+
+        TownRaidPreparationSnapshot snapshot = Snapshot;
+        if (AdvanceLocalLaunch(snapshot, localProfile, coordinator, partyContinuation, RPC_AcknowledgeLocalLaunch, now) ==
+            RaidLaunchPreparationResult.Rejected)
+        {
             RejectLocalLaunch(snapshot.LaunchRevision);
+        }
     }
 
     private void RPC_AcknowledgeLocalLaunch(int revision) => RPC_AcknowledgeLaunch(revision);
 
-    /// <summary>One main-thread local observation; used by Render and isolated controller integration tests.</summary>
+    /// <summary>
+    /// Transient cause the latest local launch revision is (or was, when it expired) waiting on;
+    /// <see cref="RaidLaunchNotReadyReason.None"/> once it acknowledged or rejected.
+    /// </summary>
+    public RaidLaunchNotReadyReason LocalLaunchWaitReason { get; private set; }
+
+    /// <summary>True when the latest local launch revision exhausted its ACK window while NotReady.</summary>
+    public bool IsLocalLaunchWaitExpired { get; private set; }
+
+    /// <summary>
+    /// One main-thread local observation; used by Render and isolated controller integration tests.
+    /// A transient NotReady is retried every <c>_localLaunchRetryIntervalSeconds</c> (or at once on a
+    /// new replicated snapshot) until it resolves, rejects, or the local ACK window expires.
+    /// </summary>
     public RaidLaunchPreparationResult AdvanceLocalLaunch(TownRaidPreparationSnapshot snapshot, ProfileId localProfile,
-        SessionConnectionCoordinator coordinator, TownPartyContinuationContext partyContinuation, Action<int> acknowledge)
+        SessionConnectionCoordinator coordinator, TownPartyContinuationContext partyContinuation, Action<int> acknowledge,
+        float now)
     {
-        if (!isActiveAndEnabled ||
-            (!_localLaunchPreparationPending && _observedLocalLaunchRevision == snapshot.SnapshotRevision))
+        if (!isActiveAndEnabled || !IsLocalLaunchAttemptDue(snapshot.SnapshotRevision, now))
             return RaidLaunchPreparationResult.NotReady;
         _localLaunchPreparationPending = false;
         _observedLocalLaunchRevision = snapshot.SnapshotRevision;
         if (_acknowledgedLocalRevision == snapshot.LaunchRevision || _rejectedLocalRevision == snapshot.LaunchRevision ||
-            coordinator == null || partyContinuation == null ||
+            coordinator == null ||
             !TownRaidPreparationRules.TryCreateLaunchContext(snapshot, localProfile, out var context))
+            return RaidLaunchPreparationResult.NotReady;
+        if (!TryOpenLocalLaunchWindow(snapshot.LaunchRevision, now))
             return RaidLaunchPreparationResult.NotReady;
         var preparation = coordinator.TryStoreRaidLaunchContext(context, partyContinuation);
         if (preparation == RaidLaunchPreparationResult.NotReady)
         {
             _localLaunchPreparationPending = true;
+            _nextLocalLaunchAttemptTime = now + Mathf.Max(MinLocalLaunchRetryIntervalSeconds, _localLaunchRetryIntervalSeconds);
+            ObserveLocalLaunchWait(snapshot.LaunchRevision, coordinator.LastLaunchNotReadyReason);
             return preparation;
         }
+        LocalLaunchWaitReason = RaidLaunchNotReadyReason.None;
         if (preparation != RaidLaunchPreparationResult.Success ||
             !coordinator.HasActiveLaunchTicket(snapshot.RaidCode.Value, snapshot.LaunchRevision, localProfile))
             return RaidLaunchPreparationResult.Rejected;
         _acknowledgedLocalRevision = snapshot.LaunchRevision;
         acknowledge(snapshot.LaunchRevision);
         return RaidLaunchPreparationResult.Success;
+    }
+
+    private bool IsLocalLaunchAttemptDue(int snapshotRevision, float now) =>
+        _observedLocalLaunchRevision != snapshotRevision ||
+        (_localLaunchPreparationPending && now >= _nextLocalLaunchAttemptTime);
+
+    /// <summary>
+    /// Opens the local ACK window on the first observation of a launch revision and reports whether
+    /// it is still open. The window mirrors the State Authority ACK deadline; the authority stays the
+    /// only canceller, so an expired local wait only stops retrying and keeps its cause.
+    /// </summary>
+    private bool TryOpenLocalLaunchWindow(int launchRevision, float now)
+    {
+        if (_localLaunchWindowRevision != launchRevision)
+        {
+            _localLaunchWindowRevision = launchRevision;
+            _localLaunchWindowDeadline = now + Mathf.Max(1f, _coordinatedReleaseTimeoutSeconds);
+            LocalLaunchWaitReason = RaidLaunchNotReadyReason.None;
+            IsLocalLaunchWaitExpired = false;
+        }
+
+        if (IsLocalLaunchWaitExpired)
+        {
+            return false;
+        }
+
+        if (now < _localLaunchWindowDeadline)
+        {
+            return true;
+        }
+
+        IsLocalLaunchWaitExpired = true;
+        Debug.LogWarning($"[{nameof(TownRaidPreparationNetworkController)}] Launch revision {launchRevision} " +
+                         $"expired locally without ACK while waiting on {LocalLaunchWaitReason}.", this);
+        return false;
+    }
+
+    private void ObserveLocalLaunchWait(int launchRevision, RaidLaunchNotReadyReason reason)
+    {
+        if (LocalLaunchWaitReason == reason)
+        {
+            return;
+        }
+
+        LocalLaunchWaitReason = reason;
+        Debug.Log($"[{nameof(TownRaidPreparationNetworkController)}] Launch revision {launchRevision} " +
+                  $"waiting locally on {reason}; retrying until the ACK window closes.", this);
     }
 
     /// <summary>
@@ -792,6 +873,9 @@ public sealed class TownRaidPreparationNetworkController : NetworkBehaviour, ISt
     {
         _localLaunchPreparationPending = false;
         _observedLocalLaunchRevision = -1;
+        _nextLocalLaunchAttemptTime = 0f;
+        _localLaunchWindowRevision = 0;
+        _localLaunchWindowDeadline = 0f;
         _acknowledgedLocalRevision = 0;
         _rejectedLocalRevision = 0;
         _authorityRebuildTicks = 0;

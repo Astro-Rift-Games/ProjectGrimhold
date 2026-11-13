@@ -200,6 +200,13 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     }
 
     /// <summary>
+    /// Transient cause of the latest <see cref="RaidLaunchPreparationResult.NotReady"/> returned by
+    /// <see cref="TryStoreRaidLaunchContext"/>; <see cref="RaidLaunchNotReadyReason.None"/> after any
+    /// other result.
+    /// </summary>
+    public RaidLaunchNotReadyReason LastLaunchNotReadyReason { get; private set; }
+
+    /// <summary>
     /// Stores the canonical context observed from a complete replicated frozen preparation.
     /// The method is idempotent for the same RaidCode and LaunchRevision. A returned
     /// <see cref="RaidLaunchPreparationResult.NotReady"/> is transient and may be retried; every
@@ -210,18 +217,32 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         RaidLaunchContext launchContext,
         TownPartyContinuationContext partyContinuation)
     {
-        if (!isActiveAndEnabled || _isQuitting || launchContext == null || State != SessionConnectionState.Town || _operationActive ||
-            !_participationOutcomeTask.IsCompleted)
+        LastLaunchNotReadyReason = RaidLaunchNotReadyReason.None;
+        if (!isActiveAndEnabled || _isQuitting || launchContext == null || State != SessionConnectionState.Town)
         {
-            return RaidLaunchPreparationResult.NotReady;
+            return LaunchNotReady(RaidLaunchNotReadyReason.CoordinatorUnavailable);
+        }
+
+        if (_operationActive)
+        {
+            return LaunchNotReady(RaidLaunchNotReadyReason.OperationActive);
+        }
+
+        if (!_participationOutcomeTask.IsCompleted)
+        {
+            return LaunchNotReady(RaidLaunchNotReadyReason.ParticipationOutcomePending);
         }
 
         ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
-        if (launchContext.LocalProfileId != localProfile || partyContinuation == null ||
-            !partyContinuation.Contains(localProfile) ||
+        if (launchContext.LocalProfileId != localProfile ||
             !RaidSessionRules.ContainsProfile(launchContext.ParticipantProfileIds, localProfile))
         {
-            return RaidLaunchPreparationResult.NotReady;
+            return LaunchNotReady(RaidLaunchNotReadyReason.LaunchProfileMismatch);
+        }
+
+        if (partyContinuation == null || !partyContinuation.Contains(localProfile))
+        {
+            return LaunchNotReady(RaidLaunchNotReadyReason.PartyContinuationMissing);
         }
 
         if (_activeTicket.HasValue)
@@ -231,7 +252,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
                 launchContext.LaunchRevision,
                 localProfile)
                 ? ObserveLaunchReservationSave()
-                : RaidLaunchPreparationResult.NotReady;
+                : LaunchNotReady(RaidLaunchNotReadyReason.TicketMismatch);
         }
 
         ApplicationStashContext stashContext = ResolveRecoveryStashContext();
@@ -295,7 +316,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private RaidLaunchPreparationResult ObserveLaunchReservationSave()
     {
         if (_launchReservationSave == null) return RaidLaunchPreparationResult.Success;
-        if (!_launchReservationSave.IsCompleted) return RaidLaunchPreparationResult.NotReady;
+        if (!_launchReservationSave.IsCompleted) return LaunchNotReady(RaidLaunchNotReadyReason.ReservationSavePending);
         ExpeditionPreparationResult reason = ExpeditionPreparationResult.ReservationFailed;
         if (_launchReservationSave.Status == TaskStatus.RanToCompletion)
         {
@@ -310,6 +331,12 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             _pendingPartyContinuation = null;
         }
         return RejectLaunchPreparation(reason, RaidLaunchPreparationResult.Rejected);
+    }
+
+    private RaidLaunchPreparationResult LaunchNotReady(RaidLaunchNotReadyReason reason)
+    {
+        LastLaunchNotReadyReason = reason;
+        return RaidLaunchPreparationResult.NotReady;
     }
 
     private RaidLaunchPreparationResult RejectLaunchPreparation(

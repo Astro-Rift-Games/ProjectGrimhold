@@ -154,6 +154,18 @@ per launch revision and the State Authority — still the only canceller — abo
 the whole cohort. The rejection reason reaches the Town view through the coordinator's
 consume-once channel, so a rejected Start is visible to the player instead of appearing inert.
 
+A transient `NotReady` is retried locally on a spaced schedule (`_localLaunchRetryIntervalSeconds`,
+0.25 s by default, never every rendered frame), or at once when a new snapshot replicates, until the
+revision acknowledges, rejects, or its local ACK window closes. The local window spans
+`_coordinatedReleaseTimeoutSeconds` from the peer's first observation of the launch revision; an
+expired local wait only stops retrying, since the State Authority's ACK deadline still owns the
+cancellation. Each `NotReady` carries a `RaidLaunchNotReadyReason` (`OperationActive`,
+`ParticipationOutcomePending`, `ReservationSavePending`, `TicketMismatch`,
+`PartyContinuationMissing`, `LaunchProfileMismatch`, `CoordinatorUnavailable`), exposed through
+`SessionConnectionCoordinator.LastLaunchNotReadyReason` and kept per revision by the preparation's
+`LocalLaunchWaitReason` / `IsLocalLaunchWaitExpired`. A change of cause is logged once, and so is
+the local expiry, so a deadline cancellation always has an observable local cause.
+
 The coordinated preparation owns two deadlines within the same lifecycle: the ACK phase deadline
 armed when the cohort freezes, and the existing release deadline armed by
 `PrepareCoordinatedRelease`. A launch revision therefore cannot wait for a missing ACK
