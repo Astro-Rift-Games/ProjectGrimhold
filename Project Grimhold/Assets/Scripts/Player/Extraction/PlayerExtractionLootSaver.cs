@@ -492,9 +492,10 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             targetProfileId,
             resultSequence);
 
-        long experienceGranted = _pendingExperienceCandidate.HasValue
-            ? _pendingExperienceCandidate.Value.AwardedExperience
-            : 0L;
+        TryResolveConsolidatedExtractionProgression(
+            out long experienceGranted,
+            out _,
+            out _);
 
         _authorityPublishInFlight = true;
         try
@@ -658,33 +659,10 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
             localProfileId,
             _pendingResultSequence);
             
-        long consolidatedExperience = 0;
-        int resultingLevel = context.Store.GetLevel();
-        long resultingExperience = context.Store.GetCurrentExperience();
-        if (_pendingExperienceCandidate.HasValue)
-        {
-            consolidatedExperience = _pendingExperienceCandidate.Value.AwardedExperience;
-            
-            // Re-calculate the resulting level locally to pass it to the unified payload.
-            var resolution = new ExpeditionExperienceResolution(
-                ExpeditionExperienceResolutionOutcome.Extracted,
-                default,
-                10000,
-                consolidatedExperience);
-                
-            if (ConsolidatedExperienceApplicationRules.TryApply(
-                    ProgressionBalanceDefaults.InitialExperienceCurve,
-                    default,
-                    context.Store.GetLevel(),
-                    context.Store.GetCurrentExperience(),
-                    resolution,
-                    out ConsolidatedExperienceApplication application,
-                    out _))
-            {
-                resultingLevel = application.Result.ResultingLevel;
-                resultingExperience = application.Result.ResultingExperience;
-            }
-        }
+        TryResolveConsolidatedExtractionProgression(
+            out long consolidatedExperience,
+            out int resultingLevel,
+            out long resultingExperience);
 
         StashOperationResult result = context.Store.TryCommitExtraction(
             receipt,
@@ -1016,5 +994,95 @@ public sealed class PlayerExtractionLootSaver : NetworkBehaviour
         }
 
         return _participantLink != null && _participantLink.TryResolveParticipant(out _participant);
+    }
+
+    private bool TryResolveConsolidatedExtractionProgression(
+        out long consolidatedExperience,
+        out int resultingLevel,
+        out long resultingExperience)
+    {
+        consolidatedExperience = 0L;
+        resultingLevel = 1;
+        resultingExperience = 0L;
+
+        ApplicationStashContext context = FindAnyObjectByType<ApplicationStashContext>();
+        if (context?.Store != null)
+        {
+            resultingLevel = context.Store.GetLevel();
+            resultingExperience = context.Store.GetCurrentExperience();
+        }
+
+        long lootExperience = _pendingExperienceCandidate.HasValue
+            ? _pendingExperienceCandidate.Value.AwardedExperience
+            : 0L;
+
+        if (_participant != null && _participant.TryGetBehaviour(out PlayerExpeditionExperienceLedger ledger))
+        {
+            ExpeditionExperienceSnapshot snapshot = ledger.Snapshot;
+            if (ExpeditionExperienceRules.TryApplyExtractedLootReward(snapshot, lootExperience, out ExpeditionExperienceSnapshot fullSnapshot, out _) &&
+                ExpeditionExperienceResolutionRules.TryResolve(
+                    default,
+                    fullSnapshot,
+                    ExpeditionExperienceResolutionOutcome.Extracted,
+                    ProgressionBalanceDefaults.InitialExpeditionExperienceRetentionPolicy,
+                    out ExpeditionExperienceResolution resolution,
+                    out _))
+            {
+                consolidatedExperience = resolution.ConsolidatedExperience;
+
+                int startingLevel = resultingLevel;
+                long startingExperience = resultingExperience;
+                if (_participant.TryGetBehaviour(out PlayerExpeditionProgressionResolver resolver) &&
+                    resolver.TryGetBaseline(out ExpeditionProgressionBaseline baseline))
+                {
+                    startingLevel = baseline.Level;
+                    startingExperience = baseline.Experience;
+                }
+
+                if (ConsolidatedExperienceApplicationRules.TryApply(
+                        ProgressionBalanceDefaults.InitialExperienceCurve,
+                        default,
+                        startingLevel,
+                        startingExperience,
+                        resolution,
+                        out ConsolidatedExperienceApplication application,
+                        out _))
+                {
+                    resultingLevel = application.Result.ResultingLevel;
+                    resultingExperience = application.Result.ResultingExperience;
+                }
+
+                return true;
+            }
+        }
+
+        if (_pendingExperienceCandidate.HasValue)
+        {
+            consolidatedExperience = lootExperience;
+            int retPoints = ProgressionBalanceDefaults.InitialExpeditionExperienceRetentionPolicy.GetRetentionBasisPoints(
+                ExpeditionExperienceResolutionOutcome.Extracted);
+            var resolution = new ExpeditionExperienceResolution(
+                ExpeditionExperienceResolutionOutcome.Extracted,
+                default,
+                retPoints,
+                consolidatedExperience);
+
+            if (ConsolidatedExperienceApplicationRules.TryApply(
+                    ProgressionBalanceDefaults.InitialExperienceCurve,
+                    default,
+                    resultingLevel,
+                    resultingExperience,
+                    resolution,
+                    out ConsolidatedExperienceApplication application,
+                    out _))
+            {
+                resultingLevel = application.Result.ResultingLevel;
+                resultingExperience = application.Result.ResultingExperience;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 }
