@@ -1,6 +1,9 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { scanContent, scanHistoryOutput, redact } = require('../../tools/security/scan-secrets');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { scanContent, scanDirectory, scanHistoryOutput, redact } = require('../../tools/security/scan-secrets');
 
 describe('Secret Scanner Unit Tests (US-61 / SEC-61.2)', () => {
   test('history output reports commit and path without exposing the raw key', () => {
@@ -84,13 +87,52 @@ describe('Secret Scanner Unit Tests (US-61 / SEC-61.2)', () => {
     assert.equal(unityFindings[0].type, 'UNITY_WEBHOOK_SECRET');
   });
 
-  test('scanContent ignores documented synthetic placeholders and local dev defaults', () => {
+  test('scanContent detects and classifies known dev webhook secrets as KNOWN_DEV_SECRET', () => {
+    const envSample = 'WEBHOOK_SECRET=dev-webhook-secret-do-not-use-in-prod';
+    const envFindings = scanContent(envSample, 'backend/.env.example');
+    assert.equal(envFindings.length, 1);
+    assert.equal(envFindings[0].type, 'KNOWN_DEV_SECRET');
+    assert.match(envFindings[0].redactedValue, /\*/);
+    assert.equal(envFindings[0].redactedValue.includes('do-not-use-in-prod'), false);
+
+    const unitySample = '  WebhookSecret: dev_webhook_secret_123';
+    const unityFindings = scanContent(unitySample, 'Project Grimhold/Assets/Resources/BackendConfiguration.asset');
+    assert.equal(unityFindings.length, 1);
+    assert.equal(unityFindings[0].type, 'KNOWN_DEV_SECRET');
+    assert.match(unityFindings[0].redactedValue, /\*/);
+  });
+
+  test('scanHistoryOutput detects known dev secret in historical commits as classified finding', () => {
+    const history = [
+      'commit 866499c670a28ccd',
+      '+++ b/backend/.env.example',
+      '+WEBHOOK_SECRET=dev-webhook-secret-do-not-use-in-prod'
+    ].join('\n');
+    const findings = scanHistoryOutput(history);
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].file, 'git:866499c6:backend/.env.example');
+    assert.equal(findings[0].type, 'KNOWN_DEV_SECRET');
+    assert.match(findings[0].redactedValue, /\*/);
+  });
+
+  test('scanDirectory scans .mat files and detects seeded secrets', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'grimhold-mat-test-'));
+    try {
+      const matFile = path.join(tmpDir, 'TestMaterial.mat');
+      fs.writeFileSync(matFile, '%YAML 1.1\nMaterial:\n  m_Shader: "AWS_KEY=AKIAIOSFODNN7EXAMPLE"\n');
+      const findings = scanDirectory(tmpDir);
+      assert.equal(findings.length, 1);
+      assert.equal(findings[0].type, 'AWS_ACCESS_KEY');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('scanContent ignores synthetic template placeholders', () => {
     const syntheticExample = [
       'MONGODB_URI=mongodb://localhost:27017/grimhold_dev',
       'MONGODB_URI=mongodb+srv://PLACEHOLDER_USER:PLACEHOLDER_PASSWORD@PLACEHOLDER_CLUSTER.mongodb.net/grimhold_dev',
-      'WEBHOOK_SECRET=dev-webhook-secret-do-not-use-in-prod',
-      'JWT_SECRET=PLACEHOLDER_JWT_SECRET_MIN_32_CHARS_LONG',
-      '  WebhookSecret: dev_webhook_secret_123'
+      'JWT_SECRET=PLACEHOLDER_JWT_SECRET_MIN_32_CHARS_LONG'
     ].join('\n');
 
     const findings = scanContent(syntheticExample, 'backend/.env.example');

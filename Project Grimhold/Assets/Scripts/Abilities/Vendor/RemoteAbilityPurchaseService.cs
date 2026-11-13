@@ -62,7 +62,7 @@ public sealed class RemoteAbilityPurchaseService : MonoBehaviour, IAbilityPurcha
 
         if (_backend == null)
         {
-            return _store.TryPurchaseAbility(abilityId, price);
+            return AbilityPurchaseResult.PersistenceFailed;
         }
 
         string transactionId = Guid.NewGuid().ToString("N");

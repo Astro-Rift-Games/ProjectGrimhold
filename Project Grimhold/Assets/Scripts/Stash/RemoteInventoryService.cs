@@ -620,16 +620,7 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, IS
         // The published result is ID-free: units carry their modifiers, never an instance ID.
         PreparedEquipmentData eqDTO = PreparedEquipmentData.FromLoadout(preparedEquipment);
 
-        string canonicalMessage = RaidResultCanonicalizer.BuildCanonicalResultString(
-            receipt.RaidId,
-            resultId,
-            targetId,
-            itemsDTO,
-            eqDTO,
-            experienceGranted,
-            issuedAt);
-
-        // Under Bounded Player-Host Authority (TASK-223 / SEC-223), the client no longer holds
+        // Under Bounded Player-Host Authority (TASK-223 / SEC-223 / FIX-65), the client no longer holds
         // or uses a shared HMAC secret. The backend validates the host's JWT, raid membership,
         // and per-raid loot/experience bounds.
         string hostSignature = string.Empty;

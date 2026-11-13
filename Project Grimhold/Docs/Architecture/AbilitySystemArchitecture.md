@@ -97,11 +97,11 @@ Every source ends in the same persistent unlock and validates through one privat
 
 | Source | Boundary | Transaction | Already unlocked |
 | --- | --- | --- | --- |
-| Town Ability Vendor NPC | `TownAbilityVendorPresenter` (Input Authority, local panel) | `LocalProfileStore.TryPurchaseAbility(id, price)` debits Currency and unlocks in one commit | Not offered as buyable; the store rejects with `AlreadyUnlocked` and charges nothing |
+| Town Ability Vendor NPC | `TownAbilityVendorPresenter` via `RemoteAbilityPurchaseService` (Input Authority, local panel) | Authoritative `POST /character/me/abilities/purchase` debits currency and unlocks in one atomic backend transaction; local `ApplyConfirmedAbilityPurchase` applies the confirmed result fail-closed | Not offered as buyable; rejected with `AlreadyUnlocked` and charges nothing |
 | Mission reward (`RewardDefinition.RewardType.Ability`, `ReferenceId` = ability identity) | `LocalProfileStore.TryClaimMission` | The unlock joins the claim's single candidate snapshot | No-op; the rest of the reward package is still claimed |
 | Dungeon discovery | Not in the MVP | — | — |
 
-The vendor has no shared stock, so a purchase is not networked: like a merchant trade commit, the requesting client's store is the only writer. The price comes from `AbilityVendorCatalog`, never from the view, and the presenter rebuilds the offer from the confirmed profile before buying. Buying is not preparation and is not gated by Ready. An invalid or unknown ability reward rejects the whole mission claim without changing the confirmed snapshot. The vendor catalog content (nine abilities at a flat 100 Gold) is provisional until Game Design defines vendor offers and prices.
+The vendor has no shared stock across players, but purchase is authoritative on the backend (TASK-224 / FIX-64): the backend endpoint `POST /character/me/abilities/purchase` is the sole authority for debiting currency and recording ability unlocks. The client never commits locally without backend acknowledgement; if the backend is unreachable or unconfigured, the transaction fails closed without mutating local state. The price comes from `AbilityVendorCatalog`, never from the view, and the presenter rebuilds the offer from the confirmed profile before buying. Buying is not preparation and is not gated by Ready. An invalid or unknown ability reward rejects the whole mission claim without changing the confirmed snapshot. The vendor catalog content (nine abilities at a flat 100 Gold) is provisional until Game Design defines vendor offers and prices.
 
 ### Two universal prepared slots
 

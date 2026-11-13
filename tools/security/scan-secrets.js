@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
+const readline = require('readline');
 
 /**
  * Project Grimhold — Repeatable Secret Scanner (US-61 / SEC-61.2)
@@ -42,23 +43,24 @@ const IGNORED_LOCAL_FILES = new Set([
 ]);
 
 // Binary extensions excluded from UTF-8 text scanning.
-// NOTE: Unity serialized text assets (.asset, .prefab, .unity, .scenetemplate) are intentionally NOT ignored.
+// NOTE: Unity serialized text assets (.asset, .prefab, .unity, .scenetemplate, .mat, .anim, .controller, .lighting) are intentionally NOT ignored.
 const IGNORED_EXTENSIONS = new Set([
-  '.png', '.jpg', '.jpeg', '.gif', '.psd', '.tga', '.mat', '.meta',
+  '.png', '.jpg', '.jpeg', '.gif', '.psd', '.tga', '.meta',
   '.dll', '.exe', '.pdb', '.zip', '.tar', '.gz', '.mp3', '.wav',
-  '.ogg', '.ttf', '.otf', '.anim', '.controller', '.blend', '.fbx',
-  '.db', '.pdf', '.cubemap', '.lighting'
+  '.ogg', '.ttf', '.otf', '.blend', '.fbx',
+  '.db', '.pdf', '.cubemap'
 ]);
 
-// Allowlisted synthetic patterns and local development defaults that are not real secrets
-const SYNTHETIC_PLACEHOLDER_REGEX = /PLACEHOLDER_|dev-webhook-secret-do-not-use-in-prod|dev_webhook_secret_123|<user>|<password>|<cluster>|localhost:27017|127\.0\.0\.1:27017/i;
-const ALLOWED_DEV_ENV_SECRETS = new Set([
-  'dev-secret',
-  'secret',
-  'changeme',
+// Allowlisted synthetic patterns and template placeholders that are not real secrets
+const SYNTHETIC_PLACEHOLDER_REGEX = /PLACEHOLDER_|<user>|<password>|<cluster>|localhost:27017|127\.0\.0\.1:27017/i;
+
+// Known development values that must be classified and reported rather than silently ignored (US-61 / FIX-63)
+const KNOWN_DEV_SECRETS = new Set([
   'dev-webhook-secret-do-not-use-in-prod',
   'dev_webhook_secret_123',
-  'placeholder_jwt_secret_min_32_chars_long'
+  'dev-secret',
+  'secret',
+  'changeme'
 ]);
 
 const SECRET_PATTERNS = [
@@ -96,9 +98,15 @@ const SECRET_PATTERNS = [
       const val = (fullMatch && fullMatch[1] ? fullMatch[1] : match).trim();
       if (!val || val.startsWith('$') || val.startsWith('process.env')) return false;
       if (SYNTHETIC_PLACEHOLDER_REGEX.test(val)) return false;
-      if (ALLOWED_DEV_ENV_SECRETS.has(val.toLowerCase())) return false;
       return true;
     },
+    classify: (match, fullMatch) => {
+      const val = (fullMatch && fullMatch[1] ? fullMatch[1] : match).trim().toLowerCase();
+      if (KNOWN_DEV_SECRETS.has(val)) {
+        return 'KNOWN_DEV_SECRET';
+      }
+      return 'ENV_SECRET_ASSIGNMENT';
+    }
   },
   {
     type: 'UNITY_WEBHOOK_SECRET',
@@ -107,9 +115,15 @@ const SECRET_PATTERNS = [
       const val = (fullMatch && fullMatch[1] ? fullMatch[1] : match).trim();
       if (!val) return false;
       if (SYNTHETIC_PLACEHOLDER_REGEX.test(val)) return false;
-      if (ALLOWED_DEV_ENV_SECRETS.has(val.toLowerCase())) return false;
       return true;
     },
+    classify: (match, fullMatch) => {
+      const val = (fullMatch && fullMatch[1] ? fullMatch[1] : match).trim().toLowerCase();
+      if (KNOWN_DEV_SECRETS.has(val)) {
+        return 'KNOWN_DEV_SECRET';
+      }
+      return 'UNITY_WEBHOOK_SECRET';
+    }
   }
 ];
 
@@ -132,11 +146,13 @@ function scanContent(content, filePath = '<unknown>') {
       if (match) {
         const rawMatched = match[1] || match[2] || match[0];
         if (!pattern.filter || pattern.filter(rawMatched, match)) {
+          const type = pattern.classify ? pattern.classify(rawMatched, match) : pattern.type;
           findings.push({
             file: filePath,
             line: lineIndex + 1,
-            type: pattern.type,
+            type: type,
             redactedValue: redact(rawMatched),
+            category: type === 'KNOWN_DEV_SECRET' ? 'KNOWN_DEV' : 'CRITICAL'
           });
         }
       }
@@ -192,6 +208,7 @@ function scanHistoryOutput(diffOutput) {
     } else if (line.startsWith('+++ b/')) {
       currentFile = line.slice(6).trim();
     } else if (line.startsWith('+') && !line.startsWith('+++')) {
+      if (IGNORED_LOCAL_FILES.has(path.basename(currentFile))) continue;
       findings.push(...scanContent(line.slice(1), `git:${currentCommit}:${currentFile}`));
     }
   }
@@ -199,44 +216,68 @@ function scanHistoryOutput(diffOutput) {
 }
 
 function scanGitHistory(rootDir) {
-  const findings = [];
-  try {
-    const diffOutput = execFileSync(
-      'git',
-      [
-        'log',
-        '--all',
-        '-p',
-        '-U0',
-        '--',
-        'backend/.env*',
-        'tools/**/.env*',
-        'Project Grimhold/Assets/Resources/*.asset'
-      ],
-      { cwd: rootDir, encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 }
-    );
+  return new Promise((resolve) => {
+    const findings = [];
+    let git;
+    try {
+      git = spawn('git', ['log', '--all', '-p', '-U0'], { cwd: rootDir });
+    } catch (err) {
+      return resolve(findings);
+    }
 
-    findings.push(...scanHistoryOutput(diffOutput));
-  } catch (err) {
-    // If git is unavailable or directory is not a git repo, skip history scan gracefully
-  }
-  return findings;
+    git.on('error', () => {
+      resolve(findings);
+    });
+
+    const rl = readline.createInterface({ input: git.stdout });
+    let currentCommit = 'unknown';
+    let currentFile = '<git-history>';
+
+    rl.on('line', (line) => {
+      if (line.startsWith('commit ')) {
+        currentCommit = line.slice(7, 15);
+      } else if (line.startsWith('+++ b/')) {
+        currentFile = line.slice(6).trim();
+      } else if (line.startsWith('+') && !line.startsWith('+++')) {
+        if (IGNORED_LOCAL_FILES.has(path.basename(currentFile))) return;
+        const lineFindings = scanContent(line.slice(1), `git:${currentCommit}:${currentFile}`);
+        for (const f of lineFindings) {
+          findings.push(f);
+        }
+      }
+    });
+
+    rl.on('close', () => {
+      resolve(findings);
+    });
+  });
 }
 
-function runCli() {
+async function runCli() {
   const targetDir = process.argv[2] ? path.resolve(process.argv[2]) : path.resolve(__dirname, '../..');
   console.log(`[SecretScanner] Scanning directory (up to 25 MB per file, including Unity YAML assets): ${targetDir}`);
 
   const worktreeFindings = scanDirectory(targetDir);
-  const historyFindings = scanGitHistory(targetDir);
-  const findings = worktreeFindings.concat(historyFindings);
+  console.log('[SecretScanner] Scanning complete repository Git history...');
+  const historyFindings = await scanGitHistory(targetDir);
+  const allFindings = worktreeFindings.concat(historyFindings);
 
-  if (findings.length === 0) {
+  const realSecrets = allFindings.filter(f => f.type !== 'KNOWN_DEV_SECRET');
+  const devSecrets = allFindings.filter(f => f.type === 'KNOWN_DEV_SECRET');
+
+  if (devSecrets.length > 0) {
+    console.log(`[SecretScanner] [INFO] Detected ${devSecrets.length} classified known development secret/marker(s) (redacted):`);
+    for (const finding of devSecrets) {
+      console.log(`  - ${finding.file}:${finding.line} | [${finding.type}] Value: ${finding.redactedValue}`);
+    }
+  }
+
+  if (realSecrets.length === 0) {
     console.log('[SecretScanner] Scan complete: No exposed credentials, OAuth secrets, or private keys detected in working tree or Git history.');
     process.exit(0);
   } else {
-    console.error(`[SecretScanner] [ALERT] Detected ${findings.length} potential secret(s):`);
-    for (const finding of findings) {
+    console.error(`[SecretScanner] [ALERT] Detected ${realSecrets.length} critical potential secret(s):`);
+    for (const finding of realSecrets) {
       console.error(`  - ${finding.file}:${finding.line} | [${finding.type}] Value: ${finding.redactedValue}`);
     }
     process.exit(1);
