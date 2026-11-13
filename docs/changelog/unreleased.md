@@ -4,32 +4,95 @@
 
 Release: Unreleased
 
-175 original commits; 175 canonical entries.
+176 original commits; 176 canonical entries.
 
 ## Canonical classification
 
-73 features; 46 bug fixes; 1 refactoring; 1 architecture & infrastructure; 25 documentation; 17 tests; 9 maintenance; 3 other changes
+73 features; 46 bug fixes; 1 refactoring; 1 architecture & infrastructure; 25 documentation; 17 tests; 9 maintenance; 4 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 8 | 6 | 1 | 0 | 9 | 1 |
 | Art & Animation | 10 | 9 | 1 | 0 | 7 | 0 |
 | Audio | 4 | 2 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 47 | 32 | 1 | 1 | 19 | 3 |
+| Build & Tooling | 47 | 32 | 1 | 1 | 19 | 4 |
 | Combat | 34 | 9 | 0 | 0 | 12 | 0 |
 | Documentation | 26 | 14 | 0 | 0 | 10 | 0 |
-| Extraction | 13 | 8 | 0 | 0 | 9 | 0 |
+| Extraction | 13 | 8 | 0 | 0 | 9 | 1 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
 | Inventory & Loot | 55 | 29 | 1 | 1 | 19 | 2 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 23 | 18 | 0 | 0 | 16 | 0 |
-| Persistence & Backend | 27 | 14 | 0 | 1 | 10 | 0 |
-| Tests | 70 | 40 | 1 | 1 | 26 | 1 |
+| Networking & Sessions | 23 | 18 | 0 | 0 | 16 | 1 |
+| Persistence & Backend | 27 | 14 | 0 | 1 | 10 | 1 |
+| Tests | 70 | 40 | 1 | 1 | 26 | 2 |
 | UI | 28 | 11 | 1 | 0 | 12 | 1 |
 | Unassigned | 0 | 1 | 0 | 0 | 11 | 0 |
-| World & Visibility | 19 | 7 | 0 | 0 | 3 | 0 |
+| World & Visibility | 19 | 7 | 0 | 0 | 3 | 1 |
 
 ## Original commit records
+
+### 2f830925229874ba26cc88e1b046f0acf84069e8
+
+[2f830925229874ba26cc88e1b046f0acf84069e8](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2f830925229874ba26cc88e1b046f0acf84069e8)
+
+Date: 2026-11-13T00:18:31-03:00 · Classification: Other Changes (unknown) · Systems: Extraction, Networking & Sessions, World & Visibility, Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+﻿fix(network): retain pending extractors across disconnect and migration
+```
+
+#### Original body
+
+```text
+Retain participant and avatar authoritative objects when a player
+disconnects while extraction progression persistence is still pending
+or when unrecovered profiles are sealed after host migration.
+
+Prevents premature raid closure and results world despawning from
+destroying objects before the host completes authoritative backend
+persistence, and bounds match closure persistence wait with a 15-second
+deadline. Also guards unspawned dungeon pressure phase reads during
+scene transitions.
+
+Player-Fixed: Extracting players who disconnect or experience host migration no longer lose raid progress or block match closure.
+Refs: #713
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs
+Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs
+Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs.meta
+```
+
+#### Classification evidence
+
+- path → Extraction: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs
+- path → Extraction: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs.meta
+- message-term → Extraction: extraction
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs.meta
+- message-term → Networking &amp; Sessions: host migration
+- path → World &amp; Visibility: Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs
+- message-term → World &amp; Visibility: dungeon
+- message-term → Persistence &amp; Backend: persistence
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs.meta
+
+#### Diagnostics
+
+- **ambiguous-kind:** No supported explicit type or anchored historical action. Inspect this commit diff; use an action and object or a Conventional Commit type in future messages.
 
 ### 36c695b7d20f017743c91e522b65dae3b76bf2cb
 

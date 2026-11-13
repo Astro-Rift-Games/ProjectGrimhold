@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1052,
-  "canonicalEntries": 1049,
+  "rawCommits": 1053,
+  "canonicalEntries": 1050,
   "before": {
+    "Other Changes": 358,
     "Documentation": 99,
     "Tests": 41,
     "Bug Fixes": 124,
-    "Other Changes": 357,
     "Features": 395,
     "Architecture & Infrastructure": 22,
     "Refactoring": 14
   },
   "after": {
+    "Other Changes": 166,
     "Documentation": 115,
     "Tests": 46,
     "Bug Fixes": 140,
-    "Other Changes": 165,
     "Features": 533,
     "Maintenance": 20,
     "Architecture & Infrastructure": 6,
@@ -23,18 +23,18 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Extraction": 150,
+    "Networking & Sessions": 314,
+    "World & Visibility": 140,
+    "Persistence & Backend": 238,
+    "Build & Tooling": 545,
+    "Tests": 661,
     "Unassigned": 30,
     "Combat": 371,
-    "Networking & Sessions": 313,
-    "Build & Tooling": 544,
-    "Tests": 660,
     "Documentation": 393,
     "Inventory & Loot": 423,
     "UI": 322,
     "Abilities": 129,
-    "Extraction": 149,
-    "World & Visibility": 139,
-    "Persistence & Backend": 237,
     "Audio": 36,
     "Art & Animation": 237,
     "Input": 30,
@@ -42,28 +42,28 @@
   },
   "canonical": {
     "sections": {
+      "Other Changes": 165,
       "Documentation": 115,
       "Tests": 46,
       "Bug Fixes": 139,
-      "Other Changes": 164,
       "Features": 532,
       "Maintenance": 20,
       "Architecture & Infrastructure": 6,
       "Refactoring": 27
     },
     "systems": {
+      "Extraction": 150,
+      "Networking & Sessions": 314,
+      "World & Visibility": 138,
+      "Persistence & Backend": 238,
+      "Build & Tooling": 543,
+      "Tests": 659,
       "Unassigned": 30,
       "Combat": 369,
-      "Networking & Sessions": 313,
-      "Build & Tooling": 542,
-      "Tests": 658,
       "Documentation": 391,
       "Inventory & Loot": 423,
       "UI": 321,
       "Abilities": 127,
-      "Extraction": 149,
-      "World & Visibility": 137,
-      "Persistence & Backend": 237,
       "Audio": 36,
       "Art & Animation": 234,
       "Input": 30,
@@ -71,6 +71,120 @@
     }
   },
   "unknownEntries": [
+    {
+      "sha": "2f830925229874ba26cc88e1b046f0acf84069e8",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2f830925229874ba26cc88e1b046f0acf84069e8",
+      "subject": "﻿fix(network): retain pending extractors across disconnect and migration",
+      "body": "Retain participant and avatar authoritative objects when a player\ndisconnects while extraction progression persistence is still pending\nor when unrecovered profiles are sealed after host migration.\n\nPrevents premature raid closure and results world despawning from\ndestroying objects before the host completes authoritative backend\npersistence, and bounds match closure persistence wait with a 15-second\ndeadline. Also guards unspawned dungeon pressure phase reads during\nscene transitions.\n\nPlayer-Fixed: Extracting players who disconnect or experience host migration no longer lose raid progress or block match closure.\nRefs: #713\n",
+      "date": "2026-11-13T00:18:31-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs.meta"
+      ],
+      "originalType": null,
+      "originalScope": null,
+      "originalSection": "Other Changes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Other Changes",
+      "confidence": "unknown",
+      "systems": [
+        "Extraction",
+        "Networking & Sessions",
+        "World & Visibility",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs.meta",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "host migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "persistence",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs.meta",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "ambiguous-kind",
+          "message": "No supported explicit type or anchored historical action. Inspect this commit diff; use an action and object or a Conventional Commit type in future messages."
+        }
+      ],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "f10c68a9f6d369637f9eb207b569b3f751e0745f",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f10c68a9f6d369637f9eb207b569b3f751e0745f",
@@ -34191,8 +34305,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 175,
-      "canonicalEntries": 175
+      "originalCommits": 176,
+      "canonicalEntries": 176
     },
     {
       "key": "v0.5.0",
@@ -34236,6 +34350,120 @@
     }
   ],
   "commits": [
+    {
+      "sha": "2f830925229874ba26cc88e1b046f0acf84069e8",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2f830925229874ba26cc88e1b046f0acf84069e8",
+      "subject": "﻿fix(network): retain pending extractors across disconnect and migration",
+      "body": "Retain participant and avatar authoritative objects when a player\ndisconnects while extraction progression persistence is still pending\nor when unrecovered profiles are sealed after host migration.\n\nPrevents premature raid closure and results world despawning from\ndestroying objects before the host completes authoritative backend\npersistence, and bounds match closure persistence wait with a 15-second\ndeadline. Also guards unspawned dungeon pressure phase reads during\nscene transitions.\n\nPlayer-Fixed: Extracting players who disconnect or experience host migration no longer lose raid progress or block match closure.\nRefs: #713\n",
+      "date": "2026-11-13T00:18:31-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs.meta"
+      ],
+      "originalType": null,
+      "originalScope": null,
+      "originalSection": "Other Changes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Other Changes",
+      "confidence": "unknown",
+      "systems": [
+        "Extraction",
+        "Networking & Sessions",
+        "World & Visibility",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs.meta",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "message-term",
+          "value": "host migration",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/DungeonPressure/DungeonPressureController.cs",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "dungeon",
+          "supports": "World & Visibility"
+        },
+        {
+          "source": "message-term",
+          "value": "persistence",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/PendingExtractionRetentionClosureTests.cs.meta",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "ambiguous-kind",
+          "message": "No supported explicit type or anchored historical action. Inspect this commit diff; use an action and object or a Conventional Commit type in future messages."
+        }
+      ],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "36c695b7d20f017743c91e522b65dae3b76bf2cb",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/36c695b7d20f017743c91e522b65dae3b76bf2cb",
