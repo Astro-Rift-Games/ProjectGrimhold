@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1045,
-  "canonicalEntries": 1042,
+  "rawCommits": 1051,
+  "canonicalEntries": 1048,
   "before": {
+    "Documentation": 99,
+    "Tests": 41,
+    "Bug Fixes": 124,
     "Features": 395,
-    "Documentation": 95,
-    "Bug Fixes": 123,
-    "Tests": 40,
     "Architecture & Infrastructure": 22,
     "Other Changes": 356,
     "Refactoring": 14
   },
   "after": {
+    "Documentation": 115,
+    "Tests": 46,
+    "Bug Fixes": 140,
     "Features": 533,
-    "Documentation": 111,
-    "Bug Fixes": 139,
-    "Tests": 45,
     "Maintenance": 20,
     "Architecture & Infrastructure": 6,
     "Other Changes": 164,
@@ -23,48 +23,48 @@
   },
   "systemCountsOverlap": true,
   "systems": {
+    "Unassigned": 30,
+    "Combat": 371,
+    "Networking & Sessions": 313,
+    "Build & Tooling": 543,
+    "Tests": 659,
+    "Documentation": 393,
     "Abilities": 129,
     "Extraction": 149,
     "Inventory & Loot": 422,
     "UI": 321,
-    "Build & Tooling": 541,
-    "Tests": 657,
-    "Networking & Sessions": 311,
     "World & Visibility": 139,
     "Persistence & Backend": 237,
     "Audio": 36,
-    "Unassigned": 26,
-    "Documentation": 392,
-    "Combat": 369,
     "Art & Animation": 237,
     "Input": 30,
     "Movement": 94
   },
   "canonical": {
     "sections": {
+      "Documentation": 115,
+      "Tests": 46,
+      "Bug Fixes": 139,
       "Features": 532,
-      "Documentation": 111,
-      "Bug Fixes": 138,
-      "Tests": 45,
       "Maintenance": 20,
       "Architecture & Infrastructure": 6,
       "Other Changes": 163,
       "Refactoring": 27
     },
     "systems": {
+      "Unassigned": 30,
+      "Combat": 369,
+      "Networking & Sessions": 313,
+      "Build & Tooling": 541,
+      "Tests": 657,
+      "Documentation": 391,
       "Abilities": 127,
       "Extraction": 149,
       "Inventory & Loot": 422,
       "UI": 320,
-      "Build & Tooling": 539,
-      "Tests": 655,
-      "Networking & Sessions": 311,
       "World & Visibility": 137,
       "Persistence & Backend": 237,
       "Audio": 36,
-      "Unassigned": 26,
-      "Documentation": 390,
-      "Combat": 367,
       "Art & Animation": 234,
       "Input": 30,
       "Movement": 94
@@ -34055,8 +34055,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 168,
-      "canonicalEntries": 168
+      "originalCommits": 174,
+      "canonicalEntries": 174
     },
     {
       "key": "v0.5.0",
@@ -34100,6 +34100,302 @@
     }
   ],
   "commits": [
+    {
+      "sha": "36c695b7d20f017743c91e522b65dae3b76bf2cb",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/36c695b7d20f017743c91e522b65dae3b76bf2cb",
+      "subject": "docs(odd): record waived FIX-01 manual validation",
+      "body": "Refs: HacknPlan FIX-01 (#668)\n",
+      "date": "2026-11-12T21:12:12-03:00",
+      "files": [
+        "odd/tasks/fix-01-launch-ack-retry.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "odd",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "unassigned-system",
+          "message": "No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system."
+        }
+      ],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "2baccabaaf662ccbfeaeb8e419c6db2263840dea",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2baccabaaf662ccbfeaeb8e419c6db2263840dea",
+      "subject": "docs(odd): keep FIX-01 ACK window and measure it in T4",
+      "body": "Refs: HacknPlan FIX-01 (#668)\n",
+      "date": "2026-11-12T20:36:54-03:00",
+      "files": [
+        "odd/tasks/fix-01-launch-ack-retry.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "odd",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "unassigned-system",
+          "message": "No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system."
+        }
+      ],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "924a8d90381afe2002a5e4118fffc455e9a46d2d",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/924a8d90381afe2002a5e4118fffc455e9a46d2d",
+      "subject": "docs(odd): record FIX-01 follow-up verification",
+      "body": "Refs: HacknPlan FIX-01 (#668)\n",
+      "date": "2026-11-12T20:22:52-03:00",
+      "files": [
+        "odd/tasks/fix-01-launch-ack-retry.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "odd",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "unassigned-system",
+          "message": "No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system."
+        }
+      ],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "d01bf18883793ea67872fa5a14d57c288687ebdc",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d01bf18883793ea67872fa5a14d57c288687ebdc",
+      "subject": "test(network): pin immediate launch retry on a new snapshot revision",
+      "body": "Also restore the XML docs of TryStoreRaidLaunchContext and record the\nindependent verification of FIX-01.\n\nRefs: HacknPlan FIX-01 (#668)\n",
+      "date": "2026-11-12T20:20:20-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+        "odd/tasks/fix-01-launch-ack-retry.md"
+      ],
+      "originalType": "test",
+      "originalScope": "network",
+      "originalSection": "Tests",
+      "breaking": false,
+      "reverts": null,
+      "section": "Tests",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Networking & Sessions",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "test",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "50b6f081175ea124c8e1c1505018144985457394",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/50b6f081175ea124c8e1c1505018144985457394",
+      "subject": "docs(odd): track FIX-01 launch ACK retry evidence",
+      "body": "Refs: HacknPlan FIX-01 (#668)\n",
+      "date": "2026-11-12T20:14:04-03:00",
+      "files": [
+        "odd/tasks/fix-01-launch-ack-retry.md"
+      ],
+      "originalType": "docs",
+      "originalScope": "odd",
+      "originalSection": "Documentation",
+      "breaking": false,
+      "reverts": null,
+      "section": "Documentation",
+      "confidence": "explicit",
+      "systems": [],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "docs",
+          "supports": "Documentation"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "unassigned-system",
+          "message": "No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system."
+        }
+      ],
+      "generic": false,
+      "secondary": true
+    },
+    {
+      "sha": "fd60ef5cf2d9dce5f7de19e014dab89535837431",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/fd60ef5cf2d9dce5f7de19e014dab89535837431",
+      "subject": "fix(network): retry transient launch NotReady on a spaced, bounded schedule",
+      "body": "A Party member whose local launch preparation returned a transient NotReady\nretried every rendered frame with no spacing or window, gave no cause, and a\nmissing party continuation was skipped silently until the ACK deadline\ncancelled the launch.\n\n- Classify each transient NotReady in SessionConnectionCoordinator\n  (RaidLaunchNotReadyReason, LastLaunchNotReadyReason).\n- Retry local preparation every 0.25 s (or at once on a new snapshot) inside a\n  local ACK window; expiry stops retrying and keeps the cause, while the State\n  Authority deadline still owns the cancellation.\n- Treat a missing party continuation as a classified, retried wait.\n- Expose LocalLaunchWaitReason/IsLocalLaunchWaitExpired and log cause changes\n  and expiry once.\n\nRefs: HacknPlan FIX-01 (#668)\n",
+      "date": "2026-11-12T20:13:42-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Networking/RaidLaunchNotReadyReason.cs",
+        "Project Grimhold/Assets/Scripts/Networking/RaidLaunchNotReadyReason.cs.meta",
+        "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+        "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+        "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md"
+      ],
+      "originalType": "fix",
+      "originalScope": "network",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Combat",
+        "Networking & Sessions",
+        "Build & Tooling",
+        "Documentation",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+          "supports": "Combat"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLaunchNotReadyReason.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/RaidLaunchNotReadyReason.cs.meta",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "scope",
+          "value": "network",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md",
+          "supports": "Documentation"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "8f76fa1a09aa032bd1d3adeddde9f8ec45223083",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/8f76fa1a09aa032bd1d3adeddde9f8ec45223083",

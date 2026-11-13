@@ -4,32 +4,278 @@
 
 Release: Unreleased
 
-168 original commits; 168 canonical entries.
+174 original commits; 174 canonical entries.
 
 ## Canonical classification
 
-73 features; 45 bug fixes; 1 refactoring; 1 architecture & infrastructure; 21 documentation; 16 tests; 9 maintenance; 2 other changes
+73 features; 46 bug fixes; 1 refactoring; 1 architecture & infrastructure; 25 documentation; 17 tests; 9 maintenance; 2 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 8 | 6 | 1 | 0 | 9 | 1 |
 | Art & Animation | 10 | 9 | 1 | 0 | 7 | 0 |
 | Audio | 4 | 2 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 47 | 31 | 1 | 1 | 18 | 2 |
-| Combat | 34 | 8 | 0 | 0 | 11 | 0 |
-| Documentation | 26 | 13 | 0 | 0 | 10 | 0 |
+| Build & Tooling | 47 | 32 | 1 | 1 | 19 | 2 |
+| Combat | 34 | 9 | 0 | 0 | 12 | 0 |
+| Documentation | 26 | 14 | 0 | 0 | 10 | 0 |
 | Extraction | 13 | 8 | 0 | 0 | 9 | 0 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
 | Inventory & Loot | 55 | 29 | 1 | 1 | 19 | 1 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 23 | 17 | 0 | 0 | 15 | 0 |
+| Networking & Sessions | 23 | 18 | 0 | 0 | 16 | 0 |
 | Persistence & Backend | 27 | 14 | 0 | 1 | 10 | 0 |
-| Tests | 70 | 39 | 1 | 1 | 25 | 0 |
+| Tests | 70 | 40 | 1 | 1 | 26 | 0 |
 | UI | 28 | 11 | 1 | 0 | 12 | 0 |
-| Unassigned | 0 | 1 | 0 | 0 | 7 | 0 |
+| Unassigned | 0 | 1 | 0 | 0 | 11 | 0 |
 | World & Visibility | 19 | 7 | 0 | 0 | 3 | 0 |
 
 ## Original commit records
+
+### 36c695b7d20f017743c91e522b65dae3b76bf2cb
+
+[36c695b7d20f017743c91e522b65dae3b76bf2cb](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/36c695b7d20f017743c91e522b65dae3b76bf2cb)
+
+Date: 2026-11-12T21:12:12-03:00 · Classification: Documentation (explicit) · Systems: Unassigned
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(odd): record waived FIX-01 manual validation
+```
+
+#### Original body
+
+```text
+Refs: HacknPlan FIX-01 (#668)
+```
+
+#### Changed paths
+
+```text
+odd/tasks/fix-01-launch-ack-retry.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+
+#### Diagnostics
+
+- **unassigned-system:** No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system.
+
+### 2baccabaaf662ccbfeaeb8e419c6db2263840dea
+
+[2baccabaaf662ccbfeaeb8e419c6db2263840dea](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2baccabaaf662ccbfeaeb8e419c6db2263840dea)
+
+Date: 2026-11-12T20:36:54-03:00 · Classification: Documentation (explicit) · Systems: Unassigned
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(odd): keep FIX-01 ACK window and measure it in T4
+```
+
+#### Original body
+
+```text
+Refs: HacknPlan FIX-01 (#668)
+```
+
+#### Changed paths
+
+```text
+odd/tasks/fix-01-launch-ack-retry.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+
+#### Diagnostics
+
+- **unassigned-system:** No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system.
+
+### 924a8d90381afe2002a5e4118fffc455e9a46d2d
+
+[924a8d90381afe2002a5e4118fffc455e9a46d2d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/924a8d90381afe2002a5e4118fffc455e9a46d2d)
+
+Date: 2026-11-12T20:22:52-03:00 · Classification: Documentation (explicit) · Systems: Unassigned
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(odd): record FIX-01 follow-up verification
+```
+
+#### Original body
+
+```text
+Refs: HacknPlan FIX-01 (#668)
+```
+
+#### Changed paths
+
+```text
+odd/tasks/fix-01-launch-ack-retry.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+
+#### Diagnostics
+
+- **unassigned-system:** No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system.
+
+### d01bf18883793ea67872fa5a14d57c288687ebdc
+
+[d01bf18883793ea67872fa5a14d57c288687ebdc](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/d01bf18883793ea67872fa5a14d57c288687ebdc)
+
+Date: 2026-11-12T20:20:20-03:00 · Classification: Tests (explicit) · Systems: Combat, Networking & Sessions, Build & Tooling, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+test(network): pin immediate launch retry on a new snapshot revision
+```
+
+#### Original body
+
+```text
+Also restore the XML docs of TryStoreRaidLaunchContext and record the
+independent verification of FIX-01.
+
+Refs: HacknPlan FIX-01 (#668)
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+odd/tasks/fix-01-launch-ack-retry.md
+```
+
+#### Classification evidence
+
+- type → Tests: test
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- scope → Networking &amp; Sessions: network
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- message-term → Tests: test
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 50b6f081175ea124c8e1c1505018144985457394
+
+[50b6f081175ea124c8e1c1505018144985457394](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/50b6f081175ea124c8e1c1505018144985457394)
+
+Date: 2026-11-12T20:14:04-03:00 · Classification: Documentation (explicit) · Systems: Unassigned
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(odd): track FIX-01 launch ACK retry evidence
+```
+
+#### Original body
+
+```text
+Refs: HacknPlan FIX-01 (#668)
+```
+
+#### Changed paths
+
+```text
+odd/tasks/fix-01-launch-ack-retry.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+
+#### Diagnostics
+
+- **unassigned-system:** No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system.
+
+### fd60ef5cf2d9dce5f7de19e014dab89535837431
+
+[fd60ef5cf2d9dce5f7de19e014dab89535837431](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/fd60ef5cf2d9dce5f7de19e014dab89535837431)
+
+Date: 2026-11-12T20:13:42-03:00 · Classification: Bug Fixes (explicit) · Systems: Combat, Networking & Sessions, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(network): retry transient launch NotReady on a spaced, bounded schedule
+```
+
+#### Original body
+
+```text
+A Party member whose local launch preparation returned a transient NotReady
+retried every rendered frame with no spacing or window, gave no cause, and a
+missing party continuation was skipped silently until the ACK deadline
+cancelled the launch.
+
+- Classify each transient NotReady in SessionConnectionCoordinator
+  (RaidLaunchNotReadyReason, LastLaunchNotReadyReason).
+- Retry local preparation every 0.25 s (or at once on a new snapshot) inside a
+  local ACK window; expiry stops retrying and keeps the cause, while the State
+  Authority deadline still owns the cancellation.
+- Treat a missing party continuation as a classified, retried wait.
+- Expose LocalLaunchWaitReason/IsLocalLaunchWaitExpired and log cause changes
+  and expiry once.
+
+Refs: HacknPlan FIX-01 (#668)
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/RaidLaunchNotReadyReason.cs
+Project Grimhold/Assets/Scripts/Networking/RaidLaunchNotReadyReason.cs.meta
+Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidLaunchNotReadyReason.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidLaunchNotReadyReason.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- scope → Networking &amp; Sessions: network
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 8f76fa1a09aa032bd1d3adeddde9f8ec45223083
 
