@@ -61,6 +61,96 @@ public readonly struct ExpeditionProgressionResult : IEquatable<ExpeditionProgre
         IsMaxLevel = isMaxLevel;
     }
 
+    private ExpeditionProgressionResult(
+        ExpeditionExperienceResolutionOutcome outcome,
+        int pveKillCount,
+        int pvpKillCount,
+        int pveAssistCount,
+        int pvpAssistCount,
+        int firstOpenChestCount,
+        long combatExperience,
+        long explorationExperience,
+        long lootExperience,
+        long eligibleExtractedLootValue,
+        long provisionalExperienceTotal,
+        int retentionBasisPoints,
+        long consolidatedExperience,
+        int previousLevel,
+        long previousExperience,
+        int resultingLevel,
+        long resultingExperience,
+        int levelsGained,
+        long nextLevelExperienceRequirement,
+        bool isMaxLevel)
+    {
+        Outcome = outcome;
+        PveKillCount = pveKillCount;
+        PvpKillCount = pvpKillCount;
+        PveAssistCount = pveAssistCount;
+        PvpAssistCount = pvpAssistCount;
+        FirstOpenChestCount = firstOpenChestCount;
+        CombatExperience = combatExperience;
+        ExplorationExperience = explorationExperience;
+        LootExperience = lootExperience;
+        EligibleExtractedLootValue = eligibleExtractedLootValue;
+        ProvisionalExperienceTotal = provisionalExperienceTotal;
+        RetentionBasisPoints = retentionBasisPoints;
+        ConsolidatedExperience = consolidatedExperience;
+        PreviousLevel = previousLevel;
+        PreviousExperience = previousExperience;
+        ResultingLevel = resultingLevel;
+        ResultingExperience = resultingExperience;
+        LevelsGained = levelsGained;
+        NextLevelExperienceRequirement = nextLevelExperienceRequirement;
+        IsMaxLevel = isMaxLevel;
+    }
+
+    /// <summary>
+    /// Returns a new projection updated with backend or store authoritative persisted progression.
+    /// Preserves recorded activity counts and bases while keeping displayed results coherent with persistence.
+    /// </summary>
+    public ExpeditionProgressionResult WithPersistedProgression(
+        int persistedLevel,
+        long persistedExperience,
+        ExperienceCurve curve)
+    {
+        if (persistedLevel == ResultingLevel && persistedExperience == ResultingExperience)
+        {
+            return this;
+        }
+
+        bool isMaxLevel = curve != null && persistedLevel >= curve.MaximumLevel;
+        long nextLevelReq = 0;
+        if (!isMaxLevel && curve != null)
+        {
+            curve.TryGetRequiredExperience(persistedLevel, out nextLevelReq);
+        }
+
+        int levelsGained = Math.Max(0, persistedLevel - PreviousLevel);
+
+        return new ExpeditionProgressionResult(
+            Outcome,
+            PveKillCount,
+            PvpKillCount,
+            PveAssistCount,
+            PvpAssistCount,
+            FirstOpenChestCount,
+            CombatExperience,
+            ExplorationExperience,
+            LootExperience,
+            EligibleExtractedLootValue,
+            ProvisionalExperienceTotal,
+            RetentionBasisPoints,
+            ConsolidatedExperience,
+            PreviousLevel,
+            PreviousExperience,
+            persistedLevel,
+            persistedExperience,
+            levelsGained,
+            nextLevelReq,
+            isMaxLevel);
+    }
+
     public bool Equals(ExpeditionProgressionResult other) =>
         Outcome == other.Outcome &&
         PveKillCount == other.PveKillCount &&

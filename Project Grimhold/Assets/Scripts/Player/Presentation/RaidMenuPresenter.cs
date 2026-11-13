@@ -36,6 +36,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
     private bool _returnStarted;
     private bool _hostClosureAcknowledged;
     private bool _hasProgressionResultSnapshot;
+    private bool _hasProgressionCorrection;
     private bool _levelUpCelebrated;
     private LootDefinitionCatalog _lootCatalog;
     private ExpeditionProgressionResult _progressionResultSnapshot;
@@ -146,6 +147,7 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         _returnStarted = false;
         _hostClosureAcknowledged = false;
         _hasProgressionResultSnapshot = false;
+        _hasProgressionCorrection = false;
         _levelUpCelebrated = false;
         _lootCatalog = null;
         _progressionResultSnapshot = default;
@@ -790,21 +792,57 @@ public sealed class RaidMenuPresenter : MonoBehaviour
 
     private bool TryCaptureProgressionResult()
     {
-        if (_hasProgressionResultSnapshot)
+        if (!_hasProgressionResultSnapshot)
         {
-            return true;
+            if (_progressionResolver == null ||
+                !_progressionResolver.TryGetProgressionResult(
+                    out ExpeditionProgressionResult result))
+            {
+                return false;
+            }
+
+            _progressionResultSnapshot = result;
+            _hasProgressionResultSnapshot = true;
         }
 
-        if (_progressionResolver == null ||
-            !_progressionResolver.TryGetProgressionResult(
-                out ExpeditionProgressionResult result))
-        {
-            return false;
-        }
-
-        _progressionResultSnapshot = result;
-        _hasProgressionResultSnapshot = true;
+        ReconcileProgressionSnapshotWithPersistedStore();
         return true;
+    }
+
+    private void ReconcileProgressionSnapshotWithPersistedStore()
+    {
+        if (!_hasProgressionResultSnapshot)
+        {
+            return;
+        }
+
+        ApplicationStashContext stashContext = FindAnyObjectByType<ApplicationStashContext>();
+        if (stashContext?.Store == null)
+        {
+            return;
+        }
+
+        LocalProfileStore store = stashContext.Store;
+        int persistedLevel = store.GetLevel();
+        long persistedExperience = store.GetCurrentExperience();
+
+        ExtractionLootSaveStatus lootStatus = _extractionLootSaver != null
+            ? _extractionLootSaver.LocalSaveStatus
+            : ExtractionLootSaveStatus.None;
+
+        if (lootStatus == ExtractionLootSaveStatus.Committed ||
+            (_participant != null && _participant.IsExtractionProgressionComplete))
+        {
+            if (persistedLevel != _progressionResultSnapshot.ResultingLevel ||
+                persistedExperience != _progressionResultSnapshot.ResultingExperience)
+            {
+                _progressionResultSnapshot = _progressionResultSnapshot.WithPersistedProgression(
+                    persistedLevel,
+                    persistedExperience,
+                    ProgressionBalanceDefaults.InitialExperienceCurve);
+                _hasProgressionCorrection = true;
+            }
+        }
     }
 
     private bool ShouldRouteHostReturnThroughParticipant()
@@ -953,7 +991,9 @@ public sealed class RaidMenuPresenter : MonoBehaviour
         }
         string lootFeedback = lootStatus switch
         {
-            ExtractionLootSaveStatus.Committed => "Botín asegurado.",
+            ExtractionLootSaveStatus.Committed => _hasProgressionCorrection
+                ? "Botín asegurado.\n(Progresión ajustada por el servidor)."
+                : "Botín asegurado.",
             ExtractionLootSaveStatus.PersistenceFailed =>
                 "No se pudo guardar el botín. Pulsa Reintentar.",
             _ => "Guardado de botín pendiente."
