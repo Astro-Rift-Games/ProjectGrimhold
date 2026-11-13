@@ -58,7 +58,7 @@ Quoted verbatim from HacknPlan.
 | T2 | S1-S5, S23 | inline, TDD: FIX-02 stale ticket release, bounded rollback retry, recoverable state through existing `ReturningTown`/`ConnectingTown` routes (L6); `ReturnToMainMenuAsync` rolls back before dropping the ticket (L6) — done (manual part in T6) | `746ac63c` |
 | T3 | S11-S15, S23 | worker, TDD: FIX-04 Host-first release (b3, L17) and 75 s aligned Host window with centralized constants; architecture update — done (manual part in T6) | `3209e2cf` |
 | T4 | S6-S10, S23 | worker, TDD: FIX-03 Host abort on a required member lost before admission and client wait exit, reusing `RaidAdmissionWindows` — done (manual part in T6) | `94f49302` |
-| T5 | S20-S22 | worker: FIX-06 arrival-order and ticket-failure diagnostics only — done; the fix (S22) or a not-reproducible closure waits for the human's Host + Client repro (L6) | this commit |
+| T5 | S20-S22 | worker: FIX-06 arrival-order and ticket-failure diagnostics only — done; the fix (S22) or a not-reproducible closure waits for the human's Host + Client repro (L6) | `871ae5aa` |
 | T6 | S23 | human: manual Host + Client validation with both logs, per child | — |
 
 ## Log
