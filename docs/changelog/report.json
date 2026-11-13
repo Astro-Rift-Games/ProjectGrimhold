@@ -1,24 +1,24 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1051,
-  "canonicalEntries": 1048,
+  "rawCommits": 1052,
+  "canonicalEntries": 1049,
   "before": {
     "Documentation": 99,
     "Tests": 41,
     "Bug Fixes": 124,
+    "Other Changes": 357,
     "Features": 395,
     "Architecture & Infrastructure": 22,
-    "Other Changes": 356,
     "Refactoring": 14
   },
   "after": {
     "Documentation": 115,
     "Tests": 46,
     "Bug Fixes": 140,
+    "Other Changes": 165,
     "Features": 533,
     "Maintenance": 20,
     "Architecture & Infrastructure": 6,
-    "Other Changes": 164,
     "Refactoring": 27
   },
   "systemCountsOverlap": true,
@@ -26,13 +26,13 @@
     "Unassigned": 30,
     "Combat": 371,
     "Networking & Sessions": 313,
-    "Build & Tooling": 543,
-    "Tests": 659,
+    "Build & Tooling": 544,
+    "Tests": 660,
     "Documentation": 393,
+    "Inventory & Loot": 423,
+    "UI": 322,
     "Abilities": 129,
     "Extraction": 149,
-    "Inventory & Loot": 422,
-    "UI": 321,
     "World & Visibility": 139,
     "Persistence & Backend": 237,
     "Audio": 36,
@@ -45,23 +45,23 @@
       "Documentation": 115,
       "Tests": 46,
       "Bug Fixes": 139,
+      "Other Changes": 164,
       "Features": 532,
       "Maintenance": 20,
       "Architecture & Infrastructure": 6,
-      "Other Changes": 163,
       "Refactoring": 27
     },
     "systems": {
       "Unassigned": 30,
       "Combat": 369,
       "Networking & Sessions": 313,
-      "Build & Tooling": 541,
-      "Tests": 657,
+      "Build & Tooling": 542,
+      "Tests": 658,
       "Documentation": 391,
+      "Inventory & Loot": 423,
+      "UI": 321,
       "Abilities": 127,
       "Extraction": 149,
-      "Inventory & Loot": 422,
-      "UI": 320,
       "World & Visibility": 137,
       "Persistence & Backend": 237,
       "Audio": 36,
@@ -71,6 +71,142 @@
     }
   },
   "unknownEntries": [
+    {
+      "sha": "f10c68a9f6d369637f9eb207b569b3f751e0745f",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f10c68a9f6d369637f9eb207b569b3f751e0745f",
+      "subject": "﻿fix(loot): expand player corpse and container panel capacity to 38 slots",
+      "body": "Allow defeated or abandoning players carrying up to 38 combined items\n(30 inventory slots + 8 equipment pieces) to generate a complete corpse\ncontainer without capacity rejection or UI panel shortages.\n\nExpands RaidLootOriginPackedBuffer.MaximumStacks from 30 to 38 and\nupdates NetworkPlayer.prefab corpse slot capacity to 38. Authors 8\nadditional slots (Slot30..Slot37) in ContainerLootPanel.prefab and\nadds dynamic pool resilience to RaidLootPanelView.EnsureSlotCount.\nUpdates word-count and origin buffer capacity test baselines.\n\nPlayer-Fixed: Defeated players with full equipment and backpack no longer lock up in raid closure and their corpse loot displays correctly.\nRefs: #712\n",
+      "date": "2026-11-12T23:27:42-03:00",
+      "files": [
+        "Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab",
+        "Project Grimhold/Assets/Prefabs/UI/PlayerUI/ContainerLootPanel.prefab",
+        "Project Grimhold/Assets/Scripts/Gameplay/RaidLootOriginPackedBuffer.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelView.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginCapacityTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs.meta"
+      ],
+      "originalType": null,
+      "originalScope": null,
+      "originalSection": "Other Changes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Other Changes",
+      "confidence": "unknown",
+      "systems": [
+        "Inventory & Loot",
+        "UI",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/PlayerUI/ContainerLootPanel.prefab",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/RaidLootOriginPackedBuffer.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelView.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginCapacityTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/PlayerUI/ContainerLootPanel.prefab",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginCapacityTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginCapacityTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "ambiguous-kind",
+          "message": "No supported explicit type or anchored historical action. Inspect this commit diff; use an action and object or a Conventional Commit type in future messages."
+        }
+      ],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "970dba9ad8b937d7993400dc9d77404756168d56",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/970dba9ad8b937d7993400dc9d77404756168d56",
@@ -34055,8 +34191,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 174,
-      "canonicalEntries": 174
+      "originalCommits": 175,
+      "canonicalEntries": 175
     },
     {
       "key": "v0.5.0",
@@ -34393,6 +34529,142 @@
         }
       ],
       "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "f10c68a9f6d369637f9eb207b569b3f751e0745f",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f10c68a9f6d369637f9eb207b569b3f751e0745f",
+      "subject": "﻿fix(loot): expand player corpse and container panel capacity to 38 slots",
+      "body": "Allow defeated or abandoning players carrying up to 38 combined items\n(30 inventory slots + 8 equipment pieces) to generate a complete corpse\ncontainer without capacity rejection or UI panel shortages.\n\nExpands RaidLootOriginPackedBuffer.MaximumStacks from 30 to 38 and\nupdates NetworkPlayer.prefab corpse slot capacity to 38. Authors 8\nadditional slots (Slot30..Slot37) in ContainerLootPanel.prefab and\nadds dynamic pool resilience to RaidLootPanelView.EnsureSlotCount.\nUpdates word-count and origin buffer capacity test baselines.\n\nPlayer-Fixed: Defeated players with full equipment and backpack no longer lock up in raid closure and their corpse loot displays correctly.\nRefs: #712\n",
+      "date": "2026-11-12T23:27:42-03:00",
+      "files": [
+        "Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab",
+        "Project Grimhold/Assets/Prefabs/UI/PlayerUI/ContainerLootPanel.prefab",
+        "Project Grimhold/Assets/Scripts/Gameplay/RaidLootOriginPackedBuffer.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelView.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginCapacityTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs.meta"
+      ],
+      "originalType": null,
+      "originalScope": null,
+      "originalSection": "Other Changes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Other Changes",
+      "confidence": "unknown",
+      "systems": [
+        "Inventory & Loot",
+        "UI",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/PlayerUI/ContainerLootPanel.prefab",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Gameplay/RaidLootOriginPackedBuffer.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelView.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginCapacityTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "message-term",
+          "value": "loot",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Prefabs/UI/PlayerUI/ContainerLootPanel.prefab",
+          "supports": "UI"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginCapacityTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginCapacityTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "ambiguous-kind",
+          "message": "No supported explicit type or anchored historical action. Inspect this commit diff; use an action and object or a Conventional Commit type in future messages."
+        }
+      ],
       "generic": false,
       "secondary": false
     },

@@ -4,28 +4,28 @@
 
 Release: Unreleased
 
-174 original commits; 174 canonical entries.
+175 original commits; 175 canonical entries.
 
 ## Canonical classification
 
-73 features; 46 bug fixes; 1 refactoring; 1 architecture & infrastructure; 25 documentation; 17 tests; 9 maintenance; 2 other changes
+73 features; 46 bug fixes; 1 refactoring; 1 architecture & infrastructure; 25 documentation; 17 tests; 9 maintenance; 3 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 8 | 6 | 1 | 0 | 9 | 1 |
 | Art & Animation | 10 | 9 | 1 | 0 | 7 | 0 |
 | Audio | 4 | 2 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 47 | 32 | 1 | 1 | 19 | 2 |
+| Build & Tooling | 47 | 32 | 1 | 1 | 19 | 3 |
 | Combat | 34 | 9 | 0 | 0 | 12 | 0 |
 | Documentation | 26 | 14 | 0 | 0 | 10 | 0 |
 | Extraction | 13 | 8 | 0 | 0 | 9 | 0 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 55 | 29 | 1 | 1 | 19 | 1 |
+| Inventory & Loot | 55 | 29 | 1 | 1 | 19 | 2 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
 | Networking & Sessions | 23 | 18 | 0 | 0 | 16 | 0 |
 | Persistence & Backend | 27 | 14 | 0 | 1 | 10 | 0 |
-| Tests | 70 | 40 | 1 | 1 | 26 | 0 |
-| UI | 28 | 11 | 1 | 0 | 12 | 0 |
+| Tests | 70 | 40 | 1 | 1 | 26 | 1 |
+| UI | 28 | 11 | 1 | 0 | 12 | 1 |
 | Unassigned | 0 | 1 | 0 | 0 | 11 | 0 |
 | World & Visibility | 19 | 7 | 0 | 0 | 3 | 0 |
 
@@ -276,6 +276,77 @@ Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
 #### Diagnostics
 
 - No classification ambiguity detected.
+
+### f10c68a9f6d369637f9eb207b569b3f751e0745f
+
+[f10c68a9f6d369637f9eb207b569b3f751e0745f](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/f10c68a9f6d369637f9eb207b569b3f751e0745f)
+
+Date: 2026-11-12T23:27:42-03:00 · Classification: Other Changes (unknown) · Systems: Inventory & Loot, UI, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+﻿fix(loot): expand player corpse and container panel capacity to 38 slots
+```
+
+#### Original body
+
+```text
+Allow defeated or abandoning players carrying up to 38 combined items
+(30 inventory slots + 8 equipment pieces) to generate a complete corpse
+container without capacity rejection or UI panel shortages.
+
+Expands RaidLootOriginPackedBuffer.MaximumStacks from 30 to 38 and
+updates NetworkPlayer.prefab corpse slot capacity to 38. Authors 8
+additional slots (Slot30..Slot37) in ContainerLootPanel.prefab and
+adds dynamic pool resilience to RaidLootPanelView.EnsureSlotCount.
+Updates word-count and origin buffer capacity test baselines.
+
+Player-Fixed: Defeated players with full equipment and backpack no longer lock up in raid closure and their corpse loot displays correctly.
+Refs: #712
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Prefabs/NetworkPlayer.prefab
+Project Grimhold/Assets/Prefabs/UI/PlayerUI/ContainerLootPanel.prefab
+Project Grimhold/Assets/Scripts/Gameplay/RaidLootOriginPackedBuffer.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelView.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginCapacityTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs.meta
+```
+
+#### Classification evidence
+
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Prefabs/UI/PlayerUI/ContainerLootPanel.prefab
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Gameplay/RaidLootOriginPackedBuffer.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Presentation/RaidLootPanelView.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginCapacityTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs
+- message-term → Inventory &amp; Loot: loot
+- path → UI: Project Grimhold/Assets/Prefabs/UI/PlayerUI/ContainerLootPanel.prefab
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginCapacityTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/LootContainerPrefabTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginCapacityTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Loot/RaidLootOriginWordCountTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Player/PlayerCorpseCapacityTests.cs.meta
+- message-term → Tests: test
+
+#### Diagnostics
+
+- **ambiguous-kind:** No supported explicit type or anchored historical action. Inspect this commit diff; use an action and object or a Conventional Commit type in future messages.
 
 ### 8f76fa1a09aa032bd1d3adeddde9f8ec45223083
 
