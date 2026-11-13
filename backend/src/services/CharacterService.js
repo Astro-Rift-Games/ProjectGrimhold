@@ -1,6 +1,15 @@
 ﻿// src/services/CharacterService.js
 const Character = require('../models/Character');
 const env = require('../config/env');
+const { isDuplicateKeyError } = require('../utils/mongoErrors');
+
+function characterAlreadyExistsError() {
+  return {
+    statusCode: 409,
+    errorCode: 'CHARACTER_ALREADY_EXISTS',
+    message: 'Account already has a character'
+  };
+}
 
 class CharacterService {
   /**
@@ -10,11 +19,7 @@ class CharacterService {
   static async createForAccount(accountId, name) {
     const existingCharacter = await Character.findOne({ accountId });
     if (existingCharacter) {
-      throw {
-        statusCode: 409,
-        errorCode: 'CHARACTER_ALREADY_EXISTS',
-        message: 'Account already has a character'
-      };
+      throw characterAlreadyExistsError();
     }
 
     const character = new Character({
@@ -27,7 +32,13 @@ class CharacterService {
       }
     });
 
-    await character.save();
+    try {
+      await character.save();
+    } catch (error) {
+      // A concurrent creation can pass the check above; the unique index decides.
+      if (isDuplicateKeyError(error)) throw characterAlreadyExistsError();
+      throw error;
+    }
     return {
       characterId: character._id.toString(),
       name: character.name
