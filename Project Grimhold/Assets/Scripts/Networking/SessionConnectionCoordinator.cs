@@ -788,12 +788,24 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
             }
 
             SessionTransitionResult result = await EnterRaidAsync(ticket);
-            if (result != SessionTransitionResult.Succeeded)
+            if (this != null && result != SessionTransitionResult.Succeeded)
             {
+                // The launch task is fire-and-forget, so its result reaches the Town UI only
+                // through the consume-once transition failure channel.
+                _pendingTransitionFailure = result;
                 Debug.LogError(
                     $"[{nameof(SessionConnectionCoordinator)}] Coordinated raid launch failed. " +
                     $"Role={ticket.Request.Role}; Session={ticket.Request.SessionName}; Result={result}.",
                     this);
+            }
+        }
+        catch (Exception exception)
+        {
+            // Last-resort observation of the discarded launch task: never leave an unobserved fault.
+            Debug.LogException(exception, this);
+            if (this != null && !_isQuitting)
+            {
+                EnterRecoveryFailed();
             }
         }
         finally
@@ -1380,23 +1392,32 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private async Task<SessionTransitionResult> RecoverTownAfterFailedReconnectAsync()
     {
         TransitionTo(SessionConnectionState.ReturningTown);
-        await ShutdownActiveRunnersAsync();
-
-        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == _townSceneName)
+        bool recovered;
+        try
         {
-            var loadOp = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(_townSceneName);
-            while (loadOp != null && !loadOp.isDone)
+            await ShutdownActiveRunnersAsync();
+
+            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == _townSceneName)
             {
-                await Task.Yield();
+                var loadOp = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(_townSceneName);
+                while (loadOp != null && !loadOp.isDone)
+                {
+                    await Task.Yield();
+                }
             }
+
+            CancellationToken cancellationToken = _isQuitting ? new CancellationToken(true) : CancellationToken.None;
+            recovered = await _hubLauncher.StartHubSessionAsync(_townSceneName, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception, this);
+            recovered = false;
         }
 
-        CancellationToken cancellationToken = _isQuitting ? new CancellationToken(true) : CancellationToken.None;
-        bool recovered = await _hubLauncher.StartHubSessionAsync(_townSceneName, cancellationToken);
         if (!recovered)
         {
-            TransitionTo(SessionConnectionState.Failed);
-            return SessionTransitionResult.RecoveryFailed;
+            return EnterRecoveryFailed();
         }
 
         TransitionTo(SessionConnectionState.Town);
@@ -1796,20 +1817,27 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
         TransitionTo(SessionConnectionState.ReturningTown);
         UpdateTicketState(SessionConnectionState.ReturningTown);
 
-        bool shutdownSucceeded = await ShutdownActiveRunnersAsync();
-        if (_isQuitting)
+        bool recovered;
+        try
         {
-            return failure;
+            bool shutdownSucceeded = await ShutdownActiveRunnersAsync();
+            if (_isQuitting)
+            {
+                return failure;
+            }
+
+            CancellationToken cancellationToken = _activeTransitionCancellation?.Token ?? CancellationToken.None;
+            recovered = shutdownSucceeded &&
+                await _hubLauncher.StartHubSessionAsync(_townSceneName, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            // Recovery runs inside EnterRaidAsync catch blocks; an escaping exception would leave
+            // ReturningTown with no runner and no observable result.
+            Debug.LogException(exception, this);
+            recovered = false;
         }
 
-        if (!shutdownSucceeded)
-        {
-            TransitionTo(SessionConnectionState.Failed);
-            return SessionTransitionResult.RecoveryFailed;
-        }
-
-        CancellationToken cancellationToken = _activeTransitionCancellation?.Token ?? CancellationToken.None;
-        bool recovered = await _hubLauncher.StartHubSessionAsync(_townSceneName, cancellationToken);
         if (_isQuitting)
         {
             return failure;
@@ -1817,8 +1845,7 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
         if (!recovered)
         {
-            TransitionTo(SessionConnectionState.Failed);
-            return SessionTransitionResult.RecoveryFailed;
+            return EnterRecoveryFailed();
         }
 
         TransitionTo(SessionConnectionState.Town);
@@ -1836,6 +1863,21 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
 
         CompleteTownEntry(failure);
         return failure;
+    }
+
+    /// <summary>
+    /// Terminal outcome of a Town recovery that could not restore a usable runner: enters
+    /// <see cref="SessionConnectionState.Failed"/> and publishes the consumable result.
+    /// </summary>
+    private SessionTransitionResult EnterRecoveryFailed()
+    {
+        if (State != SessionConnectionState.Failed)
+        {
+            TransitionTo(SessionConnectionState.Failed);
+        }
+
+        _pendingTransitionFailure = SessionTransitionResult.RecoveryFailed;
+        return SessionTransitionResult.RecoveryFailed;
     }
 
     private async Task<SessionTransitionResult> CleanupFailedRaidAttemptAsync(
@@ -2119,7 +2161,15 @@ public sealed class SessionConnectionCoordinator : MonoBehaviour
     private async Task<bool> ShutdownActiveRunnersAsync()
     {
         // Do not enable a new Town launch while an old loss clear is still in flight.
-        await _participationOutcomeTask;
+        try
+        {
+            await _participationOutcomeTask;
+        }
+        catch (Exception exception)
+        {
+            // The loss clear reports its own failures; a fault must not block runner shutdown.
+            Debug.LogException(exception, this);
+        }
         bool hubShutdown = await _hubLauncher.ShutdownAndDestroyRunnerAsync();
         bool raidShutdown = await _raidLauncher.ShutdownAndDestroyRunnerAsync();
         return hubShutdown && raidShutdown;

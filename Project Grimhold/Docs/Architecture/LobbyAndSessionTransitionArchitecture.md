@@ -431,6 +431,14 @@ one recovery attempt: it cleans any partial runner and starts a fresh Shared Tow
 successful recovery returns the original raid failure while leaving the application in
 `Town`; a failed recovery leaves no usable runner and enters `Failed`.
 
+Recovery is exception-tolerant (FIX-05). Runner shutdown, the wait for an in-flight
+reservation-loss clear and Town runner startup are guarded: an exception is logged and
+classified as a failed recovery instead of escaping the caller's `catch` block. A failed
+recovery always ends in `Failed` with `RecoveryFailed` published through the consume-once
+transition failure channel (`TryConsumeLastTransitionFailure`), never in `ReturningTown`. The
+coordinated launch task started from a launch release is fire-and-forget, so it publishes any
+non-successful result through the same channel for the Town UI and observes any fault itself.
+
 An unexpected shutdown of the current Town or raid runner uses the same recovery boundary.
 Shutdown notifications produced during an intentional transition are ignored because the
 operation already owns recovery. Application quit never starts another connection.

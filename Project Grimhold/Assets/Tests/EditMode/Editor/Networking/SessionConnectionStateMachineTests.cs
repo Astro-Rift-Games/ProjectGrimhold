@@ -1,13 +1,16 @@
 using System;
 using System.Reflection;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Fusion;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 using Assert = NUnit.Framework.Assert;
+using LogType = UnityEngine.LogType;
 using Object = UnityEngine.Object;
 
 public sealed class SessionConnectionStateMachineTests
@@ -893,6 +896,161 @@ public sealed class SessionConnectionStateMachineTests
             "CompleteHostMigration",
             status,
             details);
+    }
+
+    // FIX-05: a Town startup exception during raid-failure recovery must end in Failed with a
+    // consumable RecoveryFailed result instead of escaping and leaving ReturningTown.
+    [Test]
+    public async Task RaidFailureRecovery_HubStartupThrows_EndsFailedWithConsumableResult()
+    {
+        var owner = new GameObject("FIX-05 raid recovery exception test");
+        owner.AddComponent<HubSessionLauncher>();
+        owner.AddComponent<FusionSessionLauncher>();
+        SessionConnectionCoordinator coordinator = owner.AddComponent<SessionConnectionCoordinator>();
+        BindLaunchers(coordinator);
+
+        try
+        {
+            DriveToConnectingRaid(coordinator);
+            SetPrivateField(coordinator, "_townSceneName", UnbuiltTownSceneName);
+            LogAssert.Expect(LogType.Exception, new Regex("ArgumentException"));
+
+            var recovery = (Task<SessionTransitionResult>)InvokePrivateMethod(
+                coordinator,
+                "RestoreTownAfterRaidFailureAsync",
+                SessionTransitionResult.ConnectionFailed);
+            SessionTransitionResult result = await recovery;
+
+            Assert.That(result, Is.EqualTo(SessionTransitionResult.RecoveryFailed));
+            Assert.That(coordinator.State, Is.EqualTo(SessionConnectionState.Failed));
+            Assert.That(coordinator.TryConsumeLastTransitionFailure(out SessionTransitionResult failure), Is.True);
+            Assert.That(failure, Is.EqualTo(SessionTransitionResult.RecoveryFailed));
+            Assert.That(coordinator.TryConsumeLastTransitionFailure(out _), Is.False);
+        }
+        finally
+        {
+            Object.DestroyImmediate(owner);
+        }
+    }
+
+    [Test]
+    public async Task FailedReconnectRecovery_HubStartupThrows_EndsFailedWithConsumableResult()
+    {
+        var owner = new GameObject("FIX-05 reconnect recovery exception test");
+        owner.AddComponent<HubSessionLauncher>();
+        owner.AddComponent<FusionSessionLauncher>();
+        SessionConnectionCoordinator coordinator = owner.AddComponent<SessionConnectionCoordinator>();
+        BindLaunchers(coordinator);
+
+        try
+        {
+            DriveToConnectingRaid(coordinator);
+            SetPrivateField(coordinator, "_townSceneName", UnbuiltTownSceneName);
+            LogAssert.Expect(LogType.Exception, new Regex("ArgumentException"));
+
+            var recovery = (Task<SessionTransitionResult>)InvokePrivateMethod(
+                coordinator,
+                "RecoverTownAfterFailedReconnectAsync");
+            SessionTransitionResult result = await recovery;
+
+            Assert.That(result, Is.EqualTo(SessionTransitionResult.RecoveryFailed));
+            Assert.That(coordinator.State, Is.EqualTo(SessionConnectionState.Failed));
+            Assert.That(coordinator.TryConsumeLastTransitionFailure(out SessionTransitionResult failure), Is.True);
+            Assert.That(failure, Is.EqualTo(SessionTransitionResult.RecoveryFailed));
+        }
+        finally
+        {
+            Object.DestroyImmediate(owner);
+        }
+    }
+
+    // FIX-05: a faulted reservation-loss clear must not abort every later recovery path.
+    [Test]
+    public async Task RunnerShutdown_FaultedParticipationOutcome_StillShutsDownRunners()
+    {
+        var owner = new GameObject("FIX-05 faulted participation outcome test");
+        owner.AddComponent<HubSessionLauncher>();
+        owner.AddComponent<FusionSessionLauncher>();
+        SessionConnectionCoordinator coordinator = owner.AddComponent<SessionConnectionCoordinator>();
+        BindLaunchers(coordinator);
+
+        try
+        {
+            SetPrivateField(
+                coordinator,
+                "_participationOutcomeTask",
+                Task.FromException(new InvalidOperationException("loss clear faulted")));
+            LogAssert.Expect(LogType.Exception, new Regex("loss clear faulted"));
+
+            var shutdown = (Task<bool>)InvokePrivateMethod(coordinator, "ShutdownActiveRunnersAsync");
+
+            Assert.That(await shutdown, Is.True);
+        }
+        finally
+        {
+            Object.DestroyImmediate(owner);
+        }
+    }
+
+    // FIX-05: a coordinated launch that fails without reaching Town recovery still publishes
+    // its result through the consume-once channel read by the Town UI.
+    [Test]
+    public async Task CoordinatedLaunchFailure_PublishesConsumableTransitionResult()
+    {
+        var owner = new GameObject("FIX-05 coordinated launch failure test");
+        owner.AddComponent<HubSessionLauncher>();
+        owner.AddComponent<FusionSessionLauncher>();
+        SessionConnectionCoordinator coordinator = owner.AddComponent<SessionConnectionCoordinator>();
+        var foreignProfile = new ProfileId("22222222222222222222222222222222");
+        RaidCode.TryParse("123456", out RaidCode code);
+        RaidTeamId.TryCreate(1, out RaidTeamId teamId);
+        RaidLaunchContext.TryCreate(
+            code,
+            foreignProfile,
+            new[] { new RaidLaunchParticipant(foreignProfile, teamId) },
+            foreignProfile,
+            7,
+            out RaidLaunchContext context);
+        var ticket = new RaidTransitionTicket(
+            new RaidConnectionRequest(code, RaidConnectionRole.Host),
+            new PendingLoadoutReservation("launch-reservation", Array.Empty<StashItem>()),
+            SessionConnectionState.Town,
+            context);
+
+        try
+        {
+            SetPrivateField(coordinator, "_activeTicket", (RaidTransitionTicket?)ticket);
+            LogAssert.Expect(LogType.Error, new Regex("Coordinated raid launch failed"));
+
+            var launch = (Task)InvokePrivateMethod(coordinator, "BeginAcknowledgedRaidLaunchAsync", 7);
+            await launch;
+
+            Assert.That(coordinator.TryConsumeLastTransitionFailure(out SessionTransitionResult failure), Is.True);
+            Assert.That(failure, Is.EqualTo(SessionTransitionResult.InvalidRequest));
+        }
+        finally
+        {
+            Object.DestroyImmediate(owner);
+        }
+    }
+
+    private const string UnbuiltTownSceneName = "FIX05-Unbuilt-Town-Scene";
+
+    // EditMode does not run Awake, so mirror its serialized launcher resolution.
+    private static void BindLaunchers(SessionConnectionCoordinator coordinator)
+    {
+        SetPrivateField(coordinator, "_hubLauncher", coordinator.GetComponent<HubSessionLauncher>());
+        SetPrivateField(coordinator, "_raidLauncher", coordinator.GetComponent<FusionSessionLauncher>());
+    }
+
+    private static void DriveToConnectingRaid(SessionConnectionCoordinator coordinator)
+    {
+        SessionConnectionStateMachine stateMachine =
+            ReadPrivateField<SessionConnectionStateMachine>(coordinator, "_stateMachine");
+        Assert.That(stateMachine.TryTransition(SessionConnectionState.ConnectingTown), Is.True);
+        Assert.That(stateMachine.TryTransition(SessionConnectionState.Town), Is.True);
+        Assert.That(stateMachine.TryTransition(SessionConnectionState.PreparingRaid), Is.True);
+        Assert.That(stateMachine.TryTransition(SessionConnectionState.ConnectingRaid), Is.True);
     }
 
     private static void SetPrivateField(object target, string fieldName, object value)
