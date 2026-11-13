@@ -272,7 +272,7 @@ public sealed class TownAbilityVendorPresenter : NetworkBehaviour
             }
             else
             {
-                result = _store.TryPurchaseAbility(abilityId, offer.Price);
+                result = AbilityPurchaseResult.PersistenceFailed;
             }
         }
         finally

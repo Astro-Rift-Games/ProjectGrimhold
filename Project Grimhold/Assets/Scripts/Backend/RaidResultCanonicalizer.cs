@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 
 namespace Grimhold.Backend
 {
     /// <summary>
-    /// Utility for constructing the canonical representation of an authoritative extraction result
-    /// and generating HMAC-SHA256 signatures matching the backend verification contract (US-58 / SEC-58.1).
+    /// Utility for constructing the canonical representation of an authoritative extraction result (US-58).
+    /// Under Bounded Player-Host Authority (TASK-223 / FIX-65), HMAC generation was removed from the client
+    /// as extraction verification is enforced by backend JWT and raid bounds.
     /// </summary>
     public static class RaidResultCanonicalizer
     {
@@ -64,16 +64,6 @@ namespace Grimhold.Backend
             string normIssuedAt = (issuedAt ?? "").Trim();
 
             return $"{normRaidId}|{normResultId}|{normTargetId}|{canonicalItems}|{canonicalEq}|{normXp}|{normIssuedAt}";
-        }
-
-        public static string ComputeHmacSha256(string message, string secret)
-        {
-            if (string.IsNullOrEmpty(secret)) return "";
-            using (var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret)))
-            {
-                byte[] hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(message ?? ""));
-                return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
-            }
         }
     }
 }

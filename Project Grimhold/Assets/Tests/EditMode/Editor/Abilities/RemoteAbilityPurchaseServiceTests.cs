@@ -194,15 +194,15 @@ public sealed class RemoteAbilityPurchaseServiceTests
     }
 
     [Test]
-    public async Task NullBackend_FallsBackToLocalStore()
+    public async Task NullBackend_FailsClosed_LeavesCurrencyAndUnlocksIntact()
     {
         _service.Initialize(_store, null, null);
 
         var result = await _service.PurchaseAbilityAsync(Profile, Charge, Price);
 
-        Assert.That(result, Is.EqualTo(AbilityPurchaseResult.Success));
-        Assert.That(_store.GetCurrency(), Is.EqualTo(400L));
-        Assert.That(_store.IsAbilityUnlocked(Charge), Is.True);
+        Assert.That(result, Is.EqualTo(AbilityPurchaseResult.PersistenceFailed));
+        Assert.That(_store.GetCurrency(), Is.EqualTo(500L));
+        Assert.That(_store.IsAbilityUnlocked(Charge), Is.False);
     }
 
     [Test]
