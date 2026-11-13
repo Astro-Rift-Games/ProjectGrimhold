@@ -74,6 +74,7 @@ What's new in Project Grimhold. Only changes included in published releases are 
 - Extraction transitions no longer throw unspawned pressure exceptions.
 - Passive treasure bonuses and minimap restrictions now stop immediately once extraction is completed.
 - Depositing and withdrawing utilities into chests or corpses properly respects the single-unit carry limit.
+- Defeated players with full equipment and backpack no longer lock up in raid closure and their corpse loot displays correctly.
 
 
 ## [0.5.0](https://github.com/Astro-Rift-Games/ProjectGrimhold/releases/tag/v0.5.0) - 2026-11-08
