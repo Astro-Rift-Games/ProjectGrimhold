@@ -34,7 +34,14 @@ public sealed class LocalProfileFileStore : ILocalProfileFileStore
                 Directory.CreateDirectory(directory);
             }
 
-            File.WriteAllText(temporaryPath, contents);
+            using (var stream = new FileStream(temporaryPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(stream, System.Text.Encoding.UTF8))
+            {
+                writer.Write(contents);
+                writer.Flush();
+                stream.Flush(flushToDisk: true);
+            }
+
             if (File.Exists(mainPath))
             {
                 File.Replace(temporaryPath, mainPath, backupPath, true);

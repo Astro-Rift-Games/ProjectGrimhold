@@ -93,9 +93,17 @@ public sealed class LocalProfileRepository : ILocalProfileRepository
             Snapshot = backupSnapshot;
             Status = LocalProfilePersistenceStatus.RecoveredFromBackup;
             LastError = mainError ?? mainReadError;
-            if (!_fileStore.TryRestoreMainFromBackup(_mainPath, _backupPath, out string repairError))
+            bool canRepairMain = !mainExists || (mainRead && mainSnapshot == null);
+            if (canRepairMain)
             {
-                LastError = $"Recovered backup but could not repair main file: {repairError}";
+                if (!_fileStore.TryRestoreMainFromBackup(_mainPath, _backupPath, out string repairError))
+                {
+                    LastError = $"Recovered backup but could not repair main file: {repairError}";
+                }
+            }
+            else
+            {
+                LastError = $"Transient read failure on main file ({mainReadError}); loaded backup without overwriting main.";
             }
             return true;
         }
