@@ -47,12 +47,25 @@ public sealed class DungeonPressureController : NetworkBehaviour, IDungeonInstab
     {
         if (HasReadableState)
         {
-            phase = Phase;
-            return true;
+            try
+            {
+                phase = Phase;
+                return true;
+            }
+            catch (System.InvalidOperationException)
+            {
+                phase = DungeonPressurePhase.Normal;
+                return false;
+            }
         }
 
         phase = DungeonPressurePhase.Normal;
         return false;
+    }
+
+    private void OnDestroy()
+    {
+        _isSpawned = false;
     }
 
     public bool IsRunning => HasReadableState && State == DungeonPressureState.Running;

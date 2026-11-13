@@ -152,6 +152,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
     private readonly Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new();
     private readonly Dictionary<PlayerRef, NetworkObject> _spawnedAvatars = new();
     private readonly DisconnectedParticipantRegistry _disconnectedRegistry = new();
+    private readonly Dictionary<ProfileId, NetworkObject> _retainedPendingExtractionParticipants = new();
+    private readonly Dictionary<ProfileId, NetworkObject> _retainedPendingExtractionAvatars = new();
     private readonly Dictionary<PlayerRef, RaidAdmissionData> _admissionData = new();
     private readonly ControlledReturnRegistry _controlledReturns = new();
     private readonly Dictionary<string, PlayerRef> _admittedProfiles = new();
@@ -274,9 +276,29 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 }
             }
 
+            foreach (NetworkObject participantObject in _retainedPendingExtractionParticipants.Values)
+            {
+                if (participantObject != null &&
+                    participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
+                    (participant.State == RaidParticipantState.Extracted &&
+                      !participant.IsExtractionProgressionComplete))
+                {
+                    return true;
+                }
+            }
+
             return false;
         }
     }
+
+    public IReadOnlyDictionary<ProfileId, NetworkObject> RetainedPendingExtractionParticipants =>
+        _retainedPendingExtractionParticipants;
+
+    public IReadOnlyDictionary<ProfileId, NetworkObject> RetainedPendingExtractionAvatars =>
+        _retainedPendingExtractionAvatars;
+
+    public bool IsPendingExtractionRetained(ProfileId profileId) =>
+        _retainedPendingExtractionParticipants.ContainsKey(profileId);
 
     /// <summary>
     /// Testing seam used ONLY to inject artificially spawned participants into the local roster
@@ -616,6 +638,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _spawnedPlayers.Clear();
         _spawnedAvatars.Clear();
         _disconnectedRegistry.Clear();
+        _retainedPendingExtractionParticipants.Clear();
+        _retainedPendingExtractionAvatars.Clear();
         _admissionData.Clear();
         _controlledReturns.Clear();
         _admittedProfiles.Clear();
@@ -687,6 +711,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _spawnedPlayers.Clear();
         _spawnedAvatars.Clear();
         _disconnectedRegistry.Clear();
+        _retainedPendingExtractionParticipants.Clear();
+        _retainedPendingExtractionAvatars.Clear();
         _admissionData.Clear();
         _controlledReturns.Clear();
         _admittedProfiles.Clear();
@@ -1917,6 +1943,11 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 _controlledReturns.MarkTerminal(
                     new ControlledReturnKey(profileId.Value, generationId));
                 _restoredHostMigrationParticipants.Remove(profileId);
+                _retainedPendingExtractionParticipants[profileId] = participantObject;
+                if (pendingAvatar != null)
+                {
+                    _retainedPendingExtractionAvatars[profileId] = pendingAvatar;
+                }
                 Debug.LogWarning(
                     $"[HM-MULTI] FIX-51 unrecovered Extracted participant kept without despawn. " +
                     $"ProfileId={profileId}, ExtractionPhase={participant.ExtractionExperiencePhase}.",
@@ -3818,6 +3849,22 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
             }
         }
 
+        foreach (NetworkObject participantObject in _retainedPendingExtractionParticipants.Values)
+        {
+            if (participantObject == networkObject)
+            {
+                return true;
+            }
+        }
+
+        foreach (NetworkObject avatarObject in _retainedPendingExtractionAvatars.Values)
+        {
+            if (avatarObject == networkObject)
+            {
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -4863,6 +4910,13 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
                 avatarObject.AssignInputAuthority(PlayerRef.None);
             }
 
+            var retainedProfileId = new ProfileId(profileId);
+            _retainedPendingExtractionParticipants[retainedProfileId] = participantObject;
+            if (avatarObject != null)
+            {
+                _retainedPendingExtractionAvatars[retainedProfileId] = avatarObject;
+            }
+
             Debug.LogWarning(
                 $"Participant '{profileId}' left while local progression durability remains " +
                 $"pending; authoritative objects were retained. State={participant.State}; " +
@@ -5378,6 +5432,8 @@ public sealed class NetworkSpawnManager : NetworkRunnerCallbacksAdapter
         _admittedPlayers.Add(player);
         _spawnedPlayers[player] = participantObject;
         _admittedProfiles[profileId.Value] = player;
+        _retainedPendingExtractionParticipants.Remove(profileId);
+        _retainedPendingExtractionAvatars.Remove(profileId);
 
         if (participant.State == RaidParticipantState.Raiding)
         {

@@ -41,6 +41,11 @@ public sealed class NetworkMatchController : NetworkBehaviour
     [Networked]
     public int CleanupFailureCount { get; private set; }
 
+    public const float DefaultPersistenceTimeoutSeconds = 15f;
+
+    [Networked]
+    public TickTimer PersistenceDeadline { get; private set; }
+
     private bool _hasObservedParticipant;
     private bool _cleanupAttempted;
     private bool _clientAdmissionSubmitted;
@@ -271,7 +276,8 @@ public sealed class NetworkMatchController : NetworkBehaviour
         ClosureReason = reason;
         ClosureState = RaidClosureState.AwaitingPersistence;
         Phase = MatchPhase.Closing;
-        Debug.Log($"[NetworkMatchController] Raid closure started: {reason}.", this);
+        PersistenceDeadline = TickTimer.CreateFromSeconds(Runner, DefaultPersistenceTimeoutSeconds);
+        Debug.Log($"[NetworkMatchController] Raid closure started: {reason}. Awaiting persistence with {DefaultPersistenceTimeoutSeconds}s deadline.", this);
     }
 
     private void AdvanceClosure()
@@ -286,9 +292,16 @@ public sealed class NetworkMatchController : NetworkBehaviour
 
         if (ClosureState == RaidClosureState.AwaitingPersistence)
         {
-            if (spawnManager.HasPendingExtractionCommits)
+            if (spawnManager.HasPendingExtractionCommits && !PersistenceDeadline.Expired(Runner))
             {
                 return;
+            }
+
+            if (spawnManager.HasPendingExtractionCommits)
+            {
+                Debug.LogWarning(
+                    $"[NetworkMatchController] Persistence deadline expired ({DefaultPersistenceTimeoutSeconds}s) while pending extraction commits remain. Proceeding to Cleaning.",
+                    this);
             }
 
             ClosureState = RaidClosureState.Cleaning;
