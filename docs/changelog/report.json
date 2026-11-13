@@ -1,21 +1,21 @@
 {
   "schemaVersion": 1,
-  "rawCommits": 1062,
-  "canonicalEntries": 1059,
+  "rawCommits": 1064,
+  "canonicalEntries": 1061,
   "before": {
-    "Bug Fixes": 130,
+    "Other Changes": 360,
+    "Bug Fixes": 131,
     "Documentation": 100,
     "Architecture & Infrastructure": 23,
-    "Other Changes": 359,
     "Tests": 41,
     "Features": 395,
     "Refactoring": 14
   },
   "after": {
-    "Bug Fixes": 146,
+    "Other Changes": 168,
+    "Bug Fixes": 147,
     "Documentation": 116,
     "Maintenance": 21,
-    "Other Changes": 167,
     "Tests": 46,
     "Features": 533,
     "Architecture & Infrastructure": 6,
@@ -23,17 +23,17 @@
   },
   "systemCountsOverlap": true,
   "systems": {
-    "Networking & Sessions": 320,
+    "Extraction": 153,
+    "Inventory & Loot": 427,
+    "Networking & Sessions": 321,
+    "Persistence & Backend": 243,
+    "Build & Tooling": 555,
+    "Tests": 671,
+    "UI": 324,
     "World & Visibility": 141,
-    "Persistence & Backend": 241,
-    "Build & Tooling": 553,
-    "Tests": 669,
-    "Inventory & Loot": 425,
     "Unassigned": 31,
     "Documentation": 398,
     "Combat": 372,
-    "UI": 323,
-    "Extraction": 151,
     "Abilities": 129,
     "Audio": 36,
     "Art & Animation": 237,
@@ -42,27 +42,27 @@
   },
   "canonical": {
     "sections": {
-      "Bug Fixes": 145,
+      "Other Changes": 167,
+      "Bug Fixes": 146,
       "Documentation": 116,
       "Maintenance": 21,
-      "Other Changes": 166,
       "Tests": 46,
       "Features": 532,
       "Architecture & Infrastructure": 6,
       "Refactoring": 27
     },
     "systems": {
-      "Networking & Sessions": 320,
+      "Extraction": 153,
+      "Inventory & Loot": 427,
+      "Networking & Sessions": 321,
+      "Persistence & Backend": 243,
+      "Build & Tooling": 553,
+      "Tests": 669,
+      "UI": 323,
       "World & Visibility": 139,
-      "Persistence & Backend": 241,
-      "Build & Tooling": 551,
-      "Tests": 667,
-      "Inventory & Loot": 425,
       "Unassigned": 31,
       "Documentation": 396,
       "Combat": 370,
-      "UI": 322,
-      "Extraction": 151,
       "Abilities": 127,
       "Audio": 36,
       "Art & Animation": 234,
@@ -71,6 +71,161 @@
     }
   },
   "unknownEntries": [
+    {
+      "sha": "6dfb67bf72e0951473e2b57ed1f68eb2e6dfc8fc",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6dfb67bf72e0951473e2b57ed1f68eb2e6dfc8fc",
+      "subject": "﻿fix(progression): persist authoritative 20% experience on definitive defeat",
+      "body": "Ensure 20% consolidated experience earned during a raid persists durably\nupon definitive defeat across local profile storage and remote backend.\n\n- Add DefeatCommitService and POST /character/me/defeat/commit endpoint\n  with authoritative result lookup, atomic progression update, and receipt.\n- Implement LocalProfileStore.TryCommitDefeatProgression with sequence\n  advancement, pending reservation cleanup, and idempotent receipt replay.\n- Coordinate defeat result publication on StateAuthority and unified\n  commit on InputAuthority with RPC sequencing in NetworkRaidParticipant.\n- Add DefeatProgressionPersistenceTests and defeat.commit.test.js test suites.\n\nPlayer-Fixed: Experience gained before a definitive defeat now persists reliably in your profile after returning to Town and relogging.\nRefs: #808\n",
+      "date": "2026-11-13T14:55:09-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+        "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+        "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs.meta",
+        "backend/src/routes/inventory.routes.js",
+        "backend/src/services/DefeatCommitService.js",
+        "backend/src/validators/extraction.validators.js",
+        "backend/tests/defeat.commit.test.js"
+      ],
+      "originalType": null,
+      "originalScope": null,
+      "originalSection": "Other Changes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Other Changes",
+      "confidence": "unknown",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "path",
+          "value": "backend/src/validators/extraction.validators.js",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/inventory.routes.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/inventory.routes.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/DefeatCommitService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/validators/extraction.validators.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/defeat.commit.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/defeat.commit.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "ambiguous-kind",
+          "message": "No supported explicit type or anchored historical action. Inspect this commit diff; use an action and object or a Conventional Commit type in future messages."
+        }
+      ],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "ebbadf3201b9ae23791562d647d42bf8c0e72706",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ebbadf3201b9ae23791562d647d42bf8c0e72706",
@@ -34392,8 +34547,8 @@
       "title": "Unreleased",
       "version": "Unreleased",
       "tag": null,
-      "originalCommits": 185,
-      "canonicalEntries": 185
+      "originalCommits": 187,
+      "canonicalEntries": 187
     },
     {
       "key": "v0.5.0",
@@ -34437,6 +34592,245 @@
     }
   ],
   "commits": [
+    {
+      "sha": "6dfb67bf72e0951473e2b57ed1f68eb2e6dfc8fc",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6dfb67bf72e0951473e2b57ed1f68eb2e6dfc8fc",
+      "subject": "﻿fix(progression): persist authoritative 20% experience on definitive defeat",
+      "body": "Ensure 20% consolidated experience earned during a raid persists durably\nupon definitive defeat across local profile storage and remote backend.\n\n- Add DefeatCommitService and POST /character/me/defeat/commit endpoint\n  with authoritative result lookup, atomic progression update, and receipt.\n- Implement LocalProfileStore.TryCommitDefeatProgression with sequence\n  advancement, pending reservation cleanup, and idempotent receipt replay.\n- Coordinate defeat result publication on StateAuthority and unified\n  commit on InputAuthority with RPC sequencing in NetworkRaidParticipant.\n- Add DefeatProgressionPersistenceTests and defeat.commit.test.js test suites.\n\nPlayer-Fixed: Experience gained before a definitive defeat now persists reliably in your profile after returning to Town and relogging.\nRefs: #808\n",
+      "date": "2026-11-13T14:55:09-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+        "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+        "Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs",
+        "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+        "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs.meta",
+        "backend/src/routes/inventory.routes.js",
+        "backend/src/services/DefeatCommitService.js",
+        "backend/src/validators/extraction.validators.js",
+        "backend/tests/defeat.commit.test.js"
+      ],
+      "originalType": null,
+      "originalScope": null,
+      "originalSection": "Other Changes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Other Changes",
+      "confidence": "unknown",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "Networking & Sessions",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "path",
+          "value": "backend/src/validators/extraction.validators.js",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/inventory.routes.js",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs",
+          "supports": "Networking & Sessions"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs.meta",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/routes/inventory.routes.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/services/DefeatCommitService.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/src/validators/extraction.validators.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/defeat.commit.test.js",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "message-term",
+          "value": "backend",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs.meta",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "backend/tests/defeat.commit.test.js",
+          "supports": "Tests"
+        },
+        {
+          "source": "message-term",
+          "value": "test",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [
+        {
+          "code": "ambiguous-kind",
+          "message": "No supported explicit type or anchored historical action. Inspect this commit diff; use an action and object or a Conventional Commit type in future messages."
+        }
+      ],
+      "generic": false,
+      "secondary": false
+    },
+    {
+      "sha": "ddc80c215503c46db623f98f91e5ad902b258e6b",
+      "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ddc80c215503c46db623f98f91e5ad902b258e6b",
+      "subject": "fix(progression): unify extraction experience calculation and reconcile results with persistence",
+      "body": "Unify consolidated expedition experience calculation in PlayerExtractionLootSaver using the full ledger snapshot and retention policy, and reconcile RaidMenuPresenter results projection with authoritative persisted store values.\n\nPlayer-Fixed: Raid results and town profile progression now match precisely after extracting, and server-side progression adjustments are clearly reported.\n\nRefs: #717\n",
+      "date": "2026-11-13T12:31:44-03:00",
+      "files": [
+        "Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs",
+        "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs",
+        "Project Grimhold/Assets/Scripts/Progression/ExpeditionProgressionResult.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/ResultsProgressionCoherenceTests.cs",
+        "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/ResultsProgressionCoherenceTests.cs.meta"
+      ],
+      "originalType": "fix",
+      "originalScope": "progression",
+      "originalSection": "Bug Fixes",
+      "breaking": false,
+      "reverts": null,
+      "section": "Bug Fixes",
+      "confidence": "explicit",
+      "systems": [
+        "Extraction",
+        "Inventory & Loot",
+        "UI",
+        "Persistence & Backend",
+        "Build & Tooling",
+        "Tests"
+      ],
+      "evidence": [
+        {
+          "source": "type",
+          "value": "fix",
+          "supports": "Bug Fixes"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs",
+          "supports": "Extraction"
+        },
+        {
+          "source": "message-term",
+          "value": "extraction",
+          "supports": "Extraction"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs",
+          "supports": "Inventory & Loot"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs",
+          "supports": "UI"
+        },
+        {
+          "source": "message-term",
+          "value": "persistence",
+          "supports": "Persistence & Backend"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/ResultsProgressionCoherenceTests.cs",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/ResultsProgressionCoherenceTests.cs.meta",
+          "supports": "Build & Tooling"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/ResultsProgressionCoherenceTests.cs",
+          "supports": "Tests"
+        },
+        {
+          "source": "path",
+          "value": "Project Grimhold/Assets/Tests/EditMode/Editor/Progression/ResultsProgressionCoherenceTests.cs.meta",
+          "supports": "Tests"
+        }
+      ],
+      "diagnostics": [],
+      "generic": false,
+      "secondary": false
+    },
     {
       "sha": "6c61021536a05c3f2ba1e23b226706bde9304456",
       "url": "https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6c61021536a05c3f2ba1e23b226706bde9304456",

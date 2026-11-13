@@ -4,32 +4,160 @@
 
 Release: Unreleased
 
-185 original commits; 185 canonical entries.
+187 original commits; 187 canonical entries.
 
 ## Canonical classification
 
-73 features; 52 bug fixes; 1 refactoring; 1 architecture & infrastructure; 26 documentation; 17 tests; 10 maintenance; 5 other changes
+73 features; 53 bug fixes; 1 refactoring; 1 architecture & infrastructure; 26 documentation; 17 tests; 10 maintenance; 6 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 8 | 6 | 1 | 0 | 9 | 1 |
 | Art & Animation | 10 | 9 | 1 | 0 | 7 | 0 |
 | Audio | 4 | 2 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 47 | 38 | 1 | 1 | 20 | 5 |
+| Build & Tooling | 47 | 39 | 1 | 1 | 20 | 6 |
 | Combat | 34 | 10 | 0 | 0 | 12 | 0 |
 | Documentation | 26 | 18 | 0 | 0 | 11 | 0 |
-| Extraction | 13 | 8 | 0 | 0 | 9 | 2 |
+| Extraction | 13 | 9 | 0 | 0 | 9 | 3 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 55 | 31 | 1 | 1 | 19 | 2 |
+| Inventory & Loot | 55 | 32 | 1 | 1 | 19 | 3 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 23 | 23 | 0 | 0 | 17 | 1 |
-| Persistence & Backend | 27 | 16 | 0 | 1 | 10 | 2 |
-| Tests | 70 | 46 | 1 | 1 | 27 | 3 |
-| UI | 28 | 12 | 1 | 0 | 12 | 1 |
+| Networking & Sessions | 23 | 23 | 0 | 0 | 17 | 2 |
+| Persistence & Backend | 27 | 17 | 0 | 1 | 10 | 3 |
+| Tests | 70 | 47 | 1 | 1 | 27 | 4 |
+| UI | 28 | 13 | 1 | 0 | 12 | 1 |
 | Unassigned | 0 | 1 | 0 | 0 | 12 | 0 |
 | World & Visibility | 19 | 8 | 0 | 0 | 3 | 1 |
 
 ## Original commit records
+
+### 6dfb67bf72e0951473e2b57ed1f68eb2e6dfc8fc
+
+[6dfb67bf72e0951473e2b57ed1f68eb2e6dfc8fc](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/6dfb67bf72e0951473e2b57ed1f68eb2e6dfc8fc)
+
+Date: 2026-11-13T14:55:09-03:00 · Classification: Other Changes (unknown) · Systems: Extraction, Inventory & Loot, Networking & Sessions, Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+﻿fix(progression): persist authoritative 20% experience on definitive defeat
+```
+
+#### Original body
+
+```text
+Ensure 20% consolidated experience earned during a raid persists durably
+upon definitive defeat across local profile storage and remote backend.
+
+- Add DefeatCommitService and POST /character/me/defeat/commit endpoint
+  with authoritative result lookup, atomic progression update, and receipt.
+- Implement LocalProfileStore.TryCommitDefeatProgression with sequence
+  advancement, pending reservation cleanup, and idempotent receipt replay.
+- Coordinate defeat result publication on StateAuthority and unified
+  commit on InputAuthority with RPC sequencing in NetworkRaidParticipant.
+- Add DefeatProgressionPersistenceTests and defeat.commit.test.js test suites.
+
+Player-Fixed: Experience gained before a definitive defeat now persists reliably in your profile after returning to Town and relogging.
+Refs: #808
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs
+Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs
+Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs.meta
+backend/src/routes/inventory.routes.js
+backend/src/services/DefeatCommitService.js
+backend/src/validators/extraction.validators.js
+backend/tests/defeat.commit.test.js
+```
+
+#### Classification evidence
+
+- path → Extraction: backend/src/validators/extraction.validators.js
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+- path → Inventory &amp; Loot: backend/src/routes/inventory.routes.js
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkRaidParticipant.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventoryClient.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Backend/InventoryDataTransferObjects.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Scripts/Stash/LocalProfileStore.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs
+- path → Persistence &amp; Backend: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs.meta
+- path → Persistence &amp; Backend: backend/src/routes/inventory.routes.js
+- path → Persistence &amp; Backend: backend/src/services/DefeatCommitService.js
+- path → Persistence &amp; Backend: backend/src/validators/extraction.validators.js
+- path → Persistence &amp; Backend: backend/tests/defeat.commit.test.js
+- message-term → Persistence &amp; Backend: backend
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/DefeatProgressionPersistenceTests.cs.meta
+- path → Tests: backend/tests/defeat.commit.test.js
+- message-term → Tests: test
+
+#### Diagnostics
+
+- **ambiguous-kind:** No supported explicit type or anchored historical action. Inspect this commit diff; use an action and object or a Conventional Commit type in future messages.
+
+### ddc80c215503c46db623f98f91e5ad902b258e6b
+
+[ddc80c215503c46db623f98f91e5ad902b258e6b](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/ddc80c215503c46db623f98f91e5ad902b258e6b)
+
+Date: 2026-11-13T12:31:44-03:00 · Classification: Bug Fixes (explicit) · Systems: Extraction, Inventory & Loot, UI, Persistence & Backend, Build & Tooling, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(progression): unify extraction experience calculation and reconcile results with persistence
+```
+
+#### Original body
+
+```text
+Unify consolidated expedition experience calculation in PlayerExtractionLootSaver using the full ledger snapshot and retention policy, and reconcile RaidMenuPresenter results projection with authoritative persisted store values.
+
+Player-Fixed: Raid results and town profile progression now match precisely after extracting, and server-side progression adjustments are clearly reported.
+
+Refs: #717
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs
+Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs
+Project Grimhold/Assets/Scripts/Progression/ExpeditionProgressionResult.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Progression/ResultsProgressionCoherenceTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Progression/ResultsProgressionCoherenceTests.cs.meta
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Extraction: Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs
+- message-term → Extraction: extraction
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Player/Extraction/PlayerExtractionLootSaver.cs
+- path → UI: Project Grimhold/Assets/Scripts/Player/Presentation/RaidMenuPresenter.cs
+- message-term → Persistence &amp; Backend: persistence
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/ResultsProgressionCoherenceTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/ResultsProgressionCoherenceTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/ResultsProgressionCoherenceTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Progression/ResultsProgressionCoherenceTests.cs.meta
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 6c61021536a05c3f2ba1e23b226706bde9304456
 
