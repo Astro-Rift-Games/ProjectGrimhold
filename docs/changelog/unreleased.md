@@ -4,32 +4,379 @@
 
 Release: Unreleased
 
-176 original commits; 176 canonical entries.
+182 original commits; 182 canonical entries.
 
 ## Canonical classification
 
-73 features; 46 bug fixes; 1 refactoring; 1 architecture & infrastructure; 25 documentation; 17 tests; 9 maintenance; 4 other changes
+73 features; 50 bug fixes; 1 refactoring; 1 architecture & infrastructure; 26 documentation; 17 tests; 10 maintenance; 4 other changes
 
 | System | Features | Fixes | Refactors / perf | Infrastructure | Secondary | Reverts / other |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Abilities | 8 | 6 | 1 | 0 | 9 | 1 |
 | Art & Animation | 10 | 9 | 1 | 0 | 7 | 0 |
 | Audio | 4 | 2 | 0 | 0 | 0 | 0 |
-| Build & Tooling | 47 | 32 | 1 | 1 | 19 | 4 |
-| Combat | 34 | 9 | 0 | 0 | 12 | 0 |
-| Documentation | 26 | 14 | 0 | 0 | 10 | 0 |
+| Build & Tooling | 47 | 36 | 1 | 1 | 20 | 4 |
+| Combat | 34 | 10 | 0 | 0 | 12 | 0 |
+| Documentation | 26 | 18 | 0 | 0 | 11 | 0 |
 | Extraction | 13 | 8 | 0 | 0 | 9 | 1 |
 | Input | 0 | 1 | 0 | 0 | 1 | 0 |
-| Inventory & Loot | 55 | 29 | 1 | 1 | 19 | 2 |
+| Inventory & Loot | 55 | 30 | 1 | 1 | 19 | 2 |
 | Movement | 3 | 2 | 0 | 0 | 0 | 0 |
-| Networking & Sessions | 23 | 18 | 0 | 0 | 16 | 1 |
-| Persistence & Backend | 27 | 14 | 0 | 1 | 10 | 1 |
-| Tests | 70 | 40 | 1 | 1 | 26 | 2 |
-| UI | 28 | 11 | 1 | 0 | 12 | 1 |
-| Unassigned | 0 | 1 | 0 | 0 | 11 | 0 |
+| Networking & Sessions | 23 | 22 | 0 | 0 | 17 | 1 |
+| Persistence & Backend | 27 | 15 | 0 | 1 | 10 | 1 |
+| Tests | 70 | 44 | 1 | 1 | 27 | 2 |
+| UI | 28 | 12 | 1 | 0 | 12 | 1 |
+| Unassigned | 0 | 1 | 0 | 0 | 12 | 0 |
 | World & Visibility | 19 | 7 | 0 | 0 | 3 | 1 |
 
 ## Original commit records
+
+### 828df914ac052aa7c2f455421c2a9d5ea5b5653d
+
+[828df914ac052aa7c2f455421c2a9d5ea5b5653d](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/828df914ac052aa7c2f455421c2a9d5ea5b5653d)
+
+Date: 2026-11-13T00:46:46-03:00 · Classification: Documentation (explicit) · Systems: Unassigned
+
+Flags: secondary
+
+#### Original subject
+
+```text
+docs(odd): record FIX-06 diagnostics commit in the FIX-US-01 tracker
+```
+
+#### Original body
+
+```text
+
+```
+
+#### Changed paths
+
+```text
+odd/tasks/fix-us-01-launch-reliability.md
+```
+
+#### Classification evidence
+
+- type → Documentation: docs
+
+#### Diagnostics
+
+- **unassigned-system:** No recognized exact path/scope token or bounded system term. Inspect the listed paths before assigning a system.
+
+### 871ae5aa9ff047a71a765a074eb02c4893691d24
+
+[871ae5aa9ff047a71a765a074eb02c4893691d24](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/871ae5aa9ff047a71a765a074eb02c4893691d24)
+
+Date: 2026-11-13T00:46:29-03:00 · Classification: Maintenance (explicit) · Systems: Networking & Sessions, Build & Tooling, Documentation, Tests
+
+Flags: secondary
+
+#### Original subject
+
+```text
+chore(network): trace raid admission arrival order and ticket fallback
+```
+
+#### Original body
+
+```text
+FIX-06 (#673), diagnostics only: emit [RaidAdmissionTrace] lines for Host join/registration/payload/reject/disconnect events and Client payload send and authoritative-ticket outcome (fallback to the local snapshot, fire-and-forget verification result), carrying only lengths, flags, categories, PlayerRef and profile ids. No behavior change; the conditional fix waits for a Host + Client reproduction.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs
+Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs
+Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+Project Grimhold/Assets/Scripts/Networking/RaidAdmissionDiagnostics.cs
+Project Grimhold/Assets/Scripts/Networking/RaidAdmissionDiagnostics.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionDiagnosticsTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionDiagnosticsTests.cs.meta
+Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+odd/tasks/fix-us-01-launch-reliability.md
+```
+
+#### Classification evidence
+
+- type → Maintenance: chore
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidAdmissionDiagnostics.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidAdmissionDiagnostics.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionDiagnosticsTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionDiagnosticsTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- scope → Networking &amp; Sessions: network
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionDiagnosticsTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionDiagnosticsTests.cs.meta
+- path → Documentation: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionDiagnosticsTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionDiagnosticsTests.cs.meta
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 94f49302cba0ee31b543140ea94863d679ae9455
+
+[94f49302cba0ee31b543140ea94863d679ae9455](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/94f49302cba0ee31b543140ea94863d679ae9455)
+
+Date: 2026-11-13T00:31:24-03:00 · Classification: Bug Fixes (explicit) · Systems: Networking & Sessions, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(network): abort raid admission when a required member is lost and stop client waits
+```
+
+#### Original body
+
+```text
+FIX-03 (#670): record a required member that joined the Raid session and left or was rejected before admission, and close the match with BootstrapFailure on the next tick through one admission abort path shared with the deadline; never start the raid with a recorded loss. Clients poll the replicated match state and leave the admission wait in under 1 s when the Host closed or aborted admission, with a short grace against phase-before-spawn replication.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs
+Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs
+Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+Project Grimhold/Assets/Scripts/Networking/RaidAdmissionAbortPolicy.cs
+Project Grimhold/Assets/Scripts/Networking/RaidAdmissionAbortPolicy.cs.meta
+Project Grimhold/Assets/Scripts/Networking/RaidAdmissionWaitPolicy.cs
+Project Grimhold/Assets/Scripts/Networking/RaidAdmissionWaitPolicy.cs.meta
+Project Grimhold/Assets/Scripts/Networking/RaidAdmissionWindows.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionAbortPolicyTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionAbortPolicyTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWaitPolicyTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWaitPolicyTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWindowsTests.cs
+Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+Project Grimhold/Docs/Architecture/SessionLifecycleAndSpawning.md
+odd/tasks/fix-us-01-launch-reliability.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkSpawnManager.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidAdmissionAbortPolicy.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidAdmissionAbortPolicy.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidAdmissionWaitPolicy.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidAdmissionWaitPolicy.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidAdmissionWindows.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionAbortPolicyTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionAbortPolicyTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWaitPolicyTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWaitPolicyTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWindowsTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- path → Networking &amp; Sessions: Project Grimhold/Docs/Architecture/SessionLifecycleAndSpawning.md
+- scope → Networking &amp; Sessions: network
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionAbortPolicyTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionAbortPolicyTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWaitPolicyTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWaitPolicyTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWindowsTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/SessionLifecycleAndSpawning.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionAbortPolicyTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionAbortPolicyTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWaitPolicyTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWaitPolicyTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWindowsTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 3209e2cf520f424504a8a5684202cda4d2c67c29
+
+[3209e2cf520f424504a8a5684202cda4d2c67c29](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/3209e2cf520f424504a8a5684202cda4d2c67c29)
+
+Date: 2026-11-12T23:54:46-03:00 · Classification: Bug Fixes (explicit) · Systems: Networking & Sessions, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(network): release the Raid Host first and align raid admission windows
+```
+
+#### Original body
+
+```text
+FIX-04 (#671): stage the coordinated release so the Raid Host leaves Town alone, the remaining members are released once its departure is observed and the Town authority leaves last, with per-stage deadlines and logs. Centralize the launch time budgets in RaidAdmissionWindows and widen the Host admission window to 75 s (client availability 40 s + admission 30 s + 5 s margin), pinned by tests including the serialized Systems.prefab budget.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs
+Project Grimhold/Assets/Scripts/Networking/LauncherShutdownListener.cs
+Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs
+Project Grimhold/Assets/Scripts/Networking/RaidAdmissionWindows.cs
+Project Grimhold/Assets/Scripts/Networking/RaidAdmissionWindows.cs.meta
+Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs
+Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationRules.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWindowsTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWindowsTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidReleaseSequencingTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidReleaseSequencingTests.cs.meta
+Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md
+odd/tasks/fix-us-01-launch-reliability.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/FusionSessionLauncher.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/LauncherShutdownListener.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/NetworkMatchController.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidAdmissionWindows.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/RaidAdmissionWindows.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationNetworkController.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/TownRaidPreparationRules.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWindowsTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWindowsTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidReleaseSequencingTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidReleaseSequencingTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- path → Networking &amp; Sessions: Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md
+- scope → Networking &amp; Sessions: network
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWindowsTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWindowsTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidReleaseSequencingTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidReleaseSequencingTests.cs.meta
+- path → Documentation: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- path → Documentation: Project Grimhold/Docs/Architecture/TownRaidQueueArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWindowsTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/RaidAdmissionWindowsTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidReleaseSequencingTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/TownRaidReleaseSequencingTests.cs.meta
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 746ac63c48eebf29bc402391d3ec4a5338583a6e
+
+[746ac63c48eebf29bc402391d3ec4a5338583a6e](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/746ac63c48eebf29bc402391d3ec4a5338583a6e)
+
+Date: 2026-11-12T23:25:00-03:00 · Classification: Bug Fixes (explicit) · Systems: Combat, Inventory & Loot, Networking & Sessions, UI, Persistence & Backend, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(network): release stale launch tickets and recover failed reservation rollbacks
+```
+
+#### Original body
+
+```text
+FIX-02 (#669): retry the local loadout rollback on persistence failure, keep an unreleased ticket disarmed so it never ACKs or dispatches, release stale tickets before a new revision reserves while protecting acknowledged launches, continue pre-admission recovery to Town, roll back before leaving for the main menu (leaving the reservation to login orphan resolution if it still fails), and scope the backend rollback to the reservation id. Also tightens the FIX-05 recovery tests.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/LaunchTicketReleaseTests.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/LaunchTicketReleaseTests.cs.meta
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs
+Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+odd/tasks/fix-us-01-launch-reliability.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Combat: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- path → Inventory &amp; Loot: Project Grimhold/Assets/Scripts/Stash/RemoteInventoryService.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/LaunchTicketReleaseTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/LaunchTicketReleaseTests.cs.meta
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- scope → Networking &amp; Sessions: network
+- message-term → UI: menu
+- message-term → Persistence &amp; Backend: persistence
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/LaunchTicketReleaseTests.cs
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/LaunchTicketReleaseTests.cs.meta
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/ExpeditionWeaponRequirementTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/LaunchTicketReleaseTests.cs
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/LaunchTicketReleaseTests.cs.meta
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs
+- message-term → Tests: tests
+
+#### Diagnostics
+
+- No classification ambiguity detected.
+
+### 2451fcea92a6e9289742a09e1c772aa577999ea3
+
+[2451fcea92a6e9289742a09e1c772aa577999ea3](https://github.com/Astro-Rift-Games/ProjectGrimhold/commit/2451fcea92a6e9289742a09e1c772aa577999ea3)
+
+Date: 2026-11-12T21:46:19-03:00 · Classification: Bug Fixes (explicit) · Systems: Networking & Sessions, Build & Tooling, Documentation, Tests
+
+Flags: primary or unclassified
+
+#### Original subject
+
+```text
+fix(network): make Town recovery exception-tolerant with a consumable result
+```
+
+#### Original body
+
+```text
+FIX-05 (#672): guard runner shutdown, loss-clear wait and Town startup during raid-failure and failed-reconnect recovery so a failure ends in Failed with RecoveryFailed published, and publish coordinated launch failures through the consume-once transition channel.
+```
+
+#### Changed paths
+
+```text
+Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs
+Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+odd/tasks/fix-us-01-launch-reliability.md
+```
+
+#### Classification evidence
+
+- type → Bug Fixes: fix
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Scripts/Networking/SessionConnectionCoordinator.cs
+- path → Networking &amp; Sessions: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs
+- path → Networking &amp; Sessions: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- scope → Networking &amp; Sessions: network
+- path → Build &amp; Tooling: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs
+- path → Documentation: Project Grimhold/Docs/Architecture/LobbyAndSessionTransitionArchitecture.md
+- path → Tests: Project Grimhold/Assets/Tests/EditMode/Editor/Networking/SessionConnectionStateMachineTests.cs
+
+#### Diagnostics
+
+- No classification ambiguity detected.
 
 ### 2f830925229874ba26cc88e1b046f0acf84069e8
 

@@ -64,10 +64,25 @@ lock is enforced at those client mutation endpoints; the backend does not observ
 the only owner of Town/Raid runner replacement and local loadout reservation.
 
 The staged release keeps the profile that owns State Authority for the Town preparation as the final
-Town departure. If that profile is not the Raid Host, the Raid Host is released first so it can create
-the Raid session, followed by every other non-authority participant; the Town authority leaves only
-after those departures are observed. If both roles coincide, the Clients remain the initial
-departures. Party Host is unrelated to both choices and never controls the release order.
+Town departure. If that profile is not the Raid Host, the Raid Host is released **alone** first so it
+can start creating the Raid session; every other non-authority participant is released only after the
+authority observes the Raid Host's Town departure (`AuthorityHandlePlayerLeft`), and the Town authority
+leaves only after all of those departures are observed. If both roles coincide, the Clients are the
+only initial departures and are released together, and the Host/authority leaves last. Party Host is
+unrelated to both choices and never controls the release order. The decision is the pure
+`TownRaidPreparationRules.SelectReleaseBatch` / `IsExpectedReleaseDeparture` /
+`CanReleaseTerminalAuthority`; `TownRaidPreparationNetworkController` only dispatches the RPCs and
+reacts to `PlayerLeft`. A member that leaves before it was released is a premature departure and
+cancels the launch; a released member leaving is expected progress. The Host's departure from Town
+does not prove its Raid session already exists (its Hub runner shuts down before the Raid runner is
+created), so a released Client may still meet `GameNotFound`/`GameClosed`: those are expected,
+bounded and logged availability probes, not a violation of the order (see
+[Lobby and Session Transition](LobbyAndSessionTransitionArchitecture.md), "Raid admission windows").
+Each stage is logged (`Release revision N stage S (Raid Host|members|Town authority, last)` with the
+released profiles, and each observed departure) so the order can be verified from the logs.
+Every stage re-arms the release deadline with `_coordinatedReleaseTimeoutSeconds` (15 s), so the staged
+release (Host stage, members stage) is bounded by two stage budgets (30 s worst case); the Town
+authority's own release disarms it.
 
 At local launch materialization, each application separately captures its current Party as a
 `TownPartyContinuationContext` containing only Party Host and ordered Solo/Duo roster. Party members

@@ -12,7 +12,7 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class NetworkMatchController : NetworkBehaviour
 {
-    private const float ExpectedAdmissionTimeoutSeconds = 30f;
+    private const float ExpectedAdmissionTimeoutSeconds = RaidAdmissionWindows.HostAdmissionSeconds;
     public enum MatchPhase
     {
         WaitingForPlayers,
@@ -49,6 +49,7 @@ public sealed class NetworkMatchController : NetworkBehaviour
     private bool _hasObservedParticipant;
     private bool _cleanupAttempted;
     private bool _clientAdmissionSubmitted;
+    private bool _clientAdmissionNotReadyTraced;
     private readonly Dictionary<PlayerRef, RaidAdmissionPayloadAssembler> _pendingAdmissionAssemblies = new();
 
     public override void Spawned()
@@ -133,6 +134,15 @@ public sealed class NetworkMatchController : NetworkBehaviour
         NetworkSpawnManager spawnManager = Runner.GetComponent<NetworkSpawnManager>();
         if (spawnManager == null)
         {
+            return false;
+        }
+
+        // S10: a Duo expedition never starts as Solo. The next tick aborts the admission (FixedUpdateNetwork).
+        if (spawnManager.HasLostRequiredAdmissionMember)
+        {
+            Debug.LogWarning(
+                "[NetworkMatchController] TryStartRaid refused: a required cohort member was lost before admission completed.",
+                this);
             return false;
         }
 
@@ -225,26 +235,45 @@ public sealed class NetworkMatchController : NetworkBehaviour
         }
 
         NetworkSpawnManager spawnManager = Runner.GetComponent<NetworkSpawnManager>();
-        if (spawnManager != null &&
-            IsExpectedCohortAdmitted(ExpectedAdmissionCount, spawnManager.ReadyRaidProfileCount))
+        bool cohortAdmitted = spawnManager != null &&
+            IsExpectedCohortAdmitted(ExpectedAdmissionCount, spawnManager.ReadyRaidProfileCount);
+
+        RaidAdmissionAbortDecision abortDecision = RaidAdmissionAbortPolicy.Evaluate(
+            Phase,
+            cohortAdmitted,
+            ExpectedAdmissionDeadline.Expired(Runner),
+            spawnManager != null && spawnManager.HasLostRequiredAdmissionMember);
+        if (abortDecision != RaidAdmissionAbortDecision.None)
         {
-            ClosePreloadedRaidAdmission();
+            AbortAdmission(abortDecision, spawnManager);
             return;
         }
 
-        if (ExpectedAdmissionDeadline.Expired(Runner))
+        if (cohortAdmitted)
         {
-            Debug.LogWarning(
-                $"[NetworkMatchController] Expected admission deadline ({ExpectedAdmissionTimeoutSeconds}s) expired. " +
-                $"ReadyProfiles={spawnManager?.ReadyRaidProfileCount ?? 0}/{ExpectedAdmissionCount}. " +
-                $"PendingAdmissionAssemblies={_pendingAdmissionAssemblies.Count}.",
-                this);
-            Phase = MatchPhase.Starting;
-            Runner.SessionInfo.IsOpen = false;
-            Runner.SessionInfo.IsVisible = false;
-            spawnManager?.AbortRaidingParticipantsForClosure();
-            BeginClosure(RaidClosureReason.BootstrapFailure);
+            ClosePreloadedRaidAdmission();
         }
+    }
+
+    /// <summary>
+    /// Single abort routine of a Waiting admission: the Host admission deadline and the loss of a required
+    /// member both close admission and start the <see cref="RaidClosureReason.BootstrapFailure"/> closure.
+    /// </summary>
+    private void AbortAdmission(RaidAdmissionAbortDecision decision, NetworkSpawnManager spawnManager)
+    {
+        string cause = decision == RaidAdmissionAbortDecision.RequiredMemberLost
+            ? "A required cohort member left or was rejected before admission completed."
+            : $"Expected admission deadline ({ExpectedAdmissionTimeoutSeconds}s) expired.";
+        Debug.LogWarning(
+            $"[NetworkMatchController] Aborting raid admission ({decision}). {cause} " +
+            $"ReadyProfiles={spawnManager?.ReadyRaidProfileCount ?? 0}/{ExpectedAdmissionCount}. " +
+            $"PendingAdmissionAssemblies={_pendingAdmissionAssemblies.Count}.",
+            this);
+        Phase = MatchPhase.Starting;
+        Runner.SessionInfo.IsOpen = false;
+        Runner.SessionInfo.IsVisible = false;
+        spawnManager?.AbortRaidingParticipantsForClosure();
+        BeginClosure(RaidClosureReason.BootstrapFailure);
     }
 
     /// <summary>
@@ -341,14 +370,33 @@ public sealed class NetworkMatchController : NetworkBehaviour
 
     private void TrySubmitClientAdmissionPayload()
     {
-        if (_clientAdmissionSubmitted || HasStateAuthority || Runner == null)
+        if (HasStateAuthority || Runner == null)
         {
+            return;
+        }
+
+        if (_clientAdmissionSubmitted)
+        {
+            // FIX-06: the payload is sent exactly once; there is no resend.
+            RaidAdmissionDiagnostics.Trace(
+                Runner, "ClientPayloadSkipped", Runner.LocalPlayer, detail: "reason=already_sent_no_resend", context: this);
             return;
         }
 
         LocalPlayerJoinContext joinContext = Runner.GetComponent<LocalPlayerJoinContext>();
         if (joinContext == null || (!joinContext.HasRaidAdmission && !joinContext.HasAuthoritativeAdmissionTicket))
         {
+            if (!_clientAdmissionNotReadyTraced)
+            {
+                _clientAdmissionNotReadyTraced = true;
+                RaidAdmissionDiagnostics.Trace(
+                    Runner,
+                    "ClientPayloadNotReady",
+                    Runner.LocalPlayer,
+                    detail: $"joinContext={joinContext != null} (traced once; retried each tick until admission data exists)",
+                    context: this);
+            }
+
             return;
         }
 
@@ -371,6 +419,14 @@ public sealed class NetworkMatchController : NetworkBehaviour
         }
 
         _clientAdmissionSubmitted = true;
+        RaidAdmissionDiagnostics.Trace(
+            Runner,
+            "ClientPayloadSent",
+            Runner.LocalPlayer,
+            joinContext.HasRaidAdmission ? joinContext.RaidAdmission.ProfileId.Value : null,
+            $"bytes={payload.Length} chunks={chunks.Length} authoritative={joinContext.HasAuthoritativeAdmissionTicket} " +
+            $"phase={Phase} sentOnce=true",
+            this);
         Debug.Log(
             $"[NetworkMatchController] Submitting raid admission to StateAuthority " +
             $"({payload.Length} bytes in {chunks.Length} chunk(s), authoritative={joinContext.HasAuthoritativeAdmissionTicket}).");
@@ -395,6 +451,12 @@ public sealed class NetworkMatchController : NetworkBehaviour
         Debug.Log(
             $"[NetworkMatchController] Received admission chunk {chunkIndex + 1}/{chunkCount} from {sender} " +
             $"({chunk?.Length ?? 0} bytes). Result={result}.");
+        RaidAdmissionDiagnostics.Trace(
+            Runner,
+            "ChunkReceived",
+            sender,
+            detail: $"chunk={chunkIndex + 1}/{chunkCount} bytes={chunk?.Length ?? 0} result={result}",
+            context: this);
 
         if (result == RaidAdmissionPayloadAssemblyResult.Incomplete)
         {
@@ -405,6 +467,8 @@ public sealed class NetworkMatchController : NetworkBehaviour
         if (result == RaidAdmissionPayloadAssemblyResult.Rejected)
         {
             Debug.LogWarning($"[NetworkMatchController] Malformed admission chunk stream from {sender}. Disconnecting.");
+            RaidAdmissionDiagnostics.Trace(
+                Runner, "DisconnectIssued", sender, detail: "reason=malformed_chunk_stream", context: this);
             Runner.Disconnect(sender);
             return;
         }
@@ -426,6 +490,8 @@ public sealed class NetworkMatchController : NetworkBehaviour
         if (!spawnManager.TryHandleRemoteAdmissionPayload(sender, admissionPayload))
         {
             Debug.LogWarning($"[NetworkMatchController] Remote admission payload from {sender} was rejected. Disconnecting.");
+            RaidAdmissionDiagnostics.Trace(
+                Runner, "DisconnectIssued", sender, detail: "reason=payload_rejected_no_resend", context: this);
             Runner.Disconnect(sender);
         }
     }

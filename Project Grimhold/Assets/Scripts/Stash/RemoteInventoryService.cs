@@ -377,7 +377,11 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, IS
     /// <summary>
     /// Rolls back the active raid reservation on the backend, restoring reserved items and equipment.
     /// </summary>
-    public Task<(bool success, BackendError error)> RollbackPendingReservationAsync()
+    /// <param name="expectedReservationId">
+    /// When set, the backend only rolls back that reservation, so a retry that lands after a newer
+    /// reservation was saved cannot undo it.
+    /// </param>
+    public Task<(bool success, BackendError error)> RollbackPendingReservationAsync(string expectedReservationId = null)
     {
         if (string.IsNullOrEmpty(AuthToken))
         {
@@ -390,7 +394,7 @@ public class RemoteInventoryService : MonoBehaviour, IRemoteInventoryService, IS
             await _mutationLock.WaitAsync();
             try
             {
-                var (success, result, error) = await InventoryClient.RollbackPendingReservationAsync(_backendConfig, AuthToken);
+                var (success, result, error) = await InventoryClient.RollbackPendingReservationAsync(_backendConfig, AuthToken, expectedReservationId);
                 if (!success && error.error == BackendErrorUtility.Unauthorized)
                 {
                     ApplicationAuthContext.Instance?.HandleUnauthorizedSession();

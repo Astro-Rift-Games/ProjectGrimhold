@@ -8,7 +8,7 @@ using UnityEngine.SceneManagement;
 
 public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 {
-    private const float LocalAdmissionTimeoutSeconds = 30f;
+    private const float LocalAdmissionTimeoutSeconds = RaidAdmissionWindows.ClientAdmissionSeconds;
     [Header("Session")]
     [SerializeField]
     private string _sessionName;
@@ -28,6 +28,29 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
     private NetworkPrefabRef _matchControllerPrefab;
 
     private NetworkRunner _runner;
+
+    /// <summary>FIX-06: authoritative-ticket trace; no ticket contents or credentials are ever logged.</summary>
+    private void TraceTicket(string traceEvent, string profile, string detail) =>
+        RaidAdmissionDiagnostics.Trace(_runner, traceEvent, default, profile, detail, this);
+
+    private async Task TraceTicketVerificationAsync(
+        Task<(bool valid, AuthoritativeRaidAdmissionTicket ticket, string error)> verifyTask,
+        string profile,
+        float startedAt)
+    {
+        try
+        {
+            var (valid, _, error) = await verifyTask;
+            TraceTicket(
+                "TicketVerificationCompleted",
+                profile,
+                $"valid={valid} error={error ?? "none"} elapsedSeconds={(Time.realtimeSinceStartup - startedAt).ToString("F3", System.Globalization.CultureInfo.InvariantCulture)}");
+        }
+        catch (Exception ex)
+        {
+            TraceTicket("TicketVerificationFaulted", profile, $"exception={ex.GetType().Name}");
+        }
+    }
     private GameObject _runnerObject;
     private NetworkSpawnManager _spawnManager;
     private NetworkMatchController _matchController;
@@ -316,6 +339,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
                 if (!ticketOk && ticketError.error == BackendErrorUtility.Unauthorized)
                 {
+                    TraceTicket("TicketFailed", profileId.Value, $"category={ticketError.error} fallback=none (session handled as unauthorized)");
                     authContext.HandleUnauthorizedSession();
                 }
                 else if (ticketOk && !string.IsNullOrEmpty(ticketData.ticket) &&
@@ -323,6 +347,7 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                          decodedAuthTicket.TryToRaidAdmissionData(out RaidAdmissionData canonicalAdmissionData, preparedAbilities, profileContext.Store.LootCatalog))
                 {
                     authoritativeAdmissionTicket = decodedAuthTicket;
+                    TraceTicket("TicketObtained", profileId.Value, $"ticketChars={ticketData.ticket.Length}");
                     int localWatermark = profileContext.Store.GetLastAppliedProgressionResultSequence();
                     int localLevel = profileContext.Store.GetLevel();
                     long localExp = profileContext.Store.GetCurrentExperience();
@@ -350,9 +375,13 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                     }
                     if (authContext.RaidAdmissionVerifier != null)
                     {
-                        _ = authContext.RaidAdmissionVerifier.VerifyRaidAdmissionTicketAsync(
-                            authoritativeAdmissionTicket.RawTicket,
-                            launchContext.RaidCode);
+                        // Fire-and-forget as before; the continuation only logs the outcome (FIX-06 diagnostics).
+                        _ = TraceTicketVerificationAsync(
+                            authContext.RaidAdmissionVerifier.VerifyRaidAdmissionTicketAsync(
+                                authoritativeAdmissionTicket.RawTicket,
+                                launchContext.RaidCode),
+                            profileId.Value,
+                            Time.realtimeSinceStartup);
                     }
                 }
                 else
@@ -360,7 +389,22 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
                     Debug.LogWarning(
                         $"[FusionSessionLauncher] Could not obtain authoritative raid admission ticket ({ticketError.error ?? "DECODE_FAILED"}). Proceeding with local admission snapshot.",
                         this);
+                    TraceTicket(
+                        "TicketFallbackToLocalSnapshot",
+                        profileId.Value,
+                        $"requestOk={ticketOk} category={ticketError.error ?? (ticketOk ? "EMPTY_OR_DECODE_FAILED" : "UNKNOWN")} " +
+                        $"ticketChars={(ticketData.ticket != null ? ticketData.ticket.Length : 0)} " +
+                        "outcome=local_snapshot_used (the Host will reject a payload without an authoritative ticket)");
                 }
+            }
+            else
+            {
+                TraceTicket(
+                    "TicketSkipped",
+                    profileId.Value,
+                    $"authContext={authContext != null} authenticated={authContext != null && authContext.IsAuthenticated} " +
+                    $"backendConfig={authContext != null && authContext.BackendConfig != null} " +
+                    $"token={authContext != null && !string.IsNullOrEmpty(authContext.Token)} outcome=local_snapshot_used");
             }
 
             var ticket = new RaidAdmissionTicket(
@@ -596,38 +640,85 @@ public sealed class FusionSessionLauncher : MonoBehaviour, ISessionRunnerOwner
 
         ProfileId localProfile = LocalProfileProvider.GetOrCreateLocalProfile();
         _lastReconnectRunnerEnded = false;
+        var waitState = default(RaidAdmissionWaitState);
         float deadline = Time.realtimeSinceStartup + LocalAdmissionTimeoutSeconds;
         while (_runner != null && _runner.IsRunning && Time.realtimeSinceStartup < deadline)
         {
             cancellationToken.ThrowIfCancellationRequested();
             NetworkObject participantObject = _runner.GetPlayerObject(_runner.LocalPlayer);
-            if (participantObject != null &&
-                participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
-                string.Equals(participant.ProfileId.ToString(), localProfile.Value, StringComparison.Ordinal) &&
-                string.Equals(participant.LoadoutReservationId.ToString(), reservation.ReservationId, StringComparison.Ordinal) &&
-                participant.TryResolveCurrentAvatar(out NetworkObject avatarObject) &&
-                avatarObject.TryGetBehaviour(out PlayerLootReceiver receiver) &&
-                avatarObject.TryGetBehaviour(out PlayerWeaponEquipmentNetworkController equipment) &&
-                PlayerExpeditionLootSnapshot.TryCapture(
-                    receiver,
-                    equipment,
-                    out PlayerExpeditionLootSnapshot ownership,
-                    out _) &&
-                ((localAdmission.ProfileId == localProfile &&
-                  RaidAdmissionLoadoutMatcher.Matches(localAdmission, ownership, equipment, receiver.LootCatalog)) ||
-                 (authoritativeTicket.IsValid && authoritativeTicket.ProfileId == localProfile &&
-                  string.Equals(authoritativeTicket.ReservationId, reservation.ReservationId, StringComparison.Ordinal) &&
-                  authoritativeTicket.TryToRaidAdmissionData(out RaidAdmissionData canonicalAdmission,
-                      catalog: receiver.LootCatalog) &&
-                  RaidAdmissionLoadoutMatcher.Matches(canonicalAdmission, ownership, equipment, receiver.LootCatalog))))
+            bool localAdmitted = IsLocalRaidAdmissionMatched(
+                participantObject, localProfile, reservation, localAdmission, authoritativeTicket);
+            bool matchObserved = TryReadAdmissionMatchState(
+                out NetworkMatchController.MatchPhase phase, out RaidClosureReason closureReason);
+
+            // FIX-03: leave within one poll once the Host closed or aborted the admission.
+            switch (RaidAdmissionWaitPolicy.Evaluate(
+                        ref waitState, Time.realtimeSinceStartup,
+                        localAdmitted, participantObject != null, matchObserved, phase, closureReason))
             {
-                return true;
+                case RaidAdmissionWaitDecision.Admitted:
+                    return true;
+                case RaidAdmissionWaitDecision.Abort:
+                    Debug.LogWarning(
+                        $"[FusionSessionLauncher] Raid admission closed without admitting the local participant " +
+                        $"(Phase={phase}, ClosureReason={closureReason}); leaving the admission wait.",
+                        this);
+                    return false;
             }
 
             await Task.Delay(50, cancellationToken);
         }
 
         return false;
+    }
+
+    private static bool IsLocalRaidAdmissionMatched(
+        NetworkObject participantObject,
+        ProfileId localProfile,
+        PendingLoadoutReservation reservation,
+        RaidAdmissionData localAdmission,
+        AuthoritativeRaidAdmissionTicket authoritativeTicket)
+    {
+        return participantObject != null &&
+               participantObject.TryGetBehaviour(out NetworkRaidParticipant participant) &&
+               string.Equals(participant.ProfileId.ToString(), localProfile.Value, StringComparison.Ordinal) &&
+               string.Equals(participant.LoadoutReservationId.ToString(), reservation.ReservationId, StringComparison.Ordinal) &&
+               participant.TryResolveCurrentAvatar(out NetworkObject avatarObject) &&
+               avatarObject.TryGetBehaviour(out PlayerLootReceiver receiver) &&
+               avatarObject.TryGetBehaviour(out PlayerWeaponEquipmentNetworkController equipment) &&
+               PlayerExpeditionLootSnapshot.TryCapture(
+                   receiver,
+                   equipment,
+                   out PlayerExpeditionLootSnapshot ownership,
+                   out _) &&
+               ((localAdmission.ProfileId == localProfile &&
+                 RaidAdmissionLoadoutMatcher.Matches(localAdmission, ownership, equipment, receiver.LootCatalog)) ||
+                (authoritativeTicket.IsValid && authoritativeTicket.ProfileId == localProfile &&
+                 string.Equals(authoritativeTicket.ReservationId, reservation.ReservationId, StringComparison.Ordinal) &&
+                 authoritativeTicket.TryToRaidAdmissionData(out RaidAdmissionData canonicalAdmission,
+                     catalog: receiver.LootCatalog) &&
+                 RaidAdmissionLoadoutMatcher.Matches(canonicalAdmission, ownership, equipment, receiver.LootCatalog)));
+    }
+
+    /// <summary>
+    /// Reads the replicated match state through the controller bound to this runner's spawn manager
+    /// (<c>_matchController</c> exists on the Host only). False until the controller is spawned and bound.
+    /// </summary>
+    private bool TryReadAdmissionMatchState(
+        out NetworkMatchController.MatchPhase phase,
+        out RaidClosureReason closureReason)
+    {
+        NetworkMatchController controller = _spawnManager != null ? _spawnManager.MatchController : null;
+        if (controller == null || controller.Object == null || !controller.Object.IsValid)
+        {
+            phase = NetworkMatchController.MatchPhase.WaitingForPlayers;
+            closureReason = RaidClosureReason.NaturalCompletion;
+            return false;
+        }
+
+        phase = controller.Phase;
+        closureReason = controller.ClosureReason;
+        return true;
     }
 
     private async Task<bool> WaitForLocalReconnectAdmissionAsync(

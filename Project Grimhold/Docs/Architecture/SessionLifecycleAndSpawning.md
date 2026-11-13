@@ -205,6 +205,14 @@ the spawn manager to execute the deferred initial PvPvE bootstrap exactly once. 
 `InProgress`. Failure enters the explicit `BootstrapFailure` closure path; it never silently starts
 with a partial cohort.
 
+The admission is aborted through that same path by two triggers: the expired deadline, and the loss of a
+required cohort member that already joined the session (it left or was rejected before admission completed).
+The spawn manager records the loss from its admission bookkeeping before the player routing is removed, the
+match controller aborts on the next tick, and `TryStartRaid` refuses to start while a loss is recorded, so a
+reduced cohort never starts. Clients stop waiting for admission as soon as the replicated closure shows a
+`BootstrapFailure`, or after a 0.5 s grace when the phase moved on without a replicated local participant. Details and limits: [Lobby and Session Transition](LobbyAndSessionTransitionArchitecture.md),
+"Admission abort (FIX-03)".
+
 The phase transition does not load Gameplay: the Raid runner started with that scene already
 selected. Town Create/Join/Ready and the player-facing Host Start remain owned by
 `TownRaidQueueArchitecture.md`.
