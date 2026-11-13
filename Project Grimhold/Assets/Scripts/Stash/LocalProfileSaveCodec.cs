@@ -579,16 +579,21 @@ public static class LocalProfileSaveCodec
             var seen = new HashSet<ShopTransactionReceipt>();
             foreach (ShopReceiptData receiptData in data.appliedShopTransactionReceipts)
             {
-                if (Guid.TryParse(receiptData.transactionId, out Guid parsedGuid))
+                if (receiptData == null || !Guid.TryParse(receiptData.transactionId, out Guid parsedGuid))
                 {
-                    var txId = new ShopTransactionId(receiptData.timestamp, parsedGuid);
-                    var receipt = new ShopTransactionReceipt(txId, expectedProfileId);
-                    
-                    if (receipt.IsValid && string.Equals(receiptData.profileId, expectedProfileId.Value, StringComparison.Ordinal) && seen.Add(receipt))
-                    {
-                        candidate.AppliedShopTransactionReceipts.Add(receipt);
-                    }
+                    error = "Applied shop transaction receipts contain invalid transaction ID.";
+                    return false;
                 }
+                var txId = new ShopTransactionId(receiptData.timestamp, parsedGuid);
+                var receipt = new ShopTransactionReceipt(txId, expectedProfileId);
+                
+                if (!receipt.IsValid || !string.Equals(receiptData.profileId, expectedProfileId.Value, StringComparison.Ordinal) || !seen.Add(receipt))
+                {
+                    error = "Applied shop transaction receipts contain invalid or duplicate data.";
+                    return false;
+                }
+
+                candidate.AppliedShopTransactionReceipts.Add(receipt);
             }
         }
 
@@ -1075,9 +1080,9 @@ public static class LocalProfileSaveCodec
                 return false;
             }
             var lootId = new LootId(item.lootId);
-            if (item.amount <= 0 || catalog == null || !catalog.TryGet(lootId.Value, out _))
+            if (item.amount <= 0)
             {
-                error = $"{label} contains an invalid or unknown loot item.";
+                error = $"{label} contains an invalid loot item amount.";
                 return false;
             }
             int slot = physical ? item.slot : index;
@@ -1087,9 +1092,18 @@ public static class LocalProfileSaveCodec
                 return false;
             }
             EquipmentInstance instance = null;
-            if (item.instance != null &&
-                (item.amount != 1 || !catalog.TryGet(lootId.Value, out var definition) ||
-                 !item.instance.TryToInstance(definition, false, out instance, out error, catalog))) return false;
+            if (item.instance != null)
+            {
+                if (catalog != null && catalog.TryGet(lootId.Value, out var definition))
+                {
+                    if (item.amount != 1 || !item.instance.TryToInstance(definition, false, out instance, out error, catalog))
+                        return false;
+                }
+                else if (!string.IsNullOrEmpty(item.instance.instanceId))
+                {
+                    instance = new EquipmentInstance(item.instance.instanceId, null);
+                }
+            }
             destination.Add(new StashItem(lootId, item.amount, aggregate ? -1 : slot, instance, item.expeditionId ?? string.Empty, item.origin ?? string.Empty));
             index++;
         }
@@ -1100,7 +1114,7 @@ public static class LocalProfileSaveCodec
     {
         foreach (var item in items)
         {
-            if (!catalog.TryGet(item.LootId.Value, out var definition)) return false;
+            if (catalog == null || !catalog.TryGet(item.LootId.Value, out var definition)) continue;
             if (EquipmentInstance.IsEquipment(definition) != (item.Instance != null)) return false;
             if (item.Instance != null && (item.Amount != 1 || !item.Instance.HasIdentity)) return false;
         }
