@@ -47,9 +47,19 @@ public sealed class LoginFlowController : MonoBehaviour
     public string PendingUsername => _pendingUsername;
     public bool HasHydrationFailed => _hydrationFailed;
 
+    private const string InvalidTownTicketResponse = "INVALID_TOWN_TICKET_RESPONSE";
+
     private string _pendingToken;
     private string _pendingUsername;
     private bool _hydrationFailed;
+    private ILoginFlowBackend _backend = StaticLoginFlowBackend.Instance;
+
+    internal void ConfigureForTesting(ILoginFlowBackend backend, BackendConfiguration config, ApplicationAuthContext authContext)
+    {
+        _backend = backend;
+        _config = config;
+        _authContext = authContext;
+    }
 
     private void Awake()
     {
@@ -99,7 +109,7 @@ public sealed class LoginFlowController : MonoBehaviour
         ClearState();
 
         // Step 1: Authenticate
-        var (loginOk, loginResult, loginError) = await AuthenticationClient.PostLoginAsync(_config, username, password);
+        var (loginOk, loginResult, loginError) = await _backend.PostLoginAsync(_config, username, password);
         if (!loginOk)
         {
             if (BackendErrorUtility.IsTransportFailure(loginError.error))
@@ -190,8 +200,8 @@ public sealed class LoginFlowController : MonoBehaviour
 
     private async Task<(bool invOk, InventoryData invData, BackendError invError, bool progOk, ProgressionData progData, BackendError progError)> FetchInventoryAndProgressionAsync(string token)
     {
-        var inventoryTask = InventoryClient.GetInventoryAsync(_config, token);
-        var progressionTask = ProgressionClient.GetProgressionAsync(_config, token);
+        var inventoryTask = _backend.GetInventoryAsync(_config, token);
+        var progressionTask = _backend.GetProgressionAsync(_config, token);
 
         await Task.WhenAll(inventoryTask, progressionTask);
 
@@ -204,7 +214,7 @@ public sealed class LoginFlowController : MonoBehaviour
     private async Task<LoginFlowResult> CompleteAuthenticationAndInjectIdentity(string token, string username, bool isRetry = false)
     {
         // Step 2: Fetch character identity
-        var (charOk, charData, charError) = await CharacterClient.GetCharacterAsync(_config, token);
+        var (charOk, charData, charError) = await _backend.GetCharacterAsync(_config, token);
         if (!charOk)
         {
             if (charError.error == "CHARACTER_NOT_FOUND")
@@ -226,7 +236,7 @@ public sealed class LoginFlowController : MonoBehaviour
         }
 
         // Step 3: Fetch profile snapshot
-        var (profileOk, profileData, profileError) = await CharacterClient.GetProfileAsync(_config, token);
+        var (profileOk, profileData, profileError) = await _backend.GetProfileAsync(_config, token);
         if (!profileOk)
         {
             if (profileError.error == "UNAUTHORIZED")
@@ -275,32 +285,57 @@ public sealed class LoginFlowController : MonoBehaviour
             return LoginHydrationFailureClassifier.ClassifyRevisionMismatch(invData.revision, progData.revision);
         }
 
-        // Step 5: Inject identity into local systems.
+        // Step 5: Obtain the Town session ticket before touching local identity, so a failure
+        // leaves no partially injected session.
+        TownSessionTicket townTicket = default;
+        if (_authContext != null)
+        {
+            var (ticketOk, ticketData, ticketError) = await _backend.GetTownSessionTicketAsync(_config, token);
+            if (ticketOk)
+            {
+                townTicket = new TownSessionTicket(
+                    ticketData.ticket,
+                    new ProfileId(ticketData.characterId),
+                    ticketData.characterName,
+                    ticketData.sessionName,
+                    ticketData.expiresAt);
+                if (!townTicket.IsValid)
+                {
+                    ticketOk = false;
+                    ticketError = new BackendError { error = InvalidTownTicketResponse };
+                }
+            }
+
+            if (!ticketOk)
+            {
+                if (ticketError.error == BackendErrorUtility.Unauthorized)
+                {
+                    ClearState();
+                    return LoginFlowResult.Failure(LoginFlowStatus.AuthFailed, "Session expired.");
+                }
+                _pendingToken = token;
+                _pendingUsername = username;
+                _hydrationFailed = true;
+                return LoginHydrationFailureClassifier.ClassifyHydrationFailure(ticketError, "town session");
+            }
+
+            // Ticket issuance starts a new, empty buy-back epoch on the backend, so the list read
+            // by the earlier inventory GET belongs to the previous Town session.
+            invData.buyback = default;
+        }
+
+        // Step 5b: Inject identity into local systems.
         var characterId = new ProfileId(charData.characterId);
         LocalProfileProvider.SetRemoteCharacterId(characterId);
 
         if (_authContext != null)
         {
             _authContext.Initialize(token, charData, profileData, _config);
-
-            var (ticketOk, ticketData, _) = await CharacterClient.GetTownSessionTicketAsync(_config, token);
-            if (ticketOk && !string.IsNullOrEmpty(ticketData.ticket))
-            {
-                var ticket = new TownSessionTicket(
-                    ticketData.ticket,
-                    new ProfileId(ticketData.characterId),
-                    ticketData.characterName,
-                    ticketData.sessionName,
-                    ticketData.expiresAt);
-                _authContext.SetTownSessionTicket(ticket);
-                // Ticket issuance starts a new, empty buy-back epoch on the backend, so the list read
-                // by the earlier inventory GET belongs to the previous Town session.
-                invData.buyback = default;
-            }
+            _authContext.SetTownSessionTicket(townTicket);
         }
 
         // Step 6: Initialize the stash with the now-valid ProfileId and hydrated data.
-        bool initialized = ApplicationStashServiceBootstrapper.InitializeWithProfile(characterId, invData, progData, allowCorruptCacheRecovery: true);
+        bool initialized = _backend.InitializeStash(characterId, invData, progData);
         if (!initialized)
         {
             LocalProfileProvider.ClearRemoteCharacterId();
@@ -313,6 +348,7 @@ public sealed class LoginFlowController : MonoBehaviour
 
         _pendingToken = null;
         _pendingUsername = null;
+        _hydrationFailed = false;
         return LoginFlowResult.Success();
     }
 
